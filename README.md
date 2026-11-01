@@ -12,7 +12,7 @@ Nebula é uma linguagem de programação de propósito geral, com identidade bra
 | Implementação inicial do compilador | Rust |
 | Modelo | Compilada, multiparadigma e multiplataforma |
 | Tipagem | Estática, com inferência controlada |
-| Blocos | Indentação obrigatória |
+| Organização visual | Delimitadores flexíveis; uso conforme necessidade de clareza |
 | Memória | Modelo híbrido |
 | Alvos iniciais | Código nativo e WebAssembly |
 
@@ -52,33 +52,51 @@ As decisões abaixo formam a base inicial da especificação. A gramática será
 - Código-fonte em UTF-8.
 - Identificadores Unicode normalizados em NFC.
 - Identificadores sensíveis a maiúsculas e minúsculas.
-- Indentação obrigatória, com quatro espaços por nível.
-- Quebras de linha significativas.
-- Ponto e vírgula dispensável.
+- Organização visual flexível: espaços, quebras de linha, indentação e delimitadores podem ser combinados.
+- Chaves `{}` podem delimitar blocos; parênteses `()` podem agrupar condições, parâmetros e chamadas; colchetes `[]` podem organizar coleções.
+- Delimitadores não devem ser exigidos quando a estrutura já estiver clara e puder ser interpretada sem ambiguidade.
+- Ponto e vírgula `;` é opcional quando a separação das instruções já estiver clara.
+- Aspas delimitam literais de texto; dentro de uma string, regras próprias de escape serão definidas.
 - Arquivos `.nbx` como unidades de código independentes.
 - Não é obrigatório declarar um projeto ou programa no início de cada arquivo.
 - Palavras-chave e mensagens oficiais em português, combinadas com termos próprios do Nebulês.
 - Operadores familiares combinados com operadores característicos da linguagem.
 
+### Sintaxe visual e delimitadores flexíveis
+
+A Nebula prioriza a leitura natural e a organização visual. Símbolos como parênteses, chaves, colchetes e ponto e vírgula servem para separar e agrupar partes do código, mas não devem ser obrigatórios quando a intenção já estiver clara.
+
+Princípios propostos:
+
+- **Parênteses `()`:** agrupam expressões, condições, parâmetros e argumentos quando isso melhora a leitura ou evita ambiguidades.
+- **Chaves `{}`:** delimitam blocos de funções, condicionais e outras estruturas quando forem úteis para deixar os limites explícitos.
+- **Colchetes `[]`:** delimitam listas, vetores e acessos por índice.
+- **Aspas `""`:** delimitam literais de texto; não são removidas quando necessárias para distinguir texto de identificadores ou expressões.
+- **Ponto e vírgula `;`:** pode separar instruções, mas é dispensável quando quebras de linha ou a própria gramática já fazem essa separação.
+- **Espaços, linhas em branco e indentação:** podem ser usados livremente para melhorar a organização visual, sem criar regras artificiais de formatação.
+
+A gramática deverá aceitar formas compactas e formas mais explícitas sempre que ambas forem inequívocas. O compilador não deverá confundir preferência estética com exigência semântica: delimitadores são ferramentas de clareza, não decoração obrigatória.
+
 Exemplo conceitual — a sintaxe ainda será consolidada na especificação formal:
 
 ```nebula
-incluir Calendário
-incluir Notificações
+funcao principal(): vazio {
+    variavel nome = "Raphael"
+    variavel idade = 18
 
-gerar cliente: texto <- "Raphael"
-gerar horário: data <- Calendário::hoje()
-
-quando horário válido
-    Calendário::reservar(cliente, horário)
-    Notificações::enviar("Agendamento confirmado!")
+    quando (idade >= 18) {
+        exibir("Olá, " + nome)
+    }
+}
 ```
+
+A mesma estrutura poderá admitir uma apresentação mais compacta, caso a gramática consiga identificar os limites sem ambiguidade. O exemplo não representa ainda uma gramática final.
 
 ### Vocabulário e operadores em estudo
 
-Palavras candidatas: `gerar`, `alterar`, `definir`, `incluir`, `quando`, `senao`, `avaliar`, `caso`, `repetir`, `durante`, `cada`, `receber`, `devolver`, `exibir`, `encerrar`, `aguardar`, `parar` e `seguir`.
+Palavras candidatas: `variavel`, `constante`, `funcao`, `incluir`, `quando`, `senao`, `avaliar`, `caso`, `para`, `enquanto`, `cada`, `receber`, `devolver`, `exibir`, `encerrar`, `aguardar`, `parar` e `seguir`.
 
-Operadores candidatos: `<-`, `==`, `!=`, `>=`, `<=`, `??`, `..`, `**`, `::` e `~>`.
+Operadores candidatos: `=`, `==`, `!=`, `>=`, `<=`, `??`, `..`, `**`, `::` e `~>`.
 
 Essas listas são propostas de trabalho, não uma promessa de que todos os itens já estejam implementados ou definitivamente aprovados.
 
@@ -124,13 +142,13 @@ Gerenciador de alvos
 
 Responsável por ler o código-fonte e produzir tokens.
 
-Deverá reconhecer palavras reservadas, identificadores, números, textos, caracteres, operadores, separadores, comentários, quebras de linha e níveis de indentação.
+Deverá reconhecer palavras reservadas, identificadores, números, textos, caracteres, operadores, separadores opcionais, comentários e quebras de linha. O reconhecimento de blocos não poderá depender exclusivamente de indentação obrigatória.
 
 Requisitos:
 - Reconhecimento de operadores pela maior correspondência.
 - Preservação de arquivo, linha, coluna e intervalo de origem.
 - Suporte a UTF-8 e identificadores Unicode.
-- Tokens explícitos de nova linha, indentação e desindentação.
+- Preservação de quebras de linha e espaços relevantes para a separação de instruções, sem tornar a indentação obrigatória.
 - Diagnósticos para caracteres e sequências inválidas.
 
 ### 3.2 Parser
@@ -373,7 +391,7 @@ As dependências deverão ser unidirecionais sempre que possível. AST não depe
 
 ## 10. Testes, segurança e qualidade
 
-Cada componente deverá possuir testes unitários, integração e regressão. O compilador deverá testar programas válidos e inválidos, indentação, tipos, nomes, memória, concorrência, geração e execução de artefatos.
+Cada componente deverá possuir testes unitários, integração e regressão. O compilador deverá testar programas válidos e inválidos, diferentes estilos de espaçamento e delimitadores, tipos, nomes, memória, concorrência, geração e execução de artefatos.
 
 O CI deverá executar formatação, análise estática, compilação e testes automaticamente.
 
@@ -410,8 +428,8 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 Entregas:
 - Especificação inicial da linguagem.
 - Gramática formal inicial.
-- Regras de indentação e tokens.
-- Definição de identificadores, literais, comentários e operadores.
+- Regras de separação visual, delimitadores opcionais e tokens.
+- Definição de identificadores, literais, comentários, operadores e regras para reconhecer estruturas sem delimitadores obrigatórios.
 - Decisões iniciais sobre tipos e memória.
 - Workspace Cargo e crates iniciais.
 - Estrutura de testes e integração contínua.
@@ -441,7 +459,7 @@ Entregas:
 Critérios de conclusão:
 - Arquivos de exemplo são tokenizados e analisados corretamente.
 - Erros indicam localização precisa.
-- Testes cobrem tokens, precedência e estruturas gramaticais.
+- Testes cobrem tokens, precedência, estruturas gramaticais e variações válidas de espaçamento e delimitadores.
 - Nenhuma etapa depende de análise textual improvisada em substituição à AST.
 
 ## Fase 3 — Semântica, tipos e IR (meta acumulada: 50%)
