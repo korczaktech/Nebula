@@ -14,7 +14,7 @@
 ## 2. Unidade de compilação
 
 ```ebnf
-arquivo          = { separador | declaracao | instrucao } ;
+arquivo          = { separador } { ( declaracao | instrucao ) { separador } } ;
 separador        = terminador_linha | ";" ;
 terminador_linha = NOVA_LINHA ;
 declaracao       = declaracao_variavel
@@ -49,8 +49,8 @@ caminho_modulo       = IDENTIFICADOR { "::" IDENTIFICADOR } ;
 
 ```ebnf
 bloco          = bloco_chaves | bloco_fim ;
-bloco_chaves   = "{" { separador | instrucao | declaracao } "}" ;
-bloco_fim      = terminador_linha { separador | instrucao | declaracao } "fim" ;
+bloco_chaves   = "{" { separador } { ( instrucao | declaracao ) { separador } } "}" ;
+bloco_fim      = terminador_linha { separador } { ( instrucao | declaracao ) { separador } } "fim" ;
 instrucao      = declaracao_variavel
                | expressao
                | instrucao_se
