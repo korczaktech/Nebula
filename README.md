@@ -405,7 +405,7 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 
 ## Fase 1 — Fundação e especificação (meta acumulada: 10%)
 
-<badge color="success">Implementação da fundação registrada</badge>
+**Estado: fundação implementada; validação automatizada em andamento.**
 
 **Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
 
