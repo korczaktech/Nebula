@@ -78,7 +78,7 @@ A indentação não altera o escopo em nenhum dos exemplos.
 
 ## 5. Palavras reservadas iniciais
 
-`variavel`, `constante`, `funcao`, `quando`, `senao`, `para`, `enquanto`, `cada`, `em`, `devolver`, `incluir`, `como`, `verdadeiro`, `falso`, `nulo`, `vazio`, `fim`, `parar`, `seguir`, `tentar`, `capturar`, `finalmente`, `assinc`, `aguardar`, `publico`, `privado`, `tipo`, `estrutura`, `enumeracao`.
+`variavel`, `constante`, `funcao`, `quando`, `senao`, `para`, `enquanto`, `cada`, `em`, `devolver`, `incluir`, `como`, `verdadeiro`, `falso`, `nulo`, `vazio`, `fim`, `parar`, `seguir`, `e`, `ou`, `nao`, `tentar`, `capturar`, `finalmente`, `assinc`, `aguardar`, `publico`, `privado`, `tipo`, `estrutura`, `enumeracao`.
 
 A lista é reservada para a primeira versão da gramática; recursos semânticos correspondentes podem ser implementados em fases posteriores. Palavras ainda não implementadas não devem ser apresentadas como recursos funcionais.
 
