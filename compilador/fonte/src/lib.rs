@@ -22,16 +22,19 @@ pub struct IntervaloFonte {
 
 impl IntervaloFonte {
     /// Cria um intervalo se os limites forem ordenados.
+    #[must_use]
     pub fn novo(inicio: usize, fim: usize) -> Option<Self> {
         (inicio <= fim).then_some(Self { inicio, fim })
     }
 
     /// Retorna o tamanho em bytes.
+    #[must_use]
     pub fn tamanho(self) -> usize {
         self.fim - self.inicio
     }
 
     /// Indica se o intervalo não contém bytes.
+    #[must_use]
     pub fn vazio(self) -> bool {
         self.inicio == self.fim
     }
@@ -47,21 +50,25 @@ impl ArquivoFonte {
     }
 
     /// Caminho associado ao arquivo.
+    #[must_use]
     pub fn caminho(&self) -> &Path {
         &self.caminho
     }
 
     /// Conteúdo UTF-8 do arquivo.
+    #[must_use]
     pub fn conteudo(&self) -> &str {
         &self.conteudo
     }
 
     /// Retorna o trecho de um intervalo válido em limites UTF-8.
+    #[must_use]
     pub fn trecho(&self, intervalo: IntervaloFonte) -> Option<&str> {
         self.conteudo.get(intervalo.inicio..intervalo.fim)
     }
 
     /// Converte um offset em bytes para linha e coluna (base 1).
+    #[must_use]
     pub fn linha_coluna(&self, offset: usize) -> Option<(usize, usize)> {
         if offset > self.conteudo.len() || !self.conteudo.is_char_boundary(offset) {
             return None;
