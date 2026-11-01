@@ -1,0 +1,4 @@
+// Exemplo ilustrativo da sintaxe em definição.
+funcao principal(): vazio {
+    exibir("Olá, Nebula!")
+}
