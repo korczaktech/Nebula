@@ -15,7 +15,8 @@
 
 ```ebnf
 arquivo          = { separador | declaracao | instrucao } ;
-separador        = NOVA_LINHA | ";" ;
+separador        = terminador_linha | ";" ;
+terminador_linha = NOVA_LINHA ;
 declaracao       = declaracao_variavel
                  | declaracao_constante
                  | declaracao_funcao
