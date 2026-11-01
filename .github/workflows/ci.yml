@@ -9,14 +9,11 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: nebula-ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validar:
     name: Validar workspace Rust
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Obter código
         uses: actions/checkout@v4
