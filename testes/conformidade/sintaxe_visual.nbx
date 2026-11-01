@@ -1,0 +1,8 @@
+// Fixture documental: separadores explícitos e implícitos.
+variavel nome = "Nebula"
+variavel versao = 1
+
+funcao principal(): vazio {
+    exibir(nome)
+    exibir(versao);
+}
