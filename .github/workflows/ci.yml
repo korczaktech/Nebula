@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nebula-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    name: Validar workspace Rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estável
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Verificar formatação
+        run: cargo fmt --all -- --check
+
+      - name: Analisar código
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Executar testes
+        run: cargo test --workspace --all-targets
