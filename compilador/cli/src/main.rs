@@ -5,10 +5,10 @@
 fn main() {
     let mut argumentos = std::env::args().skip(1);
     match argumentos.next().as_deref() {
-        Some("versao") | Some("--version") | Some("-V") => {
+        Some("versao" | "--version" | "-V") => {
             println!("Nebula 0.1.0 — fundação em desenvolvimento");
         }
-        Some("ajuda") | Some("--help") | Some("-h") | None => {
+        Some("ajuda" | "--help" | "-h") | None => {
             println!("Nebula — linguagem de programação");
             println!();
             println!("Uso: nebula <comando>");
