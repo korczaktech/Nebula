@@ -315,17 +315,21 @@ Deverá permitir selecionar arquivo, plataforma, arquitetura, nível de otimiza�
 
 ## 9. Estrutura planejada do repositório
 
-A organização inicial proposta é:
+A estrutura inicial já criada na Fase 1 é:
 
 ```text
 nebula/
 ├── README.md
-├── LICENSE
 ├── Cargo.toml
 ├── rust-toolchain.toml
+├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── especificacao/
 │   ├── linguagem.md
 │   ├── gramatica.md
+│   ├── tokens.md
 │   ├── tipos.md
 │   ├── memoria.md
 │   ├── operadores.md
@@ -334,47 +338,27 @@ nebula/
 │   └── alvos.md
 ├── compilador/
 │   ├── fonte/
-│   ├── lexer/
-│   ├── parser/
-│   ├── ast/
-│   ├── semantica/
-│   ├── tipos/
-│   ├── ir/
-│   ├── otimizador/
 │   ├── diagnosticos/
-│   ├── backend/
 │   └── cli/
-├── bibliotecas/
-│   ├── nucleo/
-│   ├── matematica/
-│   ├── texto/
-│   ├── colecoes/
-│   ├── arquivos/
-│   ├── rede/
-│   ├── tempo/
-│   └── sistema/
-├── plataformas/
-│   ├── nativo/
-│   └── wasm/
-├── ferramentas/
-│   ├── formatador/
-│   ├── testes/
-│   └── benchmarks/
 ├── exemplos/
-└── testes/
-    ├── lexer/
-    ├── parser/
-    ├── semantica/
-    ├── memoria/
-    ├── compilacao/
-    └── integracao/
+│   └── ola_mundo.nbx
+├── testes/
+│   └── conformidade/
+│       ├── README.md
+│       └── sintaxe_visual.nbx
+└── CHANGELOG.md
 ```
 
-A estrutura será criada progressivamente. Diretórios vazios não serão tratados como funcionalidades implementadas.
+Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionados nas fases correspondentes. Não existem pastas vazias declaradas como componentes implementados.
 
-### Crates Rust planejadas
+### Crates Rust
 
-- `nebula-fonte`
+**Criadas na Fase 1:**
+- `nebula-fonte`: arquivo-fonte, intervalos e posições.
+- `nebula-diagnosticos`: estrutura de diagnóstico independente da interface.
+- `nebula-cli`: comandos informativos iniciais (`ajuda` e `versao`).
+
+**Planejadas para fases posteriores:**
 - `nebula-lexer`
 - `nebula-parser`
 - `nebula-ast`
@@ -383,9 +367,7 @@ A estrutura será criada progressivamente. Diretórios vazios não serão tratad
 - `nebula-ir`
 - `nebula-otimizador`
 - `nebula-backend`
-- `nebula-diagnosticos`
 - `nebula-biblioteca`
-- `nebula-cli`
 
 As dependências deverão ser unidirecionais sempre que possível. AST não dependerá da CLI; Lexer não dependerá do Backend.
 
@@ -423,24 +405,26 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 
 ## Fase 1 — Fundação e especificação (meta acumulada: 10%)
 
+<badge color="success">Implementação da fundação registrada</badge>
+
 **Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
 
-Entregas:
-- Especificação inicial da linguagem.
-- Gramática formal inicial.
-- Regras de separação visual, delimitadores opcionais e tokens.
-- Definição de identificadores, literais, comentários, operadores e regras para reconhecer estruturas sem delimitadores obrigatórios.
-- Decisões iniciais sobre tipos e memória.
-- Workspace Cargo e crates iniciais.
-- Estrutura de testes e integração contínua.
-- Política de diagnósticos e documentação.
+Entregas realizadas:
+- Especificação inicial da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos e alvos.
+- Regras de separação visual flexível, com delimitadores opcionais e indentação sem significado semântico.
+- Workspace Cargo com Rust estável e edição 2024.
+- Crates iniciais `nebula-fonte`, `nebula-diagnosticos` e `nebula-cli`.
+- Tipos básicos de fonte, intervalos, linha/coluna e diagnósticos.
+- CLI informativa com ajuda e versão, sem alegar compilação de arquivos.
+- Exemplo .nbx e fixtures de conformidade.
+- CI para formatação, Clippy e testes.
+- Política de progresso e changelog.
 
 Critérios de conclusão:
-- Projeto compila no ambiente de desenvolvimento.
-- Estrutura modular validada.
-- Gramática documentada sem ambiguidades conhecidas nos recursos implementados.
-- CI executa verificações básicas.
-- Decisões ainda experimentais estão identificadas como tais.
+- A estrutura e os contratos iniciais estão registrados.
+- O código-base está preparado para validação automatizada.
+- A gramática documenta explicitamente as ambiguidades ainda pendentes.
+- A confirmação final de execução do CI será registrada separadamente; não declarar validação verde antes do resultado do GitHub Actions.
 
 ## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
 
