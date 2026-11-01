@@ -320,6 +320,8 @@ A estrutura inicial já criada na Fase 1 é:
 ```text
 nebula/
 ├── README.md
+├── CONTRIBUTING.md
+├── CHANGELOG.md
 ├── Cargo.toml
 ├── rust-toolchain.toml
 ├── .gitignore
@@ -328,6 +330,7 @@ nebula/
 │       └── ci.yml
 ├── especificacao/
 │   ├── linguagem.md
+│   ├── decisoes.md
 │   ├── gramatica.md
 │   ├── tokens.md
 │   ├── tipos.md
@@ -410,7 +413,7 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 **Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
 
 Entregas realizadas:
-- Especificação inicial da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos e alvos.
+- Especificação inicial da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos, alvos e registro de decisões.
 - Regras de separação visual flexível, com delimitadores opcionais e indentação sem significado semântico.
 - Workspace Cargo com Rust estável e edição 2024.
 - Crates iniciais `nebula-fonte`, `nebula-diagnosticos` e `nebula-cli`.
@@ -418,7 +421,7 @@ Entregas realizadas:
 - CLI informativa com ajuda e versão, sem alegar compilação de arquivos.
 - Exemplo .nbx e fixtures de conformidade.
 - CI para formatação, Clippy e testes.
-- Política de progresso e changelog.
+- Política de contribuição, progresso e changelog.
 
 Critérios de conclusão:
 - A estrutura e os contratos iniciais estão registrados.
