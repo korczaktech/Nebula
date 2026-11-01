@@ -29,13 +29,18 @@ A implementação deve preservar as quebras de linha. Uma quebra separa instruç
 ## 3. Declarações
 
 ```ebnf
-declaracao_variavel  = "variavel" IDENTIFICADOR [ ":" tipo ] [ "=" expressao ] ;
+declaracao_variavel  = "variavel" IDENTIFICADOR ( ":" tipo [ "=" expressao ] | "=" expressao ) ;
 declaracao_constante = "constante" IDENTIFICADOR [ ":" tipo ] "=" expressao ;
 declaracao_funcao    = [ "publico" | "privado" ] "funcao" IDENTIFICADOR
                        "(" [ lista_parametros ] ")" [ ":" tipo ] bloco ;
 lista_parametros     = parametro { "," parametro } ;
 parametro            = IDENTIFICADOR ":" tipo ;
 declaracao_tipo      = "tipo" IDENTIFICADOR "=" tipo ;
+tipo                 = IDENTIFICADOR [ "<" lista_tipos ">" ]
+                     | "[" tipo "]"
+                     | "?" tipo
+                     | "(" [ lista_tipos ] ")" "->" tipo ;
+lista_tipos          = tipo { "," tipo } ;
 declaracao_modulo    = "incluir" caminho_modulo [ "como" IDENTIFICADOR ] ;
 caminho_modulo       = IDENTIFICADOR { "::" IDENTIFICADOR } ;
 ```
@@ -53,9 +58,9 @@ instrucao      = declaracao_variavel
                | instrucao_para
                | instrucao_devolver
                | instrucao_controle ;
-instrucao_se   = "quando" [ "(" expressao ")" ] expressao bloco
+instrucao_se   = "quando" ( "(" expressao ")" | expressao ) bloco
                  [ "senao" ( bloco | instrucao_se ) ] ;
-instrucao_enquanto = "enquanto" [ "(" expressao ")" ] bloco ;
+instrucao_enquanto = "enquanto" ( "(" expressao ")" | expressao ) bloco ;
 instrucao_para = "para" "(" [ declaracao_variavel | expressao ] ";"
                  [ expressao ] ";" [ expressao ] ")" bloco ;
 instrucao_devolver = "devolver" [ expressao ] ;
