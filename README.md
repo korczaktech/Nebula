@@ -408,7 +408,7 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 
 ## Fase 1 — Fundação e especificação (meta acumulada: 10%)
 
-**Estado: fundação implementada; validação automatizada em andamento.**
+**Estado: Fase 1 concluída; CI aprovado.**
 
 **Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
 
@@ -427,7 +427,7 @@ Critérios de conclusão:
 - A estrutura e os contratos iniciais estão registrados.
 - O código-base está preparado para validação automatizada.
 - A gramática documenta explicitamente as ambiguidades ainda pendentes.
-- A confirmação final de execução do CI será registrada separadamente; não declarar validação verde antes do resultado do GitHub Actions.
+- Workspace compila, passa pela formatação, análise Clippy e testes automatizados no GitHub Actions.
 
 ## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
 
