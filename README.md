@@ -325,7 +325,8 @@ nebula/
 │   │   └── src/lib.rs
 │   └── cli/
 │       ├── Cargo.toml
-│       └── src/main.rs
+│       ├── src/main.rs
+│       └── tests/cli.rs
 ├── exemplos/
 │   └── ola_mundo.nbx
 ├── testes/
