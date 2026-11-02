@@ -8,9 +8,10 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
-    caractere_texto, comprimento_texto, operar_decimal, operar_inteiro, subtexto,
-    texto_contem, texto_maiusculas, texto_minusculas, texto_para_decimal, texto_para_inteiro,
-    ErroRuntime, Memoria, OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
+    arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, escrever_arquivo,
+    ler_arquivo, operar_decimal, operar_inteiro, subtexto, texto_contem, texto_maiusculas,
+    texto_minusculas, texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria,
+    OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -567,6 +568,36 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Texto(formatar(valor)));
                     }
                     return Err("'texto' exige exatamente um argumento.".into());
+                }
+                if nome == "ler_arquivo" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        return ler_arquivo(caminho)
+                            .map(ValorIr::Texto)
+                            .map_err(|erro| format!("Falha ao ler arquivo: {erro:?}"));
+                    }
+                    return Err("'ler_arquivo' exige um caminho de texto.".into());
+                }
+                if nome == "escrever_arquivo" {
+                    if let [ValorIr::Texto(caminho), ValorIr::Texto(conteudo)] = valores.as_slice() {
+                        escrever_arquivo(caminho, conteudo)
+                            .map_err(|erro| format!("Falha ao escrever arquivo: {erro:?}"))?;
+                        return Ok(ValorIr::Logico(true));
+                    }
+                    return Err("'escrever_arquivo' exige caminho e conteúdo de texto.".into());
+                }
+                if nome == "existe_arquivo" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        return Ok(ValorIr::Logico(arquivo_existe(caminho)));
+                    }
+                    return Err("'existe_arquivo' exige um caminho de texto.".into());
+                }
+                if nome == "criar_diretorio" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        criar_diretorio(caminho)
+                            .map_err(|erro| format!("Falha ao criar diretório: {erro:?}"))?;
+                        return Ok(ValorIr::Logico(true));
+                    }
+                    return Err("'criar_diretorio' exige um caminho de texto.".into());
                 }
                 if nome == "inteiro" {
                     if let [ValorIr::Texto(texto)] = valores.as_slice() {
