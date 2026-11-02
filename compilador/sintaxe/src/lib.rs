@@ -637,13 +637,18 @@ impl Parser {
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
     fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao) }
-        let r = analisar_lexico(&fonte("variavel a = 1\r\nvariavel b = 2"));
-        while !self.verifica(TipoToken::Fim) && !self.separador_atual() && !matches!(self.tipo(), TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Senao) { self.avancar(); }
+    fn sincronizar(&mut self) {
+        while !self.verifica(TipoToken::Fim)
+            && !self.separador_atual()
+            && !matches!(self.tipo(), TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Senao)
+        {
+            self.avancar();
+        }
     }
 }
 
 #[cfg(test)]
-        let r = analisar_lexico(&fonte("variavel a = 1\rvariavel b = 2"));
+mod testes {
     use super::*;
     fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
 
