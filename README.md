@@ -338,18 +338,19 @@ nebula/
 │       └── sintaxe_visual.nbx
 ```
 
-Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionados nas fases correspondentes. Não existem pastas vazias declaradas como componentes implementados.
+Lexer, Parser e AST estão reunidos no crate `nebula-sintaxe`. Os componentes de semântica, tipos, IR e backends serão adicionados nas fases correspondentes.
 
 ### Crates Rust
 
 **Criadas na Fase 1:**
 - `nebula-fonte`: arquivo-fonte, intervalos e posições.
 - `nebula-diagnosticos`: estrutura de diagnóstico independente da interface.
-- `nebula-cli`: interface de linha de comando (`ajuda`, `versao` e `verificar`).
+- `nebula-cli`: interface de linha de comando.
+
+**Criada na Fase 2:**
 - `nebula-sintaxe`: Lexer, AST e Parser do subconjunto gramatical inicial.
 
 **Planejadas para fases posteriores:**
-- `nebula-semantica`
 - `nebula-semantica`
 - `nebula-tipos`
 - `nebula-ir`
