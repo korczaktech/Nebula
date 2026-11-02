@@ -135,6 +135,9 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
+        let total_temporario = self.bytes_ativos
+            .checked_add(novo_tamanho)
+            .ok_or(ErroAlocador::Overflow)?;
         let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
         let mut dados_novos = vec![0; novo_tamanho];
         let copiar = tamanho_antigo.min(novo_tamanho);
@@ -149,9 +152,7 @@ impl Alocador {
             self.blocos.push(Bloco { geracao: 1, dados: Some(dados_novos) });
             IdentificadorAlocacao { indice, geracao: 1 }
         };
-        self.bytes_ativos = self.bytes_ativos
-            .checked_add(novo_tamanho)
-            .ok_or(ErroAlocador::Overflow)?;
+        self.bytes_ativos = total_temporario;
         self.liberar(identificador)?;
         Ok(novo)
     }
@@ -255,6 +256,16 @@ mod testes {
         let novo = alocador.redimensionar(antigo, 5).unwrap();
         assert_eq!(alocador.ler(novo, 0, 5), Ok(&[7, 8, 9, 0, 0][..]));
         assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+    }
+
+    #[test]
+    fn redimensiona_sem_ultrapassar_temporariamente_o_limite() {
+        let mut alocador = Alocador::novo(4);
+        let antigo = alocador.alocar(4).unwrap();
+        alocador.escrever(antigo, 0, &[4, 3, 2, 1]).unwrap();
+        let novo = alocador.redimensionar(antigo, 4).unwrap();
+        assert_eq!(alocador.bytes_alocados(), 4);
+        assert_eq!(alocador.ler(novo, 0, 4), Ok(&[4, 3, 2, 1][..]));
     }
 
     #[test]
