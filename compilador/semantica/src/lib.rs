@@ -1536,6 +1536,18 @@ mod testes {
     }
 
     #[test]
+    fn valida_escolha_exaustiva_de_opcional_e_resultado() {
+        let opcional = analisar_codigo(
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }",
+        );
+        assert!(opcional.diagnosticos.is_empty(), "{:?}", opcional.diagnosticos);
+        let resultado = analisar_codigo(
+            "variavel valor: Resultado<inteiro,texto> = Resultado::Falha(\"erro\")\nescolha valor { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
     fn exige_caso_curinga_ao_final() {
         let r = analisar_codigo(
             "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso _ { exibir(0) } caso Estado::Ativo { exibir(1) } }",

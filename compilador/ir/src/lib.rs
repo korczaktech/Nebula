@@ -1675,6 +1675,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_escolha_de_opcional_e_resultado() {
+        let ir = compilar(
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }\nvariavel erro: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha erro { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+        );
+        let resultado = executar(&ir, 200).expect("escolha algébrica válida");
+        assert_eq!(resultado.saida, vec!["42", "opa"]);
+    }
+
+    #[test]
     fn executa_escolha_de_variantes_sem_payload() {
         let ir = compilar(
             "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso Estado::Ativo { exibir(\"ativo\") } caso Estado::Inativo { exibir(\"inativo\") } }",
