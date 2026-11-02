@@ -761,6 +761,9 @@ fn promover_tipo_numerico(a: &Tipo, b: &Tipo) -> Tipo {
         Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
         _ => 64,
     };
+    if a == &Tipo::Decimal32 && b == &Tipo::Decimal32 {
+        return Tipo::Decimal32;
+    }
     if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 {
         let outro = if a == &Tipo::Decimal32 { b } else { a };
         return if largura(outro) > 16 { Tipo::Decimal64 } else { Tipo::Decimal32 };

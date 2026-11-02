@@ -1456,12 +1456,15 @@ impl<'a> Analisador<'a> {
             Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
             _ => 64,
         };
+        if a == &Tipo::Decimal32 && b == &Tipo::Decimal32 {
+            return Tipo::Decimal32;
+        }
         if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 {
             let outro = if a == &Tipo::Decimal32 { b } else { a };
             return if largura(outro) > 16 { Tipo::Decimal64 } else { Tipo::Decimal32 };
         }
         let sem_sinal = |tipo: &Tipo| matches!(tipo,
-            Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128
+            Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
         );
         let largura_maxima = largura(a).max(largura(b));
         if sem_sinal(a) && sem_sinal(b) {
