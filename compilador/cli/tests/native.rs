@@ -141,3 +141,27 @@ fn biblioteca_padrao_le_texto_da_entrada() {
     assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Nebula UTF-8");
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn compila_lista_homogenea_e_indexacao() {
+    let origem = arquivo_temporario("lista");
+    fs::write(&origem, "funcao principal(): vazio {\n    variavel valores = [10, 20, 30]\n    exibir(valores[1])\n}\n").unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "20");
+    let _ = fs::remove_file(origem);
+}
+
+#[test]
+#[rustfmt::skip]
+fn concatena_texto_no_backend_nativo() {
+    let origem = arquivo_temporario("concat");
+    fs::write(&origem, "funcao principal(): vazio {\n    variavel nome: texto = \"Nebula\"\n    exibir(\"Olá, \" + nome)\n}\n").unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Olá, Nebula");
+    let _ = fs::remove_file(origem);
+}
