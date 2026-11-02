@@ -24,7 +24,8 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     for instrucao in &programa.instrucoes {
         if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
             validar_tipo(tipo)?;
-            if globais.insert(nome.clone(), globais.len() * 8).is_some() {
+            let deslocamento = globais.len() * 8;
+            if globais.insert(nome.clone(), deslocamento).is_some() {
                 return Err(format!("Variável global '{nome}' declarada mais de uma vez."));
             }
         }
@@ -545,7 +546,7 @@ fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
             .ok_or("Tamanho do segmento de dados excedeu o limite do alvo.")?
     };
     let mut elf = vec![0u8; tamanho_total];
-    elf[0..4].copy_from_slice(b"\\x7FELF");
+    elf[0..4].copy_from_slice(b"\x7FELF");
     elf[4] = 2; // ELFCLASS64
     elf[5] = 1; // little endian
     elf[6] = 1; // ELF version
