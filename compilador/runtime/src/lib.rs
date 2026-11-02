@@ -101,6 +101,23 @@ pub enum OperacaoInteira {
     Potencia,
 }
 
+/// Operação decimal com validação de resultados não finitos.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OperacaoDecimal {
+    /// Soma.
+    Soma,
+    /// Subtração.
+    Subtracao,
+    /// Multiplicação.
+    Multiplicacao,
+    /// Divisão.
+    Divisao,
+    /// Resto.
+    Resto,
+    /// Potência real.
+    Potencia,
+}
+
 /// Erros recuperáveis do runtime.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ErroRuntime {
@@ -135,6 +152,10 @@ pub enum ErroRuntime {
     CanalFechado,
     /// Limites de um intervalo de texto são inválidos.
     IntervaloInvalido,
+    /// Texto não representa um número válido.
+    TextoNumericoInvalido,
+    /// Operação decimal produziu NaN ou infinito.
+    ResultadoNaoFinito,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -454,6 +475,59 @@ pub fn texto_contem(texto: &str, trecho: &str) -> bool {
     texto.contains(trecho)
 }
 
+/// Converte texto decimal em inteiro assinado de 128 bits.
+pub fn texto_para_inteiro(texto: &str) -> Resultado<i128> {
+    texto
+        .trim()
+        .parse()
+        .map_err(|_| ErroRuntime::TextoNumericoInvalido)
+}
+
+/// Converte texto decimal em número de ponto flutuante finito.
+pub fn texto_para_decimal(texto: &str) -> Resultado<f64> {
+    let valor = texto
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| ErroRuntime::TextoNumericoInvalido)?;
+    if !valor.is_finite() {
+        return Err(ErroRuntime::ResultadoNaoFinito);
+    }
+    Ok(valor)
+}
+
+/// Executa operação decimal e rejeita divisão por zero e resultados não finitos.
+pub fn operar_decimal(
+    operacao: OperacaoDecimal,
+    esquerda: f64,
+    direita: f64,
+) -> Resultado<f64> {
+    let valor = match operacao {
+        OperacaoDecimal::Soma => esquerda + direita,
+        OperacaoDecimal::Subtracao => esquerda - direita,
+        OperacaoDecimal::Multiplicacao => esquerda * direita,
+        OperacaoDecimal::Divisao if direita == 0.0 => {
+            return Err(ErroRuntime::DivisaoPorZero);
+        }
+        OperacaoDecimal::Divisao => esquerda / direita,
+        OperacaoDecimal::Resto if direita == 0.0 => {
+            return Err(ErroRuntime::DivisaoPorZero);
+        }
+        OperacaoDecimal::Resto => esquerda % direita,
+        OperacaoDecimal::Potencia => esquerda.powf(direita),
+    };
+    if valor.is_finite() {
+        Ok(valor)
+    } else {
+        Err(ErroRuntime::ResultadoNaoFinito)
+    }
+}
+
+/// Formata inteiro sem perda de precisão.
+#[must_use]
+pub fn inteiro_para_texto(valor: i128) -> String {
+    valor.to_string()
+}
+
 /// Executa uma operação inteira com overflow e divisão por zero verificados.
 pub fn operar_inteiro(operacao: OperacaoInteira, esquerda: i128, direita: i128) -> Resultado<i128> {
     match operacao {
@@ -568,6 +642,34 @@ mod testes {
     fn captura_panico_de_tarefa() {
         let tarefa = Tarefa::iniciar(|| panic!("falha intencional")).unwrap();
         assert_eq!(tarefa.aguardar(), Err(ErroRuntime::FalhaTarefa));
+    }
+
+    #[test]
+    fn converte_texto_numerico_com_validacao() {
+        assert_eq!(texto_para_inteiro(" -42 "), Ok(-42));
+        assert_eq!(texto_para_decimal("3.5"), Ok(3.5));
+        assert_eq!(
+            texto_para_inteiro("abc"),
+            Err(ErroRuntime::TextoNumericoInvalido)
+        );
+        assert_eq!(
+            texto_para_decimal("NaN"),
+            Err(ErroRuntime::ResultadoNaoFinito)
+        );
+        assert_eq!(inteiro_para_texto(i128::MIN), i128::MIN.to_string());
+    }
+
+    #[test]
+    fn operacoes_decimais_validam_resultados() {
+        assert_eq!(operar_decimal(OperacaoDecimal::Soma, 1.5, 2.0), Ok(3.5));
+        assert_eq!(
+            operar_decimal(OperacaoDecimal::Divisao, 1.0, 0.0),
+            Err(ErroRuntime::DivisaoPorZero)
+        );
+        assert_eq!(
+            operar_decimal(OperacaoDecimal::Potencia, -1.0, 0.5),
+            Err(ErroRuntime::ResultadoNaoFinito)
+        );
     }
 
     #[test]
