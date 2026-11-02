@@ -115,26 +115,13 @@ Gerenciador de alvos
 
 ### 3.1 Fonte e Lexer
 
-Responsável por ler o código-fonte e produzir tokens.
+O crate `nebula-sintaxe` implementa o Lexer do subconjunto inicial e produz tokens com lexemas originais e intervalos em bytes.
 
-Deverá reconhecer palavras reservadas, identificadores, números, textos, caracteres, operadores, separadores opcionais, comentários e quebras de linha. O reconhecimento de blocos não poderá depender exclusivamente de indentação obrigatória.
-
-Requisitos:
-- Reconhecimento de operadores pela maior correspondência.
-- Preservação de arquivo, linha, coluna e intervalo de origem.
-- Suporte a UTF-8 e identificadores Unicode.
-- Preservação de quebras de linha e espaços relevantes para a separação de instruções, sem tornar a indentação obrigatória.
-- Diagnósticos para caracteres e sequências inválidas.
+O Lexer reconhece palavras reservadas, identificadores Unicode, números, textos, caracteres, operadores, comentários e quebras de linha. Aplica maior correspondência aos operadores, normaliza identificadores em NFC e diagnostica entradas léxicas inválidas. A leitura da CLI rejeita arquivos que não sejam UTF-8 válido.
 
 ### 3.2 Parser
 
-Transforma tokens em estruturas sintáticas válidas.
-
-Responsabilidades:
-- Validar a gramática.
-- Construir a AST.
-- Detectar estruturas incompletas e inválidas.
-- Recuperar-se de erros quando possível, permitindo mais de um diagnóstico por execução.
+O Parser do crate `nebula-sintaxe` transforma os tokens em uma AST independente da CLI, valida o subconjunto gramatical inicial e emite diagnósticos para construções inválidas. Implementa recuperação para continuar a análise quando possível e preservar uma AST parcial.
 
 ### 3.3 AST
 
