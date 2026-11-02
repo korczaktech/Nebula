@@ -153,7 +153,7 @@ A IR será o núcleo independente de plataforma do compilador.
 
 Deverá representar operações, fluxo de controle, chamadas, memória e estruturas de dados de forma tipada e explícita. Todos os backends receberão IR, não deverão implementar diretamente a semântica da linguagem.
 
-O projeto não será definido pelo LLVM. LLVM poderá ser adotado como infraestrutura opcional para determinados backends, sem tornar-se a especificação da linguagem nem uma dependência obrigatória de todos os alvos.
+O projeto não será definido nem dependerá de LLVM. Os backends próprios serão implementados em Rust, com geração direta para cada alvo suportado.
 
 ### 3.7 Otimizador
 
@@ -360,7 +360,7 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
 **Criada na Fase 4:**
-- `nebula-backend`: geração C++17 para compilação nativa.
+- `nebula-backend`: geração direta de executáveis ELF x86-64 em Rust (em desenvolvimento).
 
 **Planejadas para fases posteriores:**
 - `nebula-otimizador`
@@ -557,4 +557,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 e a Fase 4 estão concluídas nos respectivos escopos documentados. A Fase 4 está sendo reestruturada para gerar ELF x86-64 diretamente em Rust, sem compilador externo; runtime e otimizador permanecem adiados. A CI validou 122 testes acumulados e executou o benchmark nos cinco níveis. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
+A Fase 3 está concluída. A Fase 4 está em reestruturação para gerar ELF x86-64 diretamente em Rust, sem compilador externo; runtime e otimizador permanecem adiados. A CI mais recente validou 121 testes acumulados e executou a linha de base de benchmark sem otimizações. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
