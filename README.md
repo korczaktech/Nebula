@@ -471,28 +471,37 @@ Critérios de conclusão:
 - IR representa os recursos já aprovados da linguagem.
 - Testes validam o comportamento da análise e da representação intermediária.
 
-## Fase 4 — Compilação executável e desempenho inicial (meta acumulada: mínimo de 75%)
+## Fase 4 — Compilação nativa própria (meta acumulada: mínimo de 75%)
 
-<badge color="success">CONCLUÍDA</badge>
+**Estado: em reestruturação arquitetural; ainda não concluída.**
 
-**Resultado:** o pipeline agora transforma `.nbx` em executáveis nativos reais no alvo validado Linux x86-64.
+**Objetivo:** transformar a IR em executáveis nativos sem gerar outra linguagem e sem depender de compilador, assembler ou linker externo.
 
-Entregas implementadas:
-- Pipeline Lexer/Parser → análise semântica → IR → backend C++17 → compilador/linker do sistema.
-- Backend nativo com variáveis, expressões, funções, recursão, condicionais, laços, listas homogêneas, indexação e concatenação de texto.
-- Biblioteca padrão inicial com `exibir` e `ler_texto`.
-- CLI: `compilar`, `executar` e `testar`, preservando `verificar`, `analisar` e `ir`.
-- Níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os`, encaminhados ao compilador C++ instalado.
-- Benchmarks reproduzíveis de laços e recursão, executados pela CI.
-- Documentação dos requisitos, alvo, limitações e resultados iniciais.
+Direção arquitetural aprovada:
+- Compilador e backend implementados em Rust.
+- Geração direta de instruções de máquina e estrutura de executável pelo backend.
+- Primeiro alvo: Linux x86-64, formato ELF64.
+- CLI grava o executável produzido pelo backend e pode executá-lo.
+- Testes do backend escritos em Rust e testes de integração executam os binários gerados.
+- Nenhuma dependência obrigatória de C, C++, LLVM, Cranelift, assembler ou linker externo.
+- O otimizador próprio será implementado somente depois que os recursos-base do compilador estiverem prontos.
+- O runtime e a biblioteca padrão não serão antecipados; serão implementados apenas na etapa definida pelo plano.
 
-**Validação:** 122 testes acumulados aprovados; `cargo fmt`, Clippy, testes e benchmark passaram na [CI 41379323932](https://github.com/korczaktech/Nebula/actions/runs/41379323932).
+Implementação inicial em andamento:
+- Backend Rust que escreve ELF64 e código x86-64 diretamente.
+- Suporte inicial a valores inteiros e lógicos, variáveis locais, funções, parâmetros, chamadas, recursão, expressões aritméticas, comparações, condicionais e laços.
+- Entrada de processo e encerramento pelo syscall Linux, sem runtime Nebula externo.
+- CLI sem chamada a `c++` e sem opções de otimização delegadas.
 
-**Alvo e dependência:** Linux x86-64 validado; requer compilador C++17 disponível como `c++`. WebAssembly foi avaliado e ficou para uma fase posterior porque o toolchain/sysroot WASI não está estabelecido para validação.
+Limites atuais e explícitos:
+- O alvo inicial é exclusivamente Linux x86-64.
+- Strings, decimais, listas, indexação, entrada/saída e biblioteca padrão aguardam suas etapas próprias; o backend rejeita esses recursos em vez de gerar código fictício.
+- Ainda é necessário ampliar e validar o conjunto de instruções, ABI, escopos, chamadas, tratamento de erros e limites de código/stack.
+- Não há otimizador nem níveis `-O0` a `-Os`.
+- O runtime Nebula não foi implementado nesta alteração.
+- O benchmark é apenas uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
 
-**Limites ainda explícitos:** sem ABI nativa para `inteiro128`, sem caractere Unicode não ASCII, sem retorno de listas por função, sem carregador de módulos do disco e sem biblioteca padrão completa. Os níveis de otimização são fornecidos pelo compilador C++ externo; os benchmarks não comprovam a meta experimental de até 3× C++.
-
-Critérios detalhados: [especificacao/criterios-fase-4.md](especificacao/criterios-fase-4.md).
+Critérios detalhados e estado verificável: [critérios da Fase 4](especificacao/criterios-fase-4.md).
 
 ## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
 
@@ -548,4 +557,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 e a Fase 4 estão concluídas nos respectivos escopos documentados. A Fase 4 adiciona backend nativo C++17, executáveis para Linux x86-64, entrada/saída essencial, otimização delegada ao compilador C++ e benchmarks reproduzíveis. A CI validou 122 testes acumulados e executou o benchmark nos cinco níveis. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
+A Fase 3 e a Fase 4 estão concluídas nos respectivos escopos documentados. A Fase 4 está sendo reestruturada para gerar ELF x86-64 diretamente em Rust, sem compilador externo; runtime e otimizador permanecem adiados. A CI validou 122 testes acumulados e executou o benchmark nos cinco níveis. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
