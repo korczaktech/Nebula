@@ -6,7 +6,7 @@
 #[rustfmt::skip]
 mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
-use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
+use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
     arquivo_existe, caractere_texto, comprimento_texto, copiar_arquivo, criar_diretorio,
     diretorio_existe, escrever_arquivo, listar_diretorio, mover_arquivo, remover_arquivo,
@@ -57,7 +57,7 @@ pub enum InstrucaoIr {
     Declarar { nome: String, tipo: Tipo, valor: ExpressaoIr, constante: bool },
     Expressao(ExpressaoIr),
     Bloco(Vec<InstrucaoIr>),
-    Se { condicao: ExpressaoIr, entao: Vec<InstrucaoIr>, senao: Vec<InstrucaoIr> },
+    Se { condicao: ExpressaoIr, entao: Vec<InstrucaoIr>, senao: Vec<InstrucaoIr> },\n    Escolha { valor: ExpressaoIr, casos: Vec<CasoEscolhaIr> },
     Enquanto { condicao: ExpressaoIr, corpo: Vec<InstrucaoIr> },
     Para { inicial: Option<Box<InstrucaoIr>>, condicao: Option<ExpressaoIr>, atualizacao: Option<ExpressaoIr>, corpo: Vec<InstrucaoIr> },
     Devolver(Option<ExpressaoIr>),
@@ -287,6 +287,15 @@ impl Lowerer {
                 condicao: self.expressao(condicao)?,
                 entao: self.bloco(entao),
                 senao: self.bloco(senao),
+            }),
+            NoAst::Escolha { valor, casos } => Some(InstrucaoIr::Escolha {
+                valor: self.expressao(valor)?,
+                casos: casos.iter().map(|caso: &CasoEscolha| Some(CasoEscolhaIr {
+                    enumeracao: caso.enumeracao.clone(),
+                    variante: caso.variante.clone(),
+                    vinculacoes: caso.vinculacoes.clone(),
+                    corpo: self.bloco(&caso.corpo),
+                })).collect::<Option<Vec<_>>>()?,
             }),
             NoAst::Enquanto { condicao, corpo } => Some(InstrucaoIr::Enquanto {
                 condicao: self.expressao(condicao)?, corpo: self.bloco(corpo),
