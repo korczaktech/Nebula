@@ -1,6 +1,7 @@
 //! Interface de linha de comando da Nebula.
 
 #![forbid(unsafe_code)]
+#![rustfmt::skip]
 
 use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
