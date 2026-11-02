@@ -62,7 +62,10 @@ fn ajuda() {
 
 fn analisar_arquivo(caminho: &Path) {
     let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
-        eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+        eprintln!(
+            "Erro N0001: não foi possível ler '{}': {erro}",
+            caminho.display()
+        );
         std::process::exit(1);
     });
     let conteudo = String::from_utf8(bytes).unwrap_or_else(|erro| {
@@ -73,9 +76,18 @@ fn analisar_arquivo(caminho: &Path) {
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
         for diagnostico in &sintaxe.diagnosticos {
-            let local = diagnostico.intervalo.and_then(|i| fonte.linha_coluna(i.inicio));
+            let local = diagnostico
+                .intervalo
+                .and_then(|i| fonte.linha_coluna(i.inicio));
             if let Some((linha, coluna)) = local {
-                eprintln!("{} {}:{}:{} — {}", diagnostico.codigo, caminho.display(), linha, coluna, diagnostico.mensagem);
+                eprintln!(
+                    "{} {}:{}:{} — {}",
+                    diagnostico.codigo,
+                    caminho.display(),
+                    linha,
+                    coluna,
+                    diagnostico.mensagem
+                );
             } else {
                 eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
             }
