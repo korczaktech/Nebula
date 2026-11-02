@@ -676,6 +676,11 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
+    fn rejeita_palavras_reservadas_de_recursos_futuros() {
+        let r = analisar(&fonte("variavel cada = 1"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2011"));
+    }
+    #[test]
     fn rejeita_comparacoes_relacionais_encadeadas() {
         let r = analisar(&fonte("variavel resultado = 1 < 2 < 3"));
         assert!(!r.diagnosticos.is_empty());
