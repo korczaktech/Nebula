@@ -808,6 +808,13 @@ mod testes {
         assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 2);
     }
 
+
+    #[test]
+    fn rejeita_literal_decimal_infinito() {
+        let r = analisar_codigo("variavel valor = 1e400");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3028"));
+    }
+
 }
 }
 
