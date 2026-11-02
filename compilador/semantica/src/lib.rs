@@ -401,6 +401,44 @@ impl<'a> Analisador<'a> {
                         self.exigir_tipo(&trecho, &Tipo::Texto, "segundo argumento de 'contem'");
                         return Tipo::Logico;
                     }
+                    if nome == "aparar" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "'aparar' exige um texto.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "argumento de 'aparar'");
+                        return Tipo::Texto;
+                    }
+                    if nome == "comeca_com" || nome == "termina_com" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", format!("'{nome}' exige dois textos."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        let trecho = self.expressao(&argumentos[1]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "primeiro argumento de comparação de texto");
+                        self.exigir_tipo(&trecho, &Tipo::Texto, "segundo argumento de comparação de texto");
+                        return Tipo::Logico;
+                    }
+                    if nome == "substituir" {
+                        if argumentos.len() != 3 {
+                            self.erro("N3015", "'substituir' exige texto, trecho e substituição.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        for (indice, argumento) in argumentos.iter().enumerate() {
+                            let tipo = self.expressao(argumento);
+                            self.exigir_tipo(&tipo, &Tipo::Texto, match indice {
+                                0 => "texto de 'substituir'",
+                                1 => "trecho de 'substituir'",
+                                _ => "substituição de 'substituir'",
+                            });
+                        }
+                        return Tipo::Texto;
+                    }
                     if nome == "maiusculas" || nome == "minusculas" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
