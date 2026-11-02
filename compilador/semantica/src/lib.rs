@@ -282,7 +282,19 @@ impl<'a> Analisador<'a> {
                     Tipo::Desconhecido
                 }
             }),
-            Expressao::Literal(valor) => Self::tipo_literal(valor),
+            Expressao::Literal(valor) => {
+                let tipo = Self::tipo_literal(valor);
+                match Self::literal_numerico(expressao) {
+                    Some(LiteralNumerico::Decimal(v)) if !v.is_finite() => {
+                        self.erro("N3028", "Literal decimal está fora do intervalo representável.");
+                    }
+                    None if tipo == Tipo::Inteiro => {
+                        self.erro("N3028", "Literal inteiro está fora do intervalo representável.");
+                    }
+                    _ => {}
+                }
+                tipo
+            },
             Expressao::Lista(valores) => {
                 if valores.is_empty() { return Tipo::Lista(Box::new(Tipo::Desconhecido)); }
                 let primeiro = self.expressao(&valores[0]);
@@ -491,6 +503,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn exigir_expressao_tipo(&mut self, expressao: &Expressao, obtido: &Tipo, esperado: &Tipo, contexto: &str) {
+        if *esperado == Tipo::Desconhecido { return; }
         if let Some(valor) = Self::literal_numerico(expressao) {
             let compativel = match (valor, esperado) {
                 (LiteralNumerico::Inteiro(v), Tipo::Inteiro8) => i8::try_from(v).is_ok(),
@@ -506,7 +519,7 @@ impl<'a> Analisador<'a> {
                 _ => false,
             };
             if compativel { return; }
-            self.exigir_tipo(obtido, esperado, contexto);
+            self.erro("N3020", format!("Literal numérico não cabe no tipo {} em {contexto}; tipo inferido: {}.", esperado.nome(), obtido.nome()));
             return;
         }
         if let (Expressao::Lista(itens), Tipo::Lista(tipo_esperado)) = (expressao, esperado) {
