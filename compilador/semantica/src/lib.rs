@@ -1,7 +1,10 @@
 //! Análise semântica, resolução de nomes e sistema de tipos da Nebula.
 
 #![forbid(unsafe_code)]
+#![allow(missing_docs)]
 
+#[rustfmt::skip]
+mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use std::collections::{HashMap, HashSet};
@@ -510,3 +513,6 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 }
+}
+
+pub use implementacao::*;
