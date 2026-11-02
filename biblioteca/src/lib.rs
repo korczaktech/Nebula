@@ -133,8 +133,12 @@ pub mod rede {
                         }
                         dados.extend_from_slice(&buffer[..lidos]);
                     }
-                    Err(erro) if erro.kind() == std::io::ErrorKind::WouldBlock
-                        || erro.kind() == std::io::ErrorKind::TimedOut => return Ok(dados),
+                    Err(erro)
+                        if erro.kind() == std::io::ErrorKind::WouldBlock
+                            || erro.kind() == std::io::ErrorKind::TimedOut =>
+                    {
+                        return Ok(dados);
+                    }
                     Err(erro) => return Err(ErroRede::Io(erro)),
                 }
             }
