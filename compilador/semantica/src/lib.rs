@@ -67,6 +67,7 @@ struct Analisador<'a> {
     funcoes: HashMap<String, Funcao>,
     aliases: HashMap<String, String>,
     estruturas: HashSet<String>,
+    campos_estruturas: HashMap<String, HashMap<String, Tipo>>,
     enumeracoes: HashSet<String>,
     modulos: &'a ModulosDisponiveis,
     modulos_importados: HashMap<String, String>,
@@ -84,6 +85,7 @@ impl<'a> Analisador<'a> {
             funcoes: HashMap::new(),
             aliases: HashMap::new(),
             estruturas: HashSet::new(),
+            campos_estruturas: HashMap::new(),
             enumeracoes: HashSet::new(),
             modulos,
             modulos_importados: HashMap::new(),
@@ -133,6 +135,12 @@ impl<'a> Analisador<'a> {
         for nome in aliases {
             if self.resolver_tipo(&nome) == Tipo::Desconhecido {
                 self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
+            }
+        }
+        for item in &programa.itens {
+            if let NoAst::Estrutura { nome, campos } = item {
+                let descritores = campos.iter().map(|(campo, tipo)| (campo.clone(), self.resolver_tipo(tipo))).collect();
+                self.campos_estruturas.insert(nome.clone(), descritores);
             }
         }
         for item in &programa.itens {
@@ -787,9 +795,17 @@ impl<'a> Analisador<'a> {
                     }
                 }
             }
-            Expressao::Membro { operador, .. } => {
+            Expressao::Membro { alvo, operador, nome } => {
                 if *operador == TipoToken::Ponto {
-                    self.erro("N3014", "Acesso a membros de valores ainda não está definido no subconjunto semântico.");
+                    let tipo_alvo = self.expressao(alvo);
+                    if let Tipo::Estrutura(nome_estrutura) = tipo_alvo {
+                        if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
+                            return tipo_campo;
+                        }
+                        self.erro("N3040", format!("A estrutura '{nome_estrutura}' não possui o campo '{nome}'."));
+                    } else if tipo_alvo != Tipo::Desconhecido {
+                        self.erro("N3041", format!("O tipo {} não possui campos acessíveis por '.'.", tipo_alvo.nome()));
+                    }
                 }
                 Tipo::Desconhecido
             }
