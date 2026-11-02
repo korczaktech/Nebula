@@ -18,8 +18,8 @@ jobs:
       - name: Obter código
         uses: actions/checkout@v4
 
-      - name: Instalar Rust estável
-        uses: dtolnay/rust-toolchain@stable
+      - name: Instalar Rust 1.85.0
+        uses: dtolnay/rust-toolchain@1.85.0
         with:
           components: rustfmt, clippy
 
@@ -27,7 +27,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Analisar código
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Executar testes
-        run: cargo test --workspace --all-targets
+        run: cargo test --locked --workspace --all-targets
