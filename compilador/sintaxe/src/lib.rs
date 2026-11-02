@@ -791,7 +791,7 @@ mod testes {
     }
     #[test]
     fn aceita_chave_de_abertura_na_linha_seguinte() {
-        let r = analisar(&fonte("funcao principal()\\n{\\n variavel ativo = verdadeiro\\n}"));
+        let r = analisar(&fonte("funcao principal()\n{\n variavel ativo = verdadeiro\n}"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
