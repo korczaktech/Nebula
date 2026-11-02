@@ -69,6 +69,7 @@ struct Analisador<'a> {
     estruturas: HashSet<String>,
     campos_estruturas: HashMap<String, HashMap<String, Tipo>>,
     enumeracoes: HashSet<String>,
+    variantes_enumeracoes: HashMap<String, HashMap<String, Vec<Tipo>>>,
     modulos: &'a ModulosDisponiveis,
     modulos_importados: HashMap<String, String>,
     diagnosticos: Vec<Diagnostico>,
@@ -87,6 +88,7 @@ impl<'a> Analisador<'a> {
             estruturas: HashSet::new(),
             campos_estruturas: HashMap::new(),
             enumeracoes: HashSet::new(),
+            variantes_enumeracoes: HashMap::new(),
             modulos,
             modulos_importados: HashMap::new(),
             diagnosticos: Vec::new(),
@@ -141,6 +143,14 @@ impl<'a> Analisador<'a> {
             if let NoAst::Estrutura { nome, campos } = item {
                 let descritores = campos.iter().map(|(campo, tipo)| (campo.clone(), self.resolver_tipo(tipo))).collect();
                 self.campos_estruturas.insert(nome.clone(), descritores);
+            }
+        }
+        for item in &programa.itens {
+            if let NoAst::Enumeracao { nome, variantes } = item {
+                let descritores = variantes.iter().map(|(variante, payload)| {
+                    (variante.clone(), payload.iter().map(|tipo| self.resolver_tipo(tipo)).collect())
+                }).collect();
+                self.variantes_enumeracoes.insert(nome.clone(), descritores);
             }
         }
         for item in &programa.itens {
@@ -482,6 +492,27 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Chamada { alvo, argumentos } => {
+                if let Expressao::Membro { alvo: tipo_expr, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
+                    if let Expressao::Nome(tipo_enum) = tipo_expr.as_ref() {
+                        if let Some(variantes) = self.variantes_enumeracoes.get(tipo_enum).cloned() {
+                            if let Some(esperados) = variantes.get(variante) {
+                                if argumentos.len() != esperados.len() {
+                                    self.erro("N3044", format!("A variante '{tipo_enum}::{variante}' espera {} valor(es), mas recebeu {}.", esperados.len(), argumentos.len()));
+                                }
+                                for (indice, argumento) in argumentos.iter().enumerate() {
+                                    let obtido = self.expressao(argumento);
+                                    if let Some(esperado) = esperados.get(indice) {
+                                        self.exigir_expressao_tipo(argumento, &obtido, esperado, "payload de enumeração");
+                                    }
+                                }
+                                return Tipo::Enumeracao(tipo_enum.clone());
+                            }
+                            self.erro("N3045", format!("A enumeração '{tipo_enum}' não possui a variante '{variante}'."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                    }
+                }
                 if let Expressao::Nome(nome) = alvo.as_ref() {
                     if nome == "exibir" {
                         if argumentos.len() != 1 {
