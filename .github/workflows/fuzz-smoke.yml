@@ -1,0 +1,27 @@
+name: Fuzz smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entradas-adversariais:
+    name: Lexer e Parser com entradas adversariais
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Executar fuzz smoke determinístico
+        run: cargo test --locked -p nebula-sintaxe lexer_e_parser_resistem_a_entradas_malformadas_deterministicas -- --exact --nocapture
