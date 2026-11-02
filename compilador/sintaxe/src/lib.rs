@@ -443,7 +443,7 @@ impl Parser {
     }
     fn para(&mut self) -> Option<NoAst> {
         self.avancar(); self.esperar(TipoToken::AbrePar, "Esperado '(' após 'para'.");
-        let inicial = if self.verifica(TipoToken::PontoVirgula) { None } else { self.item().map(Box::new) };
+        let inicial = if self.verifica(TipoToken::PontoVirgula) { None } else if self.verifica(TipoToken::Variavel) { self.declaracao_variavel(false).map(Box::new) } else { self.expressao(0).map(|e| Box::new(NoAst::Expressao(e))) };
         self.esperar(TipoToken::PontoVirgula, "Esperado ';' após inicialização do laço.");
         let condicao = if self.verifica(TipoToken::PontoVirgula) { None } else { self.expressao(0) };
         self.esperar(TipoToken::PontoVirgula, "Esperado ';' após condição do laço.");
@@ -492,6 +492,7 @@ impl Parser {
     }
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
         let mut comparacao_relacional = false;
+        let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
             TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos | TipoToken::Mais => {
                 let op = self.avancar().tipo; let valor = self.expressao(9)?;
@@ -526,7 +527,8 @@ impl Parser {
                     | TipoToken::Diferente | TipoToken::Menor | TipoToken::MenorIgual
                     | TipoToken::Maior | TipoToken::MaiorIgual | TipoToken::Intervalo
                     | TipoToken::Mais | TipoToken::Menos | TipoToken::Vezes
-                    | TipoToken::Divide | TipoToken::Resto | TipoToken::Potencia)) {
+                    | TipoToken::Divide | TipoToken::Resto | TipoToken::Potencia
+                    | TipoToken::Ponto | TipoToken::Escopo | TipoToken::AbrePar | TipoToken::AbreColchete)) {
                 self.avancar();
             }
             let tipo = self.tipo();
@@ -555,11 +557,16 @@ impl Parser {
                 TipoToken::Potencia => (10,true), _ => break,
             };
             let relacional = matches!(tipo, TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual);
+            let intervalo = tipo == TipoToken::Intervalo;
             if relacional && comparacao_relacional {
                 self.erro_atual("N2012", "Comparações relacionais não podem ser encadeadas; combine comparações com 'e' ou use parênteses.");
             }
+            if intervalo && intervalo_visto {
+                self.erro_atual("N2013", "Operadores de intervalo não podem ser encadeados.");
+            }
             if precedencia < minimo { break; }
             if relacional { comparacao_relacional = true; }
+            if intervalo { intervalo_visto = true; }
             let op = self.avancar().tipo;
             let proximo = if direita { precedencia } else { precedencia + 1 };
             self.pular_novas_linhas();
@@ -771,6 +778,21 @@ impl Parser {
     fn permite_comparacoes_relacionais_separadas_por_parenteses() {
         let r = analisar(&fonte("variavel resultado = (1 < 2) e (2 < 3)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn rejeita_intervalos_encadeados() {
+        let r = analisar(&fonte("variavel faixa = 1..2..3"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2013"));
+    }
+    #[test]
+    fn permite_acesso_a_membro_apos_quebra_de_linha() {
+        let r = analisar(&fonte("variavel valor = objeto\\n.nome"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn cabecalho_para_rejeita_declaracao_constante() {
+        let r = analisar(&fonte("para (constante i = 0; i < 3; i = i + 1) { parar }"));
+        assert!(!r.diagnosticos.is_empty());
     }
     #[test]
     fn precedencia_da_potencia_e_superior_a_unaria() {
