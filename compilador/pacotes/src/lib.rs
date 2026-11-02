@@ -115,7 +115,11 @@ impl Manifesto {
         if !versao_semantica_valida(&versao) {
             return Err(format!("Versão não é SemVer válida: {versao}"));
         }
-        Ok(Self { nome, versao, dependencias })
+        Ok(Self {
+            nome,
+            versao,
+            dependencias,
+        })
     }
 }
 
