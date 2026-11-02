@@ -914,6 +914,27 @@ mod testes {
         }
     }
     #[test]
+    fn lexer_e_parser_resistem_a_entradas_malformadas_deterministicas() {
+        let alfabeto = [
+            "a", "z", "0", "9", "_", " ", "\n", "\t", "{", "}", "(", ")",
+            "[", "]", ";", ":", ".", ",", "+", "-", "*", "/", "=", "<", ">",
+            "\"", "'", "#", "🌌", "ç", "ã",
+        ];
+        let mut estado = 0x5eed_u64;
+        for caso in 0..512 {
+            let tamanho = (caso % 97) + 1;
+            let mut codigo = String::new();
+            for _ in 0..tamanho {
+                estado = estado
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                codigo.push_str(alfabeto[(estado as usize) % alfabeto.len()]);
+            }
+            let _ = analisar(&fonte(&codigo));
+        }
+    }
+
+    #[test]
     fn reconhece_lista_chamada_indexacao_e_membro() {
         let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
