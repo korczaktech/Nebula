@@ -96,6 +96,9 @@ impl Alocador {
                 geracao: bloco.geracao,
             }
         } else {
+            self.blocos
+                .try_reserve(1)
+                .map_err(|_| ErroAlocador::FalhaAlocacao)?;
             let indice = self.blocos.len();
             self.blocos.push(Bloco {
                 geracao: 1,
@@ -168,7 +171,11 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
-        let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
+        let mut dados_atuais = Vec::new();
+        dados_atuais
+            .try_reserve_exact(tamanho_antigo)
+            .map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        dados_atuais.extend_from_slice(self.ler(identificador, 0, tamanho_antigo)?);
         let mut dados_novos = Vec::new();
         dados_novos
             .try_reserve_exact(novo_tamanho)
@@ -185,6 +192,9 @@ impl Alocador {
                 geracao: bloco.geracao,
             }
         } else {
+            self.blocos
+                .try_reserve(1)
+                .map_err(|_| ErroAlocador::FalhaAlocacao)?;
             let indice = self.blocos.len();
             self.blocos.push(Bloco {
                 geracao: 1,
