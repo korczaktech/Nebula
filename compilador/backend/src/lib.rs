@@ -15,9 +15,25 @@ pub fn gerar_c(p: &ProgramaIr) -> Result<String, String> {
     for n in &nomes { let f=&p.funcoes[*n]; g.l(&format!("{} {}({});", tc(&f.retorno)?, nc(n), pc(&f.parametros)?)); }
     if !nomes.is_empty() { g.l(""); }
     for n in nomes { g.funcao(&p.funcoes[n])?; g.l(""); }
-    if !p.instrucoes.is_empty() {
-        g.l("int main(void) {"); g.nivel+=1; g.bloco(&p.instrucoes)?; g.l("return 0;"); g.nivel-=1; g.l("}");
-    } else if !p.funcoes.contains_key("principal") { return Err("Declare a função 'principal'.".into()); }
+    if !p.instrucoes.is_empty() || p.funcoes.contains_key("principal") {
+        g.l("int main(void) {");
+        g.nivel += 1;
+        g.bloco(&p.instrucoes)?;
+        if let Some(principal) = p.funcoes.get("principal") {
+            if principal.retorno == Tipo::Vazio {
+                g.l("nb_principal();");
+                g.l("return 0;");
+            } else {
+                g.l("return (int)nb_principal();");
+            }
+        } else {
+            g.l("return 0;");
+        }
+        g.nivel -= 1;
+        g.l("}");
+    } else {
+        return Err("Declare a função principal ou instruções globais.".into());
+    }
     Ok(g.s)
 }
 fn tc(t:&Tipo)->Result<&'static str,String>{match t{
@@ -31,7 +47,7 @@ fn pc(p:&[(String,Tipo)])->Result<String,String>{if p.is_empty(){return Ok("void
 struct Gerador{s:String,nivel:usize}
 impl Gerador{
  fn l(&mut self,x:&str){for _ in 0..self.nivel{self.s.push_str("    ")}self.s.push_str(x);self.s.push('\n')}
- fn funcao(&mut self,f:&FuncaoIr)->Result<(),String>{let nome=if f.nome=="principal"{"main".into()}else{nc(&f.nome)};let ret=if f.nome=="principal"&&f.retorno==Tipo::Vazio{"int"}else{tc(&f.retorno)?};self.l(&format!("{ret} {nome}({}) {{",pc(&f.parametros)?));self.nivel+=1;self.bloco(&f.corpo)?;if f.nome=="principal"&&f.retorno==Tipo::Vazio{self.l("return 0;")}self.nivel-=1;self.l("}");Ok(())}
+ fn funcao(&mut self,f:&FuncaoIr)->Result<(),String>{let nome=nc(&f.nome);let ret=tc(&f.retorno)?;self.l(&format!("{ret} {nome}({}) {{",pc(&f.parametros)?));self.nivel+=1;self.bloco(&f.corpo)?;self.nivel-=1;self.l("}");Ok(())}
  fn bloco(&mut self,v:&[InstrucaoIr])->Result<(),String>{for i in v{self.inst(i)?}Ok(())}
  fn inst(&mut self, i: &InstrucaoIr) -> Result<(), String> {
     match i {
@@ -106,7 +122,8 @@ impl Gerador{
 }
 #[cfg(test)]mod testes{use super::*;use std::collections::HashMap;
 fn p()->ProgramaIr{ProgramaIr{instrucoes:vec![],funcoes:HashMap::from([("principal".into(),FuncaoIr{nome:"principal".into(),parametros:vec![],retorno:Tipo::Vazio,corpo:vec![InstrucaoIr::Declarar{nome:"x".into(),tipo:Tipo::Inteiro,valor:ExpressaoIr::Constante(ValorIr::Inteiro(7)),constante:false},InstrucaoIr::Expressao(ExpressaoIr::Chamada{nome:"exibir".into(),argumentos:vec![ExpressaoIr::Variavel("x".into())]})]})]),modulos:HashMap::new()}}
-#[test]fn gera_c11_e_ponto_de_entrada(){let c=gerar_c(&p()).unwrap();assert!(c.contains("int main(void)"));assert!(c.contains("printf"));assert!(c.contains("int64_t nb_x = 7;"));}
+#[test]fn gera_c11_e_ponto_de_entrada(){let c=gerar_c(&p()).unwrap();assert!(c.contains("int main(void)"));
+assert!(c.contains("nb_principal"));assert!(c.contains("printf"));assert!(c.contains("int64_t nb_x = 7;"));}
 #[test]fn rejeita_tipo_sem_representacao(){assert!(tc(&Tipo::Inteiro128).is_err());}
 }
 
