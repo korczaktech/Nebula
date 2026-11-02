@@ -11,7 +11,7 @@
 | 3. Runtime | Parcial implementado: crate Rust e integração ao interpretador de referência; integração nativa e ciclo de vida completo pendentes |
 | 4. Concorrência | Parcial: threads, tarefas, canais e inteiros atômicos no runtime; async/await e modelo formal de memória pendentes |
 | 5. Biblioteca padrão | Parcial: texto, coleções, números, matemática, arquivos e tempo no runtime; módulos completos pendentes |
-| 6. Módulos e pacotes | Não implementado integralmente: resolução e gerenciador de pacotes ainda pendentes |
+| 6. Módulos e pacotes | Parcial: interpretador resolve módulos locais com funções públicas e liga chamadas qualificadas; imports aninhados, inicializadores globais e gerenciador de pacotes pendentes |
 | 7. Otimizador | Parcial implementado: O0/O1/O2/O3/Os com dobramento, fluxo constante, remoção de código inalcançável e blocos vazios; passes avançados pendentes |
 | 8. Backends | Parcial: Linux x86-64 ELF64; ARM64, Windows, macOS e WebAssembly pendentes |
 | 9. Ferramentas | Parcial: CLI com interpretar e seleção de níveis de otimização; formatador, dependências e cache incremental pendentes |
