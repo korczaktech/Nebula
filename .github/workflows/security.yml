@@ -1,0 +1,29 @@
+name: Auditoria de segurança
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependencias:
+    name: Auditoria de dependências
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Instalar cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+      - name: Auditar dependências travadas
+        run: cargo audit --locked
