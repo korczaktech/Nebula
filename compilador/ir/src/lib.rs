@@ -1356,6 +1356,28 @@ mod testes {
     }
 
     #[test]
+    fn monomorfiza_funcao_generica_para_tipos_inferidos() {
+        let ir = compilar(
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+        );
+        assert!(ir.funcoes.contains_key("identidade__inteiro"));
+        assert!(ir.funcoes.contains_key("identidade__texto"));
+        let resultado = executar(&ir, 100).expect("instâncias genéricas válidas");
+        assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(42)));
+        assert_eq!(resultado.globais.get("texto"), Some(&ValorIr::Texto("Nebula".into())));
+    }
+
+    #[test]
+    fn monomorfiza_generico_com_parametro_composto() {
+        let ir = compilar(
+            "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([7, 8])",
+        );
+        assert!(ir.funcoes.contains_key("primeiro__lista_inteiro"));
+        let resultado = executar(&ir, 100).expect("instância de lista genérica válida");
+        assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
+    }
+
+    #[test]
     fn executa_funcao_com_retorno() {
         let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = soma(2, 3)");
         let r = executar(&ir, 100).expect("execução válida");
