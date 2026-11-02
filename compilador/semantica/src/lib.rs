@@ -454,6 +454,24 @@ impl<'a> Analisador<'a> {
                         self.exigir_tipo(&conteudo, &Tipo::Texto, "conteúdo de arquivo");
                         return Tipo::Logico;
                     }
+                    if nome == "tempo" {
+                        if !argumentos.is_empty() {
+                            self.erro("N3015", "'tempo' não aceita argumentos.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        return Tipo::Inteiro;
+                    }
+                    if nome == "dormir" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "'dormir' exige milissegundos.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let duracao = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&duracao, &Tipo::Inteiro, "duração de 'dormir'");
+                        return Tipo::Vazio;
+                    }
                     if nome == "inteiro" || nome == "decimal" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
