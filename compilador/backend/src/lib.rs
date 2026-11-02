@@ -31,7 +31,6 @@ struct Emissor {
     codigo: Vec<u8>,
     funcoes: HashMap<String, usize>,
     chamadas: Vec<(usize, String)>,
-    saltos: Vec<(usize, usize)>,
     escopos: Vec<HashMap<String, i32>>,
     proximo_slot: usize,
     lacos: Vec<Laco,
@@ -175,7 +174,7 @@ impl Emissor {
                 self.expressao(condicao)?;
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
                 let fim = self.emitir_jcc(0x84);
-                self.lacos.push(Laco { inicio, continuar: Some(inicio), saidas: Vec::new(), continuacoes: Vec::new() });
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
                 self.bloco(corpo)?;
                 let laco = self.lacos.pop().expect("laço ativo");
                 self.emitir_salto_para(inicio);
@@ -193,7 +192,7 @@ impl Emissor {
                     self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
                     Some(self.emitir_jcc(0x84))
                 } else { None };
-                self.lacos.push(Laco { inicio: inicio_condicao, continuar: None, saidas: Vec::new(), continuacoes: Vec::new() });
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
                 self.bloco(corpo)?;
                 let inicio_atualizacao = self.codigo.len();
                 if let Some(atualizacao) = atualizacao { self.expressao(atualizacao)?; }
@@ -349,7 +348,7 @@ impl Emissor {
 
     fn mover_rax_registrador(&mut self, registrador: u8) {
         let rex = if registrador >= 8 { 0x49 } else { 0x48 };
-        self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | ((registrador & 7) << 3)]);
+        self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | (registrador & 7)]);
     }
 
     fn emitir_jcc(&mut self, condicao: u8) -> usize {
