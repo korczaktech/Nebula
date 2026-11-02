@@ -539,7 +539,7 @@ fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
 fn alinhar_pagina(valor: usize) -> Result<usize, String> {
     valor.checked_add(0xFFF)
         .map(|valor| valor & !0xFFF)
-        .ok_or_else(|| "Tamanho do executável excedeu o limite do alvo ELF64.".into())
+        .ok_or("Tamanho do executável excedeu o limite do alvo ELF64.")
 }
 
 fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
