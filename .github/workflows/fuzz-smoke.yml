@@ -24,4 +24,4 @@ jobs:
       - name: Instalar Rust
         uses: dtolnay/rust-toolchain@1.85.0
       - name: Executar fuzz smoke determinístico
-        run: cargo test --locked -p nebula-sintaxe lexer_e_parser_resistem_a_entradas_malformadas_deterministicas -- --exact --nocapture
+        run: cargo test --locked -p nebula-sintaxe lexer_e_parser_resistem_a_entradas_malformadas_deterministicas -- --nocapture
