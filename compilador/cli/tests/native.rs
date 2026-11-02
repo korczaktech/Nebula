@@ -165,3 +165,27 @@ fn concatena_texto_no_backend_nativo() {
     assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Olá, Nebula");
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn compila_laco_para_e_controle_de_fluxo() {
+    let origem = arquivo_temporario("para");
+    fs::write(&origem, "funcao principal(): vazio {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 5; i = i + 1) {\n        total = total + i\n    }\n    exibir(total)\n}\n").unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "10");
+    let _ = fs::remove_file(origem);
+}
+
+#[test]
+#[rustfmt::skip]
+fn imprime_tipos_escalares_nativos() {
+    let origem = arquivo_temporario("escalares");
+    fs::write(&origem, "funcao principal(): vazio {\n    exibir(3.5)\n    exibir(verdadeiro)\n    exibir('A')\n}\n").unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "3.5\ntrue\nA");
+    let _ = fs::remove_file(origem);
+}
