@@ -49,13 +49,14 @@ struct Lexer<'a> {
     bytes: &'a [u8],
     inicio: usize,
     atual: usize,
+    profundidade_continuacao: usize,
     tokens: Vec<Token>,
     diagnosticos: Vec<Diagnostico>,
 }
 
 impl<'a> Lexer<'a> {
     fn novo(texto: &'a str) -> Self {
-        Self { texto, bytes: texto.as_bytes(), inicio: 0, atual: 0, tokens: Vec::new(), diagnosticos: Vec::new() }
+        Self { texto, bytes: texto.as_bytes(), inicio: 0, atual: 0, profundidade_continuacao: 0, tokens: Vec::new(), diagnosticos: Vec::new() }
     }
 
     fn executar(mut self) -> ResultadoLexico {
@@ -84,7 +85,7 @@ impl<'a> Lexer<'a> {
         let b = self.avancar();
         match b {
             b' ' | b'\t' => {},
-            b'\n' => self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual),
+            b'\n' => { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } },
             b'\r' => {
                 if self.corresponde(b'\n') { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); }
                 else { self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual); }
@@ -93,17 +94,31 @@ impl<'a> Lexer<'a> {
             b'/' if self.corresponde(b'*') => {
                 let mut fechado = false;
                 while !self.fim() {
-                    if self.corresponde(b'*') && self.corresponde(b'/') { fechado = true; break; }
-                    self.atual += 1;
+                    if self.byte(0) == Some(b'*') && self.byte(1) == Some(b'/') {
+                        self.atual += 2;
+                        fechado = true;
+                        break;
+                    }
+                    if self.byte(0) == Some(b'\\n') && self.profundidade_continuacao == 0 {
+                        let pos = self.atual;
+                        self.atual += 1;
+                        self.adicionar(TipoToken::NovaLinha, pos, self.atual);
+                    } else if self.byte(0) == Some(b'\\r') && self.byte(1) == Some(b'\\n') && self.profundidade_continuacao == 0 {
+                        let pos = self.atual;
+                        self.atual += 2;
+                        self.adicionar(TipoToken::NovaLinha, pos, self.atual);
+                    } else {
+                        self.atual += 1;
+                    }
                 }
                 if !fechado { self.erro("N1002", "Comentário de bloco não terminado.", self.inicio, self.atual); }
             }
             b'"' => self.literal_texto(),
             b'\'' => self.literal_caractere(),
             b'0'..=b'9' => self.numero(),
-            b'(' => self.simples(TipoToken::AbrePar), b')' => self.simples(TipoToken::FechaPar),
+            b'(' => { self.profundidade_continuacao += 1; self.simples(TipoToken::AbrePar); }, b')' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaPar); },
             b'{' => self.simples(TipoToken::AbreChave), b'}' => self.simples(TipoToken::FechaChave),
-            b'[' => self.simples(TipoToken::AbreColchete), b']' => self.simples(TipoToken::FechaColchete),
+            b'[' => { self.profundidade_continuacao += 1; self.simples(TipoToken::AbreColchete); }, b']' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaColchete); },
             b',' => self.simples(TipoToken::Virgula), b';' => self.simples(TipoToken::PontoVirgula),
             b':' if self.corresponde(b':') => self.simples(TipoToken::Escopo),
             b':' => self.simples(TipoToken::DoisPontos),
@@ -153,8 +168,31 @@ impl<'a> Lexer<'a> {
         self.adicionar(tipo, self.inicio, self.atual);
     }
     fn numero(&mut self) {
-        while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
         let mut tipo = TipoToken::Inteiro;
+        let base = match (self.bytes.get(self.inicio), self.byte(0)) {
+            (Some(b'0'), Some(b'x' | b'X')) => Some(16u32),
+            (Some(b'0'), Some(b'b' | b'B')) => Some(2u32),
+            (Some(b'0'), Some(b'o' | b'O')) => Some(8u32),
+            _ => None,
+        };
+        if let Some(radix) = base {
+            self.atual += 1;
+            let inicio_digitos = self.atual;
+            while let Some(b) = self.byte(0) {
+                if b == b'_' || (b as char).is_digit(radix) { self.atual += 1; }
+                else if b.is_ascii_alphanumeric() { self.atual += 1; }
+                else { break; }
+            }
+            let trecho = &self.texto[inicio_digitos..self.atual];
+            let valido = !trecho.is_empty()
+                && !trecho.starts_with('_') && !trecho.ends_with('_')
+                && !trecho.contains("__")
+                && trecho.chars().filter(|c| *c != '_').all(|c| c.to_digit(radix).is_some());
+            if !valido { self.erro("N1005", "Literal inteiro em base não decimal malformado.", self.inicio, self.atual); }
+            self.adicionar(TipoToken::Inteiro, self.inicio, self.atual);
+            return;
+        }
+        while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
         if self.byte(0) == Some(b'.') && self.byte(1).is_some_and(|b| b.is_ascii_digit()) {
             tipo = TipoToken::Decimal; self.atual += 1;
             while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
@@ -167,7 +205,9 @@ impl<'a> Lexer<'a> {
             if antes == self.atual { self.erro("N1004", "Expoente numérico sem dígitos.", self.inicio, self.atual); }
         }
         let bruto = &self.texto[self.inicio..self.atual];
-        if bruto.starts_with('_') || bruto.ends_with('_') || bruto.contains("__") || bruto.contains("._") || bruto.contains("_e") || bruto.contains("_E") {
+        if bruto.starts_with('_') || bruto.ends_with('_') || bruto.contains("__")
+            || bruto.contains("._") || bruto.contains("_e") || bruto.contains("_E")
+            || bruto.contains("e_") || bruto.contains("E_") {
             self.erro("N1005", "Separador numérico '_' em posição inválida.", self.inicio, self.atual);
         }
         self.adicionar(tipo, self.inicio, self.atual);
