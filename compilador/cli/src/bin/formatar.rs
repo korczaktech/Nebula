@@ -42,6 +42,44 @@ fn main() {
             std::process::exit(1);
         }
     }
+
+    #[test]
+    fn modo_check_detecta_sem_modificar_arquivo() {
+        let path = std::env::temp_dir().join(format!(
+            "nebula-format-check-{}.nbx",
+            std::process::id()
+        ));
+        let original = "variavel x = 1   ";
+        std::fs::write(&path, original).unwrap();
+        assert!(format_file(&path, true).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn formatacao_grava_arquivo_validado() {
+        let path = std::env::temp_dir().join(format!(
+            "nebula-format-write-{}.nbx",
+            std::process::id()
+        ));
+        std::fs::write(&path, "variavel x = 1   ").unwrap();
+        assert!(format_file(&path, false).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "variavel x = 1\\n");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn nao_formata_arquivo_sintaticamente_invalido() {
+        let path = std::env::temp_dir().join(format!(
+            "nebula-format-invalid-{}.nbx",
+            std::process::id()
+        ));
+        std::fs::write(&path, "variavel =").unwrap();
+        assert!(format_file(&path, false).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "variavel =");
+        let _ = std::fs::remove_file(path);
+    }
+
 }
 
 fn ajuda() {
