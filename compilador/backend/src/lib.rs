@@ -710,6 +710,21 @@ mod testes {
     }
 
     #[test]
+    fn parametros_e_corpo_compartilham_escopo_da_funcao() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().parametros = vec![("valor".into(), Tipo::Inteiro)];
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Declarar {
+                nome: "valor".into(),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                constante: false,
+            }
+        ];
+        assert!(gerar_executavel(&programa).unwrap_err().contains("mesmo escopo"));
+    }
+
+    #[test]
     fn rejeita_declaracao_duplicada_no_mesmo_escopo() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.escopos.push(HashMap::new());
