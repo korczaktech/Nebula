@@ -427,6 +427,15 @@ impl Lowerer {
                     .and_then(|campos| campos.get(nome))
                     .map_or(Tipo::Desconhecido, |tipo| self.tipo(tipo))
             }
+            Expressao::Membro { alvo, operador: TipoToken::Escopo, nome } => {
+                if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
+                    if self.variantes_enumeracoes.get(tipo_enum)
+                        .and_then(|variantes| variantes.get(nome)).is_some_and(Vec::is_empty) {
+                        return Tipo::Enumeracao(tipo_enum.clone());
+                    }
+                }
+                Tipo::Desconhecido
+            }
             Expressao::Membro { .. } => Tipo::Desconhecido,
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
             Expressao::Binaria { esquerda, operador, .. } => {
