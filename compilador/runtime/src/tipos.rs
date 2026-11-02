@@ -145,12 +145,19 @@ fn calcular_layout_interno(
     match tipo {
         TipoRuntime::Vazio => Ok(escalar(0, 1)),
         TipoRuntime::Logico | TipoRuntime::Byte => Ok(escalar(1, 1)),
-        TipoRuntime::Inteiro { bits, .. } | TipoRuntime::Decimal { bits } => {
+        TipoRuntime::Inteiro { bits, .. } => {
             if !matches!(bits, 8 | 16 | 32 | 64 | 128) {
-                return Err(format!("Largura numérica inválida: {bits}."));
+                return Err(format!("Largura inteira inválida: {bits}."));
             }
             let tamanho = u64::from(*bits) / 8;
             Ok(escalar(tamanho, tamanho.min(16)))
+        }
+        TipoRuntime::Decimal { bits } => {
+            if !matches!(bits, 32 | 64) {
+                return Err(format!("Largura decimal inválida: {bits}."));
+            }
+            let tamanho = u64::from(*bits) / 8;
+            Ok(escalar(tamanho, tamanho))
         }
         TipoRuntime::Caractere => Ok(escalar(4, 4)),
         TipoRuntime::Texto | TipoRuntime::Lista(_) => Ok(escalar(16, 8)),
@@ -159,6 +166,10 @@ fn calcular_layout_interno(
             combinar_campos(campos, pilha)
         }
         TipoRuntime::Estrutura { nome, campos } => {
+            let mut nomes_campos = HashSet::new();
+            if campos.iter().any(|(campo, _)| !nomes_campos.insert(campo)) {
+                return Err(format!("A estrutura '{nome}' possui campos duplicados."));
+            }
             if !pilha.insert(nome.clone()) {
                 return Err(format!("Tipo recursivo por valor sem indireção: {nome}."));
             }
@@ -214,6 +225,9 @@ fn calcular_layout_interno(
         TipoRuntime::Enumeracao { nome, variantes } => {
             if variantes.is_empty() {
                 return Err(format!("Enumeração '{nome}' precisa ter variantes."));
+            }
+            if variantes.len() > u32::MAX as usize {
+                return Err(format!("Enumeração '{nome}' excede o limite de variantes do ABI."));
             }
             let mut nomes = HashSet::new();
             let mut payload_maximo = 0u64;
