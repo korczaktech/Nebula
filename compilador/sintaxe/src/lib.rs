@@ -526,8 +526,10 @@ impl Parser {
                 esquerda = Expressao::Indexacao { alvo: Box::new(esquerda), indice: Box::new(indice) }; continue;
             }
             if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo) && 14 >= minimo {
-                self.avancar(); let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
-                esquerda = Expressao::Membro { alvo: Box::new(esquerda), nome }; continue;
+                let operador = self.avancar().tipo;
+                let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
+                esquerda = Expressao::Membro { alvo: Box::new(esquerda), operador, nome };
+                continue;
             }
             let (precedencia, direita) = match tipo {
                 TipoToken::Atribui => (1,true), TipoToken::Ou => (2,false), TipoToken::E => (3,false),
