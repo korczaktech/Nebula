@@ -122,11 +122,11 @@ A monomorfização gera uma instância concreta para cada conjunto distinto de a
 3. A promoção de operandos em expressões aritméticas deve ser determinística e documentada; não pode depender da arquitetura hospedeira.
 4. Operações entre inteiros com e sem sinal não podem ser promovidas silenciosamente se isso alterar a faixa representável.
 5. Conversões explícitas verificam faixa. Se o valor não couber, a conversão falha de forma definida.
-6. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial.
+6. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial. Operações cujo tipo resultante é `decimal32` são arredondadas para IEEE-754 binary32 após cada operação, não apenas ao armazenar o resultado final.
 
 ## 6. Igualdade, cópia e movimentação
 
-Igualdade só é válida para tipos que implementem igualdade. A igualdade de tuplas e estruturas é componente a componente quando todos os componentes implementam igualdade. A igualdade de enumerações exige mesma variante e igualdade de todos os payloads. Listas comparam comprimento e elementos na ordem.
+Igualdade só é válida para tipos que implementem igualdade. A igualdade de tuplas e estruturas é componente a componente quando todos os componentes implementam igualdade. A igualdade de enumerações exige mesma variante e igualdade de todos os payloads. Listas comparam comprimento e elementos na ordem. A implementação atual valida essa capacidade para tipos primitivos, listas, tuplas, estruturas, enumerações, opcionais, resultados e intervalos; tipos de função, `vazio` e parâmetros genéricos sem restrição não implementam igualdade.
 
 Tipos escalares primitivos são copiáveis. Tipos compostos não são automaticamente copiáveis: sua política depende da implementação explícita de cópia ou movimentação. O compilador deve rejeitar uso após movimentação e não pode inferir cópia apenas porque o valor cabe em um registrador.
 
