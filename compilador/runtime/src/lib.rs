@@ -10,7 +10,7 @@ mod tipos;
 pub use alocador::{Alocador, ErroAlocador, IdentificadorAlocacao};
 pub use tipos::{
     CampoLayoutRuntime, LayoutRuntime, TipoRuntime, ValorTipado, VarianteRuntime, calcular_layout,
-    validar_valor,
+    validar_tipo, validar_valor,
 };
 
 use std::collections::HashMap;
