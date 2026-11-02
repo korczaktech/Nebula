@@ -6,6 +6,7 @@ members = [
     "compilador/sintaxe",
     "compilador/semantica",
     "compilador/ir",
+    "compilador/backend",
     "compilador/cli",
 ]
 
