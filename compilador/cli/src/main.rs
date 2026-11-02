@@ -314,15 +314,24 @@ mod testes {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            assert_eq!(std::fs::metadata(&caminho).unwrap().permissions().mode() & 0o777, 0o755);
+            assert_eq!(
+                std::fs::metadata(&caminho).unwrap().permissions().mode() & 0o777,
+                0o755
+            );
         }
         let _ = std::fs::remove_file(caminho);
     }
 
     #[test]
     fn falha_de_compilacao_preserva_executavel_anterior() {
-        let origem = std::env::temp_dir().join(format!("nebula-invalido-{}.nbx", std::process::id()));
-        let saida = std::env::temp_dir().join(format!("nebula-preservado-{}", std::process::id()));
+        let origem = std::env::temp_dir().join(format!(
+            "nebula-invalido-{}.nbx",
+            std::process::id()
+        ));
+        let saida = std::env::temp_dir().join(format!(
+            "nebula-preservado-{}",
+            std::process::id()
+        ));
         std::fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
         std::fs::write(&saida, b"executavel anterior").unwrap();
         assert!(compilar_arquivo(&origem, &saida).is_err());
