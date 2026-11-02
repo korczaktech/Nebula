@@ -39,6 +39,7 @@ A Fase 2 entrega o frontend sintático executável da Nebula. O escopo é o subc
 - `N2011`: uso de palavra reservada para recurso futuro.
 - `N2012`: comparação relacional encadeada.
 - `N2013`: operador de intervalo encadeado.
+- `N2013`: operador de intervalo encadeado.
 
 ## Limites explícitos
 
