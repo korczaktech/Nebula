@@ -33,15 +33,64 @@ impl Gerador{
  fn l(&mut self,x:&str){for _ in 0..self.nivel{self.s.push_str("    ")}self.s.push_str(x);self.s.push('\n')}
  fn funcao(&mut self,f:&FuncaoIr)->Result<(),String>{let nome=if f.nome=="principal"{"main".into()}else{nc(&f.nome)};let ret=if f.nome=="principal"&&f.retorno==Tipo::Vazio{"int"}else{tc(&f.retorno)?};self.l(&format!("{ret} {nome}({}) {{",pc(&f.parametros)?));self.nivel+=1;self.bloco(&f.corpo)?;if f.nome=="principal"&&f.retorno==Tipo::Vazio{self.l("return 0;")}self.nivel-=1;self.l("}");Ok(())}
  fn bloco(&mut self,v:&[InstrucaoIr])->Result<(),String>{for i in v{self.inst(i)?}Ok(())}
- fn inst(&mut self,i:&InstrucaoIr)->Result<(),String>{match i{
- InstrucaoIr::Declarar{nome,tipo,valor,..}=>self.l(&format!("{} {} = {};",tc(tipo)?,nc(nome),self.e(valor)?)),
- InstrucaoIr::Expressao(e)=>self.l(&format!("{};",self.e(e)?)),
- InstrucaoIr::Se{condicao,entao,senao}=>{self.l(&format!("if ({}) {{",self.e(condicao)?));self.nivel+=1;self.bloco(entao)?;self.nivel-=1;if senao.is_empty(){self.l("}")}else{self.l("} else {");self.nivel+=1;self.bloco(senao)?;self.nivel-=1;self.l("}")}},
- InstrucaoIr::Enquanto{condicao,corpo}=>{self.l(&format!("while ({}) {{",self.e(condicao)?));self.nivel+=1;self.bloco(corpo)?;self.nivel-=1;self.l("}")},
- InstrucaoIr::Para{inicial,condicao,atualizacao,corpo}=>{let a=match inicial.as_deref(){Some(InstrucaoIr::Declarar{nome,tipo,valor,..})=>format!("{} {} = {}",tc(tipo)?,nc(nome),self.e(valor)?),Some(InstrucaoIr::Expressao(e))=>self.e(e)?,None=>String::new(),_=>return Err("Inicializador de para não suportado.".into())};let c=condicao.as_ref().map(|e|self.e(e)).transpose()?.unwrap_or("true".into());let u=atualizacao.as_ref().map(|e|self.e(e)).transpose()?.unwrap_or_default();self.l(&format!("for ({a}; {c}; {u}) {{"));self.nivel+=1;self.bloco(corpo)?;self.nivel-=1;self.l("}")},
- InstrucaoIr::Devolver(v)=>self.l(&format!("return{};",v.as_ref().map(|e|self.e(e).map(|x|format!(" {x}"))).transpose()?.unwrap_or_default())),
- InstrucaoIr::Parar=>self.l("break;"),InstrucaoIr::Seguir=>self.l("continue;"),
- }Ok(())}
+ fn inst(&mut self, i: &InstrucaoIr) -> Result<(), String> {
+    match i {
+        InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
+            let valor = self.e(valor)?;
+            self.l(&format!("{} {} = {};", tc(tipo)?, nc(nome), valor));
+        }
+        InstrucaoIr::Expressao(e) => {
+            let valor = self.e(e)?;
+            self.l(&format!("{valor};"));
+        }
+        InstrucaoIr::Se { condicao, entao, senao } => {
+            let cond = self.e(condicao)?;
+            self.l(&format!("if ({cond}) {{"));
+            self.nivel += 1;
+            self.bloco(entao)?;
+            self.nivel -= 1;
+            if senao.is_empty() { self.l("}"); }
+            else {
+                self.l("} else {");
+                self.nivel += 1;
+                self.bloco(senao)?;
+                self.nivel -= 1;
+                self.l("}");
+            }
+        }
+        InstrucaoIr::Enquanto { condicao, corpo } => {
+            let cond = self.e(condicao)?;
+            self.l(&format!("while ({cond}) {{"));
+            self.nivel += 1;
+            self.bloco(corpo)?;
+            self.nivel -= 1;
+            self.l("}");
+        }
+        InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+            let init = match inicial.as_deref() {
+                Some(InstrucaoIr::Declarar { nome, tipo, valor, .. }) =>
+                    format!("{} {} = {}", tc(tipo)?, nc(nome), self.e(valor)?),
+                Some(InstrucaoIr::Expressao(e)) => self.e(e)?,
+                None => String::new(),
+                _ => return Err("Inicializador de para não suportado.".into()),
+            };
+            let cond = condicao.as_ref().map(|e| self.e(e)).transpose()?.unwrap_or("true".into());
+            let update = atualizacao.as_ref().map(|e| self.e(e)).transpose()?.unwrap_or_default();
+            self.l(&format!("for ({init}; {cond}; {update}) {{"));
+            self.nivel += 1;
+            self.bloco(corpo)?;
+            self.nivel -= 1;
+            self.l("}");
+        }
+        InstrucaoIr::Devolver(v) => {
+            let valor = v.as_ref().map(|e| self.e(e).map(|s| format!(" {s}"))).transpose()?.unwrap_or_default();
+            self.l(&format!("return{valor};"));
+        }
+        InstrucaoIr::Parar => self.l("break;"),
+        InstrucaoIr::Seguir => self.l("continue;"),
+    }
+    Ok(())
+ }
  fn e(&mut self,e:&ExpressaoIr)->Result<String,String>{match e{
  ExpressaoIr::Constante(v)=>match v{ValorIr::Inteiro(n)=>Ok(n.to_string()),ValorIr::Decimal(n)if n.is_finite()=>Ok(format!("{n:?}")),ValorIr::Logico(b)=>Ok(b.to_string()),ValorIr::Texto(s)=>Ok(format!("\"{}\"",s.chars().flat_map(char::escape_default).collect::<String>())),ValorIr::Caractere(c)=>Ok(format!("'{}'",c.escape_default())),_=>Err("Literal não suportado pelo backend.".into())},
  ExpressaoIr::Variavel(n)=>Ok(nc(n)),
