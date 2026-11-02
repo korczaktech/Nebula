@@ -714,6 +714,7 @@ mod testes {
                 corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Constante(ValorIr::Inteiro(valor))))],
             })]),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         }
     }
 
