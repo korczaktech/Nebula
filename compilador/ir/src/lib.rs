@@ -965,6 +965,22 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_de_diretorios() {
+        let raiz = std::env::temp_dir().join(format!("nebula-ir-listar-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&raiz);
+        std::fs::create_dir_all(&raiz).unwrap();
+        std::fs::write(raiz.join("arquivo.txt"), "").unwrap();
+        let caminho = raiz.to_str().unwrap();
+        let codigo = format!(
+            "exibir(diretorio_existe(\"{caminho}\"))\nexibir(comprimento(listar_diretorio(\"{caminho}\")))"
+        );
+        let ir = compilar(&codigo);
+        let resultado = executar(&ir, 100).expect("biblioteca de diretórios válida");
+        assert_eq!(resultado.saida, vec!["verdadeiro", "1"]);
+        std::fs::remove_dir_all(raiz).unwrap();
+    }
+
+    #[test]
     fn executa_biblioteca_matematica() {
         let ir = compilar(
             "exibir(raiz(9))\nexibir(arredondar(2.6))\nexibir(absoluto(-5))",
