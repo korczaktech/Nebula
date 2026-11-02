@@ -858,7 +858,7 @@ mod testes {
         assert!(calcular_relativo32(4, i128::from(i32::MAX) + 5).is_err());
         assert!(calcular_relativo32(i128::from(i32::MAX) + 5, 0).is_err());
         assert_eq!(calcular_relativo32(4, i128::from(i32::MAX) + 4).unwrap(), i32::MAX);
-        assert_eq!(calcular_relativo32(i128::from(i32::MAX) + 5, 5).unwrap(), i32::MIN);
+        assert_eq!(calcular_relativo32(i128::from(i32::MAX) + 5, 4).unwrap(), i32::MIN);
     }
 
     #[test]
