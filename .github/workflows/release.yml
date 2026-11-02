@@ -23,6 +23,9 @@ jobs:
       - name: Instalar Rust
         uses: dtolnay/rust-toolchain@1.85.0
 
+      - name: Bloquear distribuição sem licença aprovada
+        run: test -s LICENSE
+
       - name: Validar workspace
         run: |
           cargo fmt --all -- --check
@@ -30,23 +33,26 @@ jobs:
           cargo test --locked --workspace --all-targets
           cargo doc --locked --workspace --no-deps
 
-      - name: Compilar CLI
+      - name: Compilar ferramentas
         run: cargo build --locked --release -p nebula-cli
 
-      - name: Preparar artefato e checksum
+      - name: Preparar artefatos e checksums
         run: |
           mkdir -p dist
           install -m 0755 target/release/nebula dist/nebula-linux-x86_64
-          printf '%s\n' "Linux x86-64 / ELF64" > dist/PLATAFORMA.txt
+          install -m 0755 target/release/nebula-formatar dist/nebula-formatar-linux-x86_64
+          printf '%s\\n' "Linux x86-64 / ELF64" > dist/PLATAFORMA.txt
           cd dist
-          sha256sum nebula-linux-x86_64 PLATAFORMA.txt > SHA256SUMS
+          sha256sum nebula-linux-x86_64 nebula-formatar-linux-x86_64 PLATAFORMA.txt > SHA256SUMS
 
-      - name: Publicar artefatos
+      - name: Publicar release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/nebula-linux-x86_64
-            dist/PLATAFORMA.txt
-            dist/SHA256SUMS
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/nebula-linux-x86_64 \
+            dist/nebula-formatar-linux-x86_64 \
+            dist/PLATAFORMA.txt \
+            dist/SHA256SUMS \
+            --generate-notes
