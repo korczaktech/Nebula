@@ -1901,10 +1901,10 @@ mod testes {
 
     #[test]
     fn calcula_layout_de_campo_com_tipo_de_funcao() {
-        let ast = programa(
+        let ir = compilar(
             "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(): vazio }",
         );
-        let layout = calcular_layout_tipo(&ast, &Tipo::Estrutura("Registro".into())).unwrap();
+        let layout = ir.layouts_tipos.get("Registro").expect("layout nominal");
         assert_eq!(layout.tamanho, 16);
         assert_eq!(layout.alinhamento, 8);
         assert_eq!(layout.campos[0].tamanho, 8);
