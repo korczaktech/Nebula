@@ -880,6 +880,54 @@ fn formatar_erro_runtime(erro: ErroRuntime) -> String {
     format!("Erro do runtime: {erro:?}")
 }
 
+fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
+    let incompatibilidade = || format!("Valor incompatível com o tipo declarado: {tipo:?}.");
+    match (tipo, valor) {
+        (Tipo::Inteiro | Tipo::Inteiro64, ValorIr::Inteiro(v)) =>
+            i64::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro64.".into()),
+        (Tipo::Inteiro8, ValorIr::Inteiro(v)) =>
+            i8::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro8.".into()),
+        (Tipo::Inteiro16, ValorIr::Inteiro(v)) =>
+            i16::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro16.".into()),
+        (Tipo::Inteiro32, ValorIr::Inteiro(v)) =>
+            i32::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro32.".into()),
+        (Tipo::Inteiro128, ValorIr::Inteiro(v)) => Ok(ValorIr::Inteiro(v)),
+        (Tipo::InteiroU8 | Tipo::Byte, ValorIr::InteiroSemSinal(v)) =>
+            u8::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u8/byte.".into()),
+        (Tipo::InteiroU16, ValorIr::InteiroSemSinal(v)) =>
+            u16::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u16.".into()),
+        (Tipo::InteiroU32, ValorIr::InteiroSemSinal(v)) =>
+            u32::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u32.".into()),
+        (Tipo::InteiroU64, ValorIr::InteiroSemSinal(v)) =>
+            u64::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u64.".into()),
+        (Tipo::InteiroU128, ValorIr::InteiroSemSinal(v)) => Ok(ValorIr::InteiroSemSinal(v)),
+        (Tipo::Decimal32, ValorIr::Decimal(v)) => {
+            let convertido = v as f32;
+            if v.is_finite() && !convertido.is_finite() {
+                Err("Valor fora da faixa de decimal32.".into())
+            } else {
+                Ok(ValorIr::Decimal(convertido as f64))
+            }
+        }
+        (Tipo::Decimal | Tipo::Decimal64, valor @ ValorIr::Decimal(_)) => Ok(valor),
+        (Tipo::Logico, valor @ ValorIr::Logico(_))
+        | (Tipo::Texto, valor @ ValorIr::Texto(_))
+        | (Tipo::Caractere, valor @ ValorIr::Caractere(_))
+        | (Tipo::Vazio, valor @ ValorIr::Vazio) => Ok(valor),
+        (Tipo::Lista(elemento), ValorIr::Lista(valores)) => Ok(ValorIr::Lista(
+            valores.into_iter().map(|valor| normalizar_valor(elemento, valor))
+                .collect::<Result<_, _>>()?
+        )),
+        (Tipo::Tupla(tipos), ValorIr::Lista(valores)) if tipos.len() == valores.len() => {
+            Ok(ValorIr::Lista(valores.into_iter().zip(tipos)
+                .map(|(valor, tipo)| normalizar_valor(tipo, valor))
+                .collect::<Result<_, _>>()?))
+        }
+        (_, valor) if *tipo == Tipo::Desconhecido => Ok(valor),
+        _ => Err(incompatibilidade()),
+    }
+}
+
 fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
     match valor {
         ValorIr::Inteiro(v) => ValorRuntime::Inteiro(v),
@@ -978,8 +1026,8 @@ impl Maquina<'_> {
 
     fn instrucao(&mut self, item: &InstrucaoIr) -> Result<Fluxo, String> {
         match item {
-            InstrucaoIr::Declarar { nome, valor, constante, .. } => {
-                let valor = self.expressao(valor)?;
+            InstrucaoIr::Declarar { nome, tipo, valor, constante } => {
+                let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
                     .declarar(nome.clone(), converter_para_runtime(valor), !constante)
                     .map_err(formatar_erro_runtime)?;
@@ -1434,7 +1482,8 @@ impl Maquina<'_> {
         self.profundidade_chamada += 1;
         self.memoria_mutavel()?.abrir_escopo();
         let fluxo = (|| {
-            for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
+            for ((parametro, tipo), valor) in funcao.parametros.iter().zip(valores) {
+                let valor = normalizar_valor(tipo, valor)?;
                 self.memoria_mutavel()?
                     .declarar(parametro.clone(), converter_para_runtime(valor), true)
                     .map_err(formatar_erro_runtime)?;
@@ -1449,7 +1498,7 @@ impl Maquina<'_> {
             (Ok(fluxo), Ok(())) => fluxo,
         };
         match fluxo {
-            Fluxo::Retorno(valor) => Ok(valor),
+            Fluxo::Retorno(valor) => normalizar_valor(&funcao.retorno, valor),
             _ => Ok(ValorIr::Vazio),
         }
     }
