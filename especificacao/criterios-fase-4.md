@@ -42,7 +42,7 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 - As instruções implementadas têm testes unitários de codificação e testes de integração que executam os binários.
 - Chamadas, parâmetros (até seis), chamadas aninhadas, recursão, escopos, retorno, saltos e alinhamento de pilha seguem o ABI x86-64 documentado.
 - Potência inteira usa exponenciação por quadratura, sem runtime; expoente negativo, divisão por zero e overflow de divisão signed terminam com código de saída 2.
-- Variáveis globais usam segmento ELF gravável separado; o segmento de código permanece somente leitura e execução (W^X).
+- Variáveis globais usam segmento ELF gravável separado; o segmento de código permanece somente leitura e execução, e a pilha é marcada como não executável (W^X/NX).
 - A gravação do executável é atômica: falhas de compilação não publicam arquivos parciais nem destroem uma saída anterior.
 - Entradas inválidas ou recursos ainda não implementados geram diagnósticos claros e não deixam executáveis inválidos.
 - A CI valida formatação, Clippy, todos os testes e benchmark aplicável.
