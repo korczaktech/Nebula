@@ -6,7 +6,9 @@
 
 #[forbid(unsafe_code)]
 mod alocador;
+mod tipos;
 pub use alocador::{Alocador, ErroAlocador, IdentificadorAlocacao};
+pub use tipos::{calcular_layout, validar_valor, CampoLayoutRuntime, LayoutRuntime, TipoRuntime, ValorTipado, VarianteRuntime};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
