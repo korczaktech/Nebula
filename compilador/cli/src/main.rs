@@ -521,6 +521,14 @@ fn qualificar_expressao_modulo(
             qualificar_expressao_modulo(alvo, caminho, funcoes, caminhos_canonicos);
             qualificar_expressao_modulo(indice, caminho, funcoes, caminhos_canonicos);
         }
+        ExpressaoIr::Membro { alvo, .. } => {
+            qualificar_expressao_modulo(alvo, caminho, funcoes, caminhos_canonicos);
+        }
+        ExpressaoIr::ConstrucaoEstrutura { campos, .. } => {
+            for (_, valor) in campos {
+                qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
+            }
+        }
         ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
     }
     if let Some(nome) = chamada_local {
