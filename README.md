@@ -435,9 +435,9 @@ Critérios de conclusão:
 
 ## Fase 3 — Semântica, tipos e IR (meta acumulada: 50%)
 
-**Estado: Fase 3 concluída — 104 testes aprovados, 0 falhas; CI verde.**
+**Estado: Fase 3 concluída — 107 testes aprovados, 0 falhas; CI verde.**
 
-[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41372653540).
+[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41373216680).
 
 **Objetivo:** dar significado e consistência aos programas.
 
