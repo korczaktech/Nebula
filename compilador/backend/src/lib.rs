@@ -179,6 +179,9 @@ impl Emissor {
                 else { self.codigo.extend_from_slice(&[0x31, 0xC0]); }
                 self.codigo.extend_from_slice(&[0xC9, 0xC3]);
             }
+            InstrucaoIr::Escolha { .. } => {
+                return Err("O backend nativo ainda não oferece layout/ABI para pattern matching de enumerações.".into());
+            }
             InstrucaoIr::Se { condicao, entao, senao } => {
                 self.expressao(condicao)?;
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
