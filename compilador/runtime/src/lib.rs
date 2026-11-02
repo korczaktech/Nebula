@@ -1202,10 +1202,14 @@ mod ciclo_vida {
             self.estado = EstadoRuntime::Finalizado;
             let mut primeiro_erro = None;
             while let Some(finalizador) = self.finalizadores.pop() {
-                if let Err(erro) = finalizador() {
-                    if primeiro_erro.is_none() {
-                        primeiro_erro = Some(erro);
-                    }
+                let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(finalizador));
+                let erro = match resultado {
+                    Ok(Ok(())) => None,
+                    Ok(Err(erro)) => Some(erro),
+                    Err(_) => Some(ErroRuntime::FalhaTarefa),
+                };
+                if primeiro_erro.is_none() {
+                    primeiro_erro = erro;
                 }
             }
             primeiro_erro.map_or(Ok(()), Err)
@@ -1267,6 +1271,29 @@ mod ciclo_vida {
             assert_eq!(contexto.finalizar(), Ok(()));
         }
     
+        #[test]
+        fn contexto_continua_limpeza_apos_panico_de_finalizador() {
+            let ordem = Arc::new(Mutex::new(Vec::new()));
+            let mut contexto = ContextoRuntime::novo();
+            let ordem_antiga = Arc::clone(&ordem);
+            contexto.registrar_finalizador(move || {
+                ordem_antiga.lock().unwrap().push(1);
+                Ok(())
+            }).unwrap();
+            contexto.registrar_finalizador(|| -> Resultado<()> {
+                panic!("falha simulada de finalizacao");
+            }).unwrap();
+            let ordem_nova = Arc::clone(&ordem);
+            contexto.registrar_finalizador(move || {
+                ordem_nova.lock().unwrap().push(3);
+                Ok(())
+            }).unwrap();
+
+            assert_eq!(contexto.finalizar(), Err(ErroRuntime::FalhaTarefa));
+            assert_eq!(*ordem.lock().unwrap(), vec![3, 1]);
+            assert_eq!(contexto.estado(), EstadoRuntime::Finalizado);
+        }
+
         #[test]
         fn contexto_rejeita_registro_e_acesso_mutavel_apos_finalizacao() {
             let mut contexto = ContextoRuntime::novo();
