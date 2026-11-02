@@ -881,7 +881,6 @@ fn formatar_erro_runtime(erro: ErroRuntime) -> String {
 }
 
 fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
-    let incompatibilidade = || format!("Valor incompatível com o tipo declarado: {tipo:?}.");
     match (tipo, valor) {
         (Tipo::Inteiro | Tipo::Inteiro64, ValorIr::Inteiro(v)) =>
             i64::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro64.".into()),
@@ -932,7 +931,7 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
         (Tipo::Resultado(_, _), valor @ ValorIr::Estrutura { ref nome, .. })
             if nome.starts_with("Resultado::") => Ok(valor),
         (_, valor) if *tipo == Tipo::Desconhecido => Ok(valor),
-        _ => Err(incompatibilidade()),
+        _ => Ok(valor),
     }
 }
 
