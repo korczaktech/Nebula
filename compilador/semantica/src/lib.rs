@@ -56,6 +56,9 @@ pub fn analisar_com_modulos(programa: &Programa, modulos: &ModulosDisponiveis) -
 #[derive(Debug, Clone)]
 struct Simbolo { tipo: Tipo, mutavel: bool }
 
+#[derive(Debug, Clone, Copy)]
+enum LiteralNumerico { Inteiro(i128), Decimal(f64) }
+
 #[derive(Debug, Clone)]
 struct Funcao { parametros: Vec<Tipo>, retorno: Tipo }
 
@@ -156,7 +159,7 @@ impl<'a> Analisador<'a> {
                     if esperado == Tipo::Desconhecido {
                         self.erro("N3021", format!("Tipo '{tipo}' não foi declarado."));
                     }
-                    self.exigir_tipo(&inferido, &esperado, "inicialização da variável");
+                    self.exigir_expressao_tipo(valor, &inferido, &esperado, "inicialização da variável");
                     esperado
                 } else {
                     if matches!(&inferido, Tipo::Lista(elemento) if **elemento == Tipo::Desconhecido) {
@@ -236,7 +239,11 @@ impl<'a> Analisador<'a> {
                 }
                 let obtido = valor.as_ref().map_or(Tipo::Vazio, |e| self.expressao(e));
                 if let Some(esperado) = esperado {
-                    self.exigir_tipo(&obtido, &esperado, "retorno da função");
+                    if let Some(valor) = valor {
+                        self.exigir_expressao_tipo(valor, &obtido, &esperado, "retorno da função");
+                    } else {
+                        self.exigir_tipo(&obtido, &esperado, "retorno da função");
+                    }
                 }
             }
             NoAst::Parar | NoAst::Seguir => {
@@ -314,7 +321,7 @@ impl<'a> Analisador<'a> {
                             if !simbolo.mutavel {
                                 self.erro("N3009", format!("Não é permitido alterar a constante '{nome}'."));
                             }
-                            self.exigir_tipo(&tipo_valor, &simbolo.tipo, "atribuição");
+                            self.exigir_expressao_tipo(valor, &tipo_valor, &simbolo.tipo, "atribuição");
                             simbolo.tipo
                         } else {
                             self.erro("N3007", format!("Nome '{nome}' não foi declarado."));
@@ -380,7 +387,7 @@ impl<'a> Analisador<'a> {
         for (indice, argumento) in argumentos.iter().enumerate() {
             let obtido = self.expressao(argumento);
             if let Some(esperado) = esperados.get(indice) {
-                self.exigir_tipo(&obtido, esperado, "argumento de função");
+                self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
             }
         }
     }
@@ -481,6 +488,62 @@ impl<'a> Analisador<'a> {
 
     fn buscar(&self, nome: &str) -> Option<&Simbolo> {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome))
+    }
+
+    fn exigir_expressao_tipo(&mut self, expressao: &Expressao, obtido: &Tipo, esperado: &Tipo, contexto: &str) {
+        if let Some(valor) = Self::literal_numerico(expressao) {
+            let compativel = match (valor, esperado) {
+                (LiteralNumerico::Inteiro(v), Tipo::Inteiro8) => i8::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::Inteiro16) => i16::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::Inteiro32) => i32::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(_), Tipo::Inteiro128 | Tipo::Inteiro) => true,
+                (LiteralNumerico::Inteiro(v), Tipo::Byte) => u8::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::Decimal32) => (v as f32).is_finite(),
+                (LiteralNumerico::Inteiro(v), Tipo::Decimal64 | Tipo::Decimal) => (v as f64).is_finite(),
+                (LiteralNumerico::Decimal(v), Tipo::Decimal32) => (v as f32).is_finite(),
+                (LiteralNumerico::Decimal(v), Tipo::Decimal64 | Tipo::Decimal) => v.is_finite(),
+                _ => false,
+            };
+            if compativel { return; }
+            self.exigir_tipo(obtido, esperado, contexto);
+            return;
+        }
+        if let (Expressao::Lista(itens), Tipo::Lista(tipo_esperado)) = (expressao, esperado) {
+            if itens.iter().all(|item| Self::literal_numerico(item).is_some()) {
+                for item in itens {
+                    let tipo_item = self.expressao(item);
+                    self.exigir_expressao_tipo(item, &tipo_item, tipo_esperado, contexto);
+                }
+                return;
+            }
+        }
+        self.exigir_tipo(obtido, esperado, contexto);
+    }
+
+    fn literal_numerico(expressao: &Expressao) -> Option<LiteralNumerico> {
+        match expressao {
+            Expressao::Literal(bruto) => {
+                let limpo = bruto.replace('_', "");
+                if limpo.starts_with("0x") || limpo.starts_with("0X") {
+                    i128::from_str_radix(&limpo[2..], 16).ok().map(LiteralNumerico::Inteiro)
+                } else if limpo.starts_with("0b") || limpo.starts_with("0B") {
+                    i128::from_str_radix(&limpo[2..], 2).ok().map(LiteralNumerico::Inteiro)
+                } else if limpo.starts_with("0o") || limpo.starts_with("0O") {
+                    i128::from_str_radix(&limpo[2..], 8).ok().map(LiteralNumerico::Inteiro)
+                } else if limpo.contains('.') || limpo.contains('e') || limpo.contains('E') {
+                    limpo.parse().ok().map(LiteralNumerico::Decimal)
+                } else {
+                    limpo.parse().ok().map(LiteralNumerico::Inteiro)
+                }
+            }
+            Expressao::Unaria { operador: TipoToken::Menos, valor } => match Self::literal_numerico(valor)? {
+                LiteralNumerico::Inteiro(v) => v.checked_neg().map(LiteralNumerico::Inteiro),
+                LiteralNumerico::Decimal(v) => Some(LiteralNumerico::Decimal(-v)),
+            },
+            Expressao::Unaria { operador: TipoToken::Mais, valor } => Self::literal_numerico(valor),
+            _ => None,
+        }
     }
 
     fn exigir_tipo(&mut self, obtido: &Tipo, esperado: &Tipo, contexto: &str) {
@@ -717,6 +780,19 @@ mod testes {
     fn promove_decimal32_conforme_largura_do_inteiro() {
         let r = analisar_codigo("variavel d: decimal32 = 1.0\nvariavel pequeno: inteiro8 = 1\nvariavel grande: inteiro32 = 100\nvariavel x: decimal32 = d + pequeno\nvariavel y: decimal64 = d + grande");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+
+    #[test]
+    fn aceita_literais_numericos_que_cabem_no_tipo_anotado() {
+        let r = analisar_codigo("variavel pequeno: inteiro8 = -12\nvariavel byte: byte = 255\nvariavel precisao: decimal32 = 1.25");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_literal_numerico_fora_da_largura() {
+        let r = analisar_codigo("variavel pequeno: inteiro8 = 300\nvariavel byte: byte = -1");
+        assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 2);
     }
 
 }
