@@ -1,363 +1,475 @@
-//! Backend nativo C++17 da Nebula.
+//! Backend nativo da Nebula: geração direta de executáveis ELF x86-64.
 #![forbid(unsafe_code)]
-#[rustfmt::skip]
-mod implementacao {
+
 use nebula_ir::{ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 use nebula_semantica::Tipo;
 use std::collections::HashMap;
-use std::fmt::Write;
 
-/// Gera uma unidade C++17 para os recursos suportados do MVP.
-pub fn gerar_cpp(programa: &ProgramaIr) -> Result<String, String> {
+const TAMANHO_CABECALHO: usize = 4096;
+const TAMANHO_QUADRO: u32 = 4096;
+const LIMITE_VARIAVEIS: usize = 512;
+
+/// Compila a IR em um executável ELF64 estático para Linux x86-64.
+///
+/// O arquivo é construído diretamente em Rust. Não gera C/C++, assembly textual,
+/// objeto intermediário nem invoca linker ou compilador externo.
+pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     if !programa.modulos.is_empty() {
-        return Err("O backend nativo ainda não liga módulos externos.".into());
+        return Err("O backend x86-64 ainda não oferece ligação de módulos.".into());
     }
-    let assinaturas = programa.funcoes.iter().map(|(nome, f)| {
-        (nome.clone(), (f.parametros.iter().map(|(_, t)| t.clone()).collect(), f.retorno.clone()))
-    }).collect();
-    let mut g = Gerador { codigo: String::new(), nivel: 0, variaveis: HashMap::new(), assinaturas, retorno: None };
-    g.l("#include <cstdint>");
-    g.l("#include <cmath>");
-    g.l("#include <iostream>");
-    g.l("#include <string>");
-    g.l("#include <vector>");
-    g.l("");
-    g.l("template <typename T> static void nb_escrever(const T& valor) { std::cout << std::boolalpha << valor; }");
-    g.l("template <typename T> static void nb_escrever(const std::vector<T>& valores) { std::cout << '['; for (std::size_t i = 0; i < valores.size(); ++i) { if (i) std::cout << \", \"; nb_escrever(valores[i]); } std::cout << ']'; }");
-    g.l("template <typename T> static void nb_exibir(const T& valor) { nb_escrever(valor); std::cout << '\\n'; }");
-    g.l("static std::string nb_ler_texto() { std::string valor; std::getline(std::cin, valor); return valor; }");
-    g.l("");
-    let mut nomes: Vec<_> = programa.funcoes.keys().collect();
-    nomes.sort();
-    for nome in &nomes {
-        let f = &programa.funcoes[*nome];
-        g.l(&format!("{} {}({});", tipo_cpp(&f.retorno)?, nome_cpp(nome), parametros_cpp(&f.parametros)?));
+    if !programa.instrucoes.is_empty() && programa.funcoes.contains_key("principal") {
+        // As instruções globais são executadas antes de principal, em uma função sintética.
     }
-    if !nomes.is_empty() { g.l(""); }
-    for nome in nomes {
-        g.funcao(&programa.funcoes[nome])?;
-        g.l("");
-    }
-    if !programa.instrucoes.is_empty() || programa.funcoes.contains_key("principal") {
-        g.l("int main() {");
-        g.nivel += 1;
-        g.bloco(&programa.instrucoes)?;
-        if let Some(principal) = programa.funcoes.get("principal") {
-            if principal.retorno == Tipo::Vazio {
-                g.l("nb_principal();");
-                g.l("return 0;");
-            } else {
-                g.l("return static_cast<int>(nb_principal());");
-            }
-        } else {
-            g.l("return 0;");
+
+    let mut emissor = Emissor::novo();
+    emissor.iniciar_programa(programa)?;
+    let codigo = emissor.finalizar()?;
+    Ok(gerar_elf(&codigo))
+}
+
+struct Emissor {
+    codigo: Vec<u8>,
+    funcoes: HashMap<String, usize>,
+    chamadas: Vec<(usize, String)>,
+    saltos: Vec<(usize, usize)>,
+    escopos: Vec<HashMap<String, i32>>,
+    proximo_slot: usize,
+    lacos: Vec<Laco,
+    >
+}
+
+struct Laco {
+    inicio: usize,
+    continuar: Option<usize>,
+    saidas: Vec<usize>,
+    continuacoes: Vec<usize>,
+}
+
+impl Emissor {
+    fn novo() -> Self {
+        Self {
+            codigo: Vec::new(),
+            funcoes: HashMap::new(),
+            chamadas: Vec::new(),
+            saltos: Vec::new(),
+            escopos: Vec::new(),
+            proximo_slot: 0,
+            lacos: Vec::new(),
         }
-        g.nivel -= 1;
-        g.l("}");
-    } else {
-        return Err("Declare a função principal ou instruções globais.".into());
-    }
-    Ok(g.codigo)
-}
-
-fn tipo_cpp(tipo: &Tipo) -> Result<String, String> {
-    match tipo {
-        Tipo::Vazio => Ok("void".into()),
-        Tipo::Logico => Ok("bool".into()),
-        Tipo::Inteiro | Tipo::Inteiro64 => Ok("std::int64_t".into()),
-        Tipo::Inteiro8 => Ok("std::int8_t".into()),
-        Tipo::Inteiro16 => Ok("std::int16_t".into()),
-        Tipo::Inteiro32 => Ok("std::int32_t".into()),
-        Tipo::Byte => Ok("std::uint8_t".into()),
-        Tipo::Decimal | Tipo::Decimal64 => Ok("double".into()),
-        Tipo::Decimal32 => Ok("float".into()),
-        Tipo::Texto => Ok("std::string".into()),
-        Tipo::Caractere => Ok("char".into()),
-        Tipo::Lista(elemento) => Ok(format!("std::vector<{}>", tipo_cpp(elemento)?)),
-        Tipo::Inteiro128 => Err("inteiro128 ainda não possui ABI nativa estável.".into()),
-        _ => Err(format!("Tipo ainda não suportado pelo backend nativo: {tipo:?}")),
-    }
-}
-
-fn nome_cpp(nome: &str) -> String {
-    let mut saida = String::from("nb_");
-    for c in nome.chars() {
-        if c.is_ascii_alphanumeric() { saida.push(c); }
-        else { let _ = write!(saida, "_u{:x}_", c as u32); }
-    }
-    saida
-}
-
-fn parametros_cpp(parametros: &[(String, Tipo)]) -> Result<String, String> {
-    if parametros.is_empty() { return Ok("void".into()); }
-    parametros.iter().map(|(nome, tipo)| {
-        Ok(format!("{} {}", tipo_cpp(tipo)?, nome_cpp(nome)))
-    }).collect::<Result<Vec<_>, String>>().map(|itens| itens.join(", "))
-}
-
-struct Gerador {
-    codigo: String,
-    nivel: usize,
-    variaveis: HashMap<String, Tipo>,
-    assinaturas: HashMap<String, (Vec<Tipo>, Tipo)>,
-    retorno: Option<Tipo>,
-}
-
-impl Gerador {
-    fn l(&mut self, linha: &str) {
-        for _ in 0..self.nivel { self.codigo.push_str("    "); }
-        self.codigo.push_str(linha);
-        self.codigo.push('\n');
     }
 
-    fn funcao(&mut self, funcao: &FuncaoIr) -> Result<(), String> {
-        let variaveis_anteriores = self.variaveis.clone();
-        let retorno_anterior = self.retorno.clone();
-        self.variaveis.clear();
-        for (nome, tipo) in &funcao.parametros { self.variaveis.insert(nome.clone(), tipo.clone()); }
-        self.retorno = Some(funcao.retorno.clone());
-        self.l(&format!("{} {}({}) {{", tipo_cpp(&funcao.retorno)?, nome_cpp(&funcao.nome), parametros_cpp(&funcao.parametros)?));
-        self.nivel += 1;
+    fn iniciar_programa(&mut self, programa: &ProgramaIr) -> Result<(), String> {
+        let principal = programa.funcoes.get("principal");
+        if principal.is_none() && programa.instrucoes.is_empty() {
+            return Err("Declare a função principal ou instruções globais.".into());
+        }
+        if principal.is_some_and(|f| !f.parametros.is_empty()) {
+            return Err("A função principal não pode receber parâmetros no alvo inicial.".into());
+        }
+
+        // Ponto de entrada Linux: chama a função de inicialização e encerra pelo syscall exit.
+        self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
+        let chamada_inicio = 1;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
+
+        if !programa.instrucoes.is_empty() {
+            let inicio = FuncaoIr {
+                nome: "__nebula_inicio".into(),
+                parametros: Vec::new(),
+                retorno: Tipo::Vazio,
+                corpo: programa.instrucoes.clone(),
+            };
+            self.compilar_funcao(&inicio)?;
+            self.chamadas.push((chamada_inicio, inicio.nome));
+        } else if let Some(funcao) = principal {
+            self.chamadas.push((chamada_inicio, funcao.nome.clone()));
+        }
+
+        let mut nomes: Vec<_> = programa.funcoes.keys().cloned().collect();
+        nomes.sort();
+        for nome in nomes {
+            let funcao = &programa.funcoes[&nome];
+            self.compilar_funcao(funcao)?;
+        }
+
+        if !programa.instrucoes.is_empty() {
+            if let Some(funcao) = principal {
+                self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
+                self.chamadas.push((self.codigo.len() - 4, funcao.nome.clone()));
+                // O valor de retorno de principal torna-se o código de saída.
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
+            }
+        }
+        Ok(())
+    }
+
+    fn compilar_funcao(&mut self, funcao: &FuncaoIr) -> Result<(), String> {
+        if self.funcoes.contains_key(&funcao.nome) {
+            return Err(format!("Função duplicada no backend: '{}'.", funcao.nome));
+        }
+        self.funcoes.insert(funcao.nome.clone(), self.codigo.len());
+        self.escopos.clear();
+        self.escopos.push(HashMap::new());
+        self.proximo_slot = 0;
+        self.lacos.clear();
+
+        // Prólogo e quadro fixo: mantém alinhamento ABI e evita alocação dinâmica no compilador.
+        self.codigo.extend_from_slice(&[0x55, 0x48, 0x89, 0xE5, 0x48, 0x81, 0xEC]);
+        self.codigo.extend_from_slice(&TAMANHO_QUADRO.to_le_bytes());
+
+        if funcao.parametros.len() > 6 {
+            return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
+        }
+        let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
+        for (indice, (nome, tipo)) in funcao.parametros.iter().enumerate() {
+            validar_tipo(tipo)?;
+            let deslocamento = self.declarar(nome)?;
+            self.armazenar_registrador(registradores[indice], deslocamento);
+        }
+
         self.bloco(&funcao.corpo)?;
-        self.nivel -= 1;
-        self.l("}");
-        self.variaveis = variaveis_anteriores;
-        self.retorno = retorno_anterior;
+        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xC9, 0xC3]); // retorno implícito zero
+        self.escopos.clear();
         Ok(())
     }
 
     fn bloco(&mut self, instrucoes: &[InstrucaoIr]) -> Result<(), String> {
-        let variaveis_anteriores = self.variaveis.clone();
-        for instrucao in instrucoes { self.instrucao(instrucao)?; }
-        self.variaveis = variaveis_anteriores;
+        self.escopos.push(HashMap::new());
+        for instrucao in instrucoes {
+            self.instrucao(instrucao)?;
+        }
+        self.escopos.pop();
         Ok(())
     }
 
     fn instrucao(&mut self, instrucao: &InstrucaoIr) -> Result<(), String> {
         match instrucao {
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
-                let valor_cpp = self.expr(valor, Some(tipo))?;
-                self.l(&format!("{} {} = {};", tipo_cpp(tipo)?, nome_cpp(nome), valor_cpp));
-                self.variaveis.insert(nome.clone(), tipo.clone());
+                validar_tipo(tipo)?;
+                self.expressao(valor)?;
+                let deslocamento = self.declarar(nome)?;
+                self.armazenar_rax(deslocamento);
             }
-            InstrucaoIr::Expressao(expressao) => {
-                let valor = self.expr(expressao, None)?;
-                self.l(&format!("{valor};"));
+            InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
+            InstrucaoIr::Devolver(valor) => {
+                if let Some(valor) = valor { self.expressao(valor)?; }
+                else { self.codigo.extend_from_slice(&[0x31, 0xC0]); }
+                self.codigo.extend_from_slice(&[0xC9, 0xC3]);
             }
             InstrucaoIr::Se { condicao, entao, senao } => {
-                let condicao_cpp = self.expr(condicao, None)?;
-                self.l(&format!("if ({condicao_cpp}) {{"));
-                self.nivel += 1;
+                self.expressao(condicao)?;
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let desvio_senao = self.emitir_jcc(0x84);
                 self.bloco(entao)?;
-                self.nivel -= 1;
-                if senao.is_empty() { self.l("}"); }
-                else {
-                    self.l("} else {");
-                    self.nivel += 1;
+                if senao.is_empty() {
+                    self.aplicar_salto(desvio_senao, self.codigo.len());
+                } else {
+                    let fim = self.emitir_jmp();
+                    self.aplicar_salto(desvio_senao, self.codigo.len());
                     self.bloco(senao)?;
-                    self.nivel -= 1;
-                    self.l("}");
+                    self.aplicar_salto(fim, self.codigo.len());
                 }
             }
             InstrucaoIr::Enquanto { condicao, corpo } => {
-                let condicao_cpp = self.expr(condicao, None)?;
-                self.l(&format!("while ({condicao_cpp}) {{"));
-                self.nivel += 1;
+                let inicio = self.codigo.len();
+                self.expressao(condicao)?;
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let fim = self.emitir_jcc(0x84);
+                self.lacos.push(Laco { inicio, continuar: Some(inicio), saidas: Vec::new(), continuacoes: Vec::new() });
                 self.bloco(corpo)?;
-                self.nivel -= 1;
-                self.l("}");
+                let laco = self.lacos.pop().expect("laço ativo");
+                self.emitir_salto_para(inicio);
+                let destino_fim = self.codigo.len();
+                self.aplicar_salto(fim, destino_fim);
+                for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
+                for salto in laco.continuacoes { self.aplicar_salto(salto, inicio); }
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
-                let variaveis_anteriores = self.variaveis.clone();
-                let inicial_cpp = match inicial.as_deref() {
-                    Some(InstrucaoIr::Declarar { nome, tipo, valor, .. }) => {
-                        let valor_cpp = self.expr(valor, Some(tipo))?;
-                        self.variaveis.insert(nome.clone(), tipo.clone());
-                        format!("{} {} = {}", tipo_cpp(tipo)?, nome_cpp(nome), valor_cpp)
-                    }
-                    Some(InstrucaoIr::Expressao(expressao)) => self.expr(expressao, None)?,
-                    None => String::new(),
-                    _ => return Err("Inicializador de para não suportado.".into()),
-                };
-                let condicao_cpp = condicao.as_ref().map(|e| self.expr(e, None)).transpose()?.unwrap_or("true".into());
-                let atualizacao_cpp = atualizacao.as_ref().map(|e| self.expr(e, None)).transpose()?.unwrap_or_default();
-                self.l(&format!("for ({inicial_cpp}; {condicao_cpp}; {atualizacao_cpp}) {{"));
-                self.nivel += 1;
+                self.escopos.push(HashMap::new());
+                if let Some(inicial) = inicial { self.instrucao(inicial)?; }
+                let inicio_condicao = self.codigo.len();
+                let fim_condicao = if let Some(condicao) = condicao {
+                    self.expressao(condicao)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    Some(self.emitir_jcc(0x84))
+                } else { None };
+                self.lacos.push(Laco { inicio: inicio_condicao, continuar: None, saidas: Vec::new(), continuacoes: Vec::new() });
                 self.bloco(corpo)?;
-                self.nivel -= 1;
-                self.l("}");
-                self.variaveis = variaveis_anteriores;
+                let inicio_atualizacao = self.codigo.len();
+                if let Some(atualizacao) = atualizacao { self.expressao(atualizacao)?; }
+                let laco = self.lacos.pop().expect("laço ativo");
+                self.emitir_salto_para(inicio_condicao);
+                for salto in laco.continuacoes { self.aplicar_salto(salto, inicio_atualizacao); }
+                let destino_fim = self.codigo.len();
+                if let Some(salto) = fim_condicao { self.aplicar_salto(salto, destino_fim); }
+                for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
+                self.escopos.pop();
             }
-            InstrucaoIr::Devolver(valor) => {
-                let retorno_esperado = self.retorno.clone();
-                let valor_cpp = valor.as_ref().map(|e| self.expr(e, retorno_esperado.as_ref()).map(|v| format!(" {v}"))).transpose()?.unwrap_or_default();
-                self.l(&format!("return{valor_cpp};"));
+            InstrucaoIr::Parar => {
+                let salto = self.emitir_jmp();
+                self.lacos.last_mut().ok_or("parar fora de laço no backend.")?.saidas.push(salto);
             }
-            InstrucaoIr::Parar => self.l("break;"),
-            InstrucaoIr::Seguir => self.l("continue;"),
+            InstrucaoIr::Seguir => {
+                let salto = self.emitir_jmp();
+                self.lacos.last_mut().ok_or("seguir fora de laço no backend.")?.continuacoes.push(salto);
+            }
         }
         Ok(())
     }
 
-    fn tipo_expr(&self, expressao: &ExpressaoIr) -> Option<Tipo> {
+    fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
-            ExpressaoIr::Constante(valor) => match valor {
-                ValorIr::Inteiro(_) => Some(Tipo::Inteiro),
-                ValorIr::Decimal(_) => Some(Tipo::Decimal),
-                ValorIr::Logico(_) => Some(Tipo::Logico),
-                ValorIr::Texto(_) => Some(Tipo::Texto),
-                ValorIr::Caractere(_) => Some(Tipo::Caractere),
-                ValorIr::Lista(valores) => valores.first().and_then(|v| self.tipo_valor(v)).map(|t| Tipo::Lista(Box::new(t))),
-                _ => None,
-            },
-            ExpressaoIr::Variavel(nome) => self.variaveis.get(nome).cloned(),
-            ExpressaoIr::Lista(valores) => valores.first().and_then(|v| self.tipo_expr(v)).map(|t| Tipo::Lista(Box::new(t))),
-            ExpressaoIr::Unaria { valor, .. } => self.tipo_expr(valor),
-            ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
-                OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual | OperadorIr::E | OperadorIr::Ou => Some(Tipo::Logico),
-                _ => self.tipo_expr(esquerda),
-            },
-            ExpressaoIr::Atribuicao { nome, .. } => self.variaveis.get(nome).cloned(),
-            ExpressaoIr::Chamada { nome, .. } => self.assinaturas.get(nome).map(|(_, retorno)| retorno.clone()).or_else(|| if nome == "ler_texto" { Some(Tipo::Texto) } else { None }),
-            ExpressaoIr::Indexacao { alvo, .. } => match self.tipo_expr(alvo) { Some(Tipo::Lista(elemento)) => Some(*elemento), _ => None },
-            ExpressaoIr::ChamadaQualificada { .. } => None,
-        }
-    }
-
-    #[allow(clippy::only_used_in_recursion)]
-    fn tipo_valor(&self, valor: &ValorIr) -> Option<Tipo> {
-        match valor {
-            ValorIr::Inteiro(_) => Some(Tipo::Inteiro),
-            ValorIr::Decimal(_) => Some(Tipo::Decimal),
-            ValorIr::Logico(_) => Some(Tipo::Logico),
-            ValorIr::Texto(_) => Some(Tipo::Texto),
-            ValorIr::Caractere(_) => Some(Tipo::Caractere),
-            ValorIr::Lista(valores) => valores.first().and_then(|v| self.tipo_valor(v)).map(|t| Tipo::Lista(Box::new(t))),
-            _ => None,
-        }
-    }
-
-    fn expr(&mut self, expressao: &ExpressaoIr, esperado: Option<&Tipo>) -> Result<String, String> {
-        match expressao {
-            ExpressaoIr::Constante(valor) => self.valor(valor, esperado),
-            ExpressaoIr::Variavel(nome) => Ok(nome_cpp(nome)),
-            ExpressaoIr::Lista(valores) => {
-                let elemento = match esperado {
-                    Some(Tipo::Lista(elemento)) => (**elemento).clone(),
-                    _ => valores.first().and_then(|v| self.tipo_expr(v)).ok_or("Lista vazia exige tipo esperado.")?,
-                };
-                let itens = valores.iter().map(|v| self.expr(v, Some(&elemento))).collect::<Result<Vec<_>, _>>()?;
-                Ok(format!("std::vector<{}>{{{}}}", tipo_cpp(&elemento)?, itens.join(", ")))
+            ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
+                let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
+                self.mov_rax(valor);
+            }
+            ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
+            ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
+            ExpressaoIr::Constante(ValorIr::Decimal(_)
+                | ValorIr::Texto(_)
+                | ValorIr::Lista(_)
+                | ValorIr::Intervalo(_, _)
+                | ValorIr::IntervaloDecimal(_, _)
+                | ValorIr::Nulo
+                | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
+            ExpressaoIr::Constante(ValorIr::Caractere(_)) => return Err("Caractere não ASCII ainda não é suportado pelo alvo inicial.".into()),
+            ExpressaoIr::Variavel(nome) => {
+                let deslocamento = self.buscar(nome)?;
+                self.carregar_rax(deslocamento);
+            }
+            ExpressaoIr::Lista(_) | ExpressaoIr::Indexacao { .. } => {
+                return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
             }
             ExpressaoIr::Unaria { operador, valor } => {
-                let op = match operador {
-                    OperadorIr::Menos => "-",
-                    OperadorIr::Mais => "+",
-                    OperadorIr::Nao | OperadorIr::Negacao => "!",
+                self.expressao(valor)?;
+                match operador {
+                    OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]),
+                    OperadorIr::Nao | OperadorIr::Negacao => {
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x94, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                    }
+                    OperadorIr::Mais => {}
                     _ => return Err("Operador unário não suportado.".into()),
-                };
-                Ok(format!("({op}{})", self.expr(valor, None)?))
+                }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
-                let a = self.expr(esquerda, None)?;
-                let b = self.expr(direita, None)?;
-                if *operador == OperadorIr::Potencia { return Ok(format!("std::pow({a}, {b})")); }
-                let op = match operador {
-                    OperadorIr::Mais => "+",
-                    OperadorIr::Menos => "-",
-                    OperadorIr::Vezes => "*",
-                    OperadorIr::Divide => "/",
-                    OperadorIr::Resto => "%",
-                    OperadorIr::Igual => "==",
-                    OperadorIr::Diferente => "!=",
-                    OperadorIr::Menor => "<",
-                    OperadorIr::MenorIgual => "<=",
-                    OperadorIr::Maior => ">",
-                    OperadorIr::MaiorIgual => ">=",
-                    OperadorIr::E => "&&",
-                    OperadorIr::Ou => "||",
-                    _ => return Err("Operador binário não suportado.".into()),
-                };
-                Ok(format!("({a} {op} {b})"))
+                self.expressao(esquerda)?;
+                self.codigo.push(0x50); // push rax
+                self.expressao(direita)?;
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x58]); // rcx=rhs; rax=lhs
+                match operador {
+                    OperadorIr::Mais => self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]),
+                    OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]),
+                    OperadorIr::Vezes => self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]),
+                    OperadorIr::Divide | OperadorIr::Resto => {
+                        self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
+                        if *operador == OperadorIr::Resto { self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); }
+                    }
+                    OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual => {
+                        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
+                        let set = match operador {
+                            OperadorIr::Igual => 0x94, OperadorIr::Diferente => 0x95,
+                            OperadorIr::Menor => 0x9C, OperadorIr::MenorIgual => 0x9E,
+                            OperadorIr::Maior => 0x9F, OperadorIr::MaiorIgual => 0x9D,
+                            _ => unreachable!(),
+                        };
+                        self.codigo.extend_from_slice(&[0x0F, set, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                    }
+                    OperadorIr::E => self.codigo.extend_from_slice(&[0x48, 0x21, 0xC8]),
+                    OperadorIr::Ou => self.codigo.extend_from_slice(&[0x48, 0x09, 0xC8]),
+                    OperadorIr::Potencia | OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
+                        return Err("Operador ainda não implementado no backend nativo.".into());
+                    }
+                }
             }
             ExpressaoIr::Atribuicao { nome, valor } => {
-                let tipo = self.variaveis.get(nome).cloned();
-                Ok(format!("({} = {})", nome_cpp(nome), self.expr(valor, tipo.as_ref())?))
-            }
-            ExpressaoIr::Chamada { nome, argumentos } if nome == "exibir" => {
-                if argumentos.len() != 1 { return Err("exibir exige exatamente um argumento.".into()); }
-                Ok(format!("nb_exibir({})", self.expr(&argumentos[0], None)?))
-            }
-            ExpressaoIr::Chamada { nome, argumentos } if nome == "ler_texto" => {
-                if !argumentos.is_empty() { return Err("ler_texto não aceita argumentos.".into()); }
-                Ok("nb_ler_texto()".into())
+                self.expressao(valor)?;
+                let deslocamento = self.buscar(nome)?;
+                self.armazenar_rax(deslocamento);
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
-                let assinatura = self.assinaturas.get(nome).cloned();
-                let itens = argumentos.iter().enumerate().map(|(i, arg)| {
-                    self.expr(arg, assinatura.as_ref().and_then(|(params, _)| params.get(i)))
-                }).collect::<Result<Vec<_>, _>>()?;
-                Ok(format!("{}({})", nome_cpp(nome), itens.join(", ")))
+                if nome == "exibir" || nome == "ler_texto" {
+                    return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
+                }
+                if argumentos.len() > 6 {
+                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
+                }
+                for argumento in argumentos {
+                    self.expressao(argumento)?;
+                    self.codigo.push(0x50);
+                }
+                let registradores = [7u8, 6, 2, 1, 8, 9];
+                for indice in (0..argumentos.len()).rev() {
+                    self.codigo.push(0x58); // pop rax
+                    self.mover_rax_registrador(registradores[indice]);
+                }
+                let deslocamento = self.codigo.len() + 1;
+                self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
+                self.chamadas.push((deslocamento, nome.clone()));
             }
-            ExpressaoIr::Indexacao { alvo, indice } => {
-                Ok(format!("({}).at({})", self.expr(alvo, None)?, self.expr(indice, None)?))
-            }
-            ExpressaoIr::ChamadaQualificada { .. } => Err("Chamadas de módulos externos ainda não são suportadas pelo backend nativo.".into()),
+            ExpressaoIr::ChamadaQualificada { .. } => return Err("Chamadas de módulos ainda não são suportadas pelo backend nativo.".into()),
         }
+        Ok(())
     }
 
-    fn valor(&self, valor: &ValorIr, esperado: Option<&Tipo>) -> Result<String, String> {
-        match valor {
-            ValorIr::Inteiro(n) => Ok(n.to_string()),
-            ValorIr::Decimal(n) if n.is_finite() => Ok(format!("{n:?}")),
-            ValorIr::Logico(v) => Ok(v.to_string()),
-            ValorIr::Texto(v) => {
-                let mut bytes = String::new();
-                for byte in v.as_bytes() { let _ = write!(bytes, "\\{:03o}", byte); }
-                Ok(format!("std::string(\"{bytes}\")"))
-            }
-            ValorIr::Caractere(v) if v.is_ascii() => Ok(format!("'{}'", v.escape_default())),
-            ValorIr::Caractere(_) => Err("Caractere Unicode não ASCII ainda não possui representação char portável.".into()),
-            ValorIr::Lista(valores) => {
-                let elemento = match esperado {
-                    Some(Tipo::Lista(elemento)) => (**elemento).clone(),
-                    _ => valores.first().and_then(|v| self.tipo_valor(v)).ok_or("Lista vazia exige tipo esperado.")?,
-                };
-                let itens = valores.iter().map(|v| self.valor(v, Some(&elemento))).collect::<Result<Vec<_>, _>>()?;
-                Ok(format!("std::vector<{}>{{{}}}", tipo_cpp(&elemento)?, itens.join(", ")))
-            }
-            _ => Err("Literal ainda não suportado pelo backend nativo.".into()),
+    fn declarar(&mut self, nome: &str) -> Result<i32, String> {
+        if self.proximo_slot >= LIMITE_VARIAVEIS {
+            return Err("A função excedeu o limite inicial de variáveis locais.".into());
         }
+        self.proximo_slot += 1;
+        let deslocamento = -((self.proximo_slot * 8) as i32);
+        self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
+        Ok(deslocamento)
     }
+
+    fn buscar(&self, nome: &str) -> Result<i32, String> {
+        self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
+            .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))
+    }
+
+    fn mov_rax(&mut self, valor: i64) {
+        self.codigo.extend_from_slice(&[0x48, 0xB8]);
+        self.codigo.extend_from_slice(&valor.to_le_bytes());
+    }
+
+    fn armazenar_rax(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x85]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn carregar_rax(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x85]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn armazenar_registrador(&mut self, registrador: u8, deslocamento: i32) {
+        self.codigo.push(if registrador >= 8 { 0x4C } else { 0x48 });
+        self.codigo.extend_from_slice(&[0x89, 0x85 | ((registrador & 7) << 3)]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn mover_rax_registrador(&mut self, registrador: u8) {
+        let rex = if registrador >= 8 { 0x49 } else { 0x48 };
+        self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | ((registrador & 7) << 3)]);
+    }
+
+    fn emitir_jcc(&mut self, condicao: u8) -> usize {
+        self.codigo.extend_from_slice(&[0x0F, condicao]);
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        posicao
+    }
+
+    fn emitir_jmp(&mut self) -> usize {
+        self.codigo.push(0xE9);
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        posicao
+    }
+
+    fn emitir_salto_para(&mut self, destino: usize) {
+        let salto = self.emitir_jmp();
+        self.aplicar_salto(salto, destino);
+    }
+
+    fn aplicar_salto(&mut self, posicao: usize, destino: usize) {
+        let relativo = destino as i64 - (posicao + 4) as i64;
+        self.codigo[posicao..posicao + 4].copy_from_slice(&(relativo as i32).to_le_bytes());
+    }
+
+    fn finalizar(mut self) -> Result<Vec<u8>, String> {
+        for (posicao, nome) in self.chamadas {
+            let destino = self.funcoes.get(&nome)
+                .ok_or_else(|| format!("Função '{}' não foi encontrada durante a geração nativa.", nome))?;
+            let relativo = *destino as i64 - (posicao + 4) as i64;
+            let relativo = i32::try_from(relativo).map_err(|_| "Chamada fora do alcance relativo x86-64.")?;
+            self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
+        }
+        Ok(self.codigo)
+    }
+}
+
+fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
+    match tipo {
+        Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+        | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Byte => Ok(()),
+        _ => Err(format!("Tipo '{}' ainda não é suportado pelo backend sem runtime.", tipo.nome())),
+    }
+}
+
+fn gerar_elf(codigo: &[u8]) -> Vec<u8> {
+    let tamanho = TAMANHO_CABECALHO + codigo.len();
+    let mut elf = vec![0u8; TAMANHO_CABECALHO];
+    elf[0..4].copy_from_slice(b"\x7FELF");
+    elf[4] = 2; // ELFCLASS64
+    elf[5] = 1; // little endian
+    elf[6] = 1; // ELF version
+    elf[16..18].copy_from_slice(&2u16.to_le_bytes()); // ET_EXEC
+    elf[18..20].copy_from_slice(&62u16.to_le_bytes()); // EM_X86_64
+    elf[20..24].copy_from_slice(&1u32.to_le_bytes());
+    elf[24..32].copy_from_slice(&0x401000u64.to_le_bytes());
+    elf[32..40].copy_from_slice(&64u64.to_le_bytes()); // e_phoff
+    elf[52..54].copy_from_slice(&64u16.to_le_bytes());
+    elf[54..56].copy_from_slice(&56u16.to_le_bytes());
+    elf[56..58].copy_from_slice(&1u16.to_le_bytes());
+    // PT_LOAD: mapeia o arquivo inteiro em 0x400000, executável e legível.
+    let ph = 64;
+    elf[ph..ph + 4].copy_from_slice(&1u32.to_le_bytes());
+    elf[ph + 4..ph + 8].copy_from_slice(&5u32.to_le_bytes()); // PF_R | PF_X
+    elf[ph + 8..ph + 16].copy_from_slice(&0u64.to_le_bytes());
+    elf[ph + 16..ph + 24].copy_from_slice(&0x400000u64.to_le_bytes());
+    elf[ph + 24..ph + 32].copy_from_slice(&0x400000u64.to_le_bytes());
+    elf[ph + 32..ph + 40].copy_from_slice(&(tamanho as u64).to_le_bytes());
+    elf[ph + 40..ph + 48].copy_from_slice(&(tamanho as u64).to_le_bytes());
+    elf[ph + 48..ph + 56].copy_from_slice(&0x1000u64.to_le_bytes());
+    elf.extend_from_slice(codigo);
+    elf
 }
 
 #[cfg(test)]
 mod testes {
     use super::*;
-    fn programa() -> ProgramaIr {
+    use std::collections::HashMap;
+
+    fn programa_com_retorno(valor: i128) -> ProgramaIr {
         ProgramaIr {
-            instrucoes: vec![],
+            instrucoes: Vec::new(),
             funcoes: HashMap::from([("principal".into(), FuncaoIr {
-                nome: "principal".into(), parametros: vec![], retorno: Tipo::Vazio,
-                corpo: vec![
-                    InstrucaoIr::Declarar { nome: "xs".into(), tipo: Tipo::Lista(Box::new(Tipo::Inteiro)), valor: ExpressaoIr::Lista(vec![ExpressaoIr::Constante(ValorIr::Inteiro(7)), ExpressaoIr::Constante(ValorIr::Inteiro(8))]), constante: false },
-                    InstrucaoIr::Expressao(ExpressaoIr::Chamada { nome: "exibir".into(), argumentos: vec![ExpressaoIr::Indexacao { alvo: Box::new(ExpressaoIr::Variavel("xs".into())), indice: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(0))) }] }),
-                ],
+                nome: "principal".into(), parametros: Vec::new(), retorno: Tipo::Inteiro,
+                corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Constante(ValorIr::Inteiro(valor))))],
             })]),
             modulos: HashMap::new(),
         }
     }
+
     #[test]
-    fn gera_cpp17_com_ponto_de_entrada_e_listas() {
-        let cpp = gerar_cpp(&programa()).expect("C++ válido");
-        assert!(cpp.contains("int main()"));
-        assert!(cpp.contains("std::vector<std::int64_t>"));
-        assert!(cpp.contains(".at(0)"));
+    fn produz_cabecalho_elf64_linux_x86_64() {
+        let binario = gerar_executavel(&programa_com_retorno(7)).unwrap();
+        assert_eq!(&binario[..4], b"\x7FELF");
+        assert_eq!(binario[4], 2);
+        assert_eq!(binario[5], 1);
+        assert_eq!(u16::from_le_bytes([binario[18], binario[19]]), 62);
+        assert_eq!(u64::from_le_bytes(binario[24..32].try_into().unwrap()), 0x401000);
     }
+
     #[test]
-    fn rejeita_tipo_sem_abi_estavel() {
-        assert!(tipo_cpp(&Tipo::Inteiro128).is_err());
+    fn gera_codigo_de_retorno_sem_compilador_externo() {
+        let binario = gerar_executavel(&programa_com_retorno(42)).unwrap();
+        assert!(binario.len() > TAMANHO_CABECALHO);
+        assert!(binario[TAMANHO_CABECALHO..].windows(2).any(|janela| janela == [0x0F, 0x05]));
+    }
+
+    #[test]
+    fn rejeita_recurso_que_exige_runtime_ainda_nao_implementado() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Expressao(ExpressaoIr::Chamada { nome: "exibir".into(), argumentos: vec![ExpressaoIr::Constante(ValorIr::Inteiro(1))] })
+        ];
+        assert!(gerar_executavel(&programa).unwrap_err().contains("runtime"));
+    }
+
+    #[test]
+    fn rejeita_tipo_nao_suportado_sem_fingir_implementacao() {
+        assert!(validar_tipo(&Tipo::Texto).is_err());
+        assert!(validar_tipo(&Tipo::Inteiro).is_ok());
     }
 }
-}
-pub use implementacao::gerar_cpp;
