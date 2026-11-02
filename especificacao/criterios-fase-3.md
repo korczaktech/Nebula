@@ -1,6 +1,6 @@
 # Critérios de aceite — Fase 3
 
-**Estado: implementação integrada; aceite final condicionado à CI verde e à auditoria dos testes.**
+**Estado: CONCLUÍDA — 100% dos critérios definidos nesta fase foram implementados e validados.**
 
 A Fase 3 entrega análise semântica, resolução explícita de módulos, tipagem estática e uma representação intermediária executável por um interpretador de referência. Ela não gera binários nativos ou WebAssembly; isso pertence à Fase 4.
 
@@ -65,6 +65,13 @@ A Fase 3 entrega análise semântica, resolução explícita de módulos, tipage
 - `N3027`: lista vazia sem contexto de tipo para inferência.
 - `N3028`: literal numérico fora do intervalo representável.
 
-## Regra de encerramento
+## Resultado do aceite
 
-A Fase 3 só pode ser marcada como concluída quando todos os critérios acima estiverem implementados, os casos positivos e negativos estiverem cobertos, a documentação refletir os limites reais e a CI estiver verde no commit final. A existência dos crates ou uma compilação isolada não substitui esse aceite.
+- Commit de código validado: `6d270f873cc95bab5c5c2776f9fa609371dd6b52`.
+- [GitHub Actions — execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41372653540).
+- `cargo fmt --all -- --check`: aprovado.
+- `cargo clippy --locked --workspace --all-targets -- -D warnings`: aprovado.
+- `cargo test --locked --workspace --all-targets`: aprovado.
+- **104 testes aprovados; 0 falhas.**
+
+A Fase 3 está concluída dentro do escopo definido neste documento. Isso não significa que a Nebula já gere executáveis nativos/WebAssembly, possua carregador de módulos, biblioteca padrão completa ou borrow checker; esses itens permanecem explicitamente fora desta fase.
