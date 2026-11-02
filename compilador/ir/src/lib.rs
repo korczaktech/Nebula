@@ -126,6 +126,11 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
     let mut lowerer = Lowerer {
         diagnosticos: Vec::new(),
         aliases,
+        tipos_agregados: programa.itens.iter().filter_map(|item| match item {
+            NoAst::Estrutura { nome, .. } => Some((nome.clone(), Tipo::Estrutura(nome.clone()))),
+            NoAst::Enumeracao { nome, .. } => Some((nome.clone(), Tipo::Enumeracao(nome.clone()))),
+            _ => None,
+        }).collect(),
         assinaturas_funcoes,
         modulos_importados: modulos_importados.clone(),
         genericas,
@@ -195,6 +200,7 @@ struct FuncaoGenericaAst {
 struct Lowerer {
     diagnosticos: Vec<String>,
     aliases: HashMap<String, String>,
+    tipos_agregados: HashMap<String, Tipo>,
     assinaturas_funcoes: HashMap<String, (Vec<String>, Option<String>)>,
     modulos_importados: HashMap<String, String>,
     genericas: HashMap<String, FuncaoGenericaAst>,
@@ -235,7 +241,7 @@ impl Lowerer {
                     _ => Tipo::Desconhecido,
                 }
             }
-            _ => self.aliases.get(nome).map_or(Tipo::Desconhecido, |destino| self.tipo(destino)),
+            _ => self.tipos_agregados.get(nome).cloned().unwrap_or_else(|| self.aliases.get(nome).map_or(Tipo::Desconhecido, |destino| self.tipo(destino))),
         }
     }
 
@@ -566,6 +572,8 @@ fn nome_tipo(tipo: &Tipo) -> String {
         Tipo::Opcional(interno) => format!("Opcional<{}>", nome_tipo(interno)),
         Tipo::Resultado(ok, erro) => format!("Resultado<{},{}>", nome_tipo(ok), nome_tipo(erro)),
         Tipo::Tupla(tipos) => format!("Tupla<{}>", tipos.iter().map(nome_tipo).collect::<Vec<_>>().join(",")),
+        Tipo::Estrutura(nome) => nome.clone(),
+        Tipo::Enumeracao(nome) => nome.clone(),
         Tipo::Intervalo(interno) => format!("Intervalo<{}>", nome_tipo(interno)),
         Tipo::Funcao(_, _) | Tipo::Parametro(_) | Tipo::Desconhecido => "desconhecido".into(),
     }
