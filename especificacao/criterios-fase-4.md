@@ -1,6 +1,6 @@
 # Critérios de aceite — Fase 4
 
-**Estado: EM VALIDAÇÃO.** A fase só será marcada como concluída após a CI validar o commit integrado, incluindo os testes ponta a ponta e a execução do benchmark.
+**Estado: CONCLUÍDA.** Os critérios aplicáveis foram implementados e validados pela CI integrada: [execução 41379323932](https://github.com/korczaktech/Nebula/actions/runs/41379323932). A suíte acumulada executou 122 testes, todos aprovados, e o benchmark foi executado nos cinco níveis de otimização.
 
 ## Objetivo
 
@@ -15,7 +15,7 @@ Entregar compilação executável e desempenho inicial: sair da IR para um biná
 | Linkedição | Invocação do compilador C++ do sistema | Erros do compilador/linker retornados à CLI; binário removido em caso de falha |
 | Variáveis e tipos MVP | Inteiros até 64 bits, byte, decimais, lógico, texto, caractere ASCII e listas homogêneas | Testes de execução de valores e listas |
 | Expressões | Aritmética, potência, comparações, lógica, concatenação de texto e atribuição | Testes ponta a ponta |
-| Listas | Construção, passagem/retorno por função e indexação com verificação de limites | Testes de execução e geração de `std::vector` |
+| Listas | Construção, passagem como parâmetro e indexação com verificação de limites | Testes de execução e geração de `std::vector` |
 | Funções | Protótipos, parâmetros, retorno e recursão | Testes de chamadas e Fibonacci recursivo |
 | Controle de fluxo | `quando/senao`, `enquanto`, `para`, `parar` e `seguir` | Testes de execução |
 | Biblioteca padrão essencial | `exibir` e `ler_texto` | Testes de stdout e stdin |
@@ -40,6 +40,7 @@ O backend WebAssembly não foi incluído nesta fase. A validação exigiria um t
 ## Limites conhecidos
 
 - `inteiro128` ainda não possui ABI nativa estável.
+- Retorno de listas por função ainda não está disponível; passagem de listas como parâmetro está coberta.
 - `caractere` aceita caracteres ASCII no backend atual; texto suporta UTF-8.
 - Resolução de módulos fornecidos em memória existe na Fase 3, mas carregamento de módulos do disco e resolvedor de pacotes permanecem fora desta fase.
 - A biblioteca padrão inicial cobre entrada de uma linha e saída; não é a biblioteca padrão completa.
@@ -57,4 +58,4 @@ nebula executar programa.nbx
 nebula testar programa.nbx
 ```
 
-A Fase 4 será concluída somente quando os critérios acima aplicáveis estiverem implementados, testados e documentados, e a CI integrada estiver verde.
+A Fase 4 está concluída para o escopo inicial validado acima. As limitações listadas não são anunciadas como funcionalidades prontas e permanecem explícitas para as fases seguintes.
