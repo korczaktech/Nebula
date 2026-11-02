@@ -356,7 +356,10 @@ mod testes {
         let ativo = alocador.alocar(4).unwrap();
         alocador.limpar();
         let novo = alocador.alocar(4).unwrap();
-        assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.ler(antigo, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
         assert_eq!(
             alocador.ler(ativo, 0, 1),
             Err(ErroAlocador::IdentificadorInvalido)
