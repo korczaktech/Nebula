@@ -5,6 +5,7 @@
 //! remove blocos vazios. Nenhuma transformação elimina expressões com efeitos.
 
 use crate::{ExpressaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
+use std::collections::HashMap;
 
 /// Nível de otimização solicitado.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
