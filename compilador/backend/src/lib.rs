@@ -832,12 +832,6 @@ mod testes {
         assert!(validar_tipo(&Tipo::Inteiro8).is_err());
         assert!(validar_tipo(&Tipo::Byte).is_err());
     }
-}
-
-#[cfg(test)]
-mod testes_codificacao {
-    use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn codifica_instrucoes_basicas_com_bytes_x86_64_esperados() {
@@ -955,6 +949,8 @@ mod testes_codificacao {
         assert!(gerar_executavel(&programa).is_ok());
     }
 }
+
+
 
 
 }
