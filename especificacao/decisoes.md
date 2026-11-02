@@ -62,3 +62,17 @@ Resultados de desempenho só podem ser anunciados com benchmarks reproduzíveis 
 10. Licença de distribuição do projeto.
 
 Essas questões devem ser decididas antes de estabilizar as áreas correspondentes. A Fase 1 não deve inventar decisões irreversíveis para tópicos que ainda precisam de projeto e validação.
+
+
+## Decisões arquiteturais da reestruturação da Fase 4
+
+| Tema | Decisão | Consequência |
+|---|---|---|
+| Backend nativo | Gerar instruções de máquina e executável diretamente em Rust | Não gerar C/C++ nem assembly textual |
+| Dependências de toolchain | Não exigir compilador C/C++, LLVM, Cranelift, assembler ou linker externo | A CLI não delega a compilação nativa a outra ferramenta |
+| Primeiro alvo | Linux x86-64, ELF64 | O backend rejeita alvos ainda não implementados |
+| Runtime | Não antecipar sua implementação | Recursos de biblioteca padrão e I/O aguardam a etapa definida |
+| Otimizador | Implementar somente após os recursos-base do compilador | Não oferecer níveis de otimização delegados a ferramentas externas |
+| Testes do backend | Testes unitários Rust e integração executando os executáveis produzidos | Nenhum teste depende de código C++17 |
+
+O backend nativo inicial é um gerador de código de máquina próprio. A implementação ainda está em desenvolvimento e não implica que todos os tipos, instruções, recursos de memória ou alvos estejam prontos.
