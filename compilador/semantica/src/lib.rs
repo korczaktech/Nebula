@@ -459,8 +459,24 @@ impl<'a> Analisador<'a> {
                             Tipo::Desconhecido
                         }
                     }
+                    Expressao::Membro { .. } => {
+                        let tipo_destino = self.expressao(destino);
+                        let mut raiz = destino.as_ref();
+                        while let Expressao::Membro { alvo, operador: TipoToken::Ponto, .. } = raiz {
+                            raiz = alvo;
+                        }
+                        if let Expressao::Nome(nome) = raiz {
+                            if let Some(simbolo) = self.buscar(nome).cloned() {
+                                if !simbolo.mutavel {
+                                    self.erro("N3009", format!("Não é permitido alterar campos da constante '{nome}'."));
+                                }
+                            }
+                        }
+                        self.exigir_expressao_tipo(valor, &tipo_valor, &tipo_destino, "atribuição de campo");
+                        tipo_destino
+                    }
                     _ => {
-                        self.erro("N3010", "O destino da atribuição precisa ser uma variável modificável.");
+                        self.erro("N3010", "O destino da atribuição precisa ser uma variável ou campo modificável.");
                         Tipo::Desconhecido
                     }
                 }
