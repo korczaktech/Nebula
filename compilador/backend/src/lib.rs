@@ -280,6 +280,7 @@ impl Emissor {
                         };
                         self.codigo.extend_from_slice(&[0x0F, set, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                     }
+                    OperadorIr::E | OperadorIr::Ou => unreachable!(),
                     OperadorIr::Potencia | OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
                         return Err("Operador ainda não implementado no backend nativo.".into());
                     }
