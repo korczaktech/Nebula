@@ -129,6 +129,15 @@ fn divisao_por_zero_termina_com_codigo_de_erro_estavel() {
 }
 
 #[test]
+fn overflow_de_divisao_signed_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-divisao",
+        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver minimo / -1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
 fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "expoente-negativo",
