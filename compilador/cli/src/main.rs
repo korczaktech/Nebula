@@ -284,7 +284,7 @@ fn ajuda() {
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
     println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");
     println!("'interpretar' usa o runtime de referência; 'executar' usa o backend nativo.");
-    println!("O alvo inicial ainda não inclui runtime, entrada/saída, strings ou coleções.");
+    println!("O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.");
 }
 
 fn mostrar_ir(caminho: &Path) {
