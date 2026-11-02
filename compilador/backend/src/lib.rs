@@ -528,12 +528,21 @@ impl Emissor {
             self.erro_salto = Some("Relocação de salto aponta para fora do código gerado.".into());
             return;
         }
-        let relativo = i128::try_from(destino).ok()
-            .zip(i128::try_from(fim_operando).ok())
-            .and_then(|(destino, origem)| destino.checked_sub(origem));
-        let Some(relativo) = relativo.and_then(|valor| i32::try_from(valor).ok()) else {
-            self.erro_salto = Some("Salto fora do alcance relativo de 32 bits do x86-64.".into());
+        if destino > self.codigo.len() {
+            self.erro_salto = Some("Destino de salto aponta para fora do código gerado.".into());
             return;
+        }
+        let origem = match i128::try_from(fim_operando) {
+            Ok(valor) => valor,
+            Err(_) => { self.erro_salto = Some("Origem de salto excedeu o limite do alvo.".into()); return; }
+        };
+        let destino = match i128::try_from(destino) {
+            Ok(valor) => valor,
+            Err(_) => { self.erro_salto = Some("Destino de salto excedeu o limite do alvo.".into()); return; }
+        };
+        let relativo = match calcular_relativo32(origem, destino) {
+            Ok(valor) => valor,
+            Err(erro) => { self.erro_salto = Some(erro); return; }
         };
         self.codigo[posicao..fim_operando].copy_from_slice(&relativo.to_le_bytes());
     }
@@ -543,8 +552,12 @@ impl Emissor {
         for (posicao, nome) in self.chamadas {
             let destino = self.funcoes.get(&nome)
                 .ok_or_else(|| format!("Função '{}' não foi encontrada durante a geração nativa.", nome))?;
-            let relativo = *destino as i64 - (posicao + 4) as i64;
-            let relativo = i32::try_from(relativo).map_err(|_| "Chamada fora do alcance relativo x86-64.")?;
+            let fim_referencia = posicao.checked_add(4)
+                .ok_or("Posição de chamada excedeu o limite do alvo.")?;
+            let relativo = calcular_relativo32(
+                i128::try_from(fim_referencia).map_err(|_| "Origem de chamada excedeu o limite do alvo.")?,
+                i128::try_from(*destino).map_err(|_| "Destino de chamada excedeu o limite do alvo.")?,
+            )?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
 
@@ -565,7 +578,7 @@ impl Emissor {
             let origem = 0x401000u64.checked_add(u64::try_from(fim_referencia)
                 .map_err(|_| "Posição de referência global excedeu o limite ELF64.")?)
                 .ok_or("Endereço da instrução excedeu o limite ELF64.")?;
-            let relativo = i32::try_from(i128::from(destino) - i128::from(origem))
+            let relativo = calcular_relativo32(i128::from(origem), i128::from(destino))
                 .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
@@ -573,6 +586,13 @@ impl Emissor {
             .ok_or("Tamanho dos dados globais excedeu o limite do alvo.")?;
         Ok((self.codigo, tamanho_dados))
     }
+}
+
+fn calcular_relativo32(origem_apos_campo: i128, destino: i128) -> Result<i32, String> {
+    let relativo = destino.checked_sub(origem_apos_campo)
+        .ok_or("Deslocamento relativo excedeu o limite aritmético do alvo.")?;
+    i32::try_from(relativo)
+        .map_err(|_| "Deslocamento fora do alcance relativo de 32 bits do x86-64.".into())
 }
 
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
@@ -834,12 +854,20 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_salto_com_deslocamento_fora_de_i32() {
+    fn rejeita_deslocamentos_relativos_fora_de_i32() {
+        assert!(calcular_relativo32(4, i128::from(i32::MAX) + 5).is_err());
+        assert!(calcular_relativo32(i128::from(i32::MAX) + 5, 0).is_err());
+        assert_eq!(calcular_relativo32(4, i128::from(i32::MAX) + 4).unwrap(), i32::MAX);
+        assert_eq!(calcular_relativo32(i128::from(i32::MAX) + 5, 5).unwrap(), i32::MIN);
+    }
+
+    #[test]
+    fn rejeita_destino_de_salto_fora_do_codigo_gerado() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.codigo.extend_from_slice(&[0xE9, 0, 0, 0, 0]);
-        emissor.aplicar_salto(1, i32::MAX as usize + 6);
+        emissor.aplicar_salto(1, 6);
         let erro = emissor.finalizar().unwrap_err();
-        assert!(erro.contains("alcance relativo de 32 bits"));
+        assert!(erro.contains("fora do código gerado"));
     }
 
     #[test]
