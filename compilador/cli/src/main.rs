@@ -847,6 +847,37 @@ mod testes {
     }
 
     #[test]
+    fn rejeita_travessia_no_caminho_de_modulo() {
+        let origem = std::env::temp_dir().join("principal.nbx");
+        assert!(resolver_arquivo_modulo(&origem, "..::segredo").is_err());
+        assert!(resolver_arquivo_modulo(&origem, "/tmp/segredo").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejeita_modulo_por_symlink_fora_da_raiz() {
+        use std::os::unix::fs::symlink;
+
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-symlink-modulo-{}-{sufixo}",
+            std::process::id()
+        ));
+        let raiz = diretorio.join("projeto");
+        std::fs::create_dir_all(&raiz).unwrap();
+        let externo = diretorio.join("externo.nbx");
+        std::fs::write(&externo, "publico funcao vazia() {}").unwrap();
+        symlink(&externo, raiz.join("Externo.nbx")).unwrap();
+
+        let origem = raiz.join("principal.nbx");
+        assert!(resolver_arquivo_modulo(&origem, "Externo").is_err());
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[test]
     fn interpreta_modulo_local_com_funcao_publica_e_auxiliar_privada() {
         let diretorio = std::env::temp_dir().join(format!("nebula-modulo-{}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
