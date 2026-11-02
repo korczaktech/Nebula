@@ -614,6 +614,17 @@ mod testes {
     }
 
     #[test]
+    fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
+        let mut ir = compilar("constante limite = 9");
+        ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+            nome: "limite".into(),
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(10))),
+        }));
+        let erro = executar(&ir, 100).expect_err("constante não pode ser alterada");
+        assert!(erro.contains("VariavelImutavel"), "{erro}");
+    }
+
+    #[test]
     fn baixa_declaracoes_e_expressoes() {
         let ir = compilar("variavel total = 1 + 2");
         assert_eq!(ir.instrucoes.len(), 1);
