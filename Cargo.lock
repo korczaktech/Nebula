@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "nebula-fonte",
  "nebula-sintaxe",
+ "nebula-semantica",
 ]
 
 [[package]]
@@ -20,6 +21,14 @@ dependencies = [
 [[package]]
 name = "nebula-fonte"
 version = "0.1.0"
+
+[[package]]
+name = "nebula-semantica"
+version = "0.1.0"
+dependencies = [
+ "nebula-diagnosticos",
+ "nebula-sintaxe",
+]
 
 [[package]]
 name = "nebula-sintaxe"
