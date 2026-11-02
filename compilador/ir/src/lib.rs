@@ -453,7 +453,7 @@ impl Maquina<'_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
-                self.memoria.abrir_escopo();
+                self.memoria_mutavel()?.abrir_escopo();
                 let resultado = (|| {
                     if let Some(inicial) = inicial { let _ = self.instrucao(inicial)?; }
                     let mut fluxo_final = Fluxo::Normal;
@@ -475,7 +475,7 @@ impl Maquina<'_> {
                     }
                     Ok(fluxo_final)
                 })();
-                let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+                let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
                 match (resultado, fechamento) {
                     (Err(erro), _) => Err(erro),
                     (Ok(_), Err(erro)) => Err(erro),
