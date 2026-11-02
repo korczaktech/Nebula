@@ -1406,6 +1406,24 @@ mod testes {
     }
 
     #[test]
+    fn construi_estrutura_e_le_campos_no_runtime() {
+        let ir = compilar(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
+        );
+        let resultado = executar(&ir, 100).expect("estrutura executável");
+        assert_eq!(resultado.saida, vec!["Lia", "28"]);
+    }
+
+    #[test]
+    fn estrutura_aninhada_le_campo_da_estrutura_interna() {
+        let ir = compilar(
+            "estrutura Endereco { cidade: texto }\nestrutura Pessoa { endereco: Endereco }\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
+        );
+        let resultado = executar(&ir, 100).expect("estrutura aninhada executável");
+        assert_eq!(resultado.saida, vec!["Recife"]);
+    }
+
+    #[test]
     fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
         let mut ir = compilar("constante limite = 9");
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
