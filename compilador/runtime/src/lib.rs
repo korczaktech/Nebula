@@ -1119,164 +1119,170 @@ mod testes {
 
 
 
-/// Estado do ciclo de vida de uma instância do runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EstadoRuntime {
-    /// Instância aceita operações e novos finalizadores.
-    Ativo,
-    /// Finalizadores foram executados; a instância não pode ser reativada.
-    Finalizado,
-}
-
-type AcaoFinalizacao = Box<dyn FnOnce() -> Resultado<()> + Send + 'static>;
-
-/// Contexto de execução que centraliza memória e encerramento determinístico.
-///
-/// Finalizadores são executados em ordem LIFO, como pilhas de escopo. Mesmo
-/// quando um finalizador falha, os demais são executados; o primeiro erro é
-/// retornado ao chamador. A finalização é idempotente.
-pub struct ContextoRuntime {
-    memoria: Memoria,
-    finalizadores: Vec<AcaoFinalizacao>,
-    estado: EstadoRuntime,
-}
-
-impl Default for ContextoRuntime {
-    fn default() -> Self {
-        Self::novo()
+#[rustfmt::skip]
+mod ciclo_vida {
+    use super::*;
+    /// Estado do ciclo de vida de uma instância do runtime.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum EstadoRuntime {
+        /// Instância aceita operações e novos finalizadores.
+        Ativo,
+        /// Finalizadores foram executados; a instância não pode ser reativada.
+        Finalizado,
     }
-}
-
-impl ContextoRuntime {
-    /// Cria um contexto ativo com memória global independente.
-    #[must_use]
-    pub fn novo() -> Self {
-        Self {
-            memoria: Memoria::nova(),
-            finalizadores: Vec::new(),
-            estado: EstadoRuntime::Ativo,
-        }
-    }
-
-    /// Consulta o estado atual do contexto.
-    #[must_use]
-    pub fn estado(&self) -> EstadoRuntime {
-        self.estado
-    }
-
-    /// Obtém acesso compartilhado à memória do contexto.
-    #[must_use]
-    pub fn memoria(&self) -> &Memoria {
-        &self.memoria
-    }
-
-    /// Obtém acesso mutável à memória do contexto enquanto ele estiver ativo.
-    pub fn memoria_mutavel(&mut self) -> Resultado<&mut Memoria> {
-        if self.estado != EstadoRuntime::Ativo {
-            return Err(ErroRuntime::RuntimeFinalizado);
-        }
-        Ok(&mut self.memoria)
-    }
-
-    /// Registra uma ação de encerramento, executada em ordem inversa.
-    pub fn registrar_finalizador<F>(&mut self, acao: F) -> Resultado<()>
-    where
-        F: FnOnce() -> Resultado<()> + Send + 'static,
-    {
-        if self.estado != EstadoRuntime::Ativo {
-            return Err(ErroRuntime::RuntimeFinalizado);
-        }
-        self.finalizadores.push(Box::new(acao));
-        Ok(())
-    }
-
-    /// Executa todos os finalizadores em ordem LIFO.
+    
+    type AcaoFinalizacao = Box<dyn FnOnce() -> Resultado<()> + Send + 'static>;
+    
+    /// Contexto de execução que centraliza memória e encerramento determinístico.
     ///
-    /// A função continua a limpeza após falhas e retorna o primeiro erro
-    /// encontrado. Chamadas subsequentes não repetem ações já executadas.
-    pub fn finalizar(&mut self) -> Resultado<()> {
-        if self.estado == EstadoRuntime::Finalizado {
-            return Ok(());
+    /// Finalizadores são executados em ordem LIFO, como pilhas de escopo. Mesmo
+    /// quando um finalizador falha, os demais são executados; o primeiro erro é
+    /// retornado ao chamador. A finalização é idempotente.
+    pub struct ContextoRuntime {
+        memoria: Memoria,
+        finalizadores: Vec<AcaoFinalizacao>,
+        estado: EstadoRuntime,
+    }
+    
+    impl Default for ContextoRuntime {
+        fn default() -> Self {
+            Self::novo()
         }
-        self.estado = EstadoRuntime::Finalizado;
-        let mut primeiro_erro = None;
-        while let Some(finalizador) = self.finalizadores.pop() {
-            if let Err(erro) = finalizador() {
-                if primeiro_erro.is_none() {
-                    primeiro_erro = Some(erro);
-                }
+    }
+    
+    impl ContextoRuntime {
+        /// Cria um contexto ativo com memória global independente.
+        #[must_use]
+        pub fn novo() -> Self {
+            Self {
+                memoria: Memoria::nova(),
+                finalizadores: Vec::new(),
+                estado: EstadoRuntime::Ativo,
             }
         }
-        primeiro_erro.map_or(Ok(()), Err)
+    
+        /// Consulta o estado atual do contexto.
+        #[must_use]
+        pub fn estado(&self) -> EstadoRuntime {
+            self.estado
+        }
+    
+        /// Obtém acesso compartilhado à memória do contexto.
+        #[must_use]
+        pub fn memoria(&self) -> &Memoria {
+            &self.memoria
+        }
+    
+        /// Obtém acesso mutável à memória do contexto enquanto ele estiver ativo.
+        pub fn memoria_mutavel(&mut self) -> Resultado<&mut Memoria> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            Ok(&mut self.memoria)
+        }
+    
+        /// Registra uma ação de encerramento, executada em ordem inversa.
+        pub fn registrar_finalizador<F>(&mut self, acao: F) -> Resultado<()>
+        where
+            F: FnOnce() -> Resultado<()> + Send + 'static,
+        {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            self.finalizadores.push(Box::new(acao));
+            Ok(())
+        }
+    
+        /// Executa todos os finalizadores em ordem LIFO.
+        ///
+        /// A função continua a limpeza após falhas e retorna o primeiro erro
+        /// encontrado. Chamadas subsequentes não repetem ações já executadas.
+        pub fn finalizar(&mut self) -> Resultado<()> {
+            if self.estado == EstadoRuntime::Finalizado {
+                return Ok(());
+            }
+            self.estado = EstadoRuntime::Finalizado;
+            let mut primeiro_erro = None;
+            while let Some(finalizador) = self.finalizadores.pop() {
+                if let Err(erro) = finalizador() {
+                    if primeiro_erro.is_none() {
+                        primeiro_erro = Some(erro);
+                    }
+                }
+            }
+            primeiro_erro.map_or(Ok(()), Err)
+        }
     }
-}
-
-#[cfg(test)]
-mod testes_ciclo_vida {
-    use super::*;
-    use std::sync::{Arc, Mutex};
-
-    #[test]
-    fn contexto_finaliza_em_ordem_lifo_e_apenas_uma_vez() {
-        let ordem = Arc::new(Mutex::new(Vec::new()));
-        let mut contexto = ContextoRuntime::novo();
-        for valor in 1..=3 {
-            let ordem = Arc::clone(&ordem);
+    
+    #[cfg(test)]
+    mod testes_ciclo_vida {
+        use super::*;
+        use std::sync::{Arc, Mutex};
+    
+        #[test]
+        fn contexto_finaliza_em_ordem_lifo_e_apenas_uma_vez() {
+            let ordem = Arc::new(Mutex::new(Vec::new()));
+            let mut contexto = ContextoRuntime::novo();
+            for valor in 1..=3 {
+                let ordem = Arc::clone(&ordem);
+                contexto
+                    .registrar_finalizador(move || {
+                        ordem.lock().unwrap().push(valor);
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+            contexto.finalizar().unwrap();
+            contexto.finalizar().unwrap();
+            assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
+            assert_eq!(contexto.estado(), EstadoRuntime::Finalizado);
+        }
+    
+        #[test]
+        fn contexto_continua_finalizacao_apos_erro() {
+            let ordem = Arc::new(Mutex::new(Vec::new()));
+            let mut contexto = ContextoRuntime::novo();
+            let ordem_mais_antiga = Arc::clone(&ordem);
             contexto
                 .registrar_finalizador(move || {
-                    ordem.lock().unwrap().push(valor);
+                    ordem_mais_antiga.lock().unwrap().push(1);
                     Ok(())
                 })
                 .unwrap();
+            let ordem_com_falha = Arc::clone(&ordem);
+            contexto
+                .registrar_finalizador(move || {
+                    ordem_com_falha.lock().unwrap().push(2);
+                    Err(ErroRuntime::FalhaTarefa)
+                })
+                .unwrap();
+            let ordem_mais_nova = Arc::clone(&ordem);
+            contexto
+                .registrar_finalizador(move || {
+                    ordem_mais_nova.lock().unwrap().push(3);
+                    Ok(())
+                })
+                .unwrap();
+    
+            assert_eq!(contexto.finalizar(), Err(ErroRuntime::FalhaTarefa));
+            assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
+            assert_eq!(contexto.finalizar(), Ok(()));
         }
-        contexto.finalizar().unwrap();
-        contexto.finalizar().unwrap();
-        assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
-        assert_eq!(contexto.estado(), EstadoRuntime::Finalizado);
-    }
-
-    #[test]
-    fn contexto_continua_finalizacao_apos_erro() {
-        let ordem = Arc::new(Mutex::new(Vec::new()));
-        let mut contexto = ContextoRuntime::novo();
-        let ordem_mais_antiga = Arc::clone(&ordem);
-        contexto
-            .registrar_finalizador(move || {
-                ordem_mais_antiga.lock().unwrap().push(1);
-                Ok(())
-            })
-            .unwrap();
-        let ordem_com_falha = Arc::clone(&ordem);
-        contexto
-            .registrar_finalizador(move || {
-                ordem_com_falha.lock().unwrap().push(2);
-                Err(ErroRuntime::FalhaTarefa)
-            })
-            .unwrap();
-        let ordem_mais_nova = Arc::clone(&ordem);
-        contexto
-            .registrar_finalizador(move || {
-                ordem_mais_nova.lock().unwrap().push(3);
-                Ok(())
-            })
-            .unwrap();
-
-        assert_eq!(contexto.finalizar(), Err(ErroRuntime::FalhaTarefa));
-        assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
-        assert_eq!(contexto.finalizar(), Ok(()));
-    }
-
-    #[test]
-    fn contexto_rejeita_registro_e_acesso_mutavel_apos_finalizacao() {
-        let mut contexto = ContextoRuntime::novo();
-        contexto.finalizar().unwrap();
-        assert_eq!(
-            contexto.registrar_finalizador(|| Ok(())),
-            Err(ErroRuntime::RuntimeFinalizado)
-        );
-        assert!(matches!(
-            contexto.memoria_mutavel(),
-            Err(ErroRuntime::RuntimeFinalizado)
-        ));
+    
+        #[test]
+        fn contexto_rejeita_registro_e_acesso_mutavel_apos_finalizacao() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.finalizar().unwrap();
+            assert_eq!(
+                contexto.registrar_finalizador(|| Ok(())),
+                Err(ErroRuntime::RuntimeFinalizado)
+            );
+            assert!(matches!(
+                contexto.memoria_mutavel(),
+                Err(ErroRuntime::RuntimeFinalizado)
+            ));
+        }
     }
 }
+
+pub use ciclo_vida::*;
