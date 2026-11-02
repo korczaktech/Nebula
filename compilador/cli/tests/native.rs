@@ -68,3 +68,33 @@ fn rejeita_codigo_semantica_ou_sintaticamente_invalido() {
     assert!(!exe.exists());
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn compila_texto_utf8_do_exemplo_oficial() {
+    let origem = arquivo_temporario("texto");
+    fs::write(&origem, include_str!("../../../exemplos/ola_mundo.nbx")).unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar")
+        .arg(&origem)
+        .output()
+        .unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Olá, Nebula!");
+    let _ = fs::remove_file(origem);
+}
+
+#[test]
+#[rustfmt::skip]
+fn compila_e_executa_laco_do_benchmark() {
+    let origem = arquivo_temporario("benchmark");
+    fs::write(&origem, include_str!("../../../benchmarks/loop.nbx")).unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar")
+        .arg(&origem)
+        .output()
+        .unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "499999500000");
+    let _ = fs::remove_file(origem);
+}
