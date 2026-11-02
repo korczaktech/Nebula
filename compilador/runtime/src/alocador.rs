@@ -209,6 +209,20 @@ impl Alocador {
 
     /// Libera um bloco e invalida permanentemente seu identificador anterior.
     pub fn liberar(&mut self, identificador: IdentificadorAlocacao) -> Result<(), ErroAlocador> {
+        let reutilizavel = self
+            .validar(identificador)?
+            .geracao
+            .checked_add(1)
+            .is_some();
+
+        // Reserve o metadado antes de alterar o bloco. Se a reserva falhar,
+        // o identificador e os dados continuam válidos.
+        if reutilizavel {
+            self.livres
+                .try_reserve(1)
+                .map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        }
+
         let (tamanho, reutilizavel) = {
             let bloco = self.validar_mutavel(identificador)?;
             let dados = bloco
@@ -226,13 +240,18 @@ impl Alocador {
         };
         self.bytes_ativos -= tamanho;
         if reutilizavel {
+            // A capacidade foi reservada antes da mutação do bloco.
             self.livres.push(identificador.indice);
         }
         Ok(())
     }
 
     /// Libera todos os blocos ativos e invalida todos os identificadores.
+    ///
+    /// Se não for possível reservar espaço para a lista de slots livres, os
+    /// blocos continuam sendo liberados, mas os slots não são reutilizados.
     pub fn limpar(&mut self) {
+        let pode_reutilizar = self.livres.try_reserve(self.blocos.len()).is_ok();
         self.livres.clear();
         self.bytes_ativos = 0;
         for (indice, bloco) in self.blocos.iter_mut().enumerate() {
@@ -243,7 +262,7 @@ impl Alocador {
                     bloco.geracao = 0;
                 }
             }
-            if bloco.dados.is_none() && bloco.geracao != 0 {
+            if pode_reutilizar && bloco.geracao != 0 {
                 self.livres.push(indice);
             }
         }
