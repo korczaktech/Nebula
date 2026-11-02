@@ -489,13 +489,13 @@ Direção arquitetural aprovada:
 
 Implementação inicial em andamento:
 - Backend Rust que escreve ELF64 e código x86-64 diretamente.
-- Suporte inicial a valores inteiros e lógicos, variáveis locais, funções, parâmetros, chamadas, recursão, expressões aritméticas, comparações, condicionais e laços.
+- Suporte inicial a inteiros de 64 bits e lógicos, variáveis locais, funções, parâmetros, chamadas, recursão, expressões aritméticas, comparações, condicionais e laços.
 - Entrada de processo e encerramento pelo syscall Linux, sem runtime Nebula externo.
 - CLI sem chamada a `c++` e sem opções de otimização delegadas.
 
 Limites atuais e explícitos:
 - O alvo inicial é exclusivamente Linux x86-64.
-- Strings, decimais, listas, indexação, entrada/saída e biblioteca padrão aguardam suas etapas próprias; o backend rejeita esses recursos em vez de gerar código fictício.
+- Larguras inteiras menores que 64 bits, byte, strings, decimais, listas, indexação, caracteres, entrada/saída e biblioteca padrão aguardam suas etapas próprias; o backend rejeita esses recursos em vez de gerar código fictício.
 - Ainda é necessário ampliar e validar o conjunto de instruções, ABI, escopos, chamadas, tratamento de erros e limites de código/stack.
 - Não há otimizador nem níveis `-O0` a `-Os`.
 - O runtime Nebula não foi implementado nesta alteração.
