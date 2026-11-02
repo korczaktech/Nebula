@@ -268,9 +268,10 @@ fn resolver_tipo_declarado(
         "caractere" => Tipo::Caractere,
         "byte" => Tipo::Byte,
         _ if dividir_tipo_funcao(nome).is_some() => {
-            let (parametros, retorno) = dividir_tipo_funcao(nome)
-                .expect("tipo de função reconhecido");
-            let parametros = parametros.iter()
+            let (parametros, retorno) =
+                dividir_tipo_funcao(nome).expect("tipo de função reconhecido");
+            let parametros = parametros
+                .iter()
                 .map(|tipo| resolver_tipo_declarado(programa, tipo, ativos))
                 .collect::<Result<Vec<_>, _>>()?;
             let retorno = resolver_tipo_declarado(programa, retorno, ativos)?;
