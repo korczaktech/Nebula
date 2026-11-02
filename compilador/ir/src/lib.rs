@@ -265,7 +265,7 @@ pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<Resultado
         limite: limite_passos.max(1),
     };
     let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
-    if matches!(fluxo, Fluxo::Parar | Fluxo::Seguir) {
+    if matches!(&fluxo, Fluxo::Parar | Fluxo::Seguir) {
         return Err("Controle de laço escapou do seu contexto.".into());
     }
     Ok(ResultadoExecucao { saida: vm.saida, globais: vm.escopos.remove(0) })
@@ -292,7 +292,7 @@ impl Maquina<'_> {
         for item in itens {
             self.passo()?;
             fluxo = self.instrucao(item)?;
-            if !matches!(fluxo, Fluxo::Normal) { break; }
+            if !matches!(&fluxo, Fluxo::Normal) { break; }
         }
         Ok(fluxo)
     }
@@ -439,6 +439,10 @@ fn binaria(a: ValorIr, op: TipoToken, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Decimal(a), Vezes, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a*b)),
         (ValorIr::Decimal(_), Divide, ValorIr::Decimal(b)) if b == 0.0 => Err("Divisão por zero na IR.".into()),
         (ValorIr::Decimal(a), Divide, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a/b)),
+        (ValorIr::Decimal(a), Resto, ValorIr::Decimal(b)) if b != 0.0 => Ok(ValorIr::Decimal(a % b)),
+        (ValorIr::Decimal(a), Potencia, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a.powf(b))),
+        (ValorIr::Inteiro(a), op, ValorIr::Decimal(b)) => binaria(ValorIr::Decimal(a as f64), op, ValorIr::Decimal(b)),
+        (ValorIr::Decimal(a), op, ValorIr::Inteiro(b)) => binaria(ValorIr::Decimal(a), op, ValorIr::Decimal(b as f64)),
         (ValorIr::Texto(a), Mais, ValorIr::Texto(b)) => Ok(ValorIr::Texto(a + &b)),
         (ValorIr::Logico(a), E, ValorIr::Logico(b)) => Ok(ValorIr::Logico(a && b)),
         (ValorIr::Logico(a), Ou, ValorIr::Logico(b)) => Ok(ValorIr::Logico(a || b)),
@@ -448,6 +452,10 @@ fn binaria(a: ValorIr, op: TipoToken, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Inteiro(a), MenorIgual, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a <= b)),
         (ValorIr::Inteiro(a), Maior, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a > b)),
         (ValorIr::Inteiro(a), MaiorIgual, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a >= b)),
+        (ValorIr::Decimal(a), Menor, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a < b)),
+        (ValorIr::Decimal(a), MenorIgual, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a <= b)),
+        (ValorIr::Decimal(a), Maior, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a > b)),
+        (ValorIr::Decimal(a), MaiorIgual, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a >= b)),
         (ValorIr::Inteiro(a), Intervalo, ValorIr::Inteiro(b)) => Ok(ValorIr::Intervalo(a,b)),
         _ => Err("Operandos incompatíveis para operação na IR.".into()),
     }
