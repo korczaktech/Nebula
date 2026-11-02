@@ -351,53 +351,60 @@ fn calcular_layout_interno(
                     "Enumeração '{nome}' excede o limite de variantes do ABI."
                 ));
             }
-            let mut nomes = HashSet::new();
-            let mut payload_maximo = 0u64;
-            let mut alinhamento_payload = 1u64;
-            for variante in variantes {
-                if !nomes.insert(&variante.nome) {
-                    return Err(format!(
-                        "Variante duplicada em '{nome}': {}.",
-                        variante.nome
-                    ));
-                }
-                let layout = combinar_campos(
-                    variante
-                        .payload
-                        .iter()
-                        .enumerate()
-                        .map(|(i, t)| (i.to_string(), t)),
-                    pilha,
-                )?;
-                payload_maximo = payload_maximo.max(layout.tamanho);
-                alinhamento_payload = alinhamento_payload.max(layout.alinhamento);
+            if !pilha.insert(nome.clone()) {
+                return Err(format!("Tipo recursivo por valor sem indireção: {nome}."));
             }
-            let tamanho_tag = if variantes.len() <= 256 {
-                1
-            } else if variantes.len() <= 65_536 {
-                2
-            } else {
-                4
-            };
-            let alinhamento = alinhamento_payload.max(tamanho_tag);
-            let deslocamento = alinhar(tamanho_tag, alinhamento_payload)?;
-            let tamanho = alinhar(
-                deslocamento
-                    .checked_add(payload_maximo)
-                    .ok_or_else(|| "Overflow no layout de enumeração.".to_owned())?,
-                alinhamento,
-            )?;
-            Ok(LayoutRuntime {
-                tamanho,
-                alinhamento,
-                tamanho_tag,
-                campos: vec![CampoLayoutRuntime {
-                    nome: "payload".into(),
-                    deslocamento,
-                    tamanho: payload_maximo,
-                    alinhamento: alinhamento_payload,
-                }],
-            })
+            let resultado = (|| {
+                let mut nomes = HashSet::new();
+                let mut payload_maximo = 0u64;
+                let mut alinhamento_payload = 1u64;
+                for variante in variantes {
+                    if !nomes.insert(&variante.nome) {
+                        return Err(format!(
+                            "Variante duplicada em '{nome}': {}.",
+                            variante.nome
+                        ));
+                    }
+                    let layout = combinar_campos(
+                        variante
+                            .payload
+                            .iter()
+                            .enumerate()
+                            .map(|(i, t)| (i.to_string(), t)),
+                        pilha,
+                    )?;
+                    payload_maximo = payload_maximo.max(layout.tamanho);
+                    alinhamento_payload = alinhamento_payload.max(layout.alinhamento);
+                }
+                let tamanho_tag = if variantes.len() <= 256 {
+                    1
+                } else if variantes.len() <= 65_536 {
+                    2
+                } else {
+                    4
+                };
+                let alinhamento = alinhamento_payload.max(tamanho_tag);
+                let deslocamento = alinhar(tamanho_tag, alinhamento_payload)?;
+                let tamanho = alinhar(
+                    deslocamento
+                        .checked_add(payload_maximo)
+                        .ok_or_else(|| "Overflow no layout de enumeração.".to_owned())?,
+                    alinhamento,
+                )?;
+                Ok(LayoutRuntime {
+                    tamanho,
+                    alinhamento,
+                    tamanho_tag,
+                    campos: vec![CampoLayoutRuntime {
+                        nome: "payload".into(),
+                        deslocamento,
+                        tamanho: payload_maximo,
+                        alinhamento: alinhamento_payload,
+                    }],
+                })
+            })();
+            pilha.remove(nome);
+            resultado
         }
     }
 }
@@ -861,6 +868,31 @@ mod testes {
                 .tamanho,
             0
         );
+    }
+
+    #[test]
+    fn rejeita_recursao_de_enumeracao_por_valor() {
+        let tipo = TipoRuntime::Enumeracao {
+            nome: "Lista".into(),
+            variantes: vec![
+                VarianteRuntime {
+                    nome: "Fim".into(),
+                    payload: vec![],
+                },
+                VarianteRuntime {
+                    nome: "Proximo".into(),
+                    payload: vec![TipoRuntime::Enumeracao {
+                        nome: "Lista".into(),
+                        variantes: vec![VarianteRuntime {
+                            nome: "Fim".into(),
+                            payload: vec![],
+                        }],
+                    }],
+                },
+            ],
+        };
+        let erro = calcular_layout(&tipo).unwrap_err();
+        assert!(erro.contains("recursivo por valor"), "{erro}");
     }
 
     #[test]
