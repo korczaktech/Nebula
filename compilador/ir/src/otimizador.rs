@@ -169,6 +169,13 @@ fn propagar_constantes_lista(
                 let mut internos = constantes.clone();
                 propagar_constantes_lista(itens, &mut internos, relatorio);
             }
+            InstrucaoIr::Escolha { valor, casos } => {
+                propagar_constantes_expressao(valor, constantes, relatorio);
+                for caso in casos {
+                    let mut estado_caso = constantes.clone();
+                    propagar_constantes_lista(&mut caso.corpo, &mut estado_caso, relatorio);
+                }
+            }
             InstrucaoIr::Se { condicao, entao, senao } => {
                 propagar_constantes_expressao(condicao, constantes, relatorio);
                 let mut estado_entao = constantes.clone();
@@ -262,6 +269,12 @@ fn otimizar_instrucao(
             otimizar_expressao(valor, relatorio);
         }
         InstrucaoIr::Bloco(itens) => otimizar_lista(itens, nivel, relatorio),
+        InstrucaoIr::Escolha { valor, casos } => {
+            otimizar_expressao(valor, relatorio);
+            for caso in casos {
+                otimizar_lista(&mut caso.corpo, nivel, relatorio);
+            }
+        }
         InstrucaoIr::Se { condicao, entao, senao } => {
             otimizar_expressao(condicao, relatorio);
             otimizar_lista(entao, nivel, relatorio);
