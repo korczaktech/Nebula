@@ -47,7 +47,7 @@ Nebula deverá permitir o desenvolvimento de:
 
 ## 2. Identidade e regras iniciais da linguagem
 
-A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa para a implementação do Lexer e do Parser na Fase 2.
+A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa do Lexer, Parser e AST já implementados no crate `nebula-sintaxe`.
 
 - Código-fonte UTF-8; identificadores Unicode comparados em NFC.
 - Palavras-chave da linguagem e mensagens oficiais em português brasileiro.
@@ -422,17 +422,15 @@ Critérios de conclusão:
 
 **Estado: implementação integrada; aceite final condicionado à CI verde.**
 
-**Objetivo:** transformar código Nebula em uma representação sintática confiável.
+**Objetivo:** transformar código Nebula em uma representação sintática confiável. O frontend sintático está implementado; a aprovação final depende da validação integral da CI.
 
 Entregas:
 - Leitor de arquivos e posições de origem.
-- Lexer completo para a gramática aprovada.
-- Parser.
-- AST.
-- Tratamento e recuperação de erros sintáticos.
-- Diagnósticos em português.
-- Testes positivos, negativos e de regressão.
-- CLI inicial para verificar arquivos.
+- Lexer para o subconjunto léxico normativo, com tokens e intervalos de origem.
+- Parser Pratt e AST pública para o subconjunto gramatical aprovado.
+- Recuperação de erros e diagnósticos em português.
+- Testes positivos, negativos, de regressão e fixtures de conformidade.
+- CLI `nebula verificar <arquivo.nbx>` para validação léxica e sintática.
 
 Critérios de conclusão:
 - Arquivos de exemplo são tokenizados e analisados corretamente.
