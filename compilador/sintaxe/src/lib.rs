@@ -674,6 +674,17 @@ mod testes {
         assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::Potencia, .. }));
     }
     #[test]
+    fn analisa_exemplo_e_fixture_publicados() {
+        let exemplos = [
+            include_str!("../../../exemplos/ola_mundo.nbx"),
+            include_str!("../../../testes/conformidade/sintaxe_visual.nbx"),
+        ];
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        }
+    }
+    #[test]
     fn reconhece_lista_chamada_indexacao_e_membro() {
         let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
