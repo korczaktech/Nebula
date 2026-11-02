@@ -1,4 +1,7 @@
-# Sistema de tipos — Fase 3
+# Sistema de tipos — Nebula
+
+A especificação normativa única está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este arquivo registra a implementação atual e suas limitações verificadas; em caso de divergência, a especificação define o contrato-alvo e os critérios da Fase 5 registram o que ainda não está conforme.
+
 
 ## Modelo implementado
 
