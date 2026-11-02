@@ -8,6 +8,8 @@ license.workspace = true
 [dependencies]
 nebula-fonte = { path = "../fonte" }
 nebula-diagnosticos = { path = "../diagnosticos" }
+unicode-ident = "=1.0.18"
+unicode-normalization = "=0.1.24"
 
 [lints]
 workspace = true
