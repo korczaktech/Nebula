@@ -94,7 +94,9 @@ impl Manifesto {
                     _ => return Err(format!("Chave desconhecida na seção pacote: {chave}")),
                 },
                 "dependencias" => {
-                    if !nome_valido(chave) { return Err(format!("Nome de dependência inválido: {chave}")); }
+                    if !nome_valido(chave) {
+                        return Err(format!("Nome de dependência inválido: {chave}"));
+                    }
                     if dependencias.insert(chave.to_owned(), valor.to_owned()).is_some() {
                         return Err(format!("Dependência duplicada: {chave}"));
                     }
