@@ -11,6 +11,7 @@ dependencies = [
  "nebula-semantica",
  "nebula-ir",
  "nebula-backend",
+ "nebula-pacotes",
 ]
 
 [[package]]
@@ -48,6 +49,10 @@ dependencies = [
  "nebula-semantica",
  "nebula-sintaxe",
 ]
+
+[[package]]
+name = "nebula-pacotes"
+version = "0.1.0"
 
 [[package]]
 name = "nebula-runtime"
