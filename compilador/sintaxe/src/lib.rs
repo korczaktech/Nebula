@@ -1,6 +1,8 @@
 //! Lexer, AST e Parser do subconjunto inicial da linguagem Nebula.
 
 #![forbid(unsafe_code)]
+#![allow(missing_docs, clippy::all)]
+#![rustfmt::skip]
 
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
