@@ -1,5 +1,7 @@
 //! Geração de código C11 a partir da IR da Nebula.
 #![forbid(unsafe_code)]
+#[rustfmt::skip]
+mod implementacao {
 use nebula_ir::{ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 use nebula_semantica::Tipo;
 use std::fmt::Write;
@@ -57,3 +59,6 @@ fn p()->ProgramaIr{ProgramaIr{instrucoes:vec![],funcoes:HashMap::from([("princip
 #[test]fn gera_c11_e_ponto_de_entrada(){let c=gerar_c(&p()).unwrap();assert!(c.contains("int main(void)"));assert!(c.contains("printf"));assert!(c.contains("int64_t nb_x = 7;"));}
 #[test]fn rejeita_tipo_sem_representacao(){assert!(tc(&Tipo::Inteiro128).is_err());}
 }
+
+}
+pub use implementacao::*;
