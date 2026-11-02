@@ -227,7 +227,9 @@ fn calcular_layout_interno(
                 return Err(format!("Enumeração '{nome}' precisa ter variantes."));
             }
             if variantes.len() > u32::MAX as usize {
-                return Err(format!("Enumeração '{nome}' excede o limite de variantes do ABI."));
+                return Err(format!(
+                    "Enumeração '{nome}' excede o limite de variantes do ABI."
+                ));
             }
             let mut nomes = HashSet::new();
             let mut payload_maximo = 0u64;
