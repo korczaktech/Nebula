@@ -412,7 +412,7 @@ impl Parser {
             loop {
                 let parametro = self.consumir_nome("Esperado nome de parâmetro genérico.")?;
                 if genericos.contains(&parametro) {
-                    self.erro_atual("N2014", format!("Parâmetro genérico '{parametro}' duplicado."));
+                    self.erro_atual("N2014", "Parâmetro genérico duplicado.");
                 } else {
                     genericos.push(parametro);
                 }
@@ -811,6 +811,28 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 1);
     }
+    #[test]
+    fn analisa_funcao_generica_com_um_e_varios_parametros() {
+        let r = analisar(&fonte(
+            "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao combinar<T, U>(a: T, b: U): T { devolver a }",
+        ));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(
+            &r.programa.itens[0],
+            NoAst::Funcao { genericos, .. } if genericos == &["T"]
+        ));
+        assert!(matches!(
+            &r.programa.itens[1],
+            NoAst::Funcao { genericos, .. } if genericos == &["T", "U"]
+        ));
+    }
+
+    #[test]
+    fn rejeita_parametro_generico_duplicado() {
+        let r = analisar(&fonte("funcao combinar<T, T>(a: T) { devolver }"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2014"));
+    }
+
     #[test]
     fn preserva_visibilidade_de_funcao_na_ast() {
         let r = analisar(&fonte("publico funcao abrir() { devolver }"));
