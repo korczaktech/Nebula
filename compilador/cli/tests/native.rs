@@ -13,7 +13,7 @@ fn compila_e_executa_programa_nativo() {
     let origem = arquivo_temporario();
     fs::write(
         &origem,
-        "funcao principal(): vazio {\n    variavel resposta: inteiro = 40 + 2\n    exibir(resposta)\n}",
+        "funcao principal(): vazio {\n    variavel resposta: inteiro = 40 + 2\n    exibir(resposta)\n}\n",
     )
     .unwrap();
     let exe = std::env::temp_dir().join(format!(
@@ -44,7 +44,7 @@ fn compila_e_executa_programa_nativo() {
 #[rustfmt::skip]
 fn rejeita_codigo_semantica_ou_sintaticamente_invalido() {
     let origem = arquivo_temporario();
-    fs::write(&origem, "funcao principal(): vazio {\n    ausente()\n}").unwrap();
+    fs::write(&origem, "funcao principal(): vazio {\n    ausente()\n}\n").unwrap();
     let exe = std::env::temp_dir().join(format!(
         "nebula-e2e-invalido-{}",
         std::process::id()
