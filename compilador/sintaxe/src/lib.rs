@@ -87,8 +87,11 @@ impl<'a> Lexer<'a> {
             b' ' | b'\t' => {},
             b'\n' => { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } },
             b'\r' => {
-                if self.corresponde(b'\n') { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } }
-                else { self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual); }
+                if !self.corresponde(b'\n') {
+                    self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual);
+                } else if self.profundidade_continuacao == 0 {
+                    self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual);
+                }
             }
             b'/' if self.corresponde(b'/') => self.comentario_linha(),
             b'/' if self.corresponde(b'*') => {
