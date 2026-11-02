@@ -248,8 +248,9 @@ impl Emissor {
             }
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
-            ExpressaoIr::Constante(ValorIr::Decimal(_)
-                | ValorIr::Texto(_)
+            ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)
+                | ValorIr::Decimal(_)
+                | ValorIr::Texto(_
                 | ValorIr::Lista(_)
                 | ValorIr::Intervalo(_, _)
                 | ValorIr::IntervaloDecimal(_, _)
