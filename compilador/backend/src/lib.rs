@@ -869,16 +869,16 @@ mod testes {
     fn codifica_registradores_de_argumentos_system_v() {
         let mut emissor = Emissor::novo(HashMap::new());
         for (registrador, esperado) in [
-            (7, vec![0x48, 0x89, 0xC7]),
-            (6, vec![0x48, 0x89, 0xC6]),
-            (2, vec![0x48, 0x89, 0xC2]),
-            (1, vec![0x48, 0x89, 0xC1]),
-            (8, vec![0x49, 0x89, 0xC0]),
-            (9, vec![0x49, 0x89, 0xC1]),
+            (7, &[0x48, 0x89, 0xC7][..]),
+            (6, &[0x48, 0x89, 0xC6][..]),
+            (2, &[0x48, 0x89, 0xC2][..]),
+            (1, &[0x48, 0x89, 0xC1][..]),
+            (8, &[0x49, 0x89, 0xC0][..]),
+            (9, &[0x49, 0x89, 0xC1][..]),
         ] {
             emissor.codigo.clear();
             emissor.mover_rax_registrador(registrador);
-            assert_eq!(emissor.codigo, esperado);
+            assert_eq!(emissor.codigo.as_slice(), esperado);
         }
         emissor.codigo.clear();
         emissor.armazenar_registrador(8, -8);
@@ -891,17 +891,17 @@ mod testes {
     #[test]
     fn codifica_operacoes_aritmeticas_e_comparacao_signed() {
         let casos = [
-            (OperadorIr::Mais, vec![0x48, 0x01, 0xC8]),
-            (OperadorIr::Menos, vec![0x48, 0x29, 0xC8]),
-            (OperadorIr::Vezes, vec![0x48, 0x0F, 0xAF, 0xC1]),
-            (OperadorIr::Divide, vec![0x48, 0x99, 0x48, 0xF7, 0xF9]),
-            (OperadorIr::Resto, vec![0x48, 0x99, 0x48, 0xF7, 0xF9]),
-            (OperadorIr::Menor, vec![0x48, 0x39, 0xC8, 0x0F, 0x9C, 0xC0]),
-            (OperadorIr::MenorIgual, vec![0x48, 0x39, 0xC8, 0x0F, 0x9E, 0xC0]),
-            (OperadorIr::Maior, vec![0x48, 0x39, 0xC8, 0x0F, 0x9F, 0xC0]),
-            (OperadorIr::MaiorIgual, vec![0x48, 0x39, 0xC8, 0x0F, 0x9D, 0xC0]),
-            (OperadorIr::Igual, vec![0x48, 0x39, 0xC8, 0x0F, 0x94, 0xC0]),
-            (OperadorIr::Diferente, vec![0x48, 0x39, 0xC8, 0x0F, 0x95, 0xC0]),
+            (OperadorIr::Mais, &[0x48, 0x01, 0xC8][..]),
+            (OperadorIr::Menos, &[0x48, 0x29, 0xC8][..]),
+            (OperadorIr::Vezes, &[0x48, 0x0F, 0xAF, 0xC1][..]),
+            (OperadorIr::Divide, &[0x48, 0x99, 0x48, 0xF7, 0xF9][..]),
+            (OperadorIr::Resto, &[0x48, 0x99, 0x48, 0xF7, 0xF9][..]),
+            (OperadorIr::Menor, &[0x48, 0x39, 0xC8, 0x0F, 0x9C, 0xC0][..]),
+            (OperadorIr::MenorIgual, &[0x48, 0x39, 0xC8, 0x0F, 0x9E, 0xC0][..]),
+            (OperadorIr::Maior, &[0x48, 0x39, 0xC8, 0x0F, 0x9F, 0xC0][..]),
+            (OperadorIr::MaiorIgual, &[0x48, 0x39, 0xC8, 0x0F, 0x9D, 0xC0][..]),
+            (OperadorIr::Igual, &[0x48, 0x39, 0xC8, 0x0F, 0x94, 0xC0][..]),
+            (OperadorIr::Diferente, &[0x48, 0x39, 0xC8, 0x0F, 0x95, 0xC0][..]),
         ];
         for (operador, bytes_esperados) in casos {
             let mut emissor = Emissor::novo(HashMap::new());
@@ -912,7 +912,7 @@ mod testes {
             };
             emissor.expressao(&expressao).unwrap();
             assert!(
-                emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados.as_slice()),
+                emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados),
                 "codificação ausente para {operador:?}"
             );
         }
