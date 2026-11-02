@@ -54,8 +54,14 @@ impl PartialEq for Valor {
                 },
             ) => ai == bi && af == bf,
             (
-                Self::IntervaloDecimal { inicio: ai, fim: af },
-                Self::IntervaloDecimal { inicio: bi, fim: bf },
+                Self::IntervaloDecimal {
+                    inicio: ai,
+                    fim: af,
+                },
+                Self::IntervaloDecimal {
+                    inicio: bi,
+                    fim: bf,
+                },
             ) => ai == bi && af == bf,
             (Self::Lista(a), Self::Lista(b)) => match (a.read(), b.read()) {
                 (Ok(a), Ok(b)) => *a == *b,
