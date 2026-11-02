@@ -807,18 +807,6 @@ mod testes {
     }
 
     #[test]
-    fn diagnostica_construcoes_reservadas_sem_suporte() {
-        for codigo in ["estrutura Pessoa {}", "enumeracao Estado {}"] {
-            let r = analisar(&fonte(codigo));
-            assert!(
-                r.diagnosticos.iter().any(|d| d.codigo == "N2016"),
-                "{codigo}: {:?}",
-                r.diagnosticos
-            );
-        }
-    }
-
-    #[test]
     fn analisa_declaracoes_de_estrutura_e_enumeracao() {
         let r = analisar(&fonte("estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo, Erro(texto) }"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
