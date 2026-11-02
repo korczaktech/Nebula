@@ -276,7 +276,7 @@ mod testes {
     }
 
     #[test]
-    fn O0_nao_modifica_a_ir() {
+    fn o0_nao_modifica_a_ir() {
         let mut ir = programa(ExpressaoIr::Binaria {
             esquerda: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1))),
             operador: OperadorIr::Mais,
