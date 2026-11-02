@@ -310,7 +310,8 @@ fn calcular_layout_interno(
             Ok(escalar(tamanho, tamanho))
         }
         TipoRuntime::Caractere => Ok(escalar(4, 4)),
-        TipoRuntime::Texto | TipoRuntime::Lista(_) | TipoRuntime::Funcao(_, _) => Ok(escalar(8, 8)),
+        TipoRuntime::Texto | TipoRuntime::Lista(_) => Ok(escalar(16, 8)),
+        TipoRuntime::Funcao(_, _) => Ok(escalar(8, 8)),
         TipoRuntime::Tupla(tipos) => {
             let campos = tipos.iter().enumerate().map(|(i, t)| (i.to_string(), t));
             combinar_campos(campos, pilha)
