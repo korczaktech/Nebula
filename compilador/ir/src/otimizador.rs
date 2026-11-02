@@ -150,7 +150,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
 
 fn dobrar_unaria(operador: OperadorIr, valor: &ValorIr) -> Option<ValorIr> {
     match (operador, valor) {
-        (OperadorIr::Negacao, ValorIr::Inteiro(v)) => v.checked_neg().map(ValorIr::Inteiro),
+        (OperadorIr::Negacao, ValorIr::Inteiro(v)) => v.checked_neg().and_then(inteiro),
         (OperadorIr::Negacao, ValorIr::Decimal(v)) => {
             let resultado = -*v;
             resultado.is_finite().then_some(ValorIr::Decimal(resultado))
@@ -165,13 +165,13 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
     use ValorIr as V;
 
     match (a, op, b) {
-        (V::Inteiro(a), O::Mais, V::Inteiro(b)) => a.checked_add(*b).map(V::Inteiro),
-        (V::Inteiro(a), O::Menos, V::Inteiro(b)) => a.checked_sub(*b).map(V::Inteiro),
-        (V::Inteiro(a), O::Vezes, V::Inteiro(b)) => a.checked_mul(*b).map(V::Inteiro),
-        (V::Inteiro(a), O::Divide, V::Inteiro(b)) => a.checked_div(*b).map(V::Inteiro),
-        (V::Inteiro(a), O::Resto, V::Inteiro(b)) => a.checked_rem(*b).map(V::Inteiro),
+        (V::Inteiro(a), O::Mais, V::Inteiro(b)) => a.checked_add(*b).and_then(inteiro),
+        (V::Inteiro(a), O::Menos, V::Inteiro(b)) => a.checked_sub(*b).and_then(inteiro),
+        (V::Inteiro(a), O::Vezes, V::Inteiro(b)) => a.checked_mul(*b).and_then(inteiro),
+        (V::Inteiro(a), O::Divide, V::Inteiro(b)) => a.checked_div(*b).and_then(inteiro),
+        (V::Inteiro(a), O::Resto, V::Inteiro(b)) => a.checked_rem(*b).and_then(inteiro),
         (V::Inteiro(a), O::Potencia, V::Inteiro(b)) if (0..=u32::MAX as i128).contains(b) => {
-            a.checked_pow(*b as u32).map(V::Inteiro)
+            a.checked_pow(*b as u32).and_then(inteiro)
         }
         (V::Inteiro(a), O::Intervalo, V::Inteiro(b)) => Some(V::Intervalo(*a, *b)),
         (V::Inteiro(a), O::Menor, V::Inteiro(b)) => Some(V::Logico(a < b)),
@@ -198,6 +198,14 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
         (a, O::Diferente, b) => Some(V::Logico(a != b)),
         _ => None,
     }
+}
+
+fn inteiro(valor: i128) -> Option<ValorIr> {
+    // O backend atual usa inteiros signed de 64 bits.
+    // Preserva os traps de overflow da execução nativa.
+    (i64::MIN as i128..=i64::MAX as i128)
+        .contains(&valor)
+        .then_some(ValorIr::Inteiro(valor))
 }
 
 fn decimal(valor: f64) -> Option<ValorIr> {
