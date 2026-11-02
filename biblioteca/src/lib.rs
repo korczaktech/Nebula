@@ -11,7 +11,10 @@ pub mod nucleo {
 
 /// Operações matemáticas verificadas.
 pub mod matematica {
-    pub use nebula_runtime::{FuncaoMatematica, OperacaoDecimal, OperacaoInteira, calcular_matematica, operar_decimal, operar_inteiro};
+    pub use nebula_runtime::{
+        FuncaoMatematica, OperacaoDecimal, OperacaoInteira, calcular_matematica, operar_decimal,
+        operar_inteiro,
+    };
 }
 
 /// Manipulação de texto Unicode.
@@ -83,7 +86,10 @@ pub mod rede {
 
     impl ConexaoTcp {
         /// Conecta ao primeiro endereço resolvido dentro do timeout.
-        pub fn conectar<A: ToSocketAddrs>(endereco: A, timeout: Duration) -> Result<Self, ErroRede> {
+        pub fn conectar<A: ToSocketAddrs>(
+            endereco: A,
+            timeout: Duration,
+        ) -> Result<Self, ErroRede> {
             let enderecos = endereco.to_socket_addrs().map_err(ErroRede::Io)?;
             let mut ultimo = None;
             for endereco in enderecos {
