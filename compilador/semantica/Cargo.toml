@@ -11,3 +11,6 @@ nebula-sintaxe = { path = "../sintaxe" }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+nebula-fonte = { path = "../fonte" }
