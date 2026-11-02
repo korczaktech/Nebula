@@ -8,7 +8,8 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
-    arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, escrever_arquivo,
+    arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, diretorio_existe,
+    escrever_arquivo, listar_diretorio,
     calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
     subtexto, tempo_unix_milisegundos, texto_aparar, texto_comeca_com, texto_contem,
     texto_maiusculas, texto_minusculas, texto_substituir, texto_termina_com,
@@ -628,6 +629,22 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Logico(true));
                     }
                     return Err("'criar_diretorio' exige um caminho de texto.".into());
+                }
+                if nome == "diretorio_existe" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        return Ok(ValorIr::Logico(diretorio_existe(caminho)));
+                    }
+                    return Err("'diretorio_existe' exige um caminho de texto.".into());
+                }
+                if nome == "listar_diretorio" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        let nomes = listar_diretorio(caminho)
+                            .map_err(|erro| format!("Falha ao listar diretório: {erro:?}"))?;
+                        return Ok(ValorIr::Lista(
+                            nomes.into_iter().map(ValorIr::Texto).collect(),
+                        ));
+                    }
+                    return Err("'listar_diretorio' exige um caminho de texto.".into());
                 }
                 if nome == "tempo" {
                     if !valores.is_empty() {
