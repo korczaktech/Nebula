@@ -295,6 +295,7 @@ nebula/
 │   ├── linguagem.md
 │   ├── decisoes.md
 │   ├── criterios-fase-3.md
+│   ├── criterios-fase-4.md
 │   ├── gramatica.md
 │   ├── tokens.md
 │   ├── tipos.md
@@ -317,13 +318,23 @@ nebula/
 │   ├── ir/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
+│   ├── backend/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
 │   ├── diagnosticos/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
 │   └── cli/
 │       ├── Cargo.toml
 │       ├── src/main.rs
-│       └── tests/cli.rs
+│       └── tests/
+│           ├── cli.rs
+│           └── native.rs
+├── benchmarks/
+│   ├── README.md
+│   ├── executar.sh
+│   ├── loop.nbx
+│   └── fibonacci.nbx
 ├── exemplos/
 │   └── ola_mundo.nbx
 ├── testes/
@@ -332,7 +343,7 @@ nebula/
 │       └── sintaxe_visual.nbx
 ```
 
-Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. Backends e otimizadores pertencem às fases seguintes.
+Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo inicial foi entregue na Fase 4; otimizador próprio sobre a IR e backends adicionais permanecem planejados.
 
 ### Crates Rust
 
@@ -348,9 +359,11 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-semantica`: símbolos, escopos, resolução de módulos, inferência e verificação estática.
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
+**Criada na Fase 4:**
+- `nebula-backend`: geração C++17 para compilação nativa.
+
 **Planejadas para fases posteriores:**
 - `nebula-otimizador`
-- `nebula-backend`
 - `nebula-biblioteca`
 
 As dependências deverão ser unidirecionais sempre que possível. AST não dependerá da CLI; Lexer não dependerá do Backend.
@@ -460,28 +473,26 @@ Critérios de conclusão:
 
 ## Fase 4 — Compilação executável e desempenho inicial (meta acumulada: mínimo de 75%)
 
-**Objetivo:** transformar o frontend em uma ferramenta capaz de gerar e executar programas reais.
+<badge color="success">CONCLUÍDA</badge>
 
-Entregas:
-- Pipeline completo de compilação.
-- Backend nativo inicial para pelo menos uma plataforma definida.
-- Backend WebAssembly inicial, se viável dentro do escopo validado.
-- Linkedição e execução de programas simples.
-- Otimizador inicial com níveis documentados.
-- CLI funcional: compilar, executar, verificar e testar.
-- Biblioteca padrão essencial inicial.
-- Tratamento de erros de compilação e ligação.
-- Testes ponta a ponta.
-- Primeiros benchmarks reproduzíveis e relatório de limitações.
+**Resultado:** o pipeline agora transforma `.nbx` em executáveis nativos reais no alvo validado Linux x86-64.
 
-Critérios de conclusão:
-- Um programa Nebula de ponta a ponta compila e executa.
-- Variáveis, expressões, funções e controle de fluxo definidos no MVP funcionam.
-- Artefatos gerados são executáveis no alvo declarado.
-- Testes de regressão e integração passam.
-- O projeto atinge pelo menos 75% do escopo definido para a primeira versão utilizável.
+Entregas implementadas:
+- Pipeline Lexer/Parser → análise semântica → IR → backend C++17 → compilador/linker do sistema.
+- Backend nativo com variáveis, expressões, funções, recursão, condicionais, laços, listas homogêneas, indexação e concatenação de texto.
+- Biblioteca padrão inicial com `exibir` e `ler_texto`.
+- CLI: `compilar`, `executar` e `testar`, preservando `verificar`, `analisar` e `ir`.
+- Níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os`, encaminhados ao compilador C++ instalado.
+- Benchmarks reproduzíveis de laços e recursão, executados pela CI.
+- Documentação dos requisitos, alvo, limitações e resultados iniciais.
 
-**Marco:** ao final da Fase 4, Nebula deverá ser um compilador utilizável em seu escopo inicial, não apenas um protótipo de Lexer e Parser.
+**Validação:** 122 testes acumulados aprovados; `cargo fmt`, Clippy, testes e benchmark passaram na [CI 41379323932](https://github.com/korczaktech/Nebula/actions/runs/41379323932).
+
+**Alvo e dependência:** Linux x86-64 validado; requer compilador C++17 disponível como `c++`. WebAssembly foi avaliado e ficou para uma fase posterior porque o toolchain/sysroot WASI não está estabelecido para validação.
+
+**Limites ainda explícitos:** sem ABI nativa para `inteiro128`, sem caractere Unicode não ASCII, sem retorno de listas por função, sem carregador de módulos do disco e sem biblioteca padrão completa. Os níveis de otimização são fornecidos pelo compilador C++ externo; os benchmarks não comprovam a meta experimental de até 3× C++.
+
+Critérios detalhados: [especificacao/criterios-fase-4.md](especificacao/criterios-fase-4.md).
 
 ## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
 
@@ -537,4 +548,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 está concluída. O repositório contém o frontend sintático (`nebula-sintaxe`), a análise semântica (`nebula-semantica`) e a IR com interpretador de referência (`nebula-ir`). A CLI oferece `nebula verificar arquivo.nbx`, `nebula analisar arquivo.nbx` e `nebula ir arquivo.nbx`. A fase não gera executáveis nativos ou WebAssembly, não carrega módulos do disco e não implementa borrow checker; esses limites estão documentados nos [critérios da Fase 3](especificacao/criterios-fase-3.md).
+A Fase 3 e a Fase 4 estão concluídas nos respectivos escopos documentados. A Fase 4 adiciona backend nativo C++17, executáveis para Linux x86-64, entrada/saída essencial, otimização delegada ao compilador C++ e benchmarks reproduzíveis. A CI validou 122 testes acumulados e executou o benchmark nos cinco níveis. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
