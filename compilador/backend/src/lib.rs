@@ -629,7 +629,7 @@ mod testes {
         assert_eq!(u64::from_le_bytes(binario[32..40].try_into().unwrap()), 64);
         assert_eq!(u16::from_le_bytes([binario[52], binario[53]]), 64);
         assert_eq!(u16::from_le_bytes([binario[54], binario[55]]), 56);
-        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 1);
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 2);
         assert_eq!(u32::from_le_bytes(binario[64..68].try_into().unwrap()), 1);
         assert_eq!(u32::from_le_bytes(binario[68..72].try_into().unwrap()), 5);
         assert_eq!(u64::from_le_bytes(binario[72..80].try_into().unwrap()), 0);
@@ -637,6 +637,8 @@ mod testes {
         assert_eq!(u64::from_le_bytes(binario[96..104].try_into().unwrap()), binario.len() as u64);
         assert_eq!(u64::from_le_bytes(binario[104..112].try_into().unwrap()), binario.len() as u64);
         assert_eq!(u64::from_le_bytes(binario[112..120].try_into().unwrap()), 0x1000);
+        assert_eq!(u32::from_le_bytes(binario[120..124].try_into().unwrap()), 0x6474_E551);
+        assert_eq!(u32::from_le_bytes(binario[124..128].try_into().unwrap()), 6);
     }
 
     #[test]
