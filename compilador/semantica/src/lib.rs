@@ -1414,6 +1414,50 @@ mod testes {
     }
 
     #[test]
+    fn infere_generico_em_funcao_de_identidade() {
+        let r = analisar_codigo(
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("numero"), Some(&Tipo::Inteiro));
+        assert_eq!(r.tipos_globais.get("texto"), Some(&Tipo::Texto));
+    }
+
+    #[test]
+    fn infere_generico_aninhado_em_lista() {
+        let r = analisar_codigo(
+            "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([1, 2, 3])",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("numero"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
+    fn rejeita_inferencia_generica_conflitante() {
+        let r = analisar_codigo(
+            "funcao escolher<T>(a: T, b: T): T { devolver a }\nvariavel valor = escolher(1, \"texto\")",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3032"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_parametro_generico_sem_inferencia() {
+        let r = analisar_codigo(
+            "funcao constante<T>(valor: inteiro): T { devolver valor }\nvariavel resultado = constante(1)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3033"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn tipos_genericos_aninhados_inferem_recursivamente() {
+        let r = analisar_codigo(
+            "funcao recebe<T>(valor: Opcional<[T]>) { exibir(\"ok\") }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn nao_coage_literal_inteiro_para_tipo_decimal() {
         let r = analisar_codigo("variavel valor: decimal32 = 1");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
