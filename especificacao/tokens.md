@@ -1,60 +1,86 @@
 # Tokens e regras léxicas
 
-## Codificação e posições
+**Estado:** especificação léxica normativa do subconjunto inicial da Nebula. Recursos reservados para versões futuras estão identificados separadamente e não fazem parte da gramática atual.
 
-- Entrada UTF-8.
-- Rejeitar sequências UTF-8 inválidas com diagnóstico e intervalo em bytes.
-- Preservar offset inicial/final em bytes, linha e coluna.
-- Colunas devem contar pontos de código Unicode; a apresentação pode calcular largura de grafemas.
-- Identificadores são comparados em NFC; o texto original deve ser preservado para diagnósticos.
+## 1. Codificação e posições
 
-## Categorias de tokens
+- A entrada DEVE ser UTF-8 válido. Sequências inválidas são erro de fonte, com intervalo em bytes quando disponível.
+- O compilador DEVE preservar offsets inicial e final em bytes, com início inclusivo e fim exclusivo.
+- Linha e coluna são base 1. A coluna conta pontos de código Unicode desde o início da linha; a interface PODE calcular largura visual de grafemas.
+- Identificadores são comparados após normalização Unicode NFC. O texto original é preservado para diagnósticos.
+- Finais de linha LF e CRLF são aceitos. CRLF representa uma única quebra lógica. CR isolado é rejeitado na versão inicial.
 
-- Identificadores e palavras reservadas.
-- Literais inteiros, decimais, texto, caractere, lógico e nulo.
-- Operadores.
-- Pontuação e delimitadores.
-- Comentários.
-- Quebras de linha.
-- Fim de arquivo.
+## 2. Espaços e quebras de linha
 
-## Maior correspondência
+- Espaço, tabulação e demais espaços horizontais Unicode reconhecidos pela especificação são ignorados entre tokens.
+- A quebra de linha é preservada como token NOVA_LINHA.
+- Dentro de parênteses () e colchetes [], a quebra de linha funciona como espaço e não separa instruções.
+- Dentro de chaves {}, quebras de linha continuam podendo separar instruções.
+- A indentação nunca cria ou fecha blocos e não altera o significado do programa.
+- Uma quebra pode ser continuação quando a expressão anterior está incompleta, por exemplo após operador binário ou vírgula. A regra sintática de separação está em gramatica.md.
+- Comentários de linha terminam antes da quebra de linha; a própria quebra continua disponível como separador.
 
-O Lexer deve sempre selecionar o token válido mais longo. Exemplos: `>=` antes de `>`, `==` antes de `=`, `::` antes de `:`, `**` antes de `*`, `..` antes de `.`.
+## 3. Identificadores e palavras reservadas
 
-## Espaços e quebras
+Identificador:
+- Inicia com caractere Unicode da propriedade XID_Start ou sublinhado.
+- Continua com caracteres XID_Continue ou sublinhado.
+- É sensível a maiúsculas e minúsculas.
+- É comparado em NFC.
+- Não pode coincidir com palavra reservada.
 
-Espaços horizontais são ignorados entre tokens. Quebras de linha são preservadas para a regra de separação de instruções; dentro de parênteses e colchetes são tratadas como continuação. Tabulações são aceitas como espaço visual, sem significado de escopo. Indentação não gera tokens de bloco.
+### Palavras reservadas da gramática inicial
 
-## Números
+variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, vazio, fim, parar, seguir, e, ou, nao, publico, privado, tipo.
 
-- Inteiro decimal: dígitos com sublinhados internos opcionais.
-- Bases: prefixos `0x`, `0b`, `0o`.
-- Decimal: parte fracionária opcional e expoente opcional.
-- Sublinhado não pode iniciar, terminar ou aparecer consecutivamente.
-- Overflow é verificado na análise semântica/constante, não mascarado pelo Lexer.
+Os nomes de tipos como inteiro, logico, texto, caractere e byte são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
 
-## Texto e caractere
+### Palavras reservadas para estudo futuro
 
-- Texto entre aspas duplas.
-- Caractere entre aspas simples e representando exatamente um escalar Unicode após escapes.
-- Escapes mínimos propostos: `\\\\`, `\"`, `\'`, `\n`, `\r`, `\t`, `\0`, `\u{...}`.
-- Literal não terminado é erro.
-- Strings multilinha e interpolação não fazem parte do recorte inicial.
+cada, tentar, capturar, finalmente, assinc, aguardar, estrutura, enumeracao.
 
-## Comentários
+Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **não são construções válidas na gramática inicial**. O Lexer pode classificá-las como palavras reservadas futuras; o Parser deve rejeitá-las como construções não suportadas, com diagnóstico claro. Não se deve sugerir que seus recursos já existem.
 
-- `//` até o fim da linha.
-- `/* ... */` até o primeiro fechamento.
-- Comentário de bloco não aninhado na primeira versão.
-- Comentário não pode ocultar o fechamento de um literal.
+## 4. Números
 
-## Pontuação inicial
+- Inteiro decimal: um ou mais dígitos decimais, com sublinhados somente entre dígitos.
+- Bases não decimais: prefixos 0x/0X, 0b/0B e 0o/0O, seguidos de ao menos um dígito válido para a base.
+- Decimal: dígitos, ponto seguido obrigatoriamente de ao menos um dígito e expoente opcional; ou dígitos seguidos de expoente.
+- Expoente: e ou E, sinal opcional e ao menos um dígito.
+- Sublinhado não pode iniciar, terminar nem aparecer consecutivamente; também não pode ficar junto ao prefixo, ponto ou marcador de expoente.
+- 1. é token inteiro seguido de ponto, não literal decimal. Para decimal, escreva 1.0.
+- O Lexer identifica a forma do literal; faixa, overflow e conversões são verificados em fases posteriores.
 
-`()`, `{}`, `[]`, `,`, `;`, `:`, `.`.
+## 5. Texto e caractere
 
-## Operadores iniciais
+- Texto usa aspas duplas e não pode atravessar uma quebra de linha física na versão inicial.
+- Caractere usa aspas simples e representa exatamente um escalar Unicode após a interpretação dos escapes.
+- Escapes aceitos: barra invertida, aspas duplas, aspas simples, n, r, t, 0 e u{H...}, com um ou mais dígitos hexadecimais e valor Unicode escalar válido.
+- Escape desconhecido, sequência Unicode inválida e literal sem fechamento são erros.
+- Interpolação e strings multilinha não fazem parte da gramática inicial.
 
-`=`, `+`, `-`, `*`, `/`, `%`, `**`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `!`, `..`, `::`.
+## 6. Comentários
 
-Operadores lógicos textuais: `e`, `ou`, `nao`. Operadores `??` e `~>` permanecem reservados para estudo e não fazem parte da gramática-base até que sua semântica seja definida.
+- Linha: // até antes da próxima quebra de linha.
+- Bloco: /* ... */, encerrado pelo primeiro */.
+- Comentários de bloco não são aninhados.
+- Comentário de bloco não terminado é erro.
+- Marcadores de comentário dentro de literais não iniciam comentários.
+
+## 7. Pontuação e delimitadores
+
+(, ), {, }, [, ], vírgula, ponto e vírgula, dois-pontos e ponto.
+
+## 8. Operadores
+
+=, +, -, *, /, %, **, ==, !=, <, <=, >, >=, !, .., ::.
+
+Operadores lógicos textuais: e, ou, nao.
+
+O Lexer aplica maior correspondência: por exemplo, >= antes de >, == antes de =, :: antes de :, ** antes de * e .. antes de ..
+
+?? e ~> são reservados para estudo, mas não são operadores da gramática inicial.
+
+## 9. Fim de arquivo e erros léxicos
+
+O fluxo contém um token de fim de arquivo. O Lexer deve diagnosticar, no mínimo, UTF-8 inválido, caractere inesperado, literal não terminado, escape inválido, número malformado e comentário de bloco não terminado. Cada diagnóstico deve preservar a localização disponível.
