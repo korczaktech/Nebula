@@ -20,10 +20,19 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
         return Err("O backend x86-64 ainda não oferece ligação de módulos.".into());
     }
 
-    let mut emissor = Emissor::novo();
+    let mut globais = HashMap::new();
+    for instrucao in &programa.instrucoes {
+        if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+            validar_tipo(tipo)?;
+            if globais.insert(nome.clone(), globais.len() * 8).is_some() {
+                return Err(format!("Variável global '{nome}' declarada mais de uma vez."));
+            }
+        }
+    }
+    let mut emissor = Emissor::novo(globais);
     emissor.iniciar_programa(programa)?;
-    let codigo = emissor.finalizar()?;
-    Ok(gerar_elf(&codigo))
+    let (codigo, tamanho_dados) = emissor.finalizar()?;
+    gerar_elf(&codigo, tamanho_dados)
 }
 
 struct Emissor {
@@ -34,6 +43,9 @@ struct Emissor {
     proximo_slot: usize,
     pilha: usize,
     lacos: Vec<Laco>,
+    globais: HashMap<String, usize>,
+    referencias_globais: Vec<(usize, String)>,
+    funcao_atual: String,
 }
 
 struct Laco {
@@ -42,7 +54,7 @@ struct Laco {
 }
 
 impl Emissor {
-    fn novo() -> Self {
+    fn novo(globais: HashMap<String, usize>) -> Self {
         Self {
             codigo: Vec::new(),
             funcoes: HashMap::new(),
@@ -51,6 +63,9 @@ impl Emissor {
             proximo_slot: 0,
             pilha: 0,
             lacos: Vec::new(),
+            globais,
+            referencias_globais: Vec::new(),
+            funcao_atual: String::new(),
         }
     }
 
@@ -102,6 +117,7 @@ impl Emissor {
         }
         validar_tipo(&funcao.retorno)?;
         self.funcoes.insert(funcao.nome.clone(), self.codigo.len());
+        self.funcao_atual = funcao.nome.clone();
         self.escopos.clear();
         self.escopos.push(HashMap::new());
         self.proximo_slot = 0;
@@ -142,8 +158,15 @@ impl Emissor {
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
                 validar_tipo(tipo)?;
                 self.expressao(valor)?;
-                let deslocamento = self.declarar(nome)?;
-                self.armazenar_rax(deslocamento);
+                if self.funcao_atual == "__nebula_inicio"
+                    && self.escopos.len() == 2
+                    && self.globais.contains_key(nome)
+                {
+                    self.armazenar_global(nome);
+                } else {
+                    let deslocamento = self.declarar(nome)?;
+                    self.armazenar_rax(deslocamento);
+                }
             }
             InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
             InstrucaoIr::Devolver(valor) => {
@@ -229,8 +252,13 @@ impl Emissor {
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
             ExpressaoIr::Constante(ValorIr::Caractere(_)) => return Err("Caractere não ASCII ainda não é suportado pelo alvo inicial.".into()),
             ExpressaoIr::Variavel(nome) => {
-                let deslocamento = self.buscar(nome)?;
-                self.carregar_rax(deslocamento);
+                if let Some(deslocamento) = self.buscar_local(nome) {
+                    self.carregar_rax(deslocamento);
+                } else if self.globais.contains_key(nome) {
+                    self.carregar_global(nome);
+                } else {
+                    return Err(format!("Variável '{nome}' não encontrada no backend."));
+                }
             }
             ExpressaoIr::Lista(_) | ExpressaoIr::Indexacao { .. } => {
                 return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
@@ -331,8 +359,13 @@ impl Emissor {
             }
             ExpressaoIr::Atribuicao { nome, valor } => {
                 self.expressao(valor)?;
-                let deslocamento = self.buscar(nome)?;
-                self.armazenar_rax(deslocamento);
+                if let Some(deslocamento) = self.buscar_local(nome) {
+                    self.armazenar_rax(deslocamento);
+                } else if self.globais.contains_key(nome) {
+                    self.armazenar_global(nome);
+                } else {
+                    return Err(format!("Variável '{nome}' não encontrada no backend."));
+                }
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 if nome == "exibir" || nome == "ler_texto" {
@@ -375,9 +408,22 @@ impl Emissor {
         Ok(deslocamento)
     }
 
-    fn buscar(&self, nome: &str) -> Result<i32, String> {
+    fn buscar_local(&self, nome: &str) -> Option<i32> {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
-            .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))
+    }
+
+    fn carregar_global(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x05]); // mov rax, [rip + disp32]
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned()));
+    }
+
+    fn armazenar_global(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned()));
     }
 
     fn encerrar_com_erro(&mut self, codigo: u8) {
@@ -449,7 +495,7 @@ impl Emissor {
         self.codigo[posicao..posicao + 4].copy_from_slice(&(relativo as i32).to_le_bytes());
     }
 
-    fn finalizar(mut self) -> Result<Vec<u8>, String> {
+    fn finalizar(mut self) -> Result<(Vec<u8>, usize), String> {
         for (posicao, nome) in self.chamadas {
             let destino = self.funcoes.get(&nome)
                 .ok_or_else(|| format!("Função '{}' não foi encontrada durante a geração nativa.", nome))?;
@@ -457,7 +503,21 @@ impl Emissor {
             let relativo = i32::try_from(relativo).map_err(|_| "Chamada fora do alcance relativo x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
-        Ok(self.codigo)
+
+        let fim_texto = TAMANHO_CABECALHO.checked_add(self.codigo.len())
+            .ok_or("Tamanho do segmento de código excedeu o limite do alvo.")?;
+        let deslocamento_dados = alinhar_pagina(fim_texto)?;
+        let endereco_dados = 0x400000u64 + deslocamento_dados as u64;
+        for (posicao, nome) in self.referencias_globais {
+            let deslocamento = *self.globais.get(&nome)
+                .ok_or_else(|| format!("Variável global '{nome}' não foi alocada."))?;
+            let destino = endereco_dados + deslocamento as u64;
+            let origem = 0x401000u64 + (posicao + 4) as u64;
+            let relativo = i32::try_from(destino as i64 - origem as i64)
+                .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
+            self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
+        }
+        Ok((self.codigo, self.globais.len() * 8))
     }
 }
 
@@ -468,10 +528,24 @@ fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     }
 }
 
-fn gerar_elf(codigo: &[u8]) -> Vec<u8> {
-    let tamanho = TAMANHO_CABECALHO + codigo.len();
-    let mut elf = vec![0u8; TAMANHO_CABECALHO];
-    elf[0..4].copy_from_slice(b"\x7FELF");
+fn alinhar_pagina(valor: usize) -> Result<usize, String> {
+    valor.checked_add(0xFFF)
+        .map(|valor| valor & !0xFFF)
+        .ok_or_else(|| "Tamanho do executável excedeu o limite do alvo ELF64.".into())
+}
+
+fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
+    let fim_texto = TAMANHO_CABECALHO.checked_add(codigo.len())
+        .ok_or("Tamanho do segmento de código excedeu o limite do alvo.")?;
+    let deslocamento_dados = alinhar_pagina(fim_texto)?;
+    let tamanho_total = if tamanho_dados == 0 {
+        fim_texto
+    } else {
+        deslocamento_dados.checked_add(tamanho_dados)
+            .ok_or("Tamanho do segmento de dados excedeu o limite do alvo.")?
+    };
+    let mut elf = vec![0u8; tamanho_total];
+    elf[0..4].copy_from_slice(b"\\x7FELF");
     elf[4] = 2; // ELFCLASS64
     elf[5] = 1; // little endian
     elf[6] = 1; // ELF version
@@ -482,19 +556,35 @@ fn gerar_elf(codigo: &[u8]) -> Vec<u8> {
     elf[32..40].copy_from_slice(&64u64.to_le_bytes()); // e_phoff
     elf[52..54].copy_from_slice(&64u16.to_le_bytes());
     elf[54..56].copy_from_slice(&56u16.to_le_bytes());
-    elf[56..58].copy_from_slice(&1u16.to_le_bytes());
-    // PT_LOAD: mapeia o arquivo inteiro em 0x400000, executável e legível.
+    elf[56..58].copy_from_slice(&(if tamanho_dados == 0 { 1u16 } else { 2u16 }).to_le_bytes());
+
+    // Primeiro PT_LOAD: cabeçalhos e código, somente leitura e execução.
     let ph = 64;
     elf[ph..ph + 4].copy_from_slice(&1u32.to_le_bytes());
     elf[ph + 4..ph + 8].copy_from_slice(&5u32.to_le_bytes()); // PF_R | PF_X
     elf[ph + 8..ph + 16].copy_from_slice(&0u64.to_le_bytes());
     elf[ph + 16..ph + 24].copy_from_slice(&0x400000u64.to_le_bytes());
     elf[ph + 24..ph + 32].copy_from_slice(&0x400000u64.to_le_bytes());
-    elf[ph + 32..ph + 40].copy_from_slice(&(tamanho as u64).to_le_bytes());
-    elf[ph + 40..ph + 48].copy_from_slice(&(tamanho as u64).to_le_bytes());
+    elf[ph + 32..ph + 40].copy_from_slice(&(fim_texto as u64).to_le_bytes());
+    elf[ph + 40..ph + 48].copy_from_slice(&(fim_texto as u64).to_le_bytes());
     elf[ph + 48..ph + 56].copy_from_slice(&0x1000u64.to_le_bytes());
-    elf.extend_from_slice(codigo);
-    elf
+
+    if tamanho_dados > 0 {
+        // Segundo PT_LOAD: dados globais graváveis, sem tornar o código gravável.
+        let dados = 120;
+        let endereco_dados = 0x400000u64 + deslocamento_dados as u64;
+        elf[dados..dados + 4].copy_from_slice(&1u32.to_le_bytes());
+        elf[dados + 4..dados + 8].copy_from_slice(&6u32.to_le_bytes()); // PF_R | PF_W
+        elf[dados + 8..dados + 16].copy_from_slice(&(deslocamento_dados as u64).to_le_bytes());
+        elf[dados + 16..dados + 24].copy_from_slice(&endereco_dados.to_le_bytes());
+        elf[dados + 24..dados + 32].copy_from_slice(&endereco_dados.to_le_bytes());
+        elf[dados + 32..dados + 40].copy_from_slice(&(tamanho_dados as u64).to_le_bytes());
+        elf[dados + 40..dados + 48].copy_from_slice(&(tamanho_dados as u64).to_le_bytes());
+        elf[dados + 48..dados + 56].copy_from_slice(&0x1000u64.to_le_bytes());
+    }
+
+    elf[TAMANHO_CABECALHO..fim_texto].copy_from_slice(codigo);
+    Ok(elf)
 }
 
 #[cfg(test)]
@@ -594,7 +684,7 @@ mod testes {
 
     #[test]
     fn rejeita_declaracao_duplicada_no_mesmo_escopo() {
-        let mut emissor = Emissor::novo();
+        let mut emissor = Emissor::novo(HashMap::new());
         emissor.escopos.push(HashMap::new());
         assert!(emissor.declarar("valor").is_ok());
         assert!(emissor.declarar("valor").is_err());
