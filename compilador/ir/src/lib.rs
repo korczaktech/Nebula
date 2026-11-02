@@ -48,6 +48,7 @@ pub enum ExpressaoIr {
     Indexacao { alvo: Box<ExpressaoIr>, indice: Box<ExpressaoIr> },
     Membro { alvo: Box<ExpressaoIr>, campo: String },
     ConstrucaoEstrutura { nome: String, campos: Vec<(String, ExpressaoIr)> },
+    ConstrucaoEnumeracao { nome: String, variante: String, valores: Vec<ExpressaoIr> },
 }
 
 /// Instrução tipada da IR.
@@ -138,6 +139,10 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             NoAst::Estrutura { nome, campos } => Some((nome.clone(), campos.iter().cloned().collect())),
             _ => None,
         }).collect(),
+        variantes_enumeracoes: programa.itens.iter().filter_map(|item| match item {
+            NoAst::Enumeracao { nome, variantes } => Some((nome.clone(), variantes.iter().map(|(variante, payload)| (variante.clone(), payload.clone())).collect())),
+            _ => None,
+        }).collect(),
         assinaturas_funcoes,
         modulos_importados: modulos_importados.clone(),
         genericas,
@@ -209,6 +214,7 @@ struct Lowerer {
     aliases: HashMap<String, String>,
     tipos_agregados: HashMap<String, Tipo>,
     campos_estruturas: HashMap<String, HashMap<String, String>>,
+    variantes_enumeracoes: HashMap<String, HashMap<String, Vec<String>>>,
     assinaturas_funcoes: HashMap<String, (Vec<String>, Option<String>)>,
     modulos_importados: HashMap<String, String>,
     genericas: HashMap<String, FuncaoGenericaAst>,
@@ -526,12 +532,16 @@ impl Lowerer {
                             Some(ExpressaoIr::Chamada { nome: nome.clone(), argumentos: args })
                         }
                     },
-                    Expressao::Membro { alvo, operador: TipoToken::Escopo, nome } => {
-                        if let Expressao::Nome(modulo) = alvo.as_ref() {
-                            let caminho = self.modulos_importados.get(modulo).cloned().unwrap_or_else(|| modulo.clone());
-                            Some(ExpressaoIr::ChamadaQualificada { modulo: caminho, nome: nome.clone(), argumentos: args })
+                    Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
+                        if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
+                            if self.variantes_enumeracoes.get(tipo_enum).is_some_and(|variantes| variantes.contains_key(variante)) {
+                                Some(ExpressaoIr::ConstrucaoEnumeracao { nome: tipo_enum.clone(), variante: variante.clone(), valores: args })
+                            } else {
+                                let caminho = self.modulos_importados.get(tipo_enum).cloned().unwrap_or_else(|| tipo_enum.clone());
+                                Some(ExpressaoIr::ChamadaQualificada { modulo: caminho, nome: variante.clone(), argumentos: args })
+                            }
                         } else {
-                            self.diagnosticos.push("Alvo de módulo qualificado inválido na IR.".into());
+                            self.diagnosticos.push("Alvo qualificado inválido na IR.".into());
                             None
                         }
                     }
@@ -658,6 +668,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
         ExpressaoIr::ConstrucaoEstrutura { nome, .. } => Tipo::Estrutura(nome.clone()),
+        ExpressaoIr::ConstrucaoEnumeracao { nome, .. } => Tipo::Enumeracao(nome.clone()),
         ExpressaoIr::Tupla(v) => Tipo::Tupla(v.iter().map(inferir_tipo).collect()),
         ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
             OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual
@@ -911,6 +922,12 @@ impl Maquina<'_> {
                 nome: nome.clone(),
                 campos: campos.iter().map(|(campo, valor)| Ok((campo.clone(), self.expressao(valor)?))).collect::<Result<_, String>>()?,
             }),
+            ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
+                let campos = valores.iter().enumerate()
+                    .map(|(indice, valor)| Ok((indice.to_string(), self.expressao(valor)?)))
+                    .collect::<Result<Vec<_>, String>>()?;
+                Ok(ValorIr::Estrutura { nome: format!("{nome}::{variante}"), campos })
+            },
             ExpressaoIr::Membro { alvo, campo } => {
                 let ValorIr::Estrutura { campos, .. } = self.expressao(alvo)? else { return Err("Acesso de campo exige uma estrutura.".into()); };
                 campos.into_iter().find(|(nome, _)| nome == campo).map(|(_, valor)| valor)
