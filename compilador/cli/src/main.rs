@@ -3,9 +3,9 @@
 #![forbid(unsafe_code)]
 
 use nebula_fonte::ArquivoFonte;
-use nebula_sintaxe::analisar;
-use nebula_semantica::{analisar_semantica, ModulosDisponiveis};
 use nebula_ir::baixar;
+use nebula_semantica::{analisar_semantica, ModulosDisponiveis};
+use nebula_sintaxe::analisar;
 use std::path::Path;
 
 fn main() {
@@ -75,11 +75,18 @@ fn ajuda() {
 
 fn mostrar_ir(caminho: &Path) {
     let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
-        eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+        eprintln!(
+            "Erro N0001: não foi possível ler '{}': {erro}",
+            caminho.display()
+        );
         std::process::exit(1);
     });
     let conteudo = String::from_utf8(bytes).unwrap_or_else(|erro| {
-        eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
+        eprintln!(
+            "Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.",
+            caminho.display(),
+            erro.utf8_error().valid_up_to()
+        );
         std::process::exit(1);
     });
     let fonte = ArquivoFonte::novo(caminho, conteudo);
@@ -92,7 +99,9 @@ fn mostrar_ir(caminho: &Path) {
     }
     let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
     if !resultado.diagnosticos.is_empty() {
-        for diagnostico in &resultado.diagnosticos { eprintln!("{diagnostico}"); }
+        for diagnostico in &resultado.diagnosticos {
+            eprintln!("{diagnostico}");
+        }
         std::process::exit(1);
     }
     println!("{:#?}", resultado.programa.expect("baixamento validado"));
