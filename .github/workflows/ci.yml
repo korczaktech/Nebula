@@ -34,6 +34,9 @@ jobs:
       - name: Executar testes
         run: cargo test --locked --workspace --all-targets
 
+      - name: Validar documentação da API
+        run: cargo doc --locked --workspace --no-deps
+
       - name: Validar script de benchmark
         run: bash -n benchmarks/executar.sh
 
