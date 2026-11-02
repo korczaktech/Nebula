@@ -419,6 +419,8 @@ Critérios de conclusão:
 
 ## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
 
+**Estado: implementação integrada; aceite final condicionado à CI verde.**
+
 **Objetivo:** transformar código Nebula em uma representação sintática confiável.
 
 Entregas:
