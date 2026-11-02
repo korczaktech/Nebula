@@ -561,4 +561,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 está concluída. A Fase 4 está em reestruturação para gerar ELF x86-64 diretamente em Rust, sem compilador externo; runtime e otimizador permanecem adiados. A CI mais recente validou 125 testes acumulados e executou a linha de base de benchmark sem otimizações. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md) para limites e evidências.
+A Fase 3 está concluída. A Fase 4 está em implementação: o backend gera ELF64 Linux x86-64 diretamente em Rust, com segmentos separados para código e dados, variáveis locais/globais, chamadas, controle de fluxo e aritmética inteira. Runtime, biblioteca padrão e otimizador permanecem adiados conforme o plano. A conclusão da Fase 4 depende da validação integral dos novos testes e da CI no commit final; não há declaração de conclusão enquanto essa evidência não existir. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md).
