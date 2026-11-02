@@ -15,7 +15,7 @@ pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
     Variavel, Constante, Funcao, Quando, Senao, Para, Enquanto, Devolver,
     Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Seguir,
-    E, Ou, Nao, Publico, Privado, Tipo,
+    E, Ou, Nao, Publico, Privado, Tipo, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
     Virgula, PontoVirgula, DoisPontos, Ponto,
     Atribui, Mais, Menos, Vezes, Divide, Resto, Potencia,
@@ -167,7 +167,9 @@ impl<'a> Lexer<'a> {
             "parar" => TipoToken::Parar, "seguir" => TipoToken::Seguir,
             "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" => TipoToken::Nao,
             "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
-            "tipo" => TipoToken::Tipo, _ => TipoToken::Identificador,
+            "tipo" => TipoToken::Tipo,
+            "cada" | "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" | "estrutura" | "enumeracao" => TipoToken::ReservadaFutura,
+            _ => TipoToken::Identificador,
         };
         self.adicionar(tipo, self.inicio, self.atual);
     }
