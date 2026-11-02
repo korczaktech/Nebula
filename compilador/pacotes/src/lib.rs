@@ -101,7 +101,9 @@ impl Manifesto {
             }
         }
         let nome = nome.ok_or("Manifesto sem pacote.nome.")?;
-        if !nome_valido(&nome) { return Err(format!("Nome de pacote inválido: {nome}")); }
+        if !nome_valido(&nome) {
+            return Err(format!("Nome de pacote inválido: {nome}"));
+        }
         let versao = versao.ok_or("Manifesto sem pacote.versao.")?;
         if !versao_semantica_valida(&versao) { return Err(format!("Versão não é SemVer válida: {versao}")); }
         Ok(Self { nome, versao, dependencias })
