@@ -316,7 +316,7 @@ impl<'a> Analisador<'a> {
                 let mut possui_curinga = false;
                 let antes = self.snapshot_movidos();
                 let mut estados = Vec::new();
-                for caso in casos {
+                for (indice_caso, caso) in casos.iter().enumerate() {
                     self.abrir_escopo();
                     match (&caso.enumeracao, &caso.variante) {
                         (Some(enum_caso), Some(variante)) => {
@@ -338,6 +338,9 @@ impl<'a> Analisador<'a> {
                             }
                         }
                         _ => {
+                            if indice_caso + 1 != casos.len() {
+                                self.erro("N3054", "O caso curinga deve ser o último caso de 'escolha'.");
+                            }
                             if possui_curinga {
                                 self.erro("N3052", "A instrução 'escolha' possui mais de um caso curinga.");
                             }
