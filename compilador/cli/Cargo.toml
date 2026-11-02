@@ -9,5 +9,9 @@ license.workspace = true
 name = "nebula"
 path = "src/main.rs"
 
+[dependencies]
+nebula-fonte = { path = "../fonte" }
+nebula-sintaxe = { path = "../sintaxe" }
+
 [lints]
 workspace = true
