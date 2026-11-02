@@ -718,9 +718,9 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
-        ValorIr::Estrutura { campos, .. } => ValorRuntime::Estrutura(Arc::new(RwLock::new(
+        ValorIr::Estrutura { nome, campos } => ValorRuntime::Estrutura { nome, campos: Arc::new(RwLock::new(
             campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
-        ))),
+        )) },
         ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
         ValorIr::IntervaloDecimal(inicio, fim) => {
             ValorRuntime::IntervaloDecimal { inicio, fim }
@@ -738,9 +738,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
-        ValorRuntime::Estrutura(campos) => {
+        ValorRuntime::Estrutura { nome, campos } => {
             let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
-            Ok(ValorIr::Estrutura { nome: String::new(), campos: campos.iter().map(|(nome, valor)| Ok((nome.clone(), converter_para_ir(valor.clone())?))).collect::<Result<_, String>>()? })
+            Ok(ValorIr::Estrutura { nome: nome.clone(), campos: campos.iter().map(|(nome, valor)| Ok((nome.clone(), converter_para_ir(valor.clone())?))).collect::<Result<_, String>>()? })
         }
         ValorRuntime::Lista(itens) => {
             let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
