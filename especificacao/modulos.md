@@ -13,6 +13,7 @@ incluir Rede como Comunicacao
 - Nomes qualificados usam ::.
 - O analisador semântico resolve o alias de importação e verifica se a função qualificada existe no conjunto de exports do módulo.
 - O conjunto de módulos é fornecido explicitamente pela API ModulosDisponiveis, indexado pelo caminho do módulo e contendo assinaturas de funções exportadas.
+- Aliases de módulo não podem colidir com nomes de funções ou variáveis no programa.
 - O compilador não pesquisa caminhos arbitrários no disco.
 - A visibilidade pública/privada de um módulo externo é refletida na tabela de exports fornecida pelo carregador.
 
