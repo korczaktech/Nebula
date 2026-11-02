@@ -507,7 +507,6 @@ impl<'a> Analisador<'a> {
         if matches!(a, Tipo::Decimal64 | Tipo::Decimal) || matches!(b, Tipo::Decimal64 | Tipo::Decimal) {
             return Tipo::Decimal64;
         }
-        if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 { return Tipo::Decimal32; }
         let largura = |tipo: &Tipo| match tipo {
             Tipo::Inteiro8 | Tipo::Byte => 8,
             Tipo::Inteiro16 => 16,
@@ -516,11 +515,16 @@ impl<'a> Analisador<'a> {
             Tipo::Inteiro128 => 128,
             _ => 64,
         };
+        if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 {
+            let outro = if a == &Tipo::Decimal32 { b } else { a };
+            return if largura(outro) > 16 { Tipo::Decimal64 } else { Tipo::Decimal32 };
+        }
         match largura(a).max(largura(b)) {
             8 => Tipo::Inteiro8,
             16 => Tipo::Inteiro16,
             32 => Tipo::Inteiro32,
             128 => Tipo::Inteiro128,
+            64 if a == &Tipo::Inteiro64 || b == &Tipo::Inteiro64 => Tipo::Inteiro64,
             _ => Tipo::Inteiro,
         }
     }
