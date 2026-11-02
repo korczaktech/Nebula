@@ -22,14 +22,14 @@ Diagnósticos sintéticos ou globais podem não possuir intervalo. Nesses casos,
 
 ## Identificadores
 
-Códigos usam prefixos por subsistema: N0xxx para fonte/lexer/parser, N1xxx para semântica/tipos, N2xxx para memória/concorrência e N3xxx para backend/ligação.
+Códigos usam faixas por subsistema: N0001 para falhas de leitura; N1000–N1099 para entrada UTF-8 e Lexer; N2000–N2099 para Parser; N3000–N3099 para semântica e tipos; N4000–N4099 para memória e concorrência; N5000–N5099 para backend e ligação.
 
 ## Exemplo de apresentação futura
 
 ~~~text
-Erro N0001: caractere inesperado.
+Erro N1003: caractere inesperado.
 Arquivo: exemplo.nbx
 Linha: 4, coluna: 9
 ~~~
 
-Mensagens não devem depender da localização do sistema operacional. A CLI poderá oferecer formato humano e formato estruturado para ferramentas. A formatação completa e a recuperação de erros serão desenvolvidas nas fases de frontend.
+Mensagens não devem depender da localização do sistema operacional. A CLI poderá oferecer formato humano e formato estruturado para ferramentas. A recuperação sintática inicial é implementada na Fase 2. Formatação detalhada, sugestões e saída estruturada poderão evoluir nas fases seguintes.
