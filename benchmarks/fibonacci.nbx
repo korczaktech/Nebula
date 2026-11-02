@@ -5,6 +5,6 @@ funcao fibonacci(n: inteiro): inteiro {
     devolver fibonacci(n - 1) + fibonacci(n - 2)
 }
 
-funcao principal(): vazio {
-    exibir(fibonacci(37))
+funcao principal(): inteiro {
+    devolver fibonacci(37)
 }
