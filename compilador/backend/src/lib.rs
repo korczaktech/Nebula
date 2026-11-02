@@ -275,26 +275,19 @@ impl Emissor {
                         self.aplicar_salto(divisor_valido, self.codigo.len());
 
                         // INT64_MIN / -1 não é representável em signed division.
-                        // A semântica inteira do backend é wraparound de 64 bits.
+                        // Rejeita a operação com o mesmo código estável da divisão por zero.
                         self.codigo.extend_from_slice(&[0x48, 0x83, 0xF9, 0xFF]);
                         let divisor_normal = self.emitir_jcc(0x85);
                         self.codigo.extend_from_slice(&[0x48, 0xBA]);
                         self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
                         self.codigo.extend_from_slice(&[0x48, 0x39, 0xD0]);
                         let dividendo_normal = self.emitir_jcc(0x85);
-                        if *operador == OperadorIr::Divide {
-                            self.codigo.extend_from_slice(&[0x48, 0xBA]);
-                            self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
-                            self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]);
-                        } else {
-                            self.codigo.extend_from_slice(&[0x31, 0xC0]);
-                        }
-                        let fim_especial = self.emitir_jmp();
-                        self.aplicar_salto(divisor_normal, self.codigo.len());
-                        self.aplicar_salto(dividendo_normal, self.codigo.len());
+                        self.encerrar_com_erro(2);
+                        let inicio_divisao = self.codigo.len();
+                        self.aplicar_salto(divisor_normal, inicio_divisao);
+                        self.aplicar_salto(dividendo_normal, inicio_divisao);
                         self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
                         if *operador == OperadorIr::Resto { self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); }
-                        self.aplicar_salto(fim_especial, self.codigo.len());
                     }
                     OperadorIr::Potencia => {
                         // Exponenciação inteira por quadratura: O(log expoente), sem runtime.
