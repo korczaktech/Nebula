@@ -1,174 +1,111 @@
 # Especificação inicial da linguagem Nebula
 
-**Estado:** proposta-base da Fase 1. Mudanças incompatíveis exigem atualização desta especificação e dos testes de conformidade.
+**Estado:** contrato de linguagem para a fundação e o subconjunto sintático inicial. A implementação do compilador ocorrerá nas fases seguintes. Alterações incompatíveis exigem atualização da gramática, tokens, exemplos e testes.
 
 ## 1. Identidade
 
 - Nome: Nebula.
-- Extensão de fonte: `.nbx`.
-- Linguagem e mensagens oficiais: português brasileiro.
-- Compilador inicial: Rust.
+- Extensão de fonte: .nbx.
+- Idioma oficial: português brasileiro para palavras-chave, mensagens e documentação.
+- Implementação inicial do compilador: Rust.
 - Paradigma: multiparadigma, compilada e de propósito geral.
-- Tipagem: estática por padrão, com inferência controlada.
-- Alvos previstos: código nativo e WebAssembly.
-- Arquivos-fonte: UTF-8, sem BOM obrigatório.
+- Tipagem: estática por padrão, com inferência local controlada.
+- Alvos pretendidos: código nativo e WebAssembly; nenhum backend está entregue na fundação.
+- Arquivos-fonte: UTF-8.
 
 ## 2. Princípios normativos
 
-As palavras **DEVE**, **NÃO DEVE**, **PODE** e **RECOMENDA-SE** indicam, respectivamente, requisito obrigatório, proibição, opção permitida e recomendação.
+As palavras **DEVE**, **NÃO DEVE**, **PODE** e **RECOMENDA-SE** indicam requisito, proibição, opção e recomendação.
 
-1. O significado de um programa não depende da quantidade de espaços ou da indentação.
-2. Delimitadores visuais são aceitos quando ajudam a agrupar; não são exigidos se a estrutura puder ser reconhecida sem ambiguidade.
-3. Uma quebra de linha pode separar instruções completas. O ponto e vírgula também pode fazê-lo explicitamente.
-4. O compilador deve rejeitar construções ambíguas em vez de adivinhar a intenção.
-5. A sintaxe oficial usa palavras-chave em português e operadores familiares.
-6. A atribuição usa `=`; igualdade usa `==`; comparação não deve ser confundida com atribuição.
-7. Erros devem apontar localização de origem e oferecer mensagem em português.
+1. O significado de um programa não depende da indentação.
+2. Delimitadores são aceitos e não devem ser exigidos quando a gramática puder reconhecer a estrutura sem ambiguidade.
+3. Uma quebra de linha pode separar instruções completas; ponto e vírgula também pode separar instruções explicitamente.
+4. Construções ambíguas devem ser rejeitadas, nunca resolvidas por adivinhação.
+5. Palavras-chave e mensagens oficiais usam português brasileiro.
+6. = representa inicialização/atribuição; == representa igualdade.
+7. Diagnósticos devem identificar a origem do problema com a precisão disponível.
 8. A especificação é independente da implementação e dos backends.
 
-## 3. Organização visual
+## 3. Sintaxe visual
 
-- `()`: agrupamento de expressões, parâmetros e argumentos; podem ser omitidos apenas quando a gramática mantiver o significado inequívoco.
-- `{}`: delimitadores explícitos de blocos; blocos também podem usar o terminador `fim`.
-- `[]`: listas, vetores e indexação.
-- `""`: literais de texto; aspas são obrigatórias para texto literal.
-- `;`: separador explícito opcional entre instruções.
-- Espaços, linhas em branco e indentação são livres para apresentação e não definem escopos.
-- Quebras de linha separam instruções quando o token anterior pode encerrar uma instrução e o próximo token pode iniciar outra.
-- Dentro de parênteses e colchetes, quebras de linha são espaços, salvo regras específicas de literal.
+- Parênteses () agrupam expressões, parâmetros e argumentos. Podem ser omitidos em condições quando o bloco seguinte delimitar a expressão sem ambiguidade. Chamadas de função e parâmetros mantêm parênteses no subconjunto inicial.
+- Chaves {} delimitam blocos; alternativamente, blocos podem terminar com fim.
+- Colchetes [] delimitam listas e indexação.
+- Aspas duplas delimitam literais de texto; aspas simples delimitam caracteres.
+- Ponto e vírgula ; é separador explícito opcional entre instruções, exceto nos dois separadores do cabeçalho de para.
+- Quebras de linha separam instruções quando a expressão anterior está completa.
+- Espaços e indentação são livres e não definem escopos.
+- Dentro de () e [], quebras de linha funcionam como espaços; dentro de blocos, podem separar instruções.
 
-Exemplos conceitualmente equivalentes:
+Exemplo:
 
-```nebula
-variavel total = 10
-variavel taxa = 2
-exibir(total * taxa)
-```
-
-```nebula
-variavel total = 10; variavel taxa = 2; exibir(total * taxa);
-```
-
-Bloco com chaves:
-
-```nebula
+~~~nebula
 funcao principal(): vazio {
-    exibir("Olá, Nebula")
+    variavel nome = "Nebula"
+    variavel idade = 18
+
+    quando idade >= 18 {
+        exibir("Olá, " + nome)
+    }
 }
-```
+~~~
 
-Bloco com terminador:
+## 4. Identificadores e palavras reservadas
 
-```nebula
-funcao principal(): vazio
-    exibir("Olá, Nebula")
-fim
-```
+Identificadores usam Unicode XID_Start/XID_Continue, admitem sublinhado, são sensíveis a maiúsculas/minúsculas e comparados em NFC. Palavras reservadas não podem ser usadas como identificadores. A lista completa e a distinção entre palavras da gramática inicial e palavras reservadas futuras estão em tokens.md.
 
-A indentação não altera o escopo em nenhum dos exemplos.
+## 5. Declarações e controle de fluxo
 
-## 4. Identificadores
+O subconjunto sintático inicial inclui:
+- variavel para vínculo mutável;
+- constante para vínculo não reatribuível;
+- funcao para função nomeada com parâmetros tipados;
+- tipo para alias de tipo;
+- incluir para importação de módulo;
+- quando/senao, enquanto e para;
+- devolver, parar e seguir.
 
-- Sensíveis a maiúsculas e minúsculas.
-- Codificados em UTF-8.
-- A especificação adota normalização Unicode NFC para comparação de identificadores.
-- Um identificador começa por letra Unicode ou sublinhado; os caracteres seguintes podem incluir letras, marcas combinantes, números e sublinhado.
-- Palavras reservadas não podem ser usadas como identificadores sem mecanismo de escape, ainda não definido.
-- Recomenda-se usar nomes em português nos exemplos e APIs oficiais.
+A gramática completa e os exemplos canônicos estão em gramatica.md. Recursos reservados para versões futuras não devem ser apresentados como implementados.
 
-## 5. Palavras reservadas iniciais
-
-`variavel`, `constante`, `funcao`, `quando`, `senao`, `para`, `enquanto`, `cada`, `em`, `devolver`, `incluir`, `como`, `verdadeiro`, `falso`, `nulo`, `vazio`, `fim`, `parar`, `seguir`, `e`, `ou`, `nao`, `tentar`, `capturar`, `finalmente`, `assinc`, `aguardar`, `publico`, `privado`, `tipo`, `estrutura`, `enumeracao`.
-
-A lista é reservada para a primeira versão da gramática; recursos semânticos correspondentes podem ser implementados em fases posteriores. Palavras ainda não implementadas não devem ser apresentadas como recursos funcionais.
-
-## 6. Declarações e funções
-
-Formas-base propostas:
-
-```nebula
-variavel nome: texto = "Nebula"
-constante limite: inteiro = 100
-
-funcao somar(a: inteiro, b: inteiro): inteiro {
-    devolver a + b
-}
-```
-
-- `variavel` declara vínculo mutável.
-- `constante` declara vínculo não reatribuível.
-- O tipo após `:` é opcional quando a inferência puder determinar um tipo estático.
-- `funcao` declara uma função nomeada.
-- `devolver` encerra a função e fornece seu resultado.
-- Funções sem resultado explícito usam `vazio`.
-
-## 7. Controle de fluxo
-
-```nebula
-quando (idade >= 18) {
-    exibir("Maior de idade")
-} senao {
-    exibir("Menor de idade")
-}
-
-enquanto (ativo) {
-    processar()
-}
-
-para (variavel i = 0; i < 10; i = i + 1) {
-    exibir(i)
-}
-```
-
-A forma exata dos laços, incluindo a sintaxe de incremento, será validada na gramática. `parar` e `seguir` são palavras reservadas previstas para controle de laços.
-
-## 8. Tipos iniciais
+## 6. Tipos iniciais planejados
 
 | Tipo | Significado |
 |---|---|
-| `logico` | valor verdadeiro/falso |
-| `inteiro` | inteiro com tamanho definido pela implementação-alvo, nunca implícito na ABI pública |
-| `inteiro8/16/32/64/128` | inteiros com largura explícita; 128 quando suportado |
-| `decimal32`, `decimal64` | ponto flutuante binário |
-| `texto` | sequência UTF-8 |
-| `caractere` | escalar Unicode |
-| `byte` | unidade de 8 bits |
-| `vazio` | ausência de valor de retorno |
+| logico | verdadeiro/falso |
+| inteiro | inteiro cuja largura padrão ainda será definida por alvo |
+| inteiro8/16/32/64/128 | inteiros de largura explícita, quando suportados |
+| variantes sem sinal | inteiros sem sinal de largura explícita, a especificar |
+| decimal32, decimal64 | ponto flutuante binário |
+| texto | sequência UTF-8 |
+| caractere | escalar Unicode |
+| byte | unidade de 8 bits |
+| vazio | ausência de valor de retorno |
 
-Tipos compostos, genéricos, opcionais, estruturas, enumerações, ponteiros e funções fazem parte do desenho geral, mas seus detalhes serão especificados antes de serem implementados.
+Os nomes de tipos são identificadores em posição de tipo nesta etapa. Tipos compostos, genéricos, opcionais, estruturas, enumerações, ponteiros e funções exigem especificação semântica antes de serem estabilizados.
 
-## 9. Literais
+## 7. Literais e comentários
 
-- Inteiros decimais: `0`, `42`, `1_000`.
-- Bases não decimais previstas: `0x`, `0b`, `0o`.
-- Decimais: `3.14`, `1.0e-3`.
-- Lógicos: `verdadeiro`, `falso`.
-- Nulo: `nulo`.
-- Texto: aspas duplas, com escapes documentados na gramática.
-- Caractere: aspas simples, contendo um escalar Unicode após escapes.
+- Inteiros decimais e com prefixos hexadecimal, binário e octal.
+- Decimais com fração e/ou expoente conforme as regras léxicas.
+- Lógicos: verdadeiro e falso; nulo: nulo.
+- Texto entre aspas duplas e caractere entre aspas simples, com escapes definidos em tokens.md.
+- Comentários de linha // e de bloco /* ... */; comentários de bloco não são aninhados.
+- Strings multilinha e interpolação não fazem parte do subconjunto inicial.
 
-## 10. Comentários
+## 8. Tipagem, memória e segurança
 
-- Linha: `// comentário`.
-- Bloco: `/* comentário */`.
-- Comentários de bloco não aninhados na primeira versão; o comportamento será erro explícito se não houver fechamento.
+A linguagem é estaticamente tipada por padrão, com inferência local determinística. Conversões potencialmente redutoras exigirão conversão explícita. Overflow, divisão por zero, semântica de ponto flutuante e ABI serão definidos antes da estabilização correspondente.
 
-## 11. Módulos
+O modelo de memória pretendido é híbrido: propriedade e vida útil verificadas no caminho seguro, com operações de baixo nível explícitas. Não há coletor de lixo global obrigatório. Sintaxe e garantias exatas permanecem decisões abertas, registradas em decisoes.md.
 
-A forma preferida é `incluir nome` ou `incluir nome como apelido`. Caminhos, visibilidade, resolução de pacotes e ciclos serão definidos no documento de módulos.
+## 9. Módulos
 
-## 12. Tipagem e conversões
+A forma inicial é incluir Matemática ou incluir Rede como Comunicacao. Importações ficam no escopo de arquivo. Caminhos qualificados usam ::. Resolução de pacotes, visibilidade completa e ciclos serão implementados e validados em fases posteriores.
 
-- Tipagem estática por padrão.
-- Inferência local permitida quando não houver perda de previsibilidade.
-- Conversões implícitas potencialmente perigosas não são permitidas.
-- Conversões explícitas deverão ser visíveis no código.
-- O comportamento de overflow, divisão por zero e conversões numéricas deverá ser definido por tipo e modo de compilação.
+## 10. Diagnósticos
 
-## 13. Memória e segurança
+Mensagens oficiais são em português e devem conter código estável, severidade, mensagem e intervalo de origem quando disponível. A estrutura inicial já implementada armazena código, severidade, mensagem e intervalo opcional. Formatação de arquivo/linha/coluna, trecho destacado, sugestões e formatos de saída serão desenvolvidos com Lexer/Parser e CLI nas fases seguintes.
 
-Modelo híbrido planejado: propriedade e empréstimos verificados estaticamente para o caminho seguro; operações de baixo nível explicitamente marcadas e isoladas. Nenhum coletor de lixo global será requisito universal. A sintaxe e as garantias exatas de segurança ainda precisam de especificação própria antes da implementação.
+## 11. Compatibilidade e desempenho
 
-## 14. Compatibilidade
-
-A versão inicial da linguagem não promete estabilidade binária. Mudanças na gramática devem atualizar exemplos, fixtures e documentação. Recursos experimentais devem ser identificados e não podem ser anunciados como estáveis.
+A versão inicial não promete estabilidade binária. Toda mudança incompatível deve atualizar especificação e fixtures. A meta de desempenho superior a outras linguagens é uma hipótese de engenharia, não uma garantia: só poderá ser anunciada com benchmarks reproduzíveis, cargas equivalentes e publicação das limitações.
