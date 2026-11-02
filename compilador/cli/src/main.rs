@@ -163,7 +163,9 @@ fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, Stri
                 })
         })
     {
-        return Err(format!("Caminho de módulo inválido: '{caminho}'. Use identificadores separados por '::'."));
+        return Err(format!(
+            "Caminho de módulo inválido: '{caminho}'. Use identificadores separados por '::'."
+        ));
     }
     let base = origem.parent().unwrap_or_else(|| Path::new("."));
     let mut relativo = PathBuf::new();
