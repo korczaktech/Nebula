@@ -646,7 +646,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         },
         ExpressaoIr::Unaria { valor, .. } => inferir_tipo(valor),
         ExpressaoIr::Atribuicao { valor, .. } => inferir_tipo(valor),
-        ExpressaoIr::Indexacao { .. } | ExpressaoIr::Chamada { .. } | ExpressaoIr::ChamadaQualificada { .. } | ExpressaoIr::Variavel(_) => Tipo::Desconhecido,
+        ExpressaoIr::Indexacao { .. } | ExpressaoIr::Membro { .. } | ExpressaoIr::Chamada { .. } | ExpressaoIr::ChamadaQualificada { .. } | ExpressaoIr::Variavel(_) => Tipo::Desconhecido,
     }
 }
 
