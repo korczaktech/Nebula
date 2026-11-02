@@ -1,5 +1,13 @@
 # Histórico de alterações
 
+## 0.1.1 — Consolidação da fundação
+
+- Sincroniza a gramática, as palavras reservadas e as regras léxicas do subconjunto inicial.
+- Define explicitamente recursos reservados para versões futuras e evita apresentá-los como sintaxe disponível.
+- Esclarece separação de linhas, precedência, comparação, blocos e limites de literais.
+- Fixa a versão mínima/reprodutível do toolchain Rust e adiciona Cargo.lock.
+- Fortalece a CI para validar o workspace usando o lockfile.
+
 ## 0.1.0 — Fundação inicial
 
 - Registro da identidade e dos princípios da linguagem.
