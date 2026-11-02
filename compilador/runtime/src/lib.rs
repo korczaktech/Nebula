@@ -7,7 +7,9 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread::JoinHandle;
 
 /// Valor dinâmico utilizado pelo runtime da Nebula.
 #[derive(Clone, Debug)]
@@ -127,10 +129,88 @@ pub enum ErroRuntime {
     DivisaoPorZero,
     /// Expoente negativo não é aceito para potência inteira.
     ExpoenteNegativo,
+    /// Uma tarefa terminou com panic ou não pôde ser iniciada.
+    FalhaTarefa,
+    /// O canal foi encerrado antes da operação.
+    CanalFechado,
+    /// Limites de um intervalo de texto são inválidos.
+    IntervaloInvalido,
 }
 
 /// Resultado padrão das operações do runtime.
 pub type Resultado<T> = Result<T, ErroRuntime>;
+
+/// Tarefa executada em uma thread do sistema.
+pub struct Tarefa<T> {
+    identificador: Option<JoinHandle<T>>,
+}
+
+impl<T: Send + 'static> Tarefa<T> {
+    /// Inicia uma tarefa independente.
+    pub fn iniciar<F>(funcao: F) -> Resultado<Self>
+    where
+        F: FnOnce() -> T + Send + 'static,
+    {
+        let identificador = std::thread::Builder::new()
+            .spawn(funcao)
+            .map_err(|_| ErroRuntime::FalhaTarefa)?;
+        Ok(Self {
+            identificador: Some(identificador),
+        })
+    }
+
+    /// Aguarda a tarefa e retorna seu resultado.
+    pub fn aguardar(mut self) -> Resultado<T> {
+        self.identificador
+            .take()
+            .expect("tarefa só pode ser aguardada uma vez")
+            .join()
+            .map_err(|_| ErroRuntime::FalhaTarefa)
+    }
+}
+
+/// Canal concorrente com fila segura entre threads.
+pub struct Canal<T> {
+    remetente: Sender<T>,
+    receptor: Arc<Mutex<Receiver<T>>>,
+}
+
+impl<T> Canal<T> {
+    /// Cria um canal com um remetente e um receptor compartilhados.
+    #[must_use]
+    pub fn novo() -> Self {
+        let (remetente, receptor) = mpsc::channel();
+        Self {
+            remetente,
+            receptor: Arc::new(Mutex::new(receptor)),
+        }
+    }
+
+    /// Cria outro handle para o mesmo canal.
+    #[must_use]
+    pub fn clonar(&self) -> Self {
+        Self {
+            remetente: self.remetente.clone(),
+            receptor: Arc::clone(&self.receptor),
+        }
+    }
+
+    /// Envia um valor para o canal.
+    pub fn enviar(&self, valor: T) -> Resultado<()> {
+        self.remetente
+            .send(valor)
+            .map_err(|_| ErroRuntime::CanalFechado)
+    }
+
+    /// Aguarda e recebe o próximo valor disponível.
+    pub fn receber(&self) -> Resultado<T> {
+        self.receptor
+            .lock()
+            .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+            .recv()
+            .map_err(|_| ErroRuntime::CanalFechado)
+    }
+}
 
 #[derive(Clone, Debug)]
 struct Celula {
@@ -264,6 +344,49 @@ impl Memoria {
         Ok(())
     }
 
+    /// Adiciona um elemento ao final de uma lista mutável.
+    pub fn adicionar_elemento_lista(&mut self, nome: &str, valor: Valor) -> Resultado<()> {
+        let celula = self
+            .escopos
+            .iter_mut()
+            .rev()
+            .find_map(|escopo| escopo.get_mut(nome))
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
+        if !celula.mutavel {
+            return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        let Valor::Lista(lista) = &celula.valor else {
+            return Err(ErroRuntime::TipoIncompativel("a variável não contém uma lista"));
+        };
+        lista
+            .write()
+            .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+            .push(valor);
+        Ok(())
+    }
+
+    /// Remove e retorna um elemento de uma lista mutável.
+    pub fn remover_elemento_lista(&mut self, nome: &str, indice: usize) -> Resultado<Valor> {
+        let celula = self
+            .escopos
+            .iter_mut()
+            .rev()
+            .find_map(|escopo| escopo.get_mut(nome))
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
+        if !celula.mutavel {
+            return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        let Valor::Lista(lista) = &celula.valor else {
+            return Err(ErroRuntime::TipoIncompativel("a variável não contém uma lista"));
+        };
+        let mut itens = lista.write().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+        let tamanho = itens.len();
+        if indice >= tamanho {
+            return Err(ErroRuntime::IndiceForaDosLimites { indice, tamanho });
+        }
+        Ok(itens.remove(indice))
+    }
+
     /// Lê um elemento de lista sem expor referências internas.
     pub fn elemento_lista(&self, nome: &str, indice: usize) -> Resultado<Valor> {
         let valor = self.obter(nome)?;
@@ -310,6 +433,21 @@ pub fn caractere_texto(texto: &str, indice: usize) -> Resultado<char> {
             indice,
             tamanho: comprimento_texto(texto),
         })
+}
+
+/// Retorna um trecho de texto usando posições de caracteres Unicode.
+pub fn subtexto(texto: &str, inicio: usize, fim: usize) -> Resultado<String> {
+    let tamanho = comprimento_texto(texto);
+    if inicio > fim || fim > tamanho {
+        return Err(ErroRuntime::IntervaloInvalido);
+    }
+    Ok(texto.chars().skip(inicio).take(fim - inicio).collect())
+}
+
+/// Verifica se um texto contém outro texto.
+#[must_use]
+pub fn texto_contem(texto: &str, trecho: &str) -> bool {
+    texto.contains(trecho)
 }
 
 /// Executa uma operação inteira com overflow e divisão por zero verificados.
@@ -395,6 +533,39 @@ mod testes {
             .unwrap();
         assert_eq!(memoria.elemento_lista("itens", 1), Ok(Valor::Inteiro(7)));
         assert_eq!(memoria.comprimento_lista("itens"), Ok(2));
+    }
+
+    #[test]
+    fn lista_adiciona_e_remove_elementos() {
+        let lista = Valor::Lista(Arc::new(RwLock::new(vec![Valor::Inteiro(1)])));
+        let mut memoria = Memoria::nova();
+        memoria.declarar("itens", lista, true).unwrap();
+        memoria.adicionar_elemento_lista("itens", Valor::Inteiro(2)).unwrap();
+        assert_eq!(memoria.comprimento_lista("itens"), Ok(2));
+        assert_eq!(memoria.remover_elemento_lista("itens", 0), Ok(Valor::Inteiro(1)));
+        assert_eq!(memoria.comprimento_lista("itens"), Ok(1));
+    }
+
+    #[test]
+    fn tarefas_e_canais_sincronizam_threads() {
+        let canal = Canal::novo();
+        let emissor = canal.clonar();
+        let tarefa = Tarefa::iniciar(move || emissor.enviar(42).unwrap()).unwrap();
+        assert_eq!(canal.receber(), Ok(42));
+        tarefa.aguardar().unwrap();
+    }
+
+    #[test]
+    fn captura_panico_de_tarefa() {
+        let tarefa = Tarefa::iniciar(|| panic!("falha intencional")).unwrap();
+        assert_eq!(tarefa.aguardar(), Err(ErroRuntime::FalhaTarefa));
+    }
+
+    #[test]
+    fn texto_recorta_por_caracteres_unicode() {
+        assert_eq!(subtexto("ação 🌌", 0, 4), Ok("ação".into()));
+        assert!(subtexto("ação", 3, 2).is_err());
+        assert!(texto_contem("Nebula", "bul"));
     }
 
     #[test]
