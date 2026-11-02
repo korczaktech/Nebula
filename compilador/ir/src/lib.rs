@@ -13,7 +13,7 @@ use nebula_runtime::{
     calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
     subtexto, tempo_unix_milisegundos, texto_aparar, texto_comeca_com, texto_contem,
     texto_maiusculas, texto_minusculas, texto_substituir, texto_termina_com,
-    texto_para_decimal, texto_para_inteiro, ErroRuntime, FuncaoMatematica, Memoria,
+    texto_para_decimal, texto_para_inteiro, ContextoRuntime, ErroRuntime, FuncaoMatematica, Memoria,
     OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::HashMap;
@@ -822,7 +822,7 @@ impl Maquina<'_> {
             return Err("Limite de profundidade de chamadas da IR excedido.".into());
         }
         self.profundidade_chamada += 1;
-        self.memoria.abrir_escopo();
+        self.memoria_mutavel()?.abrir_escopo();
         let fluxo = (|| {
             for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
                 self.memoria_mutavel()?
@@ -831,7 +831,7 @@ impl Maquina<'_> {
             }
             self.bloco(&funcao.corpo)
         })();
-        let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+        let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
         self.profundidade_chamada -= 1;
         let fluxo = match (fluxo, fechamento) {
             (Err(erro), _) => return Err(erro),
