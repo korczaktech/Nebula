@@ -1,7 +1,7 @@
 //! Formatador conservador da linguagem Nebula.
 //!
 //! Normaliza somente espaços em branco no fim das linhas e a quebra final.
-//! O conteúdo léxico é preservado byte a byte; o parser valida antes da gravação.
+//! O conteúdo léxico é preservado; o parser valida antes da gravação.
 
 use nebula_fonte::ArquivoFonte;
 use std::path::{Path, PathBuf};
@@ -9,9 +9,13 @@ use std::path::{Path, PathBuf};
 fn main() {
     let mut args = std::env::args().skip(1);
     let Some(input) = args.next() else {
-        eprintln!("Uso: nebula-formatar <arquivo.nbx> [--check]");
+        ajuda();
         std::process::exit(2);
     };
+    if input == "--help" || input == "-h" {
+        ajuda();
+        return;
+    }
     let check = match args.next().as_deref() {
         None => false,
         Some("--check") => true,
@@ -21,7 +25,7 @@ fn main() {
         }
     };
     if args.next().is_some() {
-        eprintln!("Uso: nebula-formatar <arquivo.nbx> [--check]");
+        ajuda();
         std::process::exit(2);
     }
 
@@ -40,16 +44,28 @@ fn main() {
     }
 }
 
+fn ajuda() {
+    println!("Uso: nebula-formatar <arquivo.nbx> [--check]");
+    println!("Normaliza espaços finais sem reescrever tokens.");
+}
+
 fn format_file(path: &Path, check: bool) -> Result<bool, String> {
     let bytes = std::fs::read(path)
         .map_err(|e| format!("não foi possível ler '{}': {e}", path.display()))?;
-    let source = String::from_utf8(bytes)
-        .map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
+    let source = String::from_utf8(bytes).map_err(|e| {
+        format!(
+            "arquivo não contém UTF-8 válido no byte {}",
+            e.utf8_error().valid_up_to()
+        )
+    })?;
     let parsed = nebula_sintaxe::analisar(&ArquivoFonte::novo(path, source.clone()));
     if !parsed.diagnosticos.is_empty() {
-        return Err(parsed.diagnosticos.iter()
+        return Err(parsed
+            .diagnosticos
+            .iter()
             .map(|d| format!("{} — {}", d.codigo, d.mensagem))
-            .collect::<Vec<_>>().join("\n"));
+            .collect::<Vec<_>>()
+            .join("\n"));
     }
 
     let formatted = normalize_whitespace(&source);
@@ -76,12 +92,28 @@ fn normalize_whitespace(source: &str) -> String {
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    let name = path.file_name().ok_or_else(|| "caminho sem nome de arquivo".to_string())?;
-    let temp = parent.join(format!(".{}.{}.nebula-format-tmp", name.to_string_lossy(), std::process::id()));
+    let metadata = std::fs::symlink_metadata(path)
+        .map_err(|e| format!("não foi possível inspecionar '{}': {e}", path.display()))?;
+    if metadata.file_type().is_symlink() {
+        return Err("o formatador não substitui links simbólicos".to_string());
+    }
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let name = path
+        .file_name()
+        .ok_or_else(|| "caminho sem nome de arquivo".to_string())?;
+    let temp = parent.join(format!(
+        ".{}.{}.nebula-format-tmp",
+        name.to_string_lossy(),
+        std::process::id()
+    ));
     let result = (|| {
-        std::fs::write(&temp, bytes).map_err(|e| format!("não foi possível gravar temporário: {e}"))?;
-        std::fs::rename(&temp, path).map_err(|e| format!("não foi possível substituir o arquivo: {e}"))?;
+        std::fs::write(&temp, bytes)
+            .map_err(|e| format!("não foi possível gravar temporário: {e}"))?;
+        std::fs::rename(&temp, path)
+            .map_err(|e| format!("não foi possível substituir o arquivo: {e}"))?;
         Ok(())
     })();
     if result.is_err() {
