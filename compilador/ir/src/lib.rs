@@ -13,7 +13,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
     Inteiro(i128), Decimal(f64), Logico(bool), Texto(String), Caractere(char),
-    Lista(Vec<ValorIr>), Intervalo(i128, i128), Nulo, Vazio,
+    Lista(Vec<ValorIr>), Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
 /// Operadores normalizados da representação intermediária.
@@ -246,6 +246,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
             OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual
             | OperadorIr::Maior | OperadorIr::MaiorIgual | OperadorIr::E | OperadorIr::Ou => Tipo::Logico,
+            OperadorIr::Intervalo => Tipo::Intervalo(Box::new(inferir_tipo(esquerda))),
             _ => inferir_tipo(esquerda),
         },
         ExpressaoIr::Unaria { valor, .. } => inferir_tipo(valor),
@@ -479,6 +480,7 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Decimal(a), Divide, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a/b)),
         (ValorIr::Decimal(a), Resto, ValorIr::Decimal(b)) if b != 0.0 => Ok(ValorIr::Decimal(a % b)),
         (ValorIr::Decimal(a), Potencia, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a.powf(b))),
+        (ValorIr::Decimal(a), Intervalo, ValorIr::Decimal(b)) => Ok(ValorIr::IntervaloDecimal(a,b)),
         (ValorIr::Inteiro(a), op, ValorIr::Decimal(b)) => binaria(ValorIr::Decimal(a as f64), op, ValorIr::Decimal(b)),
         (ValorIr::Decimal(a), op, ValorIr::Inteiro(b)) => binaria(ValorIr::Decimal(a), op, ValorIr::Decimal(b as f64)),
         (ValorIr::Texto(a), Mais, ValorIr::Texto(b)) => Ok(ValorIr::Texto(a + &b)),
@@ -505,7 +507,9 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
-        ValorIr::Intervalo(a,b) => format!("{a}..{b}"), ValorIr::Nulo => "nulo".into(), ValorIr::Vazio => String::new(),
+        ValorIr::Intervalo(a,b) => format!("{a}..{b}"),
+        ValorIr::IntervaloDecimal(a,b) => format!("{a}..{b}"),
+        ValorIr::Nulo => "nulo".into(), ValorIr::Vazio => String::new(),
     }
 }
 
@@ -578,6 +582,14 @@ mod testes {
         let ir = compilar("funcao recursiva(n: inteiro): inteiro { devolver recursiva(n + 1) }\nvariavel x = recursiva(0)");
         assert!(executar(&ir, 10_000).is_err());
     }
+
+    #[test]
+    fn executa_intervalo_decimal() {
+        let ir = compilar("variavel faixa = 1.5..3.5");
+        let r = executar(&ir, 100).expect("execução válida");
+        assert_eq!(r.globais.get("faixa"), Some(&ValorIr::IntervaloDecimal(1.5, 3.5)));
+    }
+
 }
 }
 
