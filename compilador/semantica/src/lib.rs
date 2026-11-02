@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 pub enum Tipo {
     Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128,
     Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
-    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Desconhecido,
+    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Desconhecido,
 }
 
 /// Assinatura pública de função disponibilizada por um módulo importado.
@@ -736,6 +736,38 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn argumentos_genericos(nome: &str) -> Option<(&str, Vec<&str>)> {
+        let abertura = nome.find('<')?;
+        if !nome.ends_with('>') { return None; }
+        let base = &nome[..abertura];
+        if base.is_empty() { return None; }
+        let conteudo = &nome[abertura + 1..nome.len() - 1];
+        if conteudo.is_empty() { return None; }
+        let mut argumentos = Vec::new();
+        let mut profundidade = 0usize;
+        let mut inicio = 0usize;
+        for (indice, caractere) in conteudo.char_indices() {
+            match caractere {
+                '<' => profundidade += 1,
+                '>' => {
+                    profundidade = profundidade.checked_sub(1)?;
+                }
+                ',' if profundidade == 0 => {
+                    let argumento = conteudo[inicio..indice].trim();
+                    if argumento.is_empty() { return None; }
+                    argumentos.push(argumento);
+                    inicio = indice + caractere.len_utf8();
+                }
+                _ => {}
+            }
+        }
+        if profundidade != 0 { return None; }
+        let ultimo = conteudo[inicio..].trim();
+        if ultimo.is_empty() { return None; }
+        argumentos.push(ultimo);
+        Some((base, argumentos))
+    }
+
     fn resolver_tipo(&self, nome: &str) -> Tipo {
         match nome {
             "vazio" => Tipo::Vazio,
@@ -754,6 +786,20 @@ impl<'a> Analisador<'a> {
             "byte" => Tipo::Byte,
             _ if nome.starts_with('[') && nome.ends_with(']') => {
                 Tipo::Lista(Box::new(self.resolver_tipo(&nome[1..nome.len()-1])))
+            }
+            _ if Self::argumentos_genericos(nome).is_some() => {
+                let (base, argumentos) = Self::argumentos_genericos(nome).expect("tipo genérico reconhecido");
+                let tipos: Vec<Tipo> = argumentos.iter().map(|argumento| self.resolver_tipo(argumento)).collect();
+                if tipos.iter().any(|tipo| *tipo == Tipo::Desconhecido) {
+                    Tipo::Desconhecido
+                } else {
+                    match (base, tipos.as_slice()) {
+                        ("Opcional" | "opcional", [interno]) => Tipo::Opcional(Box::new(interno.clone())),
+                        ("Resultado" | "resultado", [sucesso, falha]) => Tipo::Resultado(Box::new(sucesso.clone()), Box::new(falha.clone())),
+                        ("Tupla" | "tupla", elementos) if !elementos.is_empty() => Tipo::Tupla(elementos.to_vec()),
+                        _ => Tipo::Desconhecido,
+                    }
+                }
             }
             _ => {
                 let mut atual = nome;
@@ -875,9 +921,12 @@ impl<'a> Analisador<'a> {
     fn tipos_compativeis(obtido: &Tipo, esperado: &Tipo) -> bool {
         match (obtido, esperado) {
             (Tipo::Desconhecido, _) | (_, Tipo::Desconhecido) => true,
-            (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b)) => {
-                Self::tipos_compativeis(a, b)
-            }
+            (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b))
+            | (Tipo::Opcional(a), Tipo::Opcional(b)) => Self::tipos_compativeis(a, b),
+            (Tipo::Resultado(a1, a2), Tipo::Resultado(b1, b2)) =>
+                Self::tipos_compativeis(a1, b1) && Self::tipos_compativeis(a2, b2),
+            (Tipo::Tupla(a), Tipo::Tupla(b)) => a.len() == b.len()
+                && a.iter().zip(b).all(|(a, b)| Self::tipos_compativeis(a, b)),
             _ => obtido == esperado,
         }
     }
@@ -939,6 +988,9 @@ impl Tipo {
             Self::Texto => "texto".into(), Self::Caractere => "caractere".into(),
             Self::Byte => "byte".into(), Self::Lista(t) => format!("[{}]", t.nome()),
             Self::Intervalo(t) => format!("intervalo<{}>", t.nome()),
+            Self::Opcional(t) => format!("Opcional<{}>", t.nome()),
+            Self::Resultado(sucesso, falha) => format!("Resultado<{},{}>", sucesso.nome(), falha.nome()),
+            Self::Tupla(itens) => format!("Tupla<{}>", itens.iter().map(Tipo::nome).collect::<Vec<_>>().join(",")),
             Self::Funcao(_, _) => "função".into(), Self::Desconhecido => "desconhecido".into(),
         }
     }
