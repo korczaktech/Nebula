@@ -1,8 +1,8 @@
 //! Otimizador conservador da IR da Nebula.
- //!
- //! A primeira etapa disponibiliza O0 (sem transformações) e O1 (dobramento
- //! de constantes comprovadamente seguro). Níveis mais agressivos permanecem
- //! explicitamente indisponíveis até possuírem passes e provas de equivalência.
+//!
+//! Os níveis são cumulativos: O1 dobra constantes; O2 simplifica fluxo
+//! comprovadamente constante; O3 remove instruções inalcançáveis; Os também
+//! remove blocos vazios. Nenhuma transformação elimina expressões com efeitos.
 
 use crate::{ExpressaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 
@@ -13,11 +13,11 @@ pub enum NivelOtimizacao {
     O0,
     /// Executa dobramento conservador de constantes.
     O1,
-    /// Reservado para passes avançados ainda não implementados.
+    /// Simplifica ramos e laços com condições constantes.
     O2,
-    /// Reservado para passes agressivos ainda não implementados.
+    /// Remove instruções posteriores a transferências incondicionais.
     O3,
-    /// Reservado para otimização de tamanho ainda não implementada.
+    /// Aplica O3 e remove blocos vazios.
     Os,
 }
 
@@ -26,56 +26,136 @@ pub enum NivelOtimizacao {
 pub struct RelatorioOtimizacao {
     /// Quantidade de expressões substituídas por constantes.
     pub constantes_dobradas: usize,
+    /// Quantidade de ramos condicionais simplificados.
+    pub ramos_simplificados: usize,
+    /// Quantidade de laços comprovadamente inexecutáveis removidos.
+    pub lacos_removidos: usize,
+    /// Quantidade de instruções inalcançáveis removidas.
+    pub instrucoes_inalcancaveis: usize,
+    /// Quantidade de blocos vazios removidos.
+    pub blocos_vazios_removidos: usize,
 }
 
 /// Otimiza um programa IR sem executar código nem remover efeitos observáveis.
 ///
-/// O1 só substitui expressões cujos operandos são constantes e cuja operação
-/// pode ser calculada sem overflow, divisão por zero ou resultado não finito.
+/// Cada nível inclui as transformações dos níveis anteriores. Operações
+/// aritméticas que podem produzir overflow, divisão por zero ou valores
+/// decimais não finitos permanecem na IR para preservar o comportamento.
 pub fn otimizar(
     programa: &mut ProgramaIr,
     nivel: NivelOtimizacao,
 ) -> Result<RelatorioOtimizacao, String> {
-    match nivel {
-        NivelOtimizacao::O0 => Ok(RelatorioOtimizacao::default()),
-        NivelOtimizacao::O1 => {
-            let mut relatorio = RelatorioOtimizacao::default();
-            for instrucao in &mut programa.instrucoes {
-                otimizar_instrucao(instrucao, &mut relatorio);
-            }
-            for funcao in programa.funcoes.values_mut() {
-                for instrucao in &mut funcao.corpo {
-                    otimizar_instrucao(instrucao, &mut relatorio);
+    let mut relatorio = RelatorioOtimizacao::default();
+    if nivel == NivelOtimizacao::O0 {
+        return Ok(relatorio);
+    }
+
+    otimizar_lista(&mut programa.instrucoes, nivel, &mut relatorio);
+    for funcao in programa.funcoes.values_mut() {
+        otimizar_lista(&mut funcao.corpo, nivel, &mut relatorio);
+    }
+    Ok(relatorio)
+}
+
+fn otimizar_lista(
+    instrucoes: &mut Vec<InstrucaoIr>,
+    nivel: NivelOtimizacao,
+    relatorio: &mut RelatorioOtimizacao,
+) {
+    let mut indice = 0;
+    while indice < instrucoes.len() {
+        otimizar_instrucao(&mut instrucoes[indice], nivel, relatorio);
+
+        if nivel != NivelOtimizacao::O1 {
+            let ramo = match &instrucoes[indice] {
+                InstrucaoIr::Se {
+                    condicao: ExpressaoIr::Constante(ValorIr::Logico(condicao)),
+                    entao,
+                    senao,
+                } => Some(if *condicao { entao.clone() } else { senao.clone() }),
+                _ => None,
+            };
+            if let Some(escolhido) = ramo {
+                instrucoes[indice] = InstrucaoIr::Bloco(escolhido);
+                relatorio.ramos_simplificados += 1;
+            } else if matches!(
+                &instrucoes[indice],
+                InstrucaoIr::Enquanto {
+                    condicao: ExpressaoIr::Constante(ValorIr::Logico(false)),
+                    ..
+                }
+            ) {
+                instrucoes.remove(indice);
+                relatorio.lacos_removidos += 1;
+                continue;
+            } else {
+                let para_inexecutavel = matches!(
+                    &instrucoes[indice],
+                    InstrucaoIr::Para {
+                        condicao: Some(ExpressaoIr::Constante(ValorIr::Logico(false))),
+                        ..
+                    }
+                );
+                if para_inexecutavel {
+                    let inicial = match &mut instrucoes[indice] {
+                        InstrucaoIr::Para { inicial, .. } => inicial.take(),
+                        _ => None,
+                    };
+                    if let Some(inicial) = inicial {
+                        instrucoes[indice] = InstrucaoIr::Bloco(vec![*inicial]);
+                    } else {
+                        instrucoes.remove(indice);
+                        relatorio.lacos_removidos += 1;
+                        continue;
+                    }
+                    relatorio.lacos_removidos += 1;
                 }
             }
-            Ok(relatorio)
         }
-        NivelOtimizacao::O2 | NivelOtimizacao::O3 | NivelOtimizacao::Os => {
-            Err("Este nível de otimização ainda não está disponível; use O0 ou O1.".into())
+
+        if nivel == NivelOtimizacao::Os
+            && matches!(&instrucoes[indice], InstrucaoIr::Bloco(itens) if itens.is_empty())
+        {
+            instrucoes.remove(indice);
+            relatorio.blocos_vazios_removidos += 1;
+            continue;
         }
+
+        if matches!(nivel, NivelOtimizacao::O3 | NivelOtimizacao::Os)
+            && termina_fluxo(&instrucoes[indice])
+        {
+            let removidas = instrucoes.len() - indice - 1;
+            instrucoes.truncate(indice + 1);
+            relatorio.instrucoes_inalcancaveis += removidas;
+            break;
+        }
+
+        indice += 1;
     }
 }
 
-fn otimizar_instrucao(instrucao: &mut InstrucaoIr, relatorio: &mut RelatorioOtimizacao) {
+fn otimizar_instrucao(
+    instrucao: &mut InstrucaoIr,
+    nivel: NivelOtimizacao,
+    relatorio: &mut RelatorioOtimizacao,
+) {
     match instrucao {
         InstrucaoIr::Declarar { valor, .. } | InstrucaoIr::Expressao(valor) => {
             otimizar_expressao(valor, relatorio);
         }
+        InstrucaoIr::Bloco(itens) => otimizar_lista(itens, nivel, relatorio),
         InstrucaoIr::Se { condicao, entao, senao } => {
             otimizar_expressao(condicao, relatorio);
-            for item in entao.iter_mut().chain(senao.iter_mut()) {
-                otimizar_instrucao(item, relatorio);
-            }
+            otimizar_lista(entao, nivel, relatorio);
+            otimizar_lista(senao, nivel, relatorio);
         }
         InstrucaoIr::Enquanto { condicao, corpo } => {
             otimizar_expressao(condicao, relatorio);
-            for item in corpo {
-                otimizar_instrucao(item, relatorio);
-            }
+            otimizar_lista(corpo, nivel, relatorio);
         }
         InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
             if let Some(inicial) = inicial {
-                otimizar_instrucao(inicial, relatorio);
+                otimizar_instrucao(inicial, nivel, relatorio);
             }
             if let Some(condicao) = condicao {
                 otimizar_expressao(condicao, relatorio);
@@ -83,9 +163,7 @@ fn otimizar_instrucao(instrucao: &mut InstrucaoIr, relatorio: &mut RelatorioOtim
             if let Some(atualizacao) = atualizacao {
                 otimizar_expressao(atualizacao, relatorio);
             }
-            for item in corpo {
-                otimizar_instrucao(item, relatorio);
-            }
+            otimizar_lista(corpo, nivel, relatorio);
         }
         InstrucaoIr::Devolver(valor) => {
             if let Some(valor) = valor {
@@ -93,6 +171,19 @@ fn otimizar_instrucao(instrucao: &mut InstrucaoIr, relatorio: &mut RelatorioOtim
             }
         }
         InstrucaoIr::Parar | InstrucaoIr::Seguir => {}
+    }
+}
+
+fn termina_fluxo(instrucao: &InstrucaoIr) -> bool {
+    match instrucao {
+        InstrucaoIr::Devolver(_) | InstrucaoIr::Parar | InstrucaoIr::Seguir => true,
+        InstrucaoIr::Bloco(itens) => itens.last().is_some_and(termina_fluxo),
+        InstrucaoIr::Se { entao, senao, .. } => {
+            !senao.is_empty()
+                && entao.last().is_some_and(termina_fluxo)
+                && senao.last().is_some_and(termina_fluxo)
+        }
+        _ => false,
     }
 }
 
@@ -184,9 +275,7 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
         (V::Decimal(a), O::Divide, V::Decimal(b)) if *b != 0.0 => decimal(*a / *b),
         (V::Decimal(a), O::Resto, V::Decimal(b)) if *b != 0.0 => decimal(*a % *b),
         (V::Decimal(a), O::Potencia, V::Decimal(b)) => decimal((*a).powf(*b)),
-        (V::Decimal(a), O::Intervalo, V::Decimal(b)) => {
-            Some(V::IntervaloDecimal(*a, *b))
-        }
+        (V::Decimal(a), O::Intervalo, V::Decimal(b)) => Some(V::IntervaloDecimal(*a, *b)),
         (V::Decimal(a), O::Menor, V::Decimal(b)) => Some(V::Logico(a < b)),
         (V::Decimal(a), O::MenorIgual, V::Decimal(b)) => Some(V::Logico(a <= b)),
         (V::Decimal(a), O::Maior, V::Decimal(b)) => Some(V::Logico(a > b)),
@@ -201,8 +290,6 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
 }
 
 fn inteiro(valor: i128) -> Option<ValorIr> {
-    // O backend atual usa inteiros signed de 64 bits.
-    // Preserva os traps de overflow da execução nativa.
     (i64::MIN as i128..=i64::MAX as i128)
         .contains(&valor)
         .then_some(ValorIr::Inteiro(valor))
@@ -296,27 +383,48 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_niveis_ainda_nao_implementados() {
-        let mut ir = ProgramaIr {
-            instrucoes: Vec::new(),
-            funcoes: HashMap::<String, FuncaoIr>::new(),
-            modulos: HashMap::new(),
+    fn o2_simplifica_ramo_constante_preservando_escopo() {
+        let mut ir = programa(ExpressaoIr::Constante(ValorIr::Logico(true)));
+        ir.instrucoes[0] = InstrucaoIr::Se {
+            condicao: ExpressaoIr::Constante(ValorIr::Logico(true)),
+            entao: vec![InstrucaoIr::Expressao(ExpressaoIr::Constante(ValorIr::Inteiro(1)))],
+            senao: vec![InstrucaoIr::Expressao(ExpressaoIr::Constante(ValorIr::Inteiro(2)))],
         };
-        assert!(otimizar(&mut ir, NivelOtimizacao::O2).is_err());
-        assert!(otimizar(&mut ir, NivelOtimizacao::O3).is_err());
-        assert!(otimizar(&mut ir, NivelOtimizacao::Os).is_err());
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        assert_eq!(relatorio.ramos_simplificados, 1);
+        assert!(matches!(&ir.instrucoes[0], InstrucaoIr::Bloco(itens) if itens.len() == 1 && matches!(itens[0], InstrucaoIr::Expressao(ExpressaoIr::Constante(ValorIr::Inteiro(1))))));
     }
 
     #[test]
-    fn dobra_logica_sem_eliminar_avaliacao() {
-        let mut ir = programa(ExpressaoIr::Binaria {
-            esquerda: Box::new(ExpressaoIr::Constante(ValorIr::Logico(true))),
-            operador: OperadorIr::E,
-            direita: Box::new(ExpressaoIr::Constante(ValorIr::Logico(false))),
-        });
-        otimizar(&mut ir, NivelOtimizacao::O1).expect("O1");
-        assert!(matches!(&ir.instrucoes[0], InstrucaoIr::Expressao(
-            ExpressaoIr::Constante(ValorIr::Logico(false))
-        )));
+    fn o2_remove_laco_enquanto_com_condicao_falsa() {
+        let mut ir = programa(ExpressaoIr::Constante(ValorIr::Logico(false)));
+        ir.instrucoes[0] = InstrucaoIr::Enquanto {
+            condicao: ExpressaoIr::Constante(ValorIr::Logico(false)),
+            corpo: vec![InstrucaoIr::Parar],
+        };
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        assert_eq!(relatorio.lacos_removidos, 1);
+        assert!(ir.instrucoes.is_empty());
+    }
+
+    #[test]
+    fn o3_remove_instrucoes_apos_retorno() {
+        let mut ir = programa(ExpressaoIr::Constante(ValorIr::Inteiro(1)));
+        ir.instrucoes = vec![
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Constante(ValorIr::Inteiro(1)))),
+            InstrucaoIr::Expressao(ExpressaoIr::Chamada { nome: "efeito".into(), argumentos: vec![] }),
+        ];
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O3).expect("O3");
+        assert_eq!(relatorio.instrucoes_inalcancaveis, 1);
+        assert_eq!(ir.instrucoes.len(), 1);
+    }
+
+    #[test]
+    fn os_remove_blocos_vazios() {
+        let mut ir = programa(ExpressaoIr::Constante(ValorIr::Inteiro(1)));
+        ir.instrucoes[0] = InstrucaoIr::Bloco(vec![]);
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::Os).expect("Os");
+        assert_eq!(relatorio.blocos_vazios_removidos, 1);
+        assert!(ir.instrucoes.is_empty());
     }
 }
