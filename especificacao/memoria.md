@@ -12,9 +12,17 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 - Listas e valores da IR de referência seguem semântica por valor; não há referências compartilhadas expostas pela linguagem nesta fase.
 - Declarações exigem inicializador, portanto não há variável local declarada sem valor inicial.
 
+## Implementações parciais da Fase 5
+
+- A análise semântica acompanha movimentações de valores não copiáveis e rejeita uso após move.
+- A movimentação é propagada de forma conservadora na junção de ramos condicionais e em laços que podem executar zero vezes.
+- Atribuição compatível reinicializa uma variável anteriormente movida.
+- O runtime Rust possui um alocador de blocos com limite de bytes, identificadores geracionais, validação de intervalos, redimensionamento e invalidação de handles liberados.
+- O contexto do runtime é dono do alocador e invalida todas as alocações durante a finalização.
+
 ## Limites explícitos
 
-A Fase 3 não implementa verificador de empréstimo, referências, ponteiros, destrutores, alocadores, regiões, atomics ou concorrência segura. A AST e a gramática iniciais ainda não oferecem sintaxe para esses recursos; portanto, nenhuma garantia de segurança de memória baseada em ownership/borrow checker deve ser anunciada.
+Ainda não há verificador de empréstimos compartilhados/exclusivos, vidas úteis, referências ou ponteiros na AST/gramática. Também faltam destruição por valor, inicialização parcial, integração do alocador com valores da linguagem e ABI nativa. O acompanhamento de moves é uma análise parcial e não equivale a um borrow checker completo; portanto, nenhuma garantia geral de segurança de memória baseada em ownership/borrow checker deve ser anunciada.
 
 ## Diretrizes arquiteturais
 
