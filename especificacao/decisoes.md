@@ -75,4 +75,4 @@ Essas questões devem ser decididas antes de estabilizar as áreas correspondent
 | Otimizador | Implementar somente após os recursos-base do compilador | Não oferecer níveis de otimização delegados a ferramentas externas |
 | Testes do backend | Testes unitários Rust e integração executando os executáveis produzidos | Nenhum teste depende de código C++17 |
 
-O backend nativo inicial já gera código de máquina e ELF64 para o subconjunto documentado de Linux x86-64. A validação automatizada final ainda está pendente; tipos, instruções, recursos de memória e alvos fora desse subconjunto continuam adiados.
+O backend nativo inicial gera código de máquina e ELF64 para o subconjunto documentado de Linux x86-64, validado na CI com Rust 1.85.0, Clippy, suíte completa de 169 testes e benchmark inicial. Tipos, instruções, recursos de memória e alvos fora desse subconjunto continuam adiados conforme o escopo.
