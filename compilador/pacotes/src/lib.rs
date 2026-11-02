@@ -157,7 +157,9 @@ fn resolver_dependencias(
 ) -> Result<(), String> {
     for (nome, relativo) in &manifesto.dependencias {
         let caminho = Path::new(relativo);
-        if caminho.is_absolute() { return Err(format!("Dependência '{nome}' deve usar caminho relativo.")); }
+        if caminho.is_absolute() {
+            return Err(format!("Dependência '{nome}' deve usar caminho relativo."));
+        }
         let diretorio_dep = fs::canonicalize(diretorio.join(caminho))
             .map_err(|e| format!("Dependência local '{nome}' não encontrada: {e}"))?;
         let arquivo = diretorio_dep.join("nebula.toml");
