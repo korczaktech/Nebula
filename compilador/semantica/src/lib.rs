@@ -301,6 +301,71 @@ impl<'a> Analisador<'a> {
                 let depois_senao = self.snapshot_movidos();
                 self.mesclar_movidos(&depois_entao, &depois_senao);
             }
+            NoAst::Escolha { valor, casos } => {
+                let tipo_valor = self.expressao(valor);
+                let Tipo::Enumeracao(nome_enum) = tipo_valor else {
+                    self.erro("N3046", "A expressão de 'escolha' precisa ter tipo de enumeração.");
+                    for caso in casos { self.bloco(&caso.corpo); }
+                    return;
+                };
+                let Some(variantes) = self.variantes_enumeracoes.get(&nome_enum).cloned() else {
+                    self.erro("N3047", format!("Enumeração '{nome_enum}' não foi encontrada."));
+                    return;
+                };
+                let mut cobertas = HashSet::new();
+                let mut possui_curinga = false;
+                let antes = self.snapshot_movidos();
+                let mut estados = Vec::new();
+                for caso in casos {
+                    self.abrir_escopo();
+                    match (&caso.enumeracao, &caso.variante) {
+                        (Some(enum_caso), Some(variante)) => {
+                            if enum_caso != &nome_enum {
+                                self.erro("N3048", format!("Caso pertence à enumeração '{enum_caso}', mas a expressão é '{nome_enum}'."));
+                            }
+                            if !cobertas.insert(variante.clone()) {
+                                self.erro("N3049", format!("Variante '{variante}' repetida em 'escolha'."));
+                            }
+                            if let Some(payload) = variantes.get(variante) {
+                                if payload.len() != caso.vinculacoes.len() {
+                                    self.erro("N3050", format!("Variante '{variante}' exige {} vínculos de payload, mas recebeu {}.", payload.len(), caso.vinculacoes.len()));
+                                }
+                                for (vinculo, tipo) in caso.vinculacoes.iter().zip(payload) {
+                                    self.declarar(vinculo, Simbolo { tipo: tipo.clone(), mutavel: false, movido: false });
+                                }
+                            } else {
+                                self.erro("N3051", format!("Variante '{variante}' não existe na enumeração '{nome_enum}'."));
+                            }
+                        }
+                        _ => {
+                            if possui_curinga {
+                                self.erro("N3052", "A instrução 'escolha' possui mais de um caso curinga.");
+                            }
+                            possui_curinga = true;
+                        }
+                    }
+                    self.restaurar_movidos(&antes);
+                    for instrucao in &caso.corpo { self.item(instrucao); }
+                    estados.push(self.snapshot_movidos());
+                    self.fechar_escopo();
+                }
+                if !possui_curinga {
+                    for variante in variantes.keys() {
+                        if !cobertas.contains(variante) {
+                            self.erro("N3053", format!("'escolha' não cobre a variante '{variante}' da enumeração '{nome_enum}'."));
+                        }
+                    }
+                }
+                if let Some(primeiro) = estados.first().cloned() {
+                    let mut combinado = primeiro;
+                    for estado in estados.iter().skip(1) {
+                        for (nome, movido) in estado {
+                            combinado.entry(nome.clone()).and_modify(|atual| *atual |= *movido);
+                        }
+                    }
+                    self.mesclar_movidos(&antes, &combinado);
+                }
+            }
             NoAst::Enquanto { condicao, corpo } => {
                 let tipo = self.expressao(condicao);
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'enquanto'");
