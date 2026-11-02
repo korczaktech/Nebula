@@ -15,6 +15,7 @@ nebula-sintaxe = { path = "../sintaxe" }
 nebula-semantica = { path = "../semantica" }
 nebula-ir = { path = "../ir" }
 nebula-backend = { path = "../backend" }
+nebula-pacotes = { path = "../pacotes" }
 
 [lints]
 workspace = true
