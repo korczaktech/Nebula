@@ -90,7 +90,7 @@ impl<'a> Lexer<'a> {
                 if self.corresponde(b'\n') { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } }
                 else { self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual); }
             }
-            b'/' if self.corresponde(b'/') => { while self.byte(0).is_some_and(|x| x != b'\n') { self.atual += 1; } }
+            b'/' if self.corresponde(b'/') => self.comentario_linha(),
             b'/' if self.corresponde(b'*') => {
                 let mut fechado = false;
                 while !self.fim() {
@@ -146,6 +146,20 @@ impl<'a> Lexer<'a> {
                     if c == '_' || is_xid_start(c) { self.identificador(); }
                     else { self.atual += c.len_utf8(); self.erro("N1003", &format!("Caractere inesperado: {c}."), self.inicio, self.atual); }
                 }
+            }
+        }
+    }
+    fn comentario_linha(&mut self) {
+        while !self.fim() && self.byte(0) != Some(b'\n') {
+            if self.byte(0) == Some(b'\r') && self.byte(1) == Some(b'\n') {
+                break;
+            }
+            if self.byte(0) == Some(b'\r') {
+                let pos = self.atual;
+                self.atual += 1;
+                self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", pos, self.atual);
+            } else {
+                self.atual += 1;
             }
         }
     }
@@ -477,6 +491,7 @@ impl Parser {
         Some(nome)
     }
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
+        let mut comparacao_relacional = false;
         let mut esquerda = match self.tipo() {
             TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos | TipoToken::Mais => {
                 let op = self.avancar().tipo; let valor = self.expressao(9)?;
@@ -539,7 +554,12 @@ impl Parser {
                 TipoToken::Vezes | TipoToken::Divide | TipoToken::Resto => (8,false),
                 TipoToken::Potencia => (10,true), _ => break,
             };
+            let relacional = matches!(tipo, TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual);
+            if relacional && comparacao_relacional {
+                self.erro_atual("N2012", "Comparações relacionais não podem ser encadeadas; combine comparações com 'e' ou use parênteses.");
+            }
             if precedencia < minimo { break; }
+            if relacional { comparacao_relacional = true; }
             let op = self.avancar().tipo;
             let proximo = if direita { precedencia } else { precedencia + 1 };
             self.pular_novas_linhas();
