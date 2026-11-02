@@ -475,6 +475,18 @@ pub fn texto_contem(texto: &str, trecho: &str) -> bool {
     texto.contains(trecho)
 }
 
+/// Converte texto para maiúsculas segundo as regras Unicode.
+#[must_use]
+pub fn texto_maiusculas(texto: &str) -> String {
+    texto.to_uppercase()
+}
+
+/// Converte texto para minúsculas segundo as regras Unicode.
+#[must_use]
+pub fn texto_minusculas(texto: &str) -> String {
+    texto.to_lowercase()
+}
+
 /// Converte texto decimal em inteiro assinado de 128 bits.
 pub fn texto_para_inteiro(texto: &str) -> Resultado<i128> {
     texto
@@ -666,6 +678,13 @@ mod testes {
             operar_decimal(OperacaoDecimal::Potencia, -1.0, 0.5),
             Err(ErroRuntime::ResultadoNaoFinito)
         );
+    }
+
+    #[test]
+    fn transforma_caixa_de_texto_com_unicode() {
+        assert_eq!(texto_maiusculas("ação"), "AÇÃO");
+        assert_eq!(texto_maiusculas("straße"), "STRASSE");
+        assert_eq!(texto_minusculas("NEBULA"), "nebula");
     }
 
     #[test]
