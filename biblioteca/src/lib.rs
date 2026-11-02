@@ -159,7 +159,10 @@ mod testes {
         assert_eq!(super::matematica::operar_inteiro(
             super::matematica::OperacaoInteira::Soma, 20, 22
         ).expect("soma"), 42);
-        assert_eq!(super::nucleo::Valor::Inteiro(7), super::nucleo::Valor::Inteiro(7));
+        assert_eq!(
+            super::nucleo::Valor::Inteiro(7),
+            super::nucleo::Valor::Inteiro(7)
+        );
     }
 
     #[test]
