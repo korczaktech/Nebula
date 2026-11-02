@@ -68,6 +68,15 @@ fn compila_condicionais_e_comparacoes() {
 }
 
 #[test]
+fn operadores_logicos_respeitam_curto_circuito() {
+    let resultado = compilar_e_executar(
+        "curto-circuito",
+        "funcao principal(): inteiro {\n    quando falso e (1 / 0 == 0) { devolver 1 }\n    quando verdadeiro ou (1 / 0 == 0) { devolver 42 }\n    devolver 2\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_laco_enquanto() {
     let resultado = compilar_e_executar(
         "enquanto",
