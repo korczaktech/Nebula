@@ -318,12 +318,14 @@ impl Maquina<'_> {
             }
             InstrucaoIr::Expressao(e) => { self.expressao(e)?; Ok(Fluxo::Normal) }
             InstrucaoIr::Se { condicao, entao, senao } => {
-                if self.logico(self.expressao(condicao)?)? { self.bloco(entao) } else { self.bloco(senao) }
+                let condicao = self.expressao(condicao)?;
+                if self.logico(condicao)? { self.bloco(entao) } else { self.bloco(senao) }
             }
             InstrucaoIr::Enquanto { condicao, corpo } => {
                 loop {
                     self.passo()?;
-                    if !self.logico(self.expressao(condicao)?)? { break; }
+                    let condicao = self.expressao(condicao)?;
+                    if !self.logico(condicao)? { break; }
                     match self.bloco(corpo)? {
                         Fluxo::Normal | Fluxo::Seguir => {}
                         Fluxo::Parar => break,
