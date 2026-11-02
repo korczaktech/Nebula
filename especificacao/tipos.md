@@ -29,7 +29,7 @@ Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destino
 - Aritmética exige operandos numéricos; texto + texto concatena.
 - Comparações relacionais exigem operandos numéricos.
 - Igualdade exige tipos compatíveis.
-- Listas devem ser homogêneas.
+- Listas devem ser homogêneas; uma lista vazia exige tipo esperado explícito para permitir inferência.
 - Índices de listas devem ser inteiros.
 - Chamadas validam existência da função, aridade, tipos dos argumentos e tipo de retorno.
 - Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
