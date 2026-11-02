@@ -64,5 +64,6 @@ Mensagens não devem depender da localização do sistema operacional. A CLI pod
 | N3025 | Alias de tipo fora do escopo de arquivo |
 | N3026 | Inclusão de módulo fora do escopo de arquivo |
 | N3027 | Lista vazia sem contexto para inferência de tipo |
+| N3028 | Literal numérico fora do intervalo representável |
 
 Os diagnósticos semânticos são globais nesta fase e podem não conter intervalo de origem, pois os nós da AST inicial ainda não carregam spans próprios. A localização exata por nó é uma melhoria planejada, não uma garantia atual.
