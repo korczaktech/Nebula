@@ -138,6 +138,15 @@ impl Memoria {
         self.escopos.len()
     }
 
+    /// Retorna uma cópia dos valores declarados no escopo global.
+    #[must_use]
+    pub fn globais(&self) -> HashMap<String, Valor> {
+        self.escopos[0]
+            .iter()
+            .map(|(nome, celula)| (nome.clone(), celula.valor.clone()))
+            .collect()
+    }
+
     /// Abre um novo escopo léxico.
     pub fn abrir_escopo(&mut self) {
         self.escopos.push(HashMap::new());
