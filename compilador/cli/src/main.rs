@@ -3,10 +3,10 @@
 #![forbid(unsafe_code)]
 
 use nebula_fonte::ArquivoFonte;
-use nebula_ir::{baixar, ExpressaoIr, InstrucaoIr, ProgramaIr};
 use nebula_ir::otimizador::NivelOtimizacao;
+use nebula_ir::{ExpressaoIr, InstrucaoIr, ProgramaIr, baixar};
 use nebula_semantica::{AssinaturaFuncao, ModulosDisponiveis, Tipo, analisar_semantica};
-use nebula_sintaxe::{analisar, NoAst, Programa, Visibilidade};
+use nebula_sintaxe::{NoAst, Programa, Visibilidade, analisar};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -136,7 +136,9 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
     let mut programa = resultado.programa.expect("IR validada");
     for (caminho_modulo, modulo) in programas_modulos {
         for (nome, funcao) in modulo.funcoes {
-            programa.funcoes.insert(format!("{caminho_modulo}::{nome}"), funcao);
+            programa
+                .funcoes
+                .insert(format!("{caminho_modulo}::{nome}"), funcao);
         }
     }
     let execucao = nebula_ir::executar(&programa, 1_000_000)?;
@@ -178,9 +180,9 @@ fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
         "texto" => Tipo::Texto,
         "caractere" => Tipo::Caractere,
         "byte" => Tipo::Byte,
-        lista if lista.starts_with('[') && lista.ends_with(']') => {
-            Tipo::Lista(Box::new(tipo_assinatura_modulo(&lista[1..lista.len() - 1])?))
-        }
+        lista if lista.starts_with('[') && lista.ends_with(']') => Tipo::Lista(Box::new(
+            tipo_assinatura_modulo(&lista[1..lista.len() - 1])?,
+        )),
         _ => return None,
     })
 }
@@ -199,8 +201,12 @@ fn carregar_modulos(
             continue;
         }
         let arquivo = resolver_arquivo_modulo(origem, caminho)?;
-        let bytes = std::fs::read(&arquivo)
-            .map_err(|erro| format!("Não foi possível ler módulo '{}': {erro}", arquivo.display()))?;
+        let bytes = std::fs::read(&arquivo).map_err(|erro| {
+            format!(
+                "Não foi possível ler módulo '{}': {erro}",
+                arquivo.display()
+            )
+        })?;
         let codigo = String::from_utf8(bytes)
             .map_err(|erro| format!("Módulo '{}' não é UTF-8 válido: {erro}", arquivo.display()))?;
         let fonte = ArquivoFonte::novo(&arquivo, codigo);
@@ -209,18 +215,30 @@ fn carregar_modulos(
             return Err(format!(
                 "Erro de sintaxe no módulo '{}': {}",
                 caminho,
-                sintaxe.diagnosticos.iter()
+                sintaxe
+                    .diagnosticos
+                    .iter()
                     .map(|d| format!("{} — {}", d.codigo, d.mensagem))
                     .collect::<Vec<_>>()
                     .join("\n")
             ));
         }
-        if sintaxe.programa.itens.iter().any(|item| matches!(item, NoAst::Incluir { .. })) {
+        if sintaxe
+            .programa
+            .itens
+            .iter()
+            .any(|item| matches!(item, NoAst::Incluir { .. }))
+        {
             return Err(format!(
                 "O módulo '{caminho}' inclui outros módulos; dependências aninhadas ainda não estão ligadas pelo interpretador."
             ));
         }
-        if sintaxe.programa.itens.iter().any(|item| !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. })) {
+        if sintaxe
+            .programa
+            .itens
+            .iter()
+            .any(|item| !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. }))
+        {
             return Err(format!(
                 "O módulo '{caminho}' contém inicializadores globais; módulos carregados pelo interpretador devem conter funções e aliases de tipo."
             ));
@@ -242,13 +260,22 @@ fn carregar_modulos(
                         .ok_or_else(|| format!("Tipo '{tipo}' não suportado na assinatura pública '{caminho}::{nome}'.")))
                     .collect::<Result<Vec<_>, _>>()?;
                 let retorno = retorno.as_deref().unwrap_or("vazio");
-                let retorno = tipo_assinatura_modulo(retorno)
-                    .ok_or_else(|| format!("Tipo de retorno '{retorno}' não suportado em '{caminho}::{nome}'."))?;
-                exportadas.insert(nome.clone(), AssinaturaFuncao { parametros, retorno });
+                let retorno = tipo_assinatura_modulo(retorno).ok_or_else(|| {
+                    format!("Tipo de retorno '{retorno}' não suportado em '{caminho}::{nome}'.")
+                })?;
+                exportadas.insert(
+                    nome.clone(),
+                    AssinaturaFuncao {
+                        parametros,
+                        retorno,
+                    },
+                );
             }
         }
         if exportadas.is_empty() {
-            return Err(format!("O módulo '{caminho}' não exporta nenhuma função pública."));
+            return Err(format!(
+                "O módulo '{caminho}' não exporta nenhuma função pública."
+            ));
         }
 
         let resultado_ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
@@ -285,7 +312,11 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes);
             }
         }
-        InstrucaoIr::Se { condicao, entao, senao } => {
+        InstrucaoIr::Se {
+            condicao,
+            entao,
+            senao,
+        } => {
             qualificar_expressao_modulo(condicao, caminho, funcoes);
             for item in entao.iter_mut().chain(senao.iter_mut()) {
                 qualificar_chamadas_modulo(item, caminho, funcoes);
@@ -297,7 +328,12 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes);
             }
         }
-        InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+        InstrucaoIr::Para {
+            inicial,
+            condicao,
+            atualizacao,
+            corpo,
+        } => {
             if let Some(inicial) = inicial {
                 qualificar_chamadas_modulo(inicial, caminho, funcoes);
             }
@@ -335,7 +371,9 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::Unaria { valor, .. } => {
             qualificar_expressao_modulo(valor, caminho, funcoes);
         }
-        ExpressaoIr::Binaria { esquerda, direita, .. } => {
+        ExpressaoIr::Binaria {
+            esquerda, direita, ..
+        } => {
             qualificar_expressao_modulo(esquerda, caminho, funcoes);
             qualificar_expressao_modulo(direita, caminho, funcoes);
         }
