@@ -4,7 +4,9 @@
 //! compartilhar listas protegidas por locks, permitindo uso entre tarefas
 //! sem expor ponteiros ou referências inválidas à linguagem.
 
-#![forbid(unsafe_code)]
+#[forbid(unsafe_code)]
+mod alocador;
+pub use alocador::{Alocador, ErroAlocador, IdentificadorAlocacao};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
@@ -1138,6 +1140,7 @@ mod ciclo_vida {
     /// retornado ao chamador. A finalização é idempotente.
     pub struct ContextoRuntime {
         memoria: Memoria,
+        alocador: Alocador,
         finalizadores: Vec<AcaoFinalizacao>,
         estado: EstadoRuntime,
     }
@@ -1160,6 +1163,7 @@ mod ciclo_vida {
         pub fn novo() -> Self {
             Self {
                 memoria: Memoria::nova(),
+                alocador: Alocador::default(),
                 finalizadores: Vec::new(),
                 estado: EstadoRuntime::Ativo,
             }
@@ -1185,6 +1189,20 @@ mod ciclo_vida {
             Ok(&mut self.memoria)
         }
     
+        /// Obtém acesso compartilhado ao alocador de blocos do contexto.
+        #[must_use]
+        pub fn alocador(&self) -> &Alocador {
+            &self.alocador
+        }
+
+        /// Obtém acesso mutável ao alocador enquanto o contexto estiver ativo.
+        pub fn alocador_mutavel(&mut self) -> Resultado<&mut Alocador> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            Ok(&mut self.alocador)
+        }
+
         /// Registra uma ação de encerramento, executada em ordem inversa.
         pub fn registrar_finalizador<F>(&mut self, acao: F) -> Resultado<()>
         where
@@ -1218,6 +1236,7 @@ mod ciclo_vida {
                     primeiro_erro = erro;
                 }
             }
+            self.alocador.limpar();
             primeiro_erro.map_or(Ok(()), Err)
         }
     }
@@ -1312,6 +1331,29 @@ mod ciclo_vida {
                 }).unwrap();
             }
             assert!(*executado.lock().unwrap());
+        }
+
+        #[test]
+        fn contexto_libera_alocacoes_ao_finalizar() {
+            let mut contexto = ContextoRuntime::novo();
+            let handle = contexto.alocador_mutavel().unwrap().alocar(64).unwrap();
+            assert_eq!(contexto.alocador().bytes_alocados(), 64);
+            contexto.finalizar().unwrap();
+            assert_eq!(contexto.alocador().bytes_alocados(), 0);
+            assert_eq!(
+                contexto.alocador().ler(handle, 0, 1),
+                Err(ErroAlocador::IdentificadorInvalido)
+            );
+        }
+
+        #[test]
+        fn contexto_rejeita_acesso_ao_alocador_apos_finalizacao() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.finalizar().unwrap();
+            assert!(matches!(
+                contexto.alocador_mutavel(),
+                Err(ErroRuntime::RuntimeFinalizado)
+            ));
         }
 
         #[test]
