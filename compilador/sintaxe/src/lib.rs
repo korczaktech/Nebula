@@ -629,7 +629,7 @@ mod testes {
     fn texto_invalido_nao_consume_separador_da_proxima_instrucao() {
         let r = analisar(&fonte("variavel a = \"sem fim\nvariavel b = 2"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1006"));
-        assert!(r.programa.itens.len() >= 1);
+        assert!(!r.programa.itens.is_empty());
     }
     #[test]
     fn caractere_unicode_conta_um_escalar() {
