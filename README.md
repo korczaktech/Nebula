@@ -435,7 +435,9 @@ Critérios de conclusão:
 
 ## Fase 3 — Semântica, tipos e IR (meta acumulada: 50%)
 
-**Estado: implementação integrada; aceite final condicionado à CI verde e auditoria dos testes.**
+**Estado: Fase 3 concluída — 104 testes aprovados, 0 falhas; CI verde.**
+
+[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41372653540).
 
 **Objetivo:** dar significado e consistência aos programas.
 
@@ -535,4 +537,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-O repositório contém o frontend sintático (`nebula-sintaxe`), a análise semântica (`nebula-semantica`) e a IR com interpretador de referência (`nebula-ir`). A CLI oferece `nebula verificar arquivo.nbx`, `nebula analisar arquivo.nbx` e `nebula ir arquivo.nbx`. A Fase 3 não gera executáveis nativos ou WebAssembly; isso pertence à Fase 4. Os limites e critérios estão em [critérios da Fase 3](especificacao/criterios-fase-3.md).
+A Fase 3 está concluída. O repositório contém o frontend sintático (`nebula-sintaxe`), a análise semântica (`nebula-semantica`) e a IR com interpretador de referência (`nebula-ir`). A CLI oferece `nebula verificar arquivo.nbx`, `nebula analisar arquivo.nbx` e `nebula ir arquivo.nbx`. A fase não gera executáveis nativos ou WebAssembly, não carrega módulos do disco e não implementa borrow checker; esses limites estão documentados nos [critérios da Fase 3](especificacao/criterios-fase-3.md).
