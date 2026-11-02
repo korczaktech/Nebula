@@ -224,6 +224,11 @@ impl Lowerer {
             "inteiro32" => Tipo::Inteiro32,
             "inteiro64" => Tipo::Inteiro64,
             "inteiro128" => Tipo::Inteiro128,
+            "inteiro_u8" => Tipo::InteiroU8,
+            "inteiro_u16" => Tipo::InteiroU16,
+            "inteiro_u32" => Tipo::InteiroU32,
+            "inteiro_u64" => Tipo::InteiroU64,
+            "inteiro_u128" => Tipo::InteiroU128,
             "byte" => Tipo::Byte,
             "decimal" | "decimal64" => Tipo::Decimal64,
             "decimal32" => Tipo::Decimal32,
@@ -563,6 +568,11 @@ fn nome_tipo(tipo: &Tipo) -> String {
         Tipo::Inteiro32 => "inteiro32".into(),
         Tipo::Inteiro64 => "inteiro64".into(),
         Tipo::Inteiro128 => "inteiro128".into(),
+        Tipo::InteiroU8 => "inteiro_u8".into(),
+        Tipo::InteiroU16 => "inteiro_u16".into(),
+        Tipo::InteiroU32 => "inteiro_u32".into(),
+        Tipo::InteiroU64 => "inteiro_u64".into(),
+        Tipo::InteiroU128 => "inteiro_u128".into(),
         Tipo::Decimal | Tipo::Decimal64 => "decimal64".into(),
         Tipo::Decimal32 => "decimal32".into(),
         Tipo::Texto => "texto".into(),
@@ -852,7 +862,7 @@ impl Maquina<'_> {
                     (OperadorIr::Negacao | OperadorIr::Nao, ValorIr::Logico(v)) => Ok(ValorIr::Logico(!v)),
                     (OperadorIr::Menos, ValorIr::Inteiro(v)) => v.checked_neg().map(ValorIr::Inteiro).ok_or_else(|| "Overflow em negação inteira.".into()),
                     (OperadorIr::Menos, ValorIr::Decimal(v)) => Ok(ValorIr::Decimal(-v)),
-                    (OperadorIr::Mais, v @ (ValorIr::Inteiro(_) | ValorIr::Decimal(_))) => Ok(v),
+                    (OperadorIr::Mais, v @ (ValorIr::Inteiro(_) | ValorIr::InteiroSemSinal(_) | ValorIr::Decimal(_))) => Ok(v),
                     _ => Err("Operador unário incompatível na IR.".into()),
                 }
             }
@@ -1273,7 +1283,7 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
 
 fn formatar(valor: &ValorIr) -> String {
     match valor {
-        ValorIr::Inteiro(v) => v.to_string(), ValorIr::Decimal(v) => v.to_string(),
+        ValorIr::Inteiro(v) => v.to_string(), ValorIr::InteiroSemSinal(v) => v.to_string(), ValorIr::Decimal(v) => v.to_string(),
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
