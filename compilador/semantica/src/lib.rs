@@ -214,6 +214,36 @@ impl<'a> Analisador<'a> {
                     self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
                 }
             }
+            NoAst::Estrutura { nome, campos } => {
+                if self.escopos.len() > 1 {
+                    self.erro("N3032", "Estruturas só podem ser declaradas no escopo do arquivo.");
+                }
+                let mut vistos = HashSet::new();
+                for (campo, tipo) in campos {
+                    if !vistos.insert(campo) {
+                        self.erro("N3033", format!("Campo '{campo}' duplicado na estrutura '{nome}'."));
+                    }
+                    if self.resolver_tipo(tipo) == Tipo::Desconhecido {
+                        self.erro("N3034", format!("Tipo '{tipo}' do campo '{campo}' não foi declarado."));
+                    }
+                }
+            }
+            NoAst::Enumeracao { nome, variantes } => {
+                if self.escopos.len() > 1 {
+                    self.erro("N3035", "Enumerações só podem ser declaradas no escopo do arquivo.");
+                }
+                let mut vistos = HashSet::new();
+                for (variante, payload) in variantes {
+                    if !vistos.insert(variante) {
+                        self.erro("N3036", format!("Variante '{variante}' duplicada na enumeração '{nome}'."));
+                    }
+                    for tipo in payload {
+                        if self.resolver_tipo(tipo) == Tipo::Desconhecido {
+                            self.erro("N3037", format!("Tipo '{tipo}' do payload da variante '{variante}' não foi declarado."));
+                        }
+                    }
+                }
+            }
             NoAst::Incluir { .. } => {
                 if self.escopos.len() > 1 {
                     self.erro("N3026", "Módulos só podem ser incluídos no escopo do arquivo.");
