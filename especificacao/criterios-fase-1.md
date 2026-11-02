@@ -13,7 +13,7 @@ Este documento define somente os critérios da Fase 1 — Fundação e especific
 | Tipos, memória, módulos, operadores, diagnósticos e alvos registrados | tipos.md, memoria.md, modulos.md, operadores.md, diagnosticos.md, alvos.md | Concluído |
 | Workspace Rust e crates-base criados | Cargo.toml e compilador/ | Concluído |
 | Tipos básicos de arquivo-fonte, intervalos e diagnósticos | crates nebula-fonte e nebula-diagnosticos | Concluído |
-| CLI informativa sem simular compilação | crate nebula-cli | Concluído |
+| CLI informativa sem simular compilação | crate nebula-cli e testes de integração de ajuda, versão, ausência de comando e comando inválido | Concluído |
 | Exemplos e fixtures identificados como não executados por Parser | exemplos/ e testes/conformidade/ | Concluído |
 | Versão do toolchain e resolução de dependências fixadas | rust-toolchain.toml e Cargo.lock | Concluído |
 | CI valida formatação, Clippy e testes com lockfile | .github/workflows/ci.yml | Concluído |
