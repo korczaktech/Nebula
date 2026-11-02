@@ -105,7 +105,7 @@ fn compila_potencia_inteira_por_quadratura() {
 fn potencia_usa_expoente_calculado_em_tempo_de_execucao() {
     let resultado = compilar_e_executar(
         "potencia-dinamica",
-        "funcao principal(): inteiro { variavel expoente: inteiro = 3 devolver 2 ** expoente }",
+        "funcao principal(): inteiro { variavel expoente: inteiro = 3; devolver 2 ** expoente }",
     );
     assert_eq!(resultado.status.code(), Some(8));
 }
