@@ -135,10 +135,23 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
-        let novo = self.alocar(novo_tamanho)?;
+        let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
+        let mut dados_novos = vec![0; novo_tamanho];
         let copiar = tamanho_antigo.min(novo_tamanho);
-        let dados = self.ler(identificador, 0, copiar)?.to_vec();
-        self.escrever(novo, 0, &dados)?;
+        dados_novos[..copiar].copy_from_slice(&dados_atuais[..copiar]);
+
+        let novo = if let Some(indice) = self.livres.pop() {
+            let bloco = &mut self.blocos[indice];
+            bloco.dados = Some(dados_novos);
+            IdentificadorAlocacao { indice, geracao: bloco.geracao }
+        } else {
+            let indice = self.blocos.len();
+            self.blocos.push(Bloco { geracao: 1, dados: Some(dados_novos) });
+            IdentificadorAlocacao { indice, geracao: 1 }
+        };
+        self.bytes_ativos = self.bytes_ativos
+            .checked_add(novo_tamanho)
+            .ok_or(ErroAlocador::Overflow)?;
         self.liberar(identificador)?;
         Ok(novo)
     }
