@@ -386,7 +386,7 @@ fn chamada_no_operando_direito_preserva_resultado_e_alinhamento() {
 fn compila_retorno_logico_e_constantes_booleanas() {
     let resultado = compilar_e_executar(
         "retorno-logico",
-        "funcao habilitado(): logico { devolver verdadeiro }\\nfuncao principal(): inteiro { quando habilitado() e nao falso { devolver 42 }; devolver 1 }",
+        "funcao habilitado(): logico { devolver verdadeiro }\nfuncao principal(): inteiro { quando habilitado() e nao falso { devolver 42 }; devolver 1 }",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
