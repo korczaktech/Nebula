@@ -352,6 +352,13 @@ impl<'a> Analisador<'a> {
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Vazio;
                     }
+                    if nome == "ler_texto" {
+                        if !argumentos.is_empty() {
+                            self.erro("N3015", "A função 'ler_texto' não aceita argumentos.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                        }
+                        return Tipo::Texto;
+                    }
                     if let Some(funcao) = self.funcoes.get(nome).cloned() {
                         self.validar_argumentos(argumentos, &funcao.parametros, nome);
                         return funcao.retorno;
