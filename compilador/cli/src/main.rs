@@ -829,6 +829,29 @@ mod testes {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[rustfmt::skip]
+    #[test]
+    fn rejeita_ciclo_de_dependencias_entre_modulos() {
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-ciclo-{}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        std::fs::write(
+            diretorio.join("A.nbx"),
+            "incluir B\npublico funcao a(): inteiro { devolver 1 }",
+        )
+        .unwrap();
+        std::fs::write(
+            diretorio.join("B.nbx"),
+            "incluir A\npublico funcao b(): inteiro { devolver 2 }",
+        )
+        .unwrap();
+        let origem = diretorio.join("principal.nbx");
+        std::fs::write(&origem, "incluir A\nexibir(A::a())").unwrap();
+
+        let erro = interpretar_arquivo(&origem).unwrap_err();
+        assert!(erro.contains("Ciclo de dependências"));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
         let caminho =
