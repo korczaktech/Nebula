@@ -4,7 +4,7 @@
 
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::baixar;
-use nebula_semantica::{analisar_semantica, ModulosDisponiveis};
+use nebula_semantica::{ModulosDisponiveis, analisar_semantica};
 use nebula_sintaxe::analisar;
 use std::path::Path;
 
