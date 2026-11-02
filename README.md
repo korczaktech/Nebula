@@ -342,7 +342,8 @@ Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionad
 **Criadas na Fase 1:**
 - `nebula-fonte`: arquivo-fonte, intervalos e posições.
 - `nebula-diagnosticos`: estrutura de diagnóstico independente da interface.
-- `nebula-cli`: comandos informativos iniciais (`ajuda` e `versao`).
+- `nebula-cli`: interface de linha de comando (`ajuda`, `versao` e `verificar`).
+- `nebula-sintaxe`: Lexer, AST e Parser do subconjunto gramatical inicial.
 
 **Planejadas para fases posteriores:**
 - `nebula-lexer`
