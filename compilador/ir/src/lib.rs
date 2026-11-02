@@ -22,7 +22,7 @@ use std::sync::{Arc, RwLock};
 /// Valor constante ou resultado de execução na IR.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
-    Inteiro(i128), Decimal(f64), Logico(bool), Texto(String), Caractere(char),
+    Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char),
     Lista(Vec<ValorIr>), Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
@@ -597,6 +597,7 @@ fn converter_operador(operador: TipoToken) -> Option<OperadorIr> {
 fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
     match expressao {
         ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Tipo::Inteiro,
+        ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Tipo::InteiroU128,
         ExpressaoIr::Constante(ValorIr::Decimal(_)) => Tipo::Decimal64,
         ExpressaoIr::Constante(ValorIr::Logico(_)) => Tipo::Logico,
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
@@ -627,7 +628,12 @@ fn literal(bruto: &str) -> Option<ValorIr> {
         _ if bruto.starts_with("0b") || bruto.starts_with("0B") => i128::from_str_radix(&bruto[2..].replace('_', ""), 2).ok().map(ValorIr::Inteiro),
         _ if bruto.starts_with("0o") || bruto.starts_with("0O") => i128::from_str_radix(&bruto[2..].replace('_', ""), 8).ok().map(ValorIr::Inteiro),
         _ if bruto.contains('.') || bruto.contains('e') || bruto.contains('E') => bruto.replace('_', "").parse().ok().map(ValorIr::Decimal),
-        _ => bruto.replace('_', "").parse().ok().map(ValorIr::Inteiro),
+        _ => bruto
+            .replace('_', "")
+            .parse::<i128>()
+            .ok()
+            .map(ValorIr::Inteiro)
+            .or_else(|| bruto.replace('_', "").parse::<u128>().ok().map(ValorIr::InteiroSemSinal)),
     }
 }
 
@@ -682,6 +688,7 @@ fn formatar_erro_runtime(erro: ErroRuntime) -> String {
 fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
     match valor {
         ValorIr::Inteiro(v) => ValorRuntime::Inteiro(v),
+        ValorIr::InteiroSemSinal(v) => ValorRuntime::InteiroSemSinal(v),
         ValorIr::Decimal(v) => ValorRuntime::Decimal(v),
         ValorIr::Logico(v) => ValorRuntime::Logico(v),
         ValorIr::Texto(v) => ValorRuntime::Texto(v),
@@ -701,6 +708,7 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
 fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
     match valor {
         ValorRuntime::Inteiro(v) => Ok(ValorIr::Inteiro(v)),
+        ValorRuntime::InteiroSemSinal(v) => Ok(ValorIr::InteiroSemSinal(v)),
         ValorRuntime::Decimal(v) => Ok(ValorIr::Decimal(v)),
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
