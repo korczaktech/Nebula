@@ -680,6 +680,7 @@ fn ajuda() {
         "  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)"
     );
     println!("  interpretar <arquivo> Executa a IR pelo runtime Rust de referência");
+    println!("  dependencias resolver [diretorio] Resolve dependências locais e grava nebula.lock");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
