@@ -201,9 +201,16 @@ fn carregar_modulos(
     let mut cache = std::collections::HashMap::new();
     let mut ativos = HashSet::new();
     for item in &programa.itens {
-        let NoAst::Incluir { caminho, .. } = item else { continue; };
+        let NoAst::Incluir { caminho, .. } = item else {
+            continue;
+        };
         let exportadas = carregar_modulo_recursivo(
-            origem, caminho, caminho, &mut cache, &mut ativos, &mut programas,
+            origem,
+            caminho,
+            caminho,
+            &mut cache,
+            &mut ativos,
+            &mut programas,
         )?;
         assinaturas.insert(caminho.clone(), exportadas);
     }
@@ -226,12 +233,18 @@ fn carregar_modulo_recursivo(
     let arquivo_canonico = std::fs::canonicalize(&arquivo)
         .map_err(|erro| format!("Não foi possível resolver '{}': {erro}", arquivo.display()))?;
     if !ativos.insert(arquivo_canonico.clone()) {
-        return Err(format!("Ciclo de dependências detectado ao carregar o módulo '{identificador}'."));
+        return Err(format!(
+            "Ciclo de dependências detectado ao carregar o módulo '{identificador}'."
+        ));
     }
 
     let resultado = (|| {
-        let bytes = std::fs::read(&arquivo)
-            .map_err(|erro| format!("Não foi possível ler módulo '{}': {erro}", arquivo.display()))?;
+        let bytes = std::fs::read(&arquivo).map_err(|erro| {
+            format!(
+                "Não foi possível ler módulo '{}': {erro}",
+                arquivo.display()
+            )
+        })?;
         let codigo = String::from_utf8(bytes)
             .map_err(|erro| format!("Módulo '{}' não é UTF-8 válido: {erro}", arquivo.display()))?;
         let fonte = ArquivoFonte::novo(&arquivo, codigo);
@@ -240,9 +253,12 @@ fn carregar_modulo_recursivo(
             return Err(format!(
                 "Erro de sintaxe no módulo '{}': {}",
                 identificador,
-                sintaxe.diagnosticos.iter()
+                sintaxe
+                    .diagnosticos
+                    .iter()
                     .map(|d| format!("{} — {}", d.codigo, d.mensagem))
-                    .collect::<Vec<_>>().join("\n")
+                    .collect::<Vec<_>>()
+                    .join("\n")
             ));
         }
         if sintaxe.programa.itens.iter().any(|item| {
@@ -256,10 +272,21 @@ fn carregar_modulo_recursivo(
         let mut modulos_disponiveis = ModulosDisponiveis::new();
         let mut caminhos_canonicos = HashMap::new();
         for item in &sintaxe.programa.itens {
-            let NoAst::Incluir { caminho: caminho_filho, .. } = item else { continue; };
+            let NoAst::Incluir {
+                caminho: caminho_filho,
+                ..
+            } = item
+            else {
+                continue;
+            };
             let id_filho = format!("{identificador}::{caminho_filho}");
             let exportadas = carregar_modulo_recursivo(
-                &arquivo, caminho_filho, &id_filho, cache, ativos, programas,
+                &arquivo,
+                caminho_filho,
+                &id_filho,
+                cache,
+                ativos,
+                programas,
             )?;
             modulos_disponiveis.insert(caminho_filho.clone(), exportadas);
             caminhos_canonicos.insert(caminho_filho.clone(), id_filho);
@@ -268,22 +295,38 @@ fn carregar_modulo_recursivo(
         let mut exportadas = HashMap::new();
         for item in &sintaxe.programa.itens {
             if let NoAst::Funcao {
-                visibilidade: Some(Visibilidade::Publico), nome, parametros, retorno, ..
-            } = item {
-                let parametros = parametros.iter().map(|(_, tipo)| {
-                    tipo_assinatura_modulo(tipo).ok_or_else(|| {
-                        format!("Tipo '{tipo}' não suportado na assinatura pública '{identificador}::{nome}'.")
+                visibilidade: Some(Visibilidade::Publico),
+                nome,
+                parametros,
+                retorno,
+                ..
+            } = item
+            {
+                let parametros = parametros
+                    .iter()
+                    .map(|(_, tipo)| {
+                        tipo_assinatura_modulo(tipo).ok_or_else(|| {
+                            format!("Tipo '{tipo}' não suportado na assinatura pública '{identificador}::{nome}'.")
+                        })
                     })
-                }).collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
                 let retorno_nome = retorno.as_deref().unwrap_or("vazio");
                 let retorno = tipo_assinatura_modulo(retorno_nome).ok_or_else(|| {
                     format!("Tipo de retorno '{retorno_nome}' não suportado em '{identificador}::{nome}'.")
                 })?;
-                exportadas.insert(nome.clone(), AssinaturaFuncao { parametros, retorno });
+                exportadas.insert(
+                    nome.clone(),
+                    AssinaturaFuncao {
+                        parametros,
+                        retorno,
+                    },
+                );
             }
         }
         if exportadas.is_empty() {
-            return Err(format!("O módulo '{identificador}' não exporta nenhuma função pública."));
+            return Err(format!(
+                "O módulo '{identificador}' não exporta nenhuma função pública."
+            ));
         }
 
         let resultado_ir = baixar(&sintaxe.programa, &modulos_disponiveis);
@@ -324,7 +367,11 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        InstrucaoIr::Se { condicao, entao, senao } => {
+        InstrucaoIr::Se {
+            condicao,
+            entao,
+            senao,
+        } => {
             qualificar_expressao_modulo(condicao, caminho, funcoes, caminhos_canonicos);
             for item in entao.iter_mut().chain(senao.iter_mut()) {
                 qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
@@ -336,7 +383,12 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+        InstrucaoIr::Para {
+            inicial,
+            condicao,
+            atualizacao,
+            corpo,
+        } => {
             if let Some(inicial) = inicial {
                 qualificar_chamadas_modulo(inicial, caminho, funcoes, caminhos_canonicos);
             }
@@ -376,7 +428,9 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::Unaria { valor, .. } => {
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
-        ExpressaoIr::Binaria { esquerda, direita, .. } => {
+        ExpressaoIr::Binaria {
+            esquerda, direita, ..
+        } => {
             qualificar_expressao_modulo(esquerda, caminho, funcoes, caminhos_canonicos);
             qualificar_expressao_modulo(direita, caminho, funcoes, caminhos_canonicos);
         }
@@ -391,7 +445,9 @@ fn qualificar_expressao_modulo(
                 chamada_local = Some(nome.clone());
             }
         }
-        ExpressaoIr::ChamadaQualificada { modulo, argumentos, .. } => {
+        ExpressaoIr::ChamadaQualificada {
+            modulo, argumentos, ..
+        } => {
             if let Some(canonico) = caminhos_canonicos.get(modulo) {
                 *modulo = canonico.clone();
             }
