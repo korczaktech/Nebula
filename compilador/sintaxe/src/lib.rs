@@ -199,7 +199,13 @@ impl<'a> Lexer<'a> {
             self.atual += 1;
             let inicio_digitos = self.atual;
             while let Some(b) = self.byte(0) {
-                if b == b'_' || (b as char).is_digit(radix) { self.atual += 1; }
+                let digito_valido = match radix {
+                    2 => matches!(b, b'0'..=b'1'),
+                    8 => matches!(b, b'0'..=b'7'),
+                    16 => b.is_ascii_hexdigit(),
+                    _ => false,
+                };
+                if b == b'_' || digito_valido { self.atual += 1; }
                 else if b.is_ascii_alphanumeric() { self.atual += 1; }
                 else { break; }
             }
