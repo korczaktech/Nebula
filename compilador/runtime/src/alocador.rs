@@ -159,7 +159,8 @@ impl Alocador {
             .as_ref()
             .ok_or(ErroAlocador::IdentificadorInvalido)?;
         let tamanho_antigo = dados_atuais.len();
-        let novo_total = self.bytes_ativos
+        let novo_total = self
+            .bytes_ativos
             .checked_sub(tamanho_antigo)
             .and_then(|total| total.checked_add(novo_tamanho))
             .ok_or(ErroAlocador::Overflow)?;
@@ -179,7 +180,10 @@ impl Alocador {
         let novo = if let Some(indice) = self.livres.pop() {
             let bloco = &mut self.blocos[indice];
             bloco.dados = Some(dados_novos);
-            IdentificadorAlocacao { indice, geracao: bloco.geracao }
+            IdentificadorAlocacao {
+                indice,
+                geracao: bloco.geracao,
+            }
         } else {
             let indice = self.blocos.len();
             self.blocos.push(Bloco {
@@ -316,7 +320,10 @@ mod testes {
         alocador.escrever(antigo, 0, &[7, 8, 9]).unwrap();
         let novo = alocador.redimensionar(antigo, 5).unwrap();
         assert_eq!(alocador.ler(novo, 0, 5), Ok(&[7, 8, 9, 0, 0][..]));
-        assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.ler(antigo, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
     }
 
     #[test]
