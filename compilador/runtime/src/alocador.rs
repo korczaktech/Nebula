@@ -165,14 +165,21 @@ impl Alocador {
         &mut self,
         identificador: IdentificadorAlocacao,
     ) -> Result<(), ErroAlocador> {
-        let bloco = self.validar_mutavel(identificador)?;
-        let dados = bloco.dados.take().ok_or(ErroAlocador::IdentificadorInvalido)?;
-        self.bytes_ativos -= dados.len();
-        if let Some(proxima_geracao) = bloco.geracao.checked_add(1) {
-            bloco.geracao = proxima_geracao;
+        let (tamanho, reutilizavel) = {
+            let bloco = self.validar_mutavel(identificador)?;
+            let dados = bloco.dados.take().ok_or(ErroAlocador::IdentificadorInvalido)?;
+            let reutilizavel = if let Some(proxima_geracao) = bloco.geracao.checked_add(1) {
+                bloco.geracao = proxima_geracao;
+                true
+            } else {
+                bloco.geracao = 0;
+                false
+            };
+            (dados.len(), reutilizavel)
+        };
+        self.bytes_ativos -= tamanho;
+        if reutilizavel {
             self.livres.push(identificador.indice);
-        } else {
-            bloco.geracao = 0;
         }
         Ok(())
     }
