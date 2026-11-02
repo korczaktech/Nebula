@@ -950,9 +950,6 @@ mod testes {
     }
 }
 
-
-
-
 }
 
 pub use implementacao::gerar_executavel;
