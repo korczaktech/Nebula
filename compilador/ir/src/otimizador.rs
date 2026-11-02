@@ -245,6 +245,9 @@ fn propagar_constantes_expressao(
                 propagar_constantes_expressao(valor, constantes, relatorio);
             }
         }
+        ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
+            for valor in valores { propagar_constantes_expressao(valor, constantes, relatorio); }
+        }
         ExpressaoIr::Constante(_) => {}
     }
 }
@@ -330,6 +333,9 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
             for (_, valor) in campos {
                 otimizar_expressao(valor, relatorio);
             }
+        }
+        ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
+            for valor in valores { otimizar_expressao(valor, relatorio); }
         }
         ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
     }
