@@ -87,7 +87,7 @@ impl<'a> Lexer<'a> {
             b' ' | b'\t' => {},
             b'\n' => { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } },
             b'\r' => {
-                if self.corresponde(b'\n') { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); }
+                if self.corresponde(b'\n') { if self.profundidade_continuacao == 0 { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); } }
                 else { self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual); }
             }
             b'/' if self.corresponde(b'/') => { while self.byte(0).is_some_and(|x| x != b'\n') { self.atual += 1; } }
@@ -446,7 +446,7 @@ impl Parser {
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
         let mut esquerda = match self.tipo() {
             TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos | TipoToken::Mais => {
-                let op = self.avancar().tipo; let valor = self.expressao(12)?;
+                let op = self.avancar().tipo; let valor = self.expressao(9)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
             TipoToken::Identificador => Expressao::Nome(self.avancar().lexema.nfc().collect()),
