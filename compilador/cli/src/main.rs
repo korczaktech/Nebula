@@ -418,6 +418,24 @@ fn verificar(caminho: &Path) {
 mod testes {
     use super::*;
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn compila_e_executa_bloco_otimizado_em_o2() {
+        let origem = std::env::temp_dir().join(format!("nebula-o2-{}.nbx", std::process::id()));
+        let saida = std::env::temp_dir().join(format!("nebula-o2-{}", std::process::id()));
+        std::fs::write(
+            &origem,
+            "funcao principal(): inteiro { quando verdadeiro { devolver 7 } senao { devolver 9 } }",
+        )
+        .unwrap();
+        compilar_arquivo_com_nivel(&origem, &saida, NivelOtimizacao::O2)
+            .expect("compilação O2 válida");
+        let status = Command::new(&saida).status().expect("executável gerado");
+        assert_eq!(status.code(), Some(7));
+        let _ = std::fs::remove_file(origem);
+        let _ = std::fs::remove_file(saida);
+    }
+
     #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
         let caminho =
