@@ -42,6 +42,7 @@ pub enum ExpressaoIr {
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
     Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
     Atribuicao { nome: String, valor: Box<ExpressaoIr> },
+    AtribuicaoCampo { raiz: String, caminho: Vec<String>, valor: Box<ExpressaoIr> },
     Chamada { nome: String, argumentos: Vec<ExpressaoIr> },
     ChamadaQualificada { modulo: String, nome: String, argumentos: Vec<ExpressaoIr> },
     Indexacao { alvo: Box<ExpressaoIr>, indice: Box<ExpressaoIr> },
@@ -504,10 +505,13 @@ impl Lowerer {
                 direita: Box::new(self.expressao(direita)?),
             }),
             Expressao::Atribuicao { destino, valor } => {
+                let valor = Box::new(self.expressao(valor)?);
                 if let Expressao::Nome(nome) = destino.as_ref() {
-                    Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor: Box::new(self.expressao(valor)?) })
+                    Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor })
+                } else if let Some((raiz, caminho)) = caminho_campos(destino) {
+                    Some(ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor })
                 } else {
-                    self.diagnosticos.push("A IR inicial só aceita atribuição a variável nomeada.".into());
+                    self.diagnosticos.push("O destino da atribuição precisa ser uma variável ou campo de estrutura.".into());
                     None
                 }
             }
@@ -549,6 +553,23 @@ impl Lowerer {
             }
         }
     }
+}
+
+fn caminho_campos(expressao: &Expressao) -> Option<(String, Vec<String>)> {
+    fn coletar(expressao: &Expressao, caminho: &mut Vec<String>) -> Option<String> {
+        match expressao {
+            Expressao::Nome(nome) => Some(nome.clone()),
+            Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => {
+                let raiz = coletar(alvo, caminho)?;
+                caminho.push(nome.clone());
+                Some(raiz)
+            }
+            _ => None,
+        }
+    }
+    let mut caminho = Vec::new();
+    let raiz = coletar(expressao, &mut caminho)?;
+    (!caminho.is_empty()).then_some((raiz, caminho))
 }
 
 fn dividir_tipo_generico(nome: &str) -> Option<(&str, Vec<&str>)> {
@@ -645,7 +666,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
             _ => inferir_tipo(esquerda),
         },
         ExpressaoIr::Unaria { valor, .. } => inferir_tipo(valor),
-        ExpressaoIr::Atribuicao { valor, .. } => inferir_tipo(valor),
+        ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => inferir_tipo(valor),
         ExpressaoIr::Indexacao { .. } | ExpressaoIr::Membro { .. } | ExpressaoIr::Chamada { .. } | ExpressaoIr::ChamadaQualificada { .. } | ExpressaoIr::Variavel(_) => Tipo::Desconhecido,
     }
 }
@@ -916,6 +937,13 @@ impl Maquina<'_> {
                 let valor = self.expressao(valor)?;
                 self.memoria_mutavel()?
                     .atribuir(nome, converter_para_runtime(valor.clone()))
+                    .map_err(formatar_erro_runtime)?;
+                Ok(valor)
+            }
+            ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor } => {
+                let valor = self.expressao(valor)?;
+                self.memoria_mutavel()?
+                    .definir_campo_estrutura(raiz, caminho, converter_para_runtime(valor.clone()))
                     .map_err(formatar_erro_runtime)?;
                 Ok(valor)
             }
