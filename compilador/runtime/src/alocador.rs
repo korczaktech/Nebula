@@ -171,6 +171,20 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
+        // O bloco antigo será liberado após a criação do novo. Garanta
+        // previamente o espaço de metadados necessário para essa liberação,
+        // mantendo a operação transacional caso a reserva falhe.
+        if self
+            .validar(identificador)?
+            .geracao
+            .checked_add(1)
+            .is_some()
+        {
+            self.livres
+                .try_reserve(1)
+                .map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        }
+
         let mut dados_atuais = Vec::new();
         dados_atuais
             .try_reserve_exact(tamanho_antigo)
