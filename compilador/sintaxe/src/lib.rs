@@ -349,7 +349,19 @@ impl Parser {
             TipoToken::Variavel => self.declaracao_variavel(false),
             TipoToken::Constante => self.declaracao_variavel(true),
             TipoToken::Funcao => self.funcao(),
-            TipoToken::Publico | TipoToken::Privado => { self.avancar(); if self.corresponde(TipoToken::Funcao) { self.funcao_corpo() } else { self.erro_atual("N2002", "Esperado 'funcao' após modificador de visibilidade."); None } }
+            TipoToken::Publico | TipoToken::Privado => {
+                let visibilidade = if self.avancar().tipo == TipoToken::Publico {
+                    Visibilidade::Publico
+                } else {
+                    Visibilidade::Privado
+                };
+                if self.corresponde(TipoToken::Funcao) {
+                    self.funcao_corpo(Some(visibilidade))
+                } else {
+                    self.erro_atual("N2002", "Esperado 'funcao' após modificador de visibilidade.");
+                    None
+                }
+            }
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Incluir => self.incluir(),
             TipoToken::Quando => self.quando(),
@@ -368,8 +380,8 @@ impl Parser {
         let valor = self.expressao(0)?;
         Some(NoAst::Variavel { nome, tipo, valor, constante })
     }
-    fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo() }
-    fn funcao_corpo(&mut self) -> Option<NoAst> {
+    fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo(None) }
+    fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
         let nome = self.consumir_nome("Esperado nome da função.")?;
         if !self.corresponde(TipoToken::AbrePar) { self.erro_atual("N2004", "Esperado '(' após nome da função."); return None; }
         let mut parametros = Vec::new();
@@ -384,7 +396,7 @@ impl Parser {
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
         let retorno = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
         let corpo = self.bloco()?;
-        Some(NoAst::Funcao { nome, parametros, retorno, corpo })
+        Some(NoAst::Funcao { visibilidade, nome, parametros, retorno, corpo })
     }
     fn tipo_alias(&mut self) -> Option<NoAst> {
         self.avancar(); let nome = self.consumir_nome("Esperado nome após 'tipo'.")?;
