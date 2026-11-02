@@ -449,6 +449,7 @@ mod testes {
             instrucoes: vec![InstrucaoIr::Expressao(expressao)],
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         }
     }
 
@@ -461,6 +462,7 @@ mod testes {
             ],
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         };
         let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
         assert_eq!(relatorio.propagacoes_constantes, 1);
@@ -478,6 +480,7 @@ mod testes {
             ],
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         };
         otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
         assert!(matches!(&ir.instrucoes[1], InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel(nome))) if nome == "interno"));
@@ -607,6 +610,7 @@ mod testes {
             ],
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         };
         let original = crate::executar(&ir, 100).unwrap_err();
         otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
@@ -630,6 +634,7 @@ mod testes {
             }],
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
         };
         let original = crate::executar(&ir, 100).expect("IR original");
         otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
