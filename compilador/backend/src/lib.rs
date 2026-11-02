@@ -33,13 +33,10 @@ struct Emissor {
     chamadas: Vec<(usize, String)>,
     escopos: Vec<HashMap<String, i32>>,
     proximo_slot: usize,
-    lacos: Vec<Laco,
-    >
+    lacos: Vec<Laco>,
 }
 
 struct Laco {
-    inicio: usize,
-    continuar: Option<usize>,
     saidas: Vec<usize>,
     continuacoes: Vec<usize>,
 }
@@ -50,7 +47,6 @@ impl Emissor {
             codigo: Vec::new(),
             funcoes: HashMap::new(),
             chamadas: Vec::new(),
-            saltos: Vec::new(),
             escopos: Vec::new(),
             proximo_slot: 0,
             lacos: Vec::new(),
@@ -66,9 +62,18 @@ impl Emissor {
             return Err("A função principal não pode receber parâmetros no alvo inicial.".into());
         }
 
-        // Ponto de entrada Linux: chama a função de inicialização e encerra pelo syscall exit.
-        self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
-        let chamada_inicio = 1;
+        // O ponto de entrada chama as rotinas geradas e encerra pelo syscall Linux.
+        let mut chamadas_inicio = Vec::new();
+        if !programa.instrucoes.is_empty() {
+            self.codigo.push(0xE8);
+            chamadas_inicio.push((self.codigo.len(), "__nebula_inicio".to_owned()));
+            self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+        }
+        if let Some(funcao) = principal {
+            self.codigo.push(0xE8);
+            chamadas_inicio.push((self.codigo.len(), funcao.nome.clone()));
+            self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+        }
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
 
         if !programa.instrucoes.is_empty() {
@@ -79,26 +84,14 @@ impl Emissor {
                 corpo: programa.instrucoes.clone(),
             };
             self.compilar_funcao(&inicio)?;
-            self.chamadas.push((chamada_inicio, inicio.nome));
-        } else if let Some(funcao) = principal {
-            self.chamadas.push((chamada_inicio, funcao.nome.clone()));
         }
 
         let mut nomes: Vec<_> = programa.funcoes.keys().cloned().collect();
         nomes.sort();
         for nome in nomes {
-            let funcao = &programa.funcoes[&nome];
-            self.compilar_funcao(funcao)?;
+            self.compilar_funcao(&programa.funcoes[&nome])?;
         }
-
-        if !programa.instrucoes.is_empty() {
-            if let Some(funcao) = principal {
-                self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
-                self.chamadas.push((self.codigo.len() - 4, funcao.nome.clone()));
-                // O valor de retorno de principal torna-se o código de saída.
-                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
-            }
-        }
+        self.chamadas.extend(chamadas_inicio);
         Ok(())
     }
 
@@ -292,6 +285,8 @@ impl Emissor {
                 if argumentos.len() > 6 {
                     return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
                 }
+                let alinhar = argumentos.len() % 2 == 1;
+                if alinhar { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
                 for argumento in argumentos {
                     self.expressao(argumento)?;
                     self.codigo.push(0x50);
@@ -304,6 +299,7 @@ impl Emissor {
                 let deslocamento = self.codigo.len() + 1;
                 self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
                 self.chamadas.push((deslocamento, nome.clone()));
+                if alinhar { self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); }
             }
             ExpressaoIr::ChamadaQualificada { .. } => return Err("Chamadas de módulos ainda não são suportadas pelo backend nativo.".into()),
         }
