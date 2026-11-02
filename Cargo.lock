@@ -42,6 +42,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nebula-runtime"
+version = "0.1.0"
+
+[[package]]
 name = "nebula-semantica"
 version = "0.1.0"
 dependencies = [
