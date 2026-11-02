@@ -1472,6 +1472,17 @@ mod testes {
     }
 
     #[test]
+    fn infere_chamada_generica_em_variavel_local() {
+        let ir = compilar(
+            "funcao identidade<T>(valor: T): T { devolver valor }\\nfuncao repassar<T>(valor: T): T { variavel copia = identidade(valor)\\n devolver copia }\\nvariavel numero = repassar(42)",
+        );
+        assert!(ir.funcoes.contains_key("repassar__inteiro"));
+        assert!(ir.funcoes.contains_key("identidade__inteiro"));
+        let resultado = executar(&ir, 100).expect("chamada genérica local válida");
+        assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(42)));
+    }
+
+    #[test]
     fn executa_funcao_com_retorno() {
         let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = soma(2, 3)");
         let r = executar(&ir, 100).expect("execução válida");
