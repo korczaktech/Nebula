@@ -9,7 +9,7 @@
 | 1. Linguagem e tipos | Parcial: subconjunto atual preservado; tipos compostos e genéricos ainda pendentes |
 | 2. Memória e segurança | Parcial: escopos, mutabilidade e listas compartilhadas no runtime; propriedade e borrow checker pendentes |
 | 3. Runtime | Parcial implementado: crate Rust e integração ao interpretador de referência; integração nativa e ciclo de vida completo pendentes |
-| 4. Concorrência | Parcial: threads, tarefas, canais e inteiros atômicos no runtime; async/await e modelo formal de memória pendentes |
+| 4. Concorrência | Parcial: threads, tarefas, canais, inteiros atômicos e token de cancelamento cooperativo no runtime; async/await e integração com propriedade pendentes |
 | 5. Biblioteca padrão | Parcial: texto Unicode ampliado, coleções, números, matemática, arquivos e tempo no runtime; módulos completos pendentes |
 | 6. Módulos e pacotes | Parcial: interpretador e backend ELF x86-64 resolvem módulos locais recursivamente, ligam chamadas qualificadas, rejeitam ciclos, bloqueiam travessia de diretórios e symlinks externos; inicializadores globais e gerenciador de pacotes/lockfile pendentes |
 | 7. Otimizador | Parcial implementado: O0/O1/O2/O3/Os com dobramento, fluxo constante, remoção de código inalcançável e blocos vazios; passes avançados pendentes |
