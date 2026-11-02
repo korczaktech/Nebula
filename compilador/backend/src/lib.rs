@@ -247,6 +247,17 @@ impl Emissor {
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
                 self.expressao(esquerda)?;
+                if *operador == OperadorIr::E || *operador == OperadorIr::Ou {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    let salto_curto = self.emitir_jcc(if *operador == OperadorIr::E { 0x84 } else { 0x85 });
+                    self.expressao(direita)?;
+                    self.normalizar_logico();
+                    let fim = self.emitir_jmp();
+                    self.aplicar_salto(salto_curto, self.codigo.len());
+                    self.mov_rax(i64::from(*operador == OperadorIr::Ou));
+                    self.aplicar_salto(fim, self.codigo.len());
+                    return Ok(());
+                }
                 self.push_rax(); // preserva o operando esquerdo
                 self.expressao(direita)?;
                 self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
@@ -269,8 +280,6 @@ impl Emissor {
                         };
                         self.codigo.extend_from_slice(&[0x0F, set, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                     }
-                    OperadorIr::E => self.codigo.extend_from_slice(&[0x48, 0x21, 0xC8]),
-                    OperadorIr::Ou => self.codigo.extend_from_slice(&[0x48, 0x09, 0xC8]),
                     OperadorIr::Potencia | OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
                         return Err("Operador ainda não implementado no backend nativo.".into());
                     }
@@ -322,6 +331,10 @@ impl Emissor {
     fn buscar(&self, nome: &str) -> Result<i32, String> {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
             .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))
+    }
+
+    fn normalizar_logico(&mut self) {
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
     }
 
     fn push_rax(&mut self) {
