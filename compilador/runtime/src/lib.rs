@@ -413,7 +413,7 @@ mod testes {
 
     #[test]
     fn texto_conta_caracteres_unicode() {
-        assert_eq!(comprimento_texto("ação 🌌"), 5);
+        assert_eq!(comprimento_texto("ação 🌌"), 6);
         assert_eq!(caractere_texto("ação 🌌", 4), Ok('🌌'));
     }
 
