@@ -786,7 +786,7 @@ impl Parser {
     }
     #[test]
     fn permite_acesso_a_membro_apos_quebra_de_linha() {
-        let r = analisar(&fonte("variavel valor = objeto\\n.nome"));
+        let r = analisar(&fonte("variavel valor = objeto\n.nome"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
