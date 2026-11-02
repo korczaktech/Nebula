@@ -7,7 +7,9 @@
 mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
+use nebula_runtime::{ErroRuntime, Memoria, Valor as ValorRuntime};
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 /// Valor constante ou resultado de execução na IR.
 #[derive(Debug, Clone, PartialEq)]
@@ -296,7 +298,7 @@ pub struct ResultadoExecucao {
 pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
-        escopos: vec![HashMap::new()],
+        memoria: Memoria::nova(),
         saida: Vec::new(),
         passos: 0,
         limite: limite_passos.max(1),
@@ -306,14 +308,57 @@ pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<Resultado
     if matches!(&fluxo, Fluxo::Parar | Fluxo::Seguir) {
         return Err("Controle de laço escapou do seu contexto.".into());
     }
-    Ok(ResultadoExecucao { saida: vm.saida, globais: vm.escopos.remove(0) })
+    let globais = vm.memoria.globais().into_iter()
+        .map(|(nome, valor)| Ok((nome, converter_para_ir(valor)?)))
+        .collect::<Result<HashMap<_, _>, String>>()?;
+    Ok(ResultadoExecucao { saida: vm.saida, globais })
 }
 
 enum Fluxo { Normal, Retorno(ValorIr), Parar, Seguir }
 
+fn formatar_erro_runtime(erro: ErroRuntime) -> String {
+    format!("Erro do runtime: {erro:?}")
+}
+
+fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
+    match valor {
+        ValorIr::Inteiro(v) => ValorRuntime::Inteiro(v),
+        ValorIr::Decimal(v) => ValorRuntime::Decimal(v),
+        ValorIr::Logico(v) => ValorRuntime::Logico(v),
+        ValorIr::Texto(v) => ValorRuntime::Texto(v),
+        ValorIr::Caractere(v) => ValorRuntime::Caractere(v),
+        ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
+            itens.into_iter().map(converter_para_runtime).collect(),
+        ))),
+        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
+        ValorIr::IntervaloDecimal(inicio, fim) => {
+            ValorRuntime::Texto(format!("{inicio}..{fim}"))
+        }
+        ValorIr::Nulo => ValorRuntime::Nulo,
+        ValorIr::Vazio => ValorRuntime::Vazio,
+    }
+}
+
+fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
+    match valor {
+        ValorRuntime::Inteiro(v) => Ok(ValorIr::Inteiro(v)),
+        ValorRuntime::Decimal(v) => Ok(ValorIr::Decimal(v)),
+        ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
+        ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
+        ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
+        ValorRuntime::Lista(itens) => {
+            let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
+            Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
+        }
+        ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::Nulo => Ok(ValorIr::Nulo),
+        ValorRuntime::Vazio => Ok(ValorIr::Vazio),
+    }
+}
+
 struct Maquina<'a> {
     programa: &'a ProgramaIr,
-    escopos: Vec<HashMap<String, ValorIr>>,
+    memoria: Memoria,
     saida: Vec<String>,
     passos: usize,
     limite: usize,
@@ -337,22 +382,31 @@ impl Maquina<'_> {
     }
 
     fn bloco(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
-        self.escopos.push(HashMap::new());
-        let mut fluxo = Fluxo::Normal;
-        for item in itens {
-            self.passo()?;
-            fluxo = self.instrucao(item)?;
-            if !matches!(fluxo, Fluxo::Normal) { break; }
+        self.memoria.abrir_escopo();
+        let resultado = (|| {
+            let mut fluxo = Fluxo::Normal;
+            for item in itens {
+                self.passo()?;
+                fluxo = self.instrucao(item)?;
+                if !matches!(fluxo, Fluxo::Normal) { break; }
+            }
+            Ok(fluxo)
+        })();
+        let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+        match (resultado, fechamento) {
+            (Err(erro), _) => Err(erro),
+            (Ok(_), Err(erro)) => Err(erro),
+            (Ok(fluxo), Ok(())) => Ok(fluxo),
         }
-        self.escopos.pop();
-        Ok(fluxo)
     }
 
     fn instrucao(&mut self, item: &InstrucaoIr) -> Result<Fluxo, String> {
         match item {
-            InstrucaoIr::Declarar { nome, valor, .. } => {
+            InstrucaoIr::Declarar { nome, valor, constante, .. } => {
                 let valor = self.expressao(valor)?;
-                self.escopos.last_mut().expect("escopo ativo").insert(nome.clone(), valor);
+                self.memoria
+                    .declarar(nome.clone(), converter_para_runtime(valor), !constante)
+                    .map_err(formatar_erro_runtime)?;
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Expressao(e) => { self.expressao(e)?; Ok(Fluxo::Normal) }
@@ -374,23 +428,34 @@ impl Maquina<'_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
-                self.escopos.push(HashMap::new());
-                if let Some(inicial) = inicial { let _ = self.instrucao(inicial)?; }
-                loop {
-                    self.passo()?;
-                    if let Some(condicao) = condicao {
-                        let condicao = self.expressao(condicao)?;
-                        if !self.logico(condicao)? { break; }
+                self.memoria.abrir_escopo();
+                let resultado = (|| {
+                    if let Some(inicial) = inicial { let _ = self.instrucao(inicial)?; }
+                    let mut fluxo_final = Fluxo::Normal;
+                    loop {
+                        self.passo()?;
+                        if let Some(condicao) = condicao {
+                            let condicao = self.expressao(condicao)?;
+                            if !self.logico(condicao)? { break; }
+                        }
+                        match self.bloco(corpo)? {
+                            Fluxo::Normal | Fluxo::Seguir => {}
+                            Fluxo::Parar => break,
+                            retorno @ Fluxo::Retorno(_) => {
+                                fluxo_final = retorno;
+                                break;
+                            }
+                        }
+                        if let Some(atualizacao) = atualizacao { self.expressao(atualizacao)?; }
                     }
-                    match self.bloco(corpo)? {
-                        Fluxo::Normal | Fluxo::Seguir => {}
-                        Fluxo::Parar => break,
-                        retorno @ Fluxo::Retorno(_) => { self.escopos.pop(); return Ok(retorno); }
-                    }
-                    if let Some(atualizacao) = atualizacao { self.expressao(atualizacao)?; }
+                    Ok(fluxo_final)
+                })();
+                let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+                match (resultado, fechamento) {
+                    (Err(erro), _) => Err(erro),
+                    (Ok(_), Err(erro)) => Err(erro),
+                    (Ok(fluxo), Ok(())) => Ok(fluxo),
                 }
-                self.escopos.pop();
-                Ok(Fluxo::Normal)
             }
             InstrucaoIr::Devolver(valor) => Ok(Fluxo::Retorno(match valor {
                 Some(valor) => self.expressao(valor)?,
@@ -404,7 +469,7 @@ impl Maquina<'_> {
     fn expressao(&mut self, e: &ExpressaoIr) -> Result<ValorIr, String> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
-            ExpressaoIr::Variavel(nome) => self.buscar(nome).cloned().ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
+            ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
             ExpressaoIr::Lista(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::Unaria { operador, valor } => {
                 let valor = self.expressao(valor)?;
@@ -425,10 +490,10 @@ impl Maquina<'_> {
             }
             ExpressaoIr::Atribuicao { nome, valor } => {
                 let valor = self.expressao(valor)?;
-                for escopo in self.escopos.iter_mut().rev() {
-                    if let Some(slot) = escopo.get_mut(nome) { *slot = valor.clone(); return Ok(valor); }
-                }
-                Err(format!("Variável '{nome}' não encontrada para atribuição."))
+                self.memoria
+                    .atribuir(nome, converter_para_runtime(valor.clone()))
+                    .map_err(formatar_erro_runtime)?;
+                Ok(valor)
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 let valores = argumentos.iter().map(|a| self.expressao(a)).collect::<Result<Vec<_>,_>>()?;
@@ -442,14 +507,23 @@ impl Maquina<'_> {
                     return Err("Limite de profundidade de chamadas da IR excedido.".into());
                 }
                 self.profundidade_chamada += 1;
-                self.escopos.push(HashMap::new());
-                for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
-                    self.escopos.last_mut().expect("escopo ativo").insert(parametro.clone(), valor);
-                }
-                let fluxo = self.bloco(&funcao.corpo);
-                self.escopos.pop();
+                self.memoria.abrir_escopo();
+                let fluxo = (|| {
+                    for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
+                        self.memoria
+                            .declarar(parametro.clone(), converter_para_runtime(valor), true)
+                            .map_err(formatar_erro_runtime)?;
+                    }
+                    self.bloco(&funcao.corpo)
+                })();
+                let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
                 self.profundidade_chamada -= 1;
-                match fluxo? { Fluxo::Retorno(v) => Ok(v), _ => Ok(ValorIr::Vazio) }
+                let fluxo = match (fluxo, fechamento) {
+                    (Err(erro), _) => return Err(erro),
+                    (Ok(_), Err(erro)) => return Err(erro),
+                    (Ok(fluxo), Ok(())) => fluxo,
+                };
+                match fluxo { Fluxo::Retorno(v) => Ok(v), _ => Ok(ValorIr::Vazio) }
             }
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => Err(format!("A função '{modulo}::{nome}' precisa de uma implementação de módulo em tempo de execução.")),
             ExpressaoIr::Indexacao { alvo, indice } => {
@@ -462,8 +536,8 @@ impl Maquina<'_> {
         }
     }
 
-    fn buscar(&self, nome: &str) -> Option<&ValorIr> {
-        self.escopos.iter().rev().find_map(|e| e.get(nome))
+    fn buscar(&self, nome: &str) -> Option<ValorIr> {
+        self.memoria.obter(nome).ok().and_then(|valor| converter_para_ir(valor).ok())
     }
 
     fn logico(&self, valor: ValorIr) -> Result<bool, String> {
