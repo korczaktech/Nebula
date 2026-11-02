@@ -149,9 +149,7 @@ pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
         TipoRuntime::Decimal { bits } if !matches!(bits, 32 | 64) => {
             Err(format!("Largura decimal inválida: {bits}."))
         }
-        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => {
-            validar_tipo(elemento)
-        }
+        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => validar_tipo(elemento),
         TipoRuntime::Tupla(tipos) => {
             for tipo in tipos {
                 validar_tipo(tipo)?;
