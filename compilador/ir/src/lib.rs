@@ -10,7 +10,8 @@ use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
     arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, escrever_arquivo,
     calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
-    subtexto, tempo_unix_milisegundos, texto_contem, texto_maiusculas, texto_minusculas,
+    subtexto, tempo_unix_milisegundos, texto_aparar, texto_comeca_com, texto_contem,
+    texto_maiusculas, texto_minusculas, texto_substituir, texto_termina_com,
     texto_para_decimal, texto_para_inteiro, ErroRuntime, FuncaoMatematica, Memoria,
     OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
@@ -542,6 +543,34 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Logico(texto_contem(texto, trecho)));
                     }
                     return Err("'contem' exige dois textos.".into());
+                }
+                if nome == "aparar" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        return Ok(ValorIr::Texto(texto_aparar(texto)));
+                    }
+                    return Err("'aparar' exige um texto.".into());
+                }
+                if nome == "comeca_com" || nome == "termina_com" {
+                    if let [ValorIr::Texto(texto), ValorIr::Texto(trecho)] = valores.as_slice() {
+                        let resultado = if nome == "comeca_com" {
+                            texto_comeca_com(texto, trecho)
+                        } else {
+                            texto_termina_com(texto, trecho)
+                        };
+                        return Ok(ValorIr::Logico(resultado));
+                    }
+                    return Err(format!("'{nome}' exige dois textos."));
+                }
+                if nome == "substituir" {
+                    if let [
+                        ValorIr::Texto(texto),
+                        ValorIr::Texto(alvo),
+                        ValorIr::Texto(substituto),
+                    ] = valores.as_slice()
+                    {
+                        return Ok(ValorIr::Texto(texto_substituir(texto, alvo, substituto)));
+                    }
+                    return Err("'substituir' exige texto, trecho e substituição.".into());
                 }
                 if nome == "maiusculas" || nome == "minusculas" {
                     if let [ValorIr::Texto(texto)] = valores.as_slice() {
