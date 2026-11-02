@@ -199,6 +199,9 @@ struct Lowerer {
 
 impl Lowerer {
     fn tipo(&self, nome: &str) -> Tipo {
+        if let Some(substituido) = self.substituicoes.get(nome) {
+            return self.tipo(substituido);
+        }
         match nome {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
@@ -214,12 +217,25 @@ impl Lowerer {
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             _ if nome.starts_with('[') && nome.ends_with(']') => Tipo::Lista(Box::new(self.tipo(&nome[1..nome.len()-1]))),
+            _ if dividir_tipo_generico(nome).is_some() => {
+                let (base, argumentos) = dividir_tipo_generico(nome).expect("tipo genérico validado");
+                let tipos: Vec<_> = argumentos.iter().map(|tipo| self.tipo(tipo)).collect();
+                match (base, tipos.as_slice()) {
+                    ("Opcional" | "opcional", [tipo]) => Tipo::Opcional(Box::new(tipo.clone())),
+                    ("Resultado" | "resultado", [ok, erro]) => Tipo::Resultado(Box::new(ok.clone()), Box::new(erro.clone())),
+                    ("Tupla" | "tupla", tipos) if !tipos.is_empty() => Tipo::Tupla(tipos.to_vec()),
+                    _ => Tipo::Desconhecido,
+                }
+            }
             _ => self.aliases.get(nome).map_or(Tipo::Desconhecido, |destino| self.tipo(destino)),
         }
     }
 
     fn bloco(&mut self, itens: &[NoAst]) -> Vec<InstrucaoIr> {
-        itens.iter().filter_map(|item| self.item(item)).collect()
+        self.escopos_tipos.push(HashMap::new());
+        let resultado = itens.iter().filter_map(|item| self.item(item)).collect();
+        self.escopos_tipos.pop();
+        resultado
     }
 
     fn item(&mut self, item: &NoAst) -> Option<InstrucaoIr> {
@@ -227,6 +243,9 @@ impl Lowerer {
             NoAst::Variavel { nome, tipo, valor, constante } => {
                 let valor = self.expressao(valor)?;
                 let tipo = tipo.as_deref().map_or_else(|| inferir_tipo(&valor), |t| self.tipo(t));
+                if let Some(escopo) = self.escopos_tipos.last_mut() {
+                    escopo.insert(nome.clone(), tipo.clone());
+                }
                 Some(InstrucaoIr::Declarar { nome: nome.clone(), tipo, valor, constante: *constante })
             }
             NoAst::Expressao(e) => Some(InstrucaoIr::Expressao(self.expressao(e)?)),
@@ -249,6 +268,141 @@ impl Lowerer {
             NoAst::Seguir => Some(InstrucaoIr::Seguir),
             NoAst::Tipo { .. } | NoAst::Incluir { .. } | NoAst::Funcao { .. } => None,
         }
+    }
+
+    fn registrar_instancia_generica(
+        &mut self,
+        nome: &str,
+        argumentos: &[Expressao],
+    ) -> Option<String> {
+        let modelo = self.genericas.get(nome)?.clone();
+        if argumentos.len() != modelo.parametros.len() {
+            self.diagnosticos.push(format!(
+                "A função genérica '{nome}' espera {} argumentos, mas recebeu {}.",
+                modelo.parametros.len(),
+                argumentos.len()
+            ));
+            return None;
+        }
+
+        let mut substituicoes = HashMap::new();
+        for ((_, tipo_esperado), argumento) in modelo.parametros.iter().zip(argumentos) {
+            let obtido = self.inferir_tipo_ast(argumento);
+            if obtido == Tipo::Desconhecido {
+                self.diagnosticos.push(format!(
+                    "Não foi possível inferir o tipo do argumento na chamada genérica de '{nome}'."
+                ));
+                return None;
+            }
+            if !self.inferir_substituicao(tipo_esperado, &obtido, &modelo.genericos, &mut substituicoes) {
+                self.diagnosticos.push(format!(
+                    "Tipos genéricos conflitantes na chamada de '{nome}': esperado '{tipo_esperado}', recebido '{}'.",
+                    nome_tipo(&obtido)
+                ));
+                return None;
+            }
+        }
+
+        for parametro in &modelo.genericos {
+            if !substituicoes.contains_key(parametro) {
+                self.diagnosticos.push(format!(
+                    "O parâmetro genérico '{parametro}' da função '{nome}' não pode ser inferido."
+                ));
+                return None;
+            }
+        }
+
+        let sufixo = modelo.genericos.iter()
+            .map(|parametro| nome_tipo(&self.tipo(substituicoes.get(parametro)?)))
+            .collect::<Option<Vec<_>>>()?
+            .join("__");
+        let nome_instancia = format!("{nome}__{}", sufixo.chars()
+            .map(|caractere| if caractere.is_ascii_alphanumeric() || caractere == '_' { caractere } else { '_' })
+            .collect::<String>());
+
+        if !self.instancias.contains_key(&nome_instancia) {
+            let anteriores = std::mem::replace(&mut self.substituicoes, substituicoes.clone());
+            let parametros: Vec<_> = modelo.parametros.iter()
+                .map(|(nome, tipo)| (nome.clone(), self.tipo(tipo)))
+                .collect();
+            let retorno = modelo.retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.tipo(tipo));
+            self.substituicoes = anteriores;
+            self.instancias.insert(nome_instancia.clone(), FuncaoIr {
+                nome: nome_instancia.clone(),
+                parametros,
+                retorno,
+                corpo: Vec::new(),
+            });
+            self.fila_instancias.push((nome_instancia.clone(), nome.to_owned(), substituicoes));
+        }
+        Some(nome_instancia)
+    }
+
+    fn inferir_tipo_ast(&self, expressao: &Expressao) -> Tipo {
+        match expressao {
+            Expressao::Literal(valor) => literal(valor).as_ref().map_or(Tipo::Desconhecido, |valor| {
+                inferir_tipo(&ExpressaoIr::Constante(valor.clone()))
+            }),
+            Expressao::Nome(nome) => self.escopos_tipos.iter().rev()
+                .find_map(|escopo| escopo.get(nome).cloned())
+                .unwrap_or(Tipo::Desconhecido),
+            Expressao::Lista(itens) => {
+                let Some(primeiro) = itens.first() else { return Tipo::Lista(Box::new(Tipo::Desconhecido)); };
+                Tipo::Lista(Box::new(self.inferir_tipo_ast(primeiro)))
+            }
+            Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
+            Expressao::Binaria { esquerda, operador, .. } => {
+                if matches!(operador, TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor
+                    | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual
+                    | TipoToken::E | TipoToken::Ou) {
+                    Tipo::Logico
+                } else {
+                    self.inferir_tipo_ast(esquerda)
+                }
+            }
+            Expressao::Indexacao { alvo, .. } => match self.inferir_tipo_ast(alvo) {
+                Tipo::Lista(tipo) => *tipo,
+                _ => Tipo::Desconhecido,
+            },
+            _ => Tipo::Desconhecido,
+        }
+    }
+
+    fn inferir_substituicao(
+        &self,
+        esperado: &str,
+        obtido: &Tipo,
+        genericos: &[String],
+        substituicoes: &mut HashMap<String, String>,
+    ) -> bool {
+        if genericos.iter().any(|parametro| parametro == esperado) {
+            let nome = nome_tipo(obtido);
+            return match substituicoes.get(esperado) {
+                Some(anterior) => self.tipo(anterior) == *obtido,
+                None => {
+                    substituicoes.insert(esperado.to_owned(), nome);
+                    true
+                }
+            };
+        }
+        if esperado.starts_with('[') && esperado.ends_with(']') {
+            return matches!(obtido, Tipo::Lista(interno)
+                if self.inferir_substituicao(&esperado[1..esperado.len()-1], interno, genericos, substituicoes));
+        }
+        if let Some((base, argumentos)) = dividir_tipo_generico(esperado) {
+            return match (base, obtido) {
+                ("Opcional" | "opcional", Tipo::Opcional(interno)) if argumentos.len() == 1 =>
+                    self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
+                ("Resultado" | "resultado", Tipo::Resultado(ok, erro)) if argumentos.len() == 2 =>
+                    self.inferir_substituicao(argumentos[0], ok, genericos, substituicoes)
+                    && self.inferir_substituicao(argumentos[1], erro, genericos, substituicoes),
+                ("Tupla" | "tupla", Tipo::Tupla(tipos)) if argumentos.len() == tipos.len() =>
+                    argumentos.iter().zip(tipos).all(|(esperado, obtido)|
+                        self.inferir_substituicao(esperado, obtido, genericos, substituicoes)),
+                _ => false,
+            };
+        }
+        self.tipo(esperado) == *obtido
     }
 
     fn expressao(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
@@ -278,7 +432,14 @@ impl Lowerer {
             Expressao::Chamada { alvo, argumentos } => {
                 let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
                 match alvo.as_ref() {
-                    Expressao::Nome(nome) => Some(ExpressaoIr::Chamada { nome: nome.clone(), argumentos: args }),
+                    Expressao::Nome(nome) => {
+                        if self.genericas.contains_key(nome) {
+                            let especializado = self.registrar_instancia_generica(nome, argumentos)?;
+                            Some(ExpressaoIr::Chamada { nome: especializado, argumentos: args })
+                        } else {
+                            Some(ExpressaoIr::Chamada { nome: nome.clone(), argumentos: args })
+                        }
+                    },
                     Expressao::Membro { alvo, operador: TipoToken::Escopo, nome } => {
                         if let Expressao::Nome(modulo) = alvo.as_ref() {
                             let caminho = self.modulos_importados.get(modulo).cloned().unwrap_or_else(|| modulo.clone());
@@ -302,6 +463,59 @@ impl Lowerer {
                 None
             }
         }
+    }
+}
+
+fn dividir_tipo_generico(nome: &str) -> Option<(&str, Vec<&str>)> {
+    let abertura = nome.find('<')?;
+    if !nome.ends_with('>') { return None; }
+    let base = &nome[..abertura];
+    let conteudo = &nome[abertura + 1..nome.len() - 1];
+    if base.is_empty() || conteudo.is_empty() { return None; }
+    let mut argumentos = Vec::new();
+    let mut profundidade = 0usize;
+    let mut inicio = 0usize;
+    for (indice, caractere) in conteudo.char_indices() {
+        match caractere {
+            '<' => profundidade += 1,
+            '>' => profundidade = profundidade.checked_sub(1)?,
+            ',' if profundidade == 0 => {
+                let argumento = conteudo[inicio..indice].trim();
+                if argumento.is_empty() { return None; }
+                argumentos.push(argumento);
+                inicio = indice + caractere.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if profundidade != 0 { return None; }
+    let ultimo = conteudo[inicio..].trim();
+    if ultimo.is_empty() { return None; }
+    argumentos.push(ultimo);
+    Some((base, argumentos))
+}
+
+fn nome_tipo(tipo: &Tipo) -> String {
+    match tipo {
+        Tipo::Vazio => "vazio".into(),
+        Tipo::Logico => "logico".into(),
+        Tipo::Inteiro => "inteiro".into(),
+        Tipo::Inteiro8 => "inteiro8".into(),
+        Tipo::Inteiro16 => "inteiro16".into(),
+        Tipo::Inteiro32 => "inteiro32".into(),
+        Tipo::Inteiro64 => "inteiro64".into(),
+        Tipo::Inteiro128 => "inteiro128".into(),
+        Tipo::Decimal | Tipo::Decimal64 => "decimal64".into(),
+        Tipo::Decimal32 => "decimal32".into(),
+        Tipo::Texto => "texto".into(),
+        Tipo::Caractere => "caractere".into(),
+        Tipo::Byte => "byte".into(),
+        Tipo::Lista(interno) => format!("[{}]", nome_tipo(interno)),
+        Tipo::Opcional(interno) => format!("Opcional<{}>", nome_tipo(interno)),
+        Tipo::Resultado(ok, erro) => format!("Resultado<{},{}>", nome_tipo(ok), nome_tipo(erro)),
+        Tipo::Tupla(tipos) => format!("Tupla<{}>", tipos.iter().map(nome_tipo).collect::<Vec<_>>().join(",")),
+        Tipo::Intervalo(interno) => format!("Intervalo<{}>", nome_tipo(interno)),
+        Tipo::Funcao(_, _) | Tipo::Parametro(_) | Tipo::Desconhecido => "desconhecido".into(),
     }
 }
 
