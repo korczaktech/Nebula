@@ -362,6 +362,84 @@ impl<'a> Analisador<'a> {
                         }
                         return Tipo::Texto;
                     }
+                    if nome == "comprimento" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "A função 'comprimento' exige um argumento.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let tipo = self.expressao(&argumentos[0]);
+                        if matches!(tipo, Tipo::Texto | Tipo::Lista(_)) {
+                            return Tipo::Inteiro;
+                        }
+                        self.erro("N3016", "'comprimento' exige texto ou lista.");
+                        return Tipo::Desconhecido;
+                    }
+                    if nome == "subtexto" {
+                        if argumentos.len() != 3 {
+                            self.erro("N3015", "'subtexto' exige texto, início e fim.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        let inicio = self.expressao(&argumentos[1]);
+                        let fim = self.expressao(&argumentos[2]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "primeiro argumento de 'subtexto'");
+                        self.exigir_tipo(&inicio, &Tipo::Inteiro, "início de 'subtexto'");
+                        self.exigir_tipo(&fim, &Tipo::Inteiro, "fim de 'subtexto'");
+                        return Tipo::Texto;
+                    }
+                    if nome == "contem" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", "'contem' exige dois argumentos.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        let trecho = self.expressao(&argumentos[1]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "primeiro argumento de 'contem'");
+                        self.exigir_tipo(&trecho, &Tipo::Texto, "segundo argumento de 'contem'");
+                        return Tipo::Logico;
+                    }
+                    if nome == "inteiro" || nome == "decimal" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let obtido = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&obtido, &Tipo::Texto, "conversão numérica");
+                        return if nome == "inteiro" { Tipo::Inteiro } else { Tipo::Decimal64 };
+                    }
+                    if nome == "adicionar" || nome == "remover" {
+                        let quantidade = if nome == "adicionar" { 2 } else { 2 };
+                        if argumentos.len() != quantidade {
+                            self.erro("N3015", format!("'{nome}' exige dois argumentos."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let tipo_lista = self.expressao(&argumentos[0]);
+                        let Tipo::Lista(elemento) = tipo_lista else {
+                            self.erro("N3016", format!("O primeiro argumento de '{nome}' deve ser uma lista."));
+                            self.expressao(&argumentos[1]);
+                            return Tipo::Desconhecido;
+                        };
+                        if nome == "adicionar" {
+                            if let Expressao::Nome(variavel) = &argumentos[0] {
+                                if self.buscar(variavel).is_some_and(|simbolo| !simbolo.mutavel) {
+                                    self.erro("N3009", format!("Não é permitido alterar a constante '{variavel}'."));
+                                }
+                            } else {
+                                self.erro("N3010", "'adicionar' exige uma variável de lista modificável.");
+                            }
+                            let valor = self.expressao(&argumentos[1]);
+                            self.exigir_tipo(&valor, &elemento, "elemento adicionado à lista");
+                            return Tipo::Vazio;
+                        }
+                        let indice = self.expressao(&argumentos[1]);
+                        self.exigir_tipo(&indice, &Tipo::Inteiro, "índice de 'remover'");
+                        return *elemento;
+                    }
                     if let Some(funcao) = self.funcoes.get(nome).cloned() {
                         self.validar_argumentos(argumentos, &funcao.parametros, nome);
                         return funcao.retorno;
