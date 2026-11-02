@@ -672,7 +672,7 @@ impl Parser {
                 }
                 self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista."); Expressao::Lista(valores)
             }
-            TipoToken::ReservadaFutura => {
+            TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
                     "N2011",
@@ -758,7 +758,7 @@ impl Parser {
     fn consumir_nome(&mut self, mensagem: &str) -> Option<String> {
         if self.verifica(TipoToken::Identificador) {
             Some(self.avancar().lexema.nfc().collect())
-        } else if self.verifica(TipoToken::ReservadaFutura) {
+        } else if matches!(self.tipo(), TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao) {
             let token = self.avancar();
             self.diagnosticos.push(Diagnostico::novo(
                 "N2011",
