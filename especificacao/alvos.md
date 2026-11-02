@@ -1,8 +1,8 @@
 # Plataformas e alvos de compilação
 
-## Alvo inicial implementado (validação final pendente)
+## Alvo inicial implementado e validado
 
-- Linux x86-64.
+- Linux x86-64, validado em CI com Rust 1.85.0.
 - Formato executável ELF64.
 - ABI de chamadas System V AMD64 para funções e parâmetros suportados.
 - No backend Linux x86-64 inicial, `inteiro` e `inteiro64` são inteiros signed de 64 bits; `logico` é normalizado para 0 ou 1; `vazio` não possui valor.
@@ -12,7 +12,7 @@
 
 Para operações inteiras signed de 64 bits, soma, subtração, multiplicação, negação, divisão, resto e potência usam semântica checked. Overflow, divisão por zero e expoente fora do intervalo suportado encerram o processo com código 2. O expoente da potência deve estar entre 0 e `u32::MAX`.
 
-Este é o único alvo do backend nativo inicial. O código deve rejeitar explicitamente outros sistemas e arquiteturas até que existam implementações e testes próprios.
+Este é o único alvo do backend nativo inicial. A CLI rejeita explicitamente a geração de executáveis em hosts diferentes de Linux x86-64. Outros sistemas e arquiteturas continuam planejados e não são anunciados como suportados.
 
 ## Alvos planejados
 
