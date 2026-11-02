@@ -156,21 +156,35 @@ fn resolver_dependencias(
         } else {
             encontrados.insert(nome.clone(), pacote);
         }
-        resolver_dependencias(&dependencia, diretorio_dep.as_path(), encontrados, visitando)?;
+        resolver_dependencias(
+            &dependencia,
+            diretorio_dep.as_path(),
+            encontrados,
+            visitando,
+        )?;
         visitando.remove(&arquivo);
     }
     Ok(())
 }
 
 fn nome_valido(nome: &str) -> bool {
-    !nome.is_empty() && nome.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !nome.is_empty()
+        && nome
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 fn versao_semantica_valida(versao: &str) -> bool {
     let nucleo = versao.split(['-', '+']).next().unwrap_or("");
     let partes = nucleo.split('.').collect::<Vec<_>>();
-    partes.len() == 3 && partes.iter().all(|p| !p.is_empty() && (p == "0" || (!p.starts_with('0') && p.bytes().all(|b| b.is_ascii_digit()))))
-        && versao.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+'))
+    partes.len() == 3
+        && partes.iter().all(|p| {
+            !p.is_empty()
+                && (p == "0" || (!p.starts_with('0') && p.bytes().all(|b| b.is_ascii_digit())))
+        })
+        && versao
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+'))
 }
 
 fn fingerprint(bytes: &[u8]) -> u64 {
@@ -188,7 +202,10 @@ mod testes {
 
     #[test]
     fn analisa_manifesto_com_dependencia_local() {
-        let m = Manifesto::analisar("[pacote]\nnome = \"app\"\nversao = \"1.2.3\"\n[dependencias]\ntexto = \"../texto\"").unwrap();
+        let m = Manifesto::analisar(
+            "[pacote]\nnome = \"app\"\nversao = \"1.2.3\"\n[dependencias]\ntexto = \"../texto\"",
+        )
+        .unwrap();
         assert_eq!(m.nome, "app");
         assert_eq!(m.versao, "1.2.3");
         assert_eq!(m.dependencias.get("texto").unwrap(), "../texto");
@@ -197,7 +214,10 @@ mod testes {
     #[test]
     fn rejeita_versao_invalida_e_chave_duplicada() {
         assert!(Manifesto::analisar("[pacote]\nnome = \"app\"\nversao = \"01.0.0\"").is_err());
-        assert!(Manifesto::analisar("[pacote]\nnome = \"app\"\nnome = \"outro\"\nversao = \"1.0.0\"").is_err());
+        assert!(
+            Manifesto::analisar("[pacote]\nnome = \"app\"\nnome = \"outro\"\nversao = \"1.0.0\"")
+                .is_err()
+        );
     }
 
     #[test]
@@ -205,9 +225,21 @@ mod testes {
         let raiz = std::env::temp_dir().join(format!("nebula-pacotes-{}", std::process::id()));
         let _ = fs::remove_dir_all(&raiz);
         fs::create_dir_all(raiz.join("a/b")).unwrap();
-        fs::write(raiz.join("nebula.toml"), "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\na = \"a\"").unwrap();
-        fs::write(raiz.join("a/nebula.toml"), "[pacote]\nnome = \"a\"\nversao = \"1.1.0\"\n[dependencias]\nb = \"b\"").unwrap();
-        fs::write(raiz.join("a/b/nebula.toml"), "[pacote]\nnome = \"b\"\nversao = \"2.0.0\"").unwrap();
+        fs::write(
+            raiz.join("nebula.toml"),
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\na = \"a\"",
+        )
+        .unwrap();
+        fs::write(
+            raiz.join("a/nebula.toml"),
+            "[pacote]\nnome = \"a\"\nversao = \"1.1.0\"\n[dependencias]\nb = \"b\"",
+        )
+        .unwrap();
+        fs::write(
+            raiz.join("a/b/nebula.toml"),
+            "[pacote]\nnome = \"b\"\nversao = \"2.0.0\"",
+        )
+        .unwrap();
         let primeira = resolver(&raiz).unwrap();
         let segunda = resolver(&raiz).unwrap();
         assert_eq!(primeira, segunda);
