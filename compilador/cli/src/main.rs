@@ -747,6 +747,28 @@ mod testes {
     }
 
     #[test]
+    fn interpreta_modulo_com_dependencia_aninhada() {
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-aninhado-{}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        std::fs::write(
+            diretorio.join("Base.nbx"),
+            "publico funcao valor(): inteiro { devolver 40 }",
+        )
+        .unwrap();
+        std::fs::write(
+            diretorio.join("Servico.nbx"),
+            "incluir Base\npublico funcao obter(): inteiro { devolver Base::valor() + 2 }",
+        )
+        .unwrap();
+        let origem = diretorio.join("principal.nbx");
+        std::fs::write(&origem, "incluir Servico\nexibir(Servico::obter())").unwrap();
+
+        let saida = interpretar_arquivo(&origem).expect("dependência aninhada válida");
+        assert_eq!(saida, vec!["42"]);
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
         let caminho =
             std::env::temp_dir().join(format!("nebula-runtime-{}.nbx", std::process::id()));
