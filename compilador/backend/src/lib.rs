@@ -1,6 +1,8 @@
 //! Backend nativo da Nebula: geração direta de executáveis ELF x86-64.
 #![forbid(unsafe_code)]
 
+#[rustfmt::skip]
+mod implementacao {
 use nebula_ir::{ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 use nebula_semantica::Tipo;
 use std::collections::HashMap;
@@ -479,3 +481,7 @@ mod testes {
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
     }
 }
+
+}
+
+pub use implementacao::gerar_executavel;
