@@ -84,6 +84,15 @@ fn compila_funcoes_parametros_e_chamadas() {
 }
 
 #[test]
+fn compila_divisao_resto_e_operacoes_com_sinal() {
+    let resultado = compilar_e_executar(
+        "divisao-resto",
+        "funcao principal(): inteiro {\n    quando -2 < -1 { devolver 84 / 2 + 43 % 5 }\n    devolver 1\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(45));
+}
+
+#[test]
 fn compila_condicionais_e_comparacoes() {
     let resultado = compilar_e_executar(
         "condicional",
