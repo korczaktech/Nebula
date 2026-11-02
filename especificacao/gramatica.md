@@ -60,7 +60,7 @@ O tipo de retorno de uma função é vazio quando omitido. A gramática admite n
 
 ~~~ebnf
 bloco                = bloco_chaves | bloco_fim ;
-bloco_chaves         = "{", { separador }, [ item, { separador, item } ],
+bloco_chaves         = { NOVA_LINHA }, "{", { separador }, [ item, { separador, item } ],
                        { separador }, "}" ;
 bloco_fim            = NOVA_LINHA, { separador },
                        [ item, { separador, item } ],
