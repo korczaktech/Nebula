@@ -9,6 +9,10 @@
 - Adiciona diagnósticos léxicos e sintáticos com intervalos de origem e recuperação de erros.
 - Adiciona `nebula verificar <arquivo.nbx>` à CLI e testes de frontend.
 - Adiciona critérios de aceite específicos para a Fase 2.
+- Corrige tratamento de CR isolado em comentários e a recuperação após literais inválidos.
+- Rejeita comparações relacionais e intervalos encadeados, conforme a gramática.
+- Alinha continuação de linhas, inicialização de laços e argumentos da CLI aos contratos documentados.
+- Atualiza a ação de checkout da CI para a versão compatível com Node.js 24.
 - A análise semântica e a geração de executáveis continuam fora deste escopo.
 
 ## Não lançado — Auditoria final da Fase 1
