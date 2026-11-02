@@ -372,7 +372,7 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, texto Unicode, tarefas e canais concorrentes. Integrado ao interpretador de referência da IR.
 - `nebula-ir::otimizador`: níveis O0, O1, O2, O3 e Os, com passes conservadores e métricas de transformações.
 
-O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O comando `nebula interpretar` executa a IR pelo runtime de referência e carrega módulos locais com funções públicas, ligando chamadas qualificadas e chamadas internas. Nesta etapa, módulos importados não podem ter outros imports nem inicializadores globais. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
+O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O comando `nebula interpretar` executa a IR pelo runtime de referência e carrega módulos locais com funções públicas, ligando chamadas qualificadas e chamadas internas. O carregador resolve imports aninhados recursivamente, normaliza caminhos, liga chamadas qualificadas entre módulos e rejeita ciclos de dependência. Módulos importados ainda não aceitam inicializadores globais; o gerenciador de pacotes e o lockfile continuam pendentes. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
 
 **Ainda planejadas:**
 - Biblioteca padrão modular completa (`nebula-biblioteca`)
