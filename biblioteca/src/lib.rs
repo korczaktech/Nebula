@@ -99,7 +99,10 @@ pub mod rede {
                         fluxo
                             .set_write_timeout(Some(timeout))
                             .map_err(ErroRede::Io)?;
-                        return Ok(Self { fluxo, limite_leitura: 1024 * 1024 });
+                        return Ok(Self {
+                            fluxo,
+                            limite_leitura: 1024 * 1024,
+                        });
                     }
                     Err(erro) => ultimo = Some(erro),
                 }
