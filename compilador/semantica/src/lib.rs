@@ -345,6 +345,9 @@ impl<'a> Analisador<'a> {
                 }
                 Tipo::Lista(Box::new(primeiro))
             }
+            Expressao::Tupla(valores) => {
+                Tipo::Tupla(valores.iter().map(|valor| self.expressao(valor)).collect())
+            }
             Expressao::Unaria { operador, valor } => {
                 let tipo = self.expressao(valor);
                 match operador {
@@ -716,11 +719,27 @@ impl<'a> Analisador<'a> {
                 let tipo_alvo = self.expressao(alvo);
                 let tipo_indice = self.expressao(indice);
                 if !Self::inteiro(&tipo_indice) && tipo_indice != Tipo::Desconhecido {
-                    self.erro("N3020", format!("Índice de lista deve ser inteiro, mas recebeu {}.", tipo_indice.nome()));
+                    self.erro("N3020", format!("Índice deve ser inteiro, mas recebeu {}.", tipo_indice.nome()));
                 }
-                if let Tipo::Lista(elemento) = tipo_alvo { *elemento } else {
-                    self.erro("N3013", "Indexação exige uma lista.");
-                    Tipo::Desconhecido
+                match tipo_alvo {
+                    Tipo::Lista(elemento) => *elemento,
+                    Tipo::Tupla(elementos) => {
+                        let posicao = Self::literal_numerico(indice).and_then(|valor| match valor {
+                            LiteralNumerico::Inteiro(valor) => usize::try_from(valor).ok(),
+                            LiteralNumerico::Decimal(_) => None,
+                        });
+                        match posicao.and_then(|posicao| elementos.get(posicao).cloned()) {
+                            Some(tipo) => tipo,
+                            None => {
+                                self.erro("N3034", "O índice de uma tupla precisa ser um literal inteiro válido e dentro dos limites.");
+                                Tipo::Desconhecido
+                            }
+                        }
+                    }
+                    _ => {
+                        self.erro("N3013", "Indexação exige uma lista ou tupla.");
+                        Tipo::Desconhecido
+                    }
                 }
             }
             Expressao::Membro { operador, .. } => {
@@ -939,7 +958,7 @@ impl<'a> Analisador<'a> {
                     if !Self::tipo_copiavel(&simbolo.tipo) { simbolo.movido = true; }
                 }
             }
-            Expressao::Lista(itens) => {
+            Expressao::Lista(itens) | Expressao::Tupla(itens) => {
                 for item in itens { self.mover_valor(item); }
             }
             _ => {}
@@ -1142,6 +1161,26 @@ mod testes {
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         analisar_semantica(&sintaxe.programa)
+    }
+
+    #[test]
+    fn infere_tuplas_heterogeneas_e_acesso_estatico() {
+        let r = analisar_codigo(
+            "variavel ponto = (10, \"norte\", verdadeiro)\nvariavel x = ponto[0]\nvariavel direcao = ponto[1]\nvariavel ativo = ponto[2]",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("ponto"), Some(&Tipo::Tupla(vec![Tipo::Inteiro, Tipo::Texto, Tipo::Logico])));
+        assert_eq!(r.tipos_globais.get("x"), Some(&Tipo::Inteiro));
+        assert_eq!(r.tipos_globais.get("direcao"), Some(&Tipo::Texto));
+        assert_eq!(r.tipos_globais.get("ativo"), Some(&Tipo::Logico));
+    }
+
+    #[test]
+    fn rejeita_indice_de_tupla_dinamico_ou_fora_dos_limites() {
+        let r = analisar_codigo(
+            "variavel ponto = (10, \"norte\")\nvariavel indice = 1\nvariavel valor = ponto[indice]\nvariavel invalido = ponto[3]",
+        );
+        assert_eq!(r.diagnosticos.iter().filter(|d| d.codigo == "N3034").count(), 2, "{:?}", r.diagnosticos);
     }
 
     #[test]
