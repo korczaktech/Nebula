@@ -14,7 +14,7 @@ fn main() {
     let mut argumentos = std::env::args().skip(1);
     match argumentos.next().as_deref() {
         Some("versao" | "--version" | "-V") => println!(
-            "Nebula {} — frontend em desenvolvimento",
+            "Nebula {} — compilador nativo inicial",
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
@@ -26,8 +26,8 @@ fn main() {
             if let Err(erro) = compilar_arquivo(Path::new(&caminho), &saida, &otimizacao) { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
             println!("Executável gerado: {}", saida.display());
         }
-        Some("executar") => {
-            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula executar <arquivo.nbx>"); std::process::exit(2); };
+        Some("executar" | "testar") => {
+            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula executar|testar <arquivo.nbx>"); std::process::exit(2); };
             if argumentos.next().is_some() { eprintln!("Erro: executar aceita somente um arquivo."); std::process::exit(2); }
             let temporario = std::env::temp_dir().join(format!("nebula-{}{}", std::process::id(), if cfg!(windows) { ".exe" } else { "" }));
             if let Err(erro) = compilar_arquivo(Path::new(&caminho), &temporario, "-O0") { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
@@ -114,6 +114,7 @@ fn ajuda() {
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
     println!("  compilar <arquivo>    Gera executável nativo; -O0, -O1, -O2, -O3 ou -Os");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
+    println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
     println!("O backend nativo inicial gera C11 e utiliza um compilador C instalado (cc).");
