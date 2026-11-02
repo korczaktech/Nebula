@@ -137,10 +137,10 @@ impl Emissor {
             return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
         }
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
-        for (indice, (nome, tipo)) in funcao.parametros.iter().enumerate() {
+        for ((nome, tipo), registrador) in funcao.parametros.iter().zip(registradores) {
             validar_tipo(tipo)?;
             let deslocamento = self.declarar(nome)?;
-            self.armazenar_registrador(registradores[indice], deslocamento);
+            self.armazenar_registrador(registrador, deslocamento);
         }
 
         // Parâmetros e declarações do corpo compartilham o escopo da função.
@@ -401,9 +401,9 @@ impl Emissor {
                     self.push_rax();
                 }
                 let registradores = [7u8, 6, 2, 1, 8, 9];
-                for indice in (0..argumentos.len()).rev() {
+                for registrador in registradores.iter().take(argumentos.len()).rev() {
                     self.pop_rax(); // recupera argumento
-                    self.mover_rax_registrador(registradores[indice]);
+                    self.mover_rax_registrador(*registrador);
                 }
                 if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
                 self.codigo.push(0xE8);
