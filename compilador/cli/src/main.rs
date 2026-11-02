@@ -39,10 +39,17 @@ fn ajuda() {
     println!("A verificação não realiza análise semântica nem gera executáveis.");
 }
 fn verificar(caminho: &Path) {
-    let conteudo = match std::fs::read_to_string(caminho) {
-        Ok(c) => c,
+    let bytes = match std::fs::read(caminho) {
+        Ok(bytes) => bytes,
         Err(erro) => {
             eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+            std::process::exit(1);
+        }
+    };
+    let conteudo = match String::from_utf8(bytes) {
+        Ok(conteudo) => conteudo,
+        Err(erro) => {
+            eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
             std::process::exit(1);
         }
     };
