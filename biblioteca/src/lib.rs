@@ -121,7 +121,6 @@ pub mod rede {
                             return Err(ErroRede::LimiteResposta);
                         }
                         dados.extend_from_slice(&buffer[..lidos]);
-                        if lidos < buffer.len() { return Ok(dados); }
                     }
                     Err(erro) if erro.kind() == std::io::ErrorKind::WouldBlock
                         || erro.kind() == std::io::ErrorKind::TimedOut => return Ok(dados),
