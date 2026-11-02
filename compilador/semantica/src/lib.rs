@@ -770,6 +770,7 @@ impl<'a> Analisador<'a> {
                     Tipo::Tupla(elementos) => {
                         let posicao = Self::literal_numerico(indice).and_then(|valor| match valor {
                             LiteralNumerico::Inteiro(valor) => usize::try_from(valor).ok(),
+                            LiteralNumerico::InteiroSemSinal(valor) => usize::try_from(valor).ok(),
                             LiteralNumerico::Decimal(_) => None,
                         });
                         match posicao.and_then(|posicao| elementos.get(posicao).cloned()) {
