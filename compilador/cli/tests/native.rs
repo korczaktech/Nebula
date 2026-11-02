@@ -43,6 +43,29 @@ fn gera_elf_executavel_com_codigo_de_saida() {
 }
 
 #[test]
+fn compila_sem_compilador_externo_no_path() {
+    let (origem, executavel) = caminhos("sem-toolchain-c");
+    fs::write(&origem, "funcao principal(): inteiro { devolver 42 }").unwrap();
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .env("PATH", "")
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .unwrap();
+    assert!(
+        compilacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+    let execucao = Command::new(&executavel).output().unwrap();
+    assert_eq!(execucao.status.code(), Some(42));
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+}
+
+#[test]
 fn compila_variaveis_aritmetica_e_atribuicao() {
     let resultado = compilar_e_executar(
         "aritmetica",
