@@ -34,9 +34,8 @@ pub mod colecoes {
 /// Operações reais de arquivos e diretórios.
 pub mod arquivos {
     pub use nebula_runtime::{
-        arquivo_existe, copiar_arquivo, criar_diretorio, diretorio_atual,
-        diretorio_existe, listar_diretorio, ler_arquivo, mover_arquivo,
-        remover_arquivo, escrever_arquivo,
+        arquivo_existe, copiar_arquivo, criar_diretorio, diretorio_atual, diretorio_existe,
+        escrever_arquivo, ler_arquivo, listar_diretorio, mover_arquivo, remover_arquivo,
     };
 }
 
