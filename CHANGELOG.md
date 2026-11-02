@@ -5,10 +5,12 @@
 - Adiciona o crate nebula-semantica com tabelas de símbolos, escopos léxicos e resolução de nomes.
 - Implementa pré-declaração de funções e aliases, detecção de aliases cíclicos e validação de tipos.
 - Implementa tipos inteiros com larguras explícitas, decimais, listas homogêneas e inferência local.
+- Adiciona tipagem contextual de literais numéricos com verificação de faixa e promoção aritmética.
 - Valida assinaturas e aridade de funções, operadores, condições, atribuições, retornos e controle de laços.
 - Resolve módulos e funções exportadas por meio do ambiente explícito ModulosDisponiveis.
 - Define o subconjunto inicial de memória: constantes imutáveis e valores por valor; sem referências ou borrow checker.
 - Adiciona o crate nebula-ir com instruções, expressões, funções e operadores normalizados.
+- Preserva na IR os caminhos reais de módulos após resolução dos aliases de importação.
 - Adiciona interpretador de referência com proteção contra divisão por zero, limite de passos e limite de recursão.
 - Adiciona comandos nebula analisar e nebula ir à CLI.
 - Adiciona testes unitários e de integração para análise semântica e IR.
