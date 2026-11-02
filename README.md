@@ -533,3 +533,8 @@ Uma fase não será concluída apenas porque os arquivos foram criados ou porque
 Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de propósito geral, capaz de atender desde pequenos programas até aplicações empresariais, servidores, sistemas operacionais e softwares de alto desempenho.
 
 **Nebula — uma linguagem própria, construída para fazer tudo.**
+
+
+## Estado atual da Fase 2
+
+O repositório contém o crate `nebula-sintaxe`, que fornece Lexer, AST e Parser, além do comando `nebula verificar arquivo.nbx`. A verificação cobre somente léxico e sintaxe; não executa análise semântica nem gera executáveis. O encerramento formal da Fase 2 depende da CI verde e da auditoria descrita em [critérios da Fase 2](especificacao/criterios-fase-2.md).
