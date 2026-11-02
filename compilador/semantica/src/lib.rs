@@ -842,6 +842,14 @@ mod testes {
     }
 
     #[test]
+    fn rejeita_mutacao_de_lista_constante() {
+        let r = analisar_codigo("constante itens = [1]\nadicionar(itens, 2)");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3009"));
+        let r = analisar_codigo("constante itens = [1]\nremover(itens, 0)");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3009"));
+    }
+
+    #[test]
     fn rejeita_funcao_que_pode_terminar_sem_retorno() {
         let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } }");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3024"));
