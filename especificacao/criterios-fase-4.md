@@ -1,61 +1,75 @@
 # Critérios de aceite — Fase 4
 
-**Estado: CONCLUÍDA.** Os critérios aplicáveis foram implementados e validados pela CI integrada: [execução 41379323932](https://github.com/korczaktech/Nebula/actions/runs/41379323932). A suíte acumulada executou 122 testes, todos aprovados, e o benchmark foi executado nos cinco níveis de otimização.
+**Estado: EM DESENVOLVIMENTO.** A arquitetura foi corrigida para geração nativa direta em Rust. A fase não deve ser marcada como concluída até que todos os critérios abaixo estejam implementados, testados e documentados.
 
 ## Objetivo
 
-Entregar compilação executável e desempenho inicial: sair da IR para um binário nativo real, executar programas do MVP e disponibilizar uma primeira forma reproduzível de comparar níveis de otimização.
+Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, C++, assembly textual ou outra linguagem intermediária e sem invocar compiladores, assemblers ou linkers externos.
 
-## Entregas e critérios
+## Decisões obrigatórias
 
-| Critério | Implementação | Evidência |
-|---|---|---|
-| Pipeline completo | Lexer/Parser → semântica → IR → backend → compilador C++17 | CLI compila fontes `.nbx` até executáveis |
-| Backend nativo | `nebula-backend`, geração C++17 | Binários executados no Linux x86-64 da CI |
-| Linkedição | Invocação do compilador C++ do sistema | Erros do compilador/linker retornados à CLI; binário removido em caso de falha |
-| Variáveis e tipos MVP | Inteiros até 64 bits, byte, decimais, lógico, texto, caractere ASCII e listas homogêneas | Testes de execução de valores e listas |
-| Expressões | Aritmética, potência, comparações, lógica, concatenação de texto e atribuição | Testes ponta a ponta |
-| Listas | Construção, passagem como parâmetro e indexação com verificação de limites | Testes de execução e geração de `std::vector` |
-| Funções | Protótipos, parâmetros, retorno e recursão | Testes de chamadas e Fibonacci recursivo |
-| Controle de fluxo | `quando/senao`, `enquanto`, `para`, `parar` e `seguir` | Testes de execução |
-| Biblioteca padrão essencial | `exibir` e `ler_texto` | Testes de stdout e stdin |
-| CLI | `compilar`, `executar`, `testar`, `verificar`, `analisar` e `ir` | Testes de integração |
-| Otimização inicial | `-O0`, `-O1`, `-O2`, `-O3` e `-Os`, encaminhados ao compilador C++ | Testes de todos os níveis |
-| Benchmark reproduzível | Laço de 50 milhões de iterações e Fibonacci recursivo; cinco medições por nível | `benchmarks/executar.sh`, executado na CI |
-| Diagnósticos de backend | Falhas de geração, compilação e linkedição propagadas sem deixar executável inválido | Teste de fonte inválida e verificação do artefato |
-| CI | Formatação, Clippy, testes e benchmark | Workflow verde com `--locked` |
+- Implementação do compilador e do backend em Rust.
+- Geração direta de instruções de máquina e do formato executável pelo próprio backend.
+- Nenhuma dependência obrigatória de C, C++, LLVM, Cranelift, assembler ou linker externo.
+- Primeiro alvo validado: Linux x86-64, ELF64.
+- O runtime Nebula e a biblioteca padrão não serão implementados antecipadamente. Só entram na etapa prevista no plano.
+- O otimizador próprio só será desenvolvido depois que os recursos-base estiverem implementados e validados.
+- Não oferecer flags de otimização que apenas encaminhem opções a ferramentas externas.
 
-## Alvo e requisitos
+## Implementação iniciada
 
-- Alvo validado nesta fase: Linux x86-64.
-- Requer Rust 1.85.0 para construir a CLI e um compilador C++17 acessível como `c++` para gerar executáveis.
-- O backend gera C++17 como representação de baixo nível e delega a geração de código de máquina e a linkedição ao compilador C++ instalado.
-- Os níveis de otimização são encaminhados ao compilador C++; não são passes próprios de otimização sobre a IR.
-- O benchmark não comprova a meta experimental de desempenho de até 3× C++.
+| Critério | Estado atual |
+|---|---|
+| Pipeline Lexer/Parser → semântica → IR → backend | Implementado em código; validação completa pendente |
+| Escrita de cabeçalho ELF64 em Rust | Implementação inicial presente |
+| Emissão de instruções x86-64 em Rust | Subconjunto inicial presente |
+| Entrada e saída de processo | Entrada ELF e syscall de encerramento inicial |
+| Variáveis locais e parâmetros | Implementação inicial |
+| Expressões inteiras e lógicas | Implementação inicial |
+| Funções, chamadas e recursão | Implementação inicial |
+| Condicionais e laços | Implementação inicial |
+| CLI sem invocar compilador C/C++ | Implementada; validação contínua |
+| Testes Rust do backend | Testes unitários e integração substituíram os testes C++ |
+| Runtime e biblioteca padrão | Adiados; não implementados |
+| Otimizador e níveis de otimização | Adiados; não implementados |
+| Benchmark sem otimizações | Linha de base em desenvolvimento |
 
-## WebAssembly
+## Critérios de conclusão
 
-O backend WebAssembly não foi incluído nesta fase. A validação exigiria um toolchain e sysroot WASI disponíveis e testados no ambiente de CI e nos alvos declarados. Como esse ambiente não está estabelecido, a implementação seria uma promessa não comprovada; o alvo fica para uma fase posterior.
+- O backend gera executáveis nativos ELF64 diretamente em Rust.
+- A CLI não invoca compilador, assembler ou linker externo.
+- O executável gerado roda no alvo Linux x86-64 declarado.
+- As instruções implementadas têm testes unitários de codificação e testes de integração que executam os binários.
+- Chamadas, parâmetros, recursão, escopos, retorno, saltos e alinhamento de pilha seguem o ABI x86-64 documentado.
+- Entradas inválidas ou recursos ainda não implementados geram diagnósticos claros e não deixam executáveis inválidos.
+- A CI valida formatação, Clippy, todos os testes e benchmark aplicável.
+- A documentação não anuncia como prontos recursos que dependem do runtime ou do otimizador.
 
-## Limites conhecidos
+## Recursos explicitamente fora desta implementação inicial
 
-- `inteiro128` ainda não possui ABI nativa estável.
-- Retorno de listas por função ainda não está disponível; passagem de listas como parâmetro está coberta.
-- `caractere` aceita caracteres ASCII no backend atual; texto suporta UTF-8.
-- Resolução de módulos fornecidos em memória existe na Fase 3, mas carregamento de módulos do disco e resolvedor de pacotes permanecem fora desta fase.
-- A biblioteca padrão inicial cobre entrada de uma linha e saída; não é a biblioteca padrão completa.
-- O backend depende do compilador C++ externo e não promete portabilidade binária entre plataformas ainda não testadas.
-- Não há alegação de desempenho superior a C/C++; os benchmarks são uma linha de base inicial.
+- Strings e concatenação de texto.
+- Entrada e saída padrão da linguagem (`exibir`, `ler_texto`).
+- Listas, indexação e alocação dinâmica.
+- Tipos decimais e operações de ponto flutuante.
+- Caracteres Unicode.
+- Runtime Nebula e biblioteca padrão.
+- Otimizador, passes de IR e níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os`.
+- Outros formatos executáveis, arquiteturas e sistemas operacionais.
+- WebAssembly, carregamento de módulos do disco e resolvedor de pacotes.
 
-## Comandos
+Esses itens não podem ser simulados nem implementados parcialmente como se estivessem prontos. Sua implementação depende da etapa apropriada do plano e de critérios próprios.
+
+## Comandos atuais
 
 ```text
 nebula verificar programa.nbx
 nebula analisar programa.nbx
 nebula ir programa.nbx
-nebula compilar programa.nbx [-o executavel] [-O0|-O1|-O2|-O3|-Os]
+nebula compilar programa.nbx [-o executavel]
 nebula executar programa.nbx
 nebula testar programa.nbx
 ```
 
-A Fase 4 está concluída para o escopo inicial validado acima. As limitações listadas não são anunciadas como funcionalidades prontas e permanecem explícitas para as fases seguintes.
+O comando `compilar` produz executável ELF Linux x86-64. `executar` e `testar` compilam e iniciam o executável gerado. O código de saída do programa é preservado.
+
+A Fase 4 permanece aberta até que o backend e todos os critérios de aceite sejam validados. Não há declaração de conclusão nesta versão.
