@@ -189,3 +189,15 @@ fn imprime_tipos_escalares_nativos() {
     assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "3.5\ntrue\nA");
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn compila_chamadas_recursivas() {
+    let origem = arquivo_temporario("recursao");
+    fs::write(&origem, include_str!("../../../benchmarks/fibonacci.nbx")).unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "24157817");
+    let _ = fs::remove_file(origem);
+}
