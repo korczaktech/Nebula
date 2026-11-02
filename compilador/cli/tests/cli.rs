@@ -75,3 +75,10 @@ fn verificar_rejeita_arquivo_sem_utf8_valido() {
     assert_eq!(saida.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&saida.stderr).contains("UTF-8 válido"));
 }
+
+#[test]
+fn verificar_rejeita_argumento_extra() {
+    let saida = executar(&["verificar", "programa.nbx", "argumento-extra"]);
+    assert_eq!(saida.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&saida.stderr).contains("somente um arquivo"));
+}
