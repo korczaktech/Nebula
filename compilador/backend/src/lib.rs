@@ -652,7 +652,7 @@ mod testes {
             InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("global".into())))
         ];
         let binario = gerar_executavel(&programa).unwrap();
-        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 2);
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 3);
         assert_eq!(u32::from_le_bytes(binario[120..124].try_into().unwrap()), 1);
         assert_eq!(u32::from_le_bytes(binario[124..128].try_into().unwrap()), 6);
         let deslocamento = u64::from_le_bytes(binario[128..136].try_into().unwrap());
@@ -660,6 +660,8 @@ mod testes {
         assert_eq!(deslocamento % 0x1000, endereco % 0x1000);
         assert_eq!(u64::from_le_bytes(binario[152..160].try_into().unwrap()), 8);
         assert_eq!(u64::from_le_bytes(binario[160..168].try_into().unwrap()), 8);
+        assert_eq!(u32::from_le_bytes(binario[176..180].try_into().unwrap()), 0x6474_E551);
+        assert_eq!(u32::from_le_bytes(binario[180..184].try_into().unwrap()), 6);
     }
 
     #[test]
@@ -672,8 +674,10 @@ mod testes {
     #[test]
     fn executavel_nao_declara_interpretador_ou_bibliotecas_dinamicas() {
         let binario = gerar_executavel(&programa_com_retorno(0)).unwrap();
-        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 1);
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 2);
         assert_eq!(u32::from_le_bytes(binario[64..68].try_into().unwrap()), 1);
+        assert_eq!(u32::from_le_bytes(binario[120..124].try_into().unwrap()), 0x6474_E551);
+        assert_eq!(u32::from_le_bytes(binario[124..128].try_into().unwrap()), 6);
     }
 
     #[test]
