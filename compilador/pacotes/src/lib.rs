@@ -139,12 +139,14 @@ pub fn resolver(diretorio: &Path) -> Result<Resolucao, String> {
     for pacote in &pacotes {
         lockfile.push_str(&format!(
             "pacote\t{}\t{}\t{:016x}\n",
-            pacote.nome,
-            pacote.versao,
-            pacote.impressao
+            pacote.nome, pacote.versao, pacote.impressao
         ));
     }
-    Ok(Resolucao { raiz, pacotes, lockfile })
+    Ok(Resolucao {
+        raiz,
+        pacotes,
+        lockfile,
+    })
 }
 
 fn resolver_dependencias(
