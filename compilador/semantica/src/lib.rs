@@ -400,6 +400,27 @@ impl<'a> Analisador<'a> {
             Expressao::Tupla(valores) => {
                 Tipo::Tupla(valores.iter().map(|valor| self.expressao(valor)).collect())
             }
+            Expressao::ConstrucaoEstrutura { nome, campos } => {
+                let Some(descritores) = self.campos_estruturas.get(nome).cloned() else {
+                    self.erro("N3042", format!("'{nome}' não é uma estrutura declarada."));
+                    for (_, valor) in campos { self.expressao(valor); }
+                    return Tipo::Desconhecido;
+                };
+                for (campo, valor) in campos {
+                    let obtido = self.expressao(valor);
+                    if let Some(esperado) = descritores.get(campo) {
+                        self.exigir_expressao_tipo(valor, &obtido, esperado, &format!("campo '{campo}' da estrutura '{nome}'"));
+                    } else {
+                        self.erro("N3040", format!("A estrutura '{nome}' não possui o campo '{campo}'."));
+                    }
+                }
+                for campo in descritores.keys() {
+                    if !campos.iter().any(|(informado, _)| informado == campo) {
+                        self.erro("N3043", format!("Campo obrigatório '{campo}' não foi informado na estrutura '{nome}'."));
+                    }
+                }
+                Tipo::Estrutura(nome.clone())
+            }
             Expressao::Unaria { operador, valor } => {
                 let tipo = self.expressao(valor);
                 match operador {
@@ -1045,6 +1066,9 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Lista(itens) | Expressao::Tupla(itens) => {
                 for item in itens { self.mover_valor(item); }
+            }
+            Expressao::ConstrucaoEstrutura { campos, .. } => {
+                for (_, valor) in campos { self.mover_valor(valor); }
             }
             _ => {}
         }
