@@ -41,7 +41,7 @@ pub enum Valor {
     /// Lista compartilhada e protegida contra acesso concorrente.
     Lista(Arc<RwLock<Vec<Valor>>>),
     /// Instância de estrutura com campos nomeados e acesso sincronizado.
-    Estrutura(Arc<RwLock<HashMap<String, Valor>>>),
+    Estrutura { nome: String, campos: Arc<RwLock<HashMap<String, Valor>>> },
     /// Intervalo inteiro inclusivo.
     Intervalo {
         /// Limite inferior inclusivo.
@@ -92,7 +92,7 @@ impl PartialEq for Valor {
                 (Ok(a), Ok(b)) => *a == *b,
                 _ => false,
             },
-            (Self::Estrutura(a), Self::Estrutura(b)) => match (a.read(), b.read()) {
+            (Self::Estrutura { nome: an, campos: a }, Self::Estrutura { nome: bn, campos: b }) => an == bn && match (a.read(), b.read()) {
                 (Ok(a), Ok(b)) => *a == *b,
                 _ => false,
             },
