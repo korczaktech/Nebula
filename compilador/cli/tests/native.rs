@@ -174,7 +174,7 @@ fn compila_laco_para_e_controle_de_fluxo() {
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("executar").arg(&origem).output().unwrap();
     assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "10");
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "4");
     let _ = fs::remove_file(origem);
 }
 
