@@ -944,6 +944,24 @@ mod testes {
     }
 
     #[test]
+    fn valida_tipos_dos_builtins_de_texto_unicode() {
+        let r = analisar_codigo(
+            "variavel limpo = aparar(\" texto \")\nvariavel inicio = comeca_com(limpo, \"te\")\nvariavel fim = termina_com(limpo, \"to\")\nvariavel trocado = substituir(limpo, \"e\", \"E\")",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("limpo"), Some(&Tipo::Texto));
+        assert_eq!(r.tipos_globais.get("inicio"), Some(&Tipo::Logico));
+        assert_eq!(r.tipos_globais.get("fim"), Some(&Tipo::Logico));
+        assert_eq!(r.tipos_globais.get("trocado"), Some(&Tipo::Texto));
+    }
+
+    #[test]
+    fn rejeita_tipos_incorretos_nos_builtins_de_texto() {
+        let r = analisar_codigo("aparar(10)\ncomeca_com(\"texto\", 1)\nsubstituir(\"a\", \"b\", falso)");
+        assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 3);
+    }
+
+    #[test]
     fn rejeita_funcao_que_pode_terminar_sem_retorno() {
         let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } }");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3024"));
