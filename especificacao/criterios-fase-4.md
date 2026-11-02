@@ -11,7 +11,7 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 - Implementação do compilador e do backend em Rust.
 - Geração direta de instruções de máquina e do formato executável pelo próprio backend.
 - Nenhuma dependência obrigatória de C, C++, LLVM, Cranelift, assembler ou linker externo.
-- Primeiro alvo validado: Linux x86-64, ELF64.
+- Primeiro alvo implementado, com validação final pendente: Linux x86-64, ELF64.
 - O runtime Nebula e a biblioteca padrão não serão implementados antecipadamente. Só entram na etapa prevista no plano.
 - O otimizador próprio só será desenvolvido depois que os recursos-base estiverem implementados e validados.
 - Não oferecer flags de otimização que apenas encaminhem opções a ferramentas externas.
