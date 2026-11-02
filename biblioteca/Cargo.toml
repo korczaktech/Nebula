@@ -1,0 +1,12 @@
+[package]
+name = "nebula-biblioteca"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+nebula-runtime = { path = "../compilador/runtime" }
+
+[lints]
+workspace = true
