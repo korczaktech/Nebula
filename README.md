@@ -504,6 +504,8 @@ A conclusão foi confirmada pela aprovação de formatação, Clippy, 169 testes
 
 ## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
 
+**Critérios integrais de aceite:** [especificacao/criterios-fase-5.md](especificacao/criterios-fase-5.md). O documento define o escopo solicitado para a versão 1.0 e os portões de validação; não significa que os recursos já estejam implementados.
+
 **Objetivo:** completar, endurecer e preparar a primeira versão estável do ecossistema.
 
 Entregas previstas:
