@@ -39,10 +39,10 @@ Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destino
 
 Vetores, tuplas, estruturas, enumerações, opcionais, resultados, referências, ponteiros, funções genéricas e tipos algébricos ainda não fazem parte do subconjunto semântico executável.
 
-Continuam abertas antes de estabilizar ABI e backend:
+Continuam abertas para alvos futuros e para estabilização geral da linguagem:
 
-- Largura de inteiro por alvo.
-- Overflow e comportamento aritmético por modo/alvo.
+- Largura de inteiro por alvo além do Linux x86-64 inicial.
+- Regras de overflow específicas de outros alvos e modos.
 - Semântica completa de ponto flutuante, NaN e conversões.
 - Layout e alinhamento de tipos na ABI.
 - Inferência genérica e tipos algébricos.
