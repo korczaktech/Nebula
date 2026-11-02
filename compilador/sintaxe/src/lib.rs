@@ -209,9 +209,16 @@ impl<'a> Lexer<'a> {
             if antes == self.atual { self.erro("N1004", "Expoente numérico sem dígitos.", self.inicio, self.atual); }
         }
         let bruto = &self.texto[self.inicio..self.atual];
-        if bruto.starts_with('_') || bruto.ends_with('_') || bruto.contains("__")
-            || bruto.contains("._") || bruto.contains("_e") || bruto.contains("_E")
-            || bruto.contains("e_") || bruto.contains("E_") {
+        let grupos_validos = bruto
+            .split(|c| matches!(c, '.' | 'e' | 'E' | '+' | '-'))
+            .filter(|grupo| !grupo.is_empty())
+            .all(|grupo| {
+                !grupo.starts_with('_')
+                    && !grupo.ends_with('_')
+                    && !grupo.contains("__")
+                    && grupo.chars().all(|c| c.is_ascii_digit() || c == '_')
+            });
+        if !grupos_validos {
             self.erro("N1005", "Separador numérico '_' em posição inválida.", self.inicio, self.atual);
         }
         self.adicionar(tipo, self.inicio, self.atual);
