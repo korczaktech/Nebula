@@ -454,14 +454,14 @@ impl<'a> Analisador<'a> {
                             self.expressao(&argumentos[1]);
                             return Tipo::Desconhecido;
                         };
-                        if nome == "adicionar" {
-                            if let Expressao::Nome(variavel) = &argumentos[0] {
-                                if self.buscar(variavel).is_some_and(|simbolo| !simbolo.mutavel) {
-                                    self.erro("N3009", format!("Não é permitido alterar a constante '{variavel}'."));
-                                }
-                            } else {
-                                self.erro("N3010", "'adicionar' exige uma variável de lista modificável.");
+                        if let Expressao::Nome(variavel) = &argumentos[0] {
+                            if self.buscar(variavel).is_some_and(|simbolo| !simbolo.mutavel) {
+                                self.erro("N3009", format!("Não é permitido alterar a constante '{variavel}'."));
                             }
+                        } else {
+                            self.erro("N3010", format!("'{nome}' exige uma variável de lista modificável."));
+                        }
+                        if nome == "adicionar" {
                             let valor = self.expressao(&argumentos[1]);
                             self.exigir_tipo(&valor, &elemento, "elemento adicionado à lista");
                             return Tipo::Vazio;
