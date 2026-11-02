@@ -34,6 +34,8 @@ pub struct RelatorioOtimizacao {
     pub instrucoes_inalcancaveis: usize,
     /// Quantidade de blocos vazios removidos.
     pub blocos_vazios_removidos: usize,
+    /// Quantidade de leituras substituídas por constantes imutáveis locais.
+    pub propagacoes_constantes: usize,
 }
 
 /// Otimiza um programa IR sem executar código nem remover efeitos observáveis.
@@ -53,6 +55,12 @@ pub fn otimizar(
     otimizar_lista(&mut programa.instrucoes, nivel, &mut relatorio);
     for funcao in programa.funcoes.values_mut() {
         otimizar_lista(&mut funcao.corpo, nivel, &mut relatorio);
+    }
+    if matches!(nivel, NivelOtimizacao::O2 | NivelOtimizacao::O3 | NivelOtimizacao::Os) {
+        propagar_constantes_lista(&mut programa.instrucoes, &mut HashMap::new(), &mut relatorio);
+        for funcao in programa.funcoes.values_mut() {
+            propagar_constantes_lista(&mut funcao.corpo, &mut HashMap::new(), &mut relatorio);
+        }
     }
     Ok(relatorio)
 }
@@ -131,6 +139,100 @@ fn otimizar_lista(
         }
 
         indice += 1;
+    }
+}
+
+// Propagação limitada a constantes literais/expressões já constantes e ao
+// fluxo sequencial do mesmo escopo. Ramos e laços recebem cópias do estado,
+// evitando propagar fatos que não sejam verdadeiros em todos os caminhos.
+fn propagar_constantes_lista(
+    instrucoes: &mut [InstrucaoIr],
+    constantes: &mut HashMap<String, ValorIr>,
+    relatorio: &mut RelatorioOtimizacao,
+) {
+    for instrucao in instrucoes {
+        match instrucao {
+            InstrucaoIr::Declarar { nome, valor, constante, .. } => {
+                propagar_constantes_expressao(valor, constantes, relatorio);
+                constantes.remove(nome);
+                if *constante {
+                    if let ExpressaoIr::Constante(valor) = valor {
+                        constantes.insert(nome.clone(), valor.clone());
+                    }
+                }
+            }
+            InstrucaoIr::Expressao(expressao) => {
+                propagar_constantes_expressao(expressao, constantes, relatorio);
+            }
+            InstrucaoIr::Bloco(itens) => {
+                let mut internos = constantes.clone();
+                propagar_constantes_lista(itens, &mut internos, relatorio);
+            }
+            InstrucaoIr::Se { condicao, entao, senao } => {
+                propagar_constantes_expressao(condicao, constantes, relatorio);
+                let mut estado_entao = constantes.clone();
+                let mut estado_senao = constantes.clone();
+                propagar_constantes_lista(entao, &mut estado_entao, relatorio);
+                propagar_constantes_lista(senao, &mut estado_senao, relatorio);
+            }
+            InstrucaoIr::Enquanto { condicao, corpo } => {
+                propagar_constantes_expressao(condicao, constantes, relatorio);
+                let mut estado_laco = constantes.clone();
+                propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
+            }
+            InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+                let mut estado_laco = constantes.clone();
+                if let Some(inicial) = inicial {
+                    propagar_constantes_lista(std::slice::from_mut(inicial.as_mut()), &mut estado_laco, relatorio);
+                }
+                if let Some(condicao) = condicao {
+                    propagar_constantes_expressao(condicao, &mut estado_laco, relatorio);
+                }
+                if let Some(atualizacao) = atualizacao {
+                    propagar_constantes_expressao(atualizacao, &mut estado_laco, relatorio);
+                }
+                propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
+            }
+            InstrucaoIr::Devolver(Some(expressao)) => {
+                propagar_constantes_expressao(expressao, constantes, relatorio);
+            }
+            InstrucaoIr::Devolver(None) | InstrucaoIr::Parar | InstrucaoIr::Seguir => {}
+        }
+    }
+}
+
+fn propagar_constantes_expressao(
+    expressao: &mut ExpressaoIr,
+    constantes: &mut HashMap<String, ValorIr>,
+    relatorio: &mut RelatorioOtimizacao,
+) {
+    match expressao {
+        ExpressaoIr::Variavel(nome) => {
+            if let Some(valor) = constantes.get(nome) {
+                *expressao = ExpressaoIr::Constante(valor.clone());
+                relatorio.propagacoes_constantes += 1;
+            }
+        }
+        ExpressaoIr::Lista(itens) | ExpressaoIr::Tupla(itens) => {
+            for item in itens { propagar_constantes_expressao(item, constantes, relatorio); }
+        }
+        ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
+        ExpressaoIr::Binaria { esquerda, direita, .. } => {
+            propagar_constantes_expressao(esquerda, constantes, relatorio);
+            propagar_constantes_expressao(direita, constantes, relatorio);
+        }
+        ExpressaoIr::Atribuicao { nome, valor } => {
+            propagar_constantes_expressao(valor, constantes, relatorio);
+            constantes.remove(nome);
+        }
+        ExpressaoIr::Chamada { argumentos, .. } | ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
+            for argumento in argumentos { propagar_constantes_expressao(argumento, constantes, relatorio); }
+        }
+        ExpressaoIr::Indexacao { alvo, indice } => {
+            propagar_constantes_expressao(alvo, constantes, relatorio);
+            propagar_constantes_expressao(indice, constantes, relatorio);
+        }
+        ExpressaoIr::Constante(_) => {}
     }
 }
 
@@ -310,6 +412,37 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
         }
+    }
+
+    #[test]
+    fn o2_propaga_constante_imutavel_em_fluxo_sequencial() {
+        let mut ir = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar { nome: "limite".into(), tipo: nebula_semantica::Tipo::Inteiro, valor: ExpressaoIr::Constante(ValorIr::Inteiro(42)), constante: true },
+                InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("limite".into()))),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+        };
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        assert_eq!(relatorio.propagacoes_constantes, 1);
+        assert!(matches!(&ir.instrucoes[1], InstrucaoIr::Devolver(Some(ExpressaoIr::Constante(ValorIr::Inteiro(42))))));
+    }
+
+    #[test]
+    fn propagacao_nao_vaza_de_ramos_condicionais() {
+        let mut ir = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Se { condicao: ExpressaoIr::Constante(ValorIr::Logico(true)), entao: vec![
+                    InstrucaoIr::Declarar { nome: "interno".into(), tipo: nebula_semantica::Tipo::Inteiro, valor: ExpressaoIr::Constante(ValorIr::Inteiro(7)), constante: true },
+                ], senao: vec![] },
+                InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("interno".into()))),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+        };
+        otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        assert!(matches!(&ir.instrucoes[1], InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel(nome))) if nome == "interno"));
     }
 
     #[test]
