@@ -659,6 +659,25 @@ impl Parser {
         } else { self.erro_atual("N2007", "Esperado bloco com '{' ou quebra de linha seguida de 'fim'."); None }
     }
     fn caminho_tipo(&mut self) -> Option<String> {
+        if self.corresponde(TipoToken::Funcao) {
+            self.esperar(TipoToken::AbrePar, "Esperado '(' após 'funcao' em tipo de função.");
+            let mut parametros = Vec::new();
+            if !self.verifica(TipoToken::FechaPar) {
+                loop {
+                    parametros.push(self.caminho_tipo()?);
+                    if !self.corresponde(TipoToken::Virgula) {
+                        break;
+                    }
+                }
+            }
+            self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros do tipo de função.");
+            let retorno = if self.corresponde(TipoToken::DoisPontos) {
+                self.caminho_tipo()?
+            } else {
+                "vazio".into()
+            };
+            return Some(format!("funcao({}):{retorno}", parametros.join(",")));
+        }
         if self.corresponde(TipoToken::AbreColchete) {
             let interno = self.caminho_tipo()?;
             self.esperar(TipoToken::FechaColchete, "Esperado ']' após tipo de lista.");
@@ -903,6 +922,19 @@ mod testes {
                 r.diagnosticos
             );
         }
+    }
+
+    #[test]
+    fn analisa_tipos_de_funcao_aninhados() {
+        let resultado = analisar(&fonte(
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, padrao: funcao(): vazio }",
+        ));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
+            panic!("estrutura deveria ser analisada");
+        };
+        assert_eq!(campos[0].1, "funcao(inteiro,texto):logico");
+        assert_eq!(campos[1].1, "funcao():vazio");
     }
 
     #[test]
