@@ -734,6 +734,21 @@ pub fn criar_diretorio(caminho: &str) -> Resultado<()> {
     std::fs::create_dir_all(caminho).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
 }
 
+/// Remove um arquivo regular.
+pub fn remover_arquivo(caminho: &str) -> Resultado<()> {
+    std::fs::remove_file(caminho).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
+/// Copia um arquivo e retorna a quantidade de bytes copiados.
+pub fn copiar_arquivo(origem: &str, destino: &str) -> Resultado<u64> {
+    std::fs::copy(origem, destino).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
+/// Move ou renomeia um arquivo.
+pub fn mover_arquivo(origem: &str, destino: &str) -> Resultado<()> {
+    std::fs::rename(origem, destino).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
 /// Verifica se o caminho aponta para um diretório existente.
 #[must_use]
 pub fn diretorio_existe(caminho: &str) -> bool {
