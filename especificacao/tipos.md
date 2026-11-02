@@ -6,7 +6,7 @@
 - Inferência local e determinística em declarações sem anotação.
 - Tipos explícitos nas interfaces de funções e variáveis anotadas.
 - Não há coerção implícita geral entre texto, números e lógicos.
-- Tipos numéricos de larguras diferentes são distintos; variáveis e expressões não literais exigem tipos compatíveis. Literais numéricos podem receber o tipo anotado quando o valor cabe nele. Operações aritméticas numéricas usam promoção definida pela análise.
+- Tipos numéricos de larguras diferentes são distintos; variáveis e expressões não literais exigem tipos compatíveis. Literais inteiros podem receber tipos inteiros anotados quando cabem na faixa; literais decimais podem receber tipos decimais anotados. Não há coerção contextual de literal inteiro para tipo decimal. Operações aritméticas entre operandos numéricos usam promoção definida pela análise.
 
 ## Tipos reconhecidos pela análise semântica
 
