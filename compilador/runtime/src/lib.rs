@@ -225,12 +225,8 @@ impl AtomoI64 {
 
     /// Substitui o valor somente se ele corresponder ao esperado.
     pub fn comparar_trocar(&self, esperado: i64, novo: i64) -> Result<i64, i64> {
-        self.valor.compare_exchange(
-            esperado,
-            novo,
-            Ordering::AcqRel,
-            Ordering::Acquire,
-        )
+        self.valor
+            .compare_exchange(esperado, novo, Ordering::AcqRel, Ordering::Acquire)
     }
 }
 
