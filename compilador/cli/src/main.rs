@@ -191,6 +191,7 @@ fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
     })
 }
 
+#[rustfmt::skip]
 fn carregar_modulos(
     origem: &Path,
     programa: &Programa,
@@ -209,6 +210,7 @@ fn carregar_modulos(
     Ok((assinaturas, programas))
 }
 
+#[rustfmt::skip]
 fn carregar_modulo_recursivo(
     origem: &Path,
     caminho: &str,
@@ -306,6 +308,7 @@ fn carregar_modulo_recursivo(
     resultado
 }
 
+#[rustfmt::skip]
 fn qualificar_chamadas_modulo(
     instrucao: &mut InstrucaoIr,
     caminho: &str,
@@ -356,6 +359,7 @@ fn qualificar_chamadas_modulo(
     }
 }
 
+#[rustfmt::skip]
 fn qualificar_expressao_modulo(
     expressao: &mut ExpressaoIr,
     caminho: &str,
@@ -746,6 +750,7 @@ mod testes {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[rustfmt::skip]
     #[test]
     fn interpreta_modulo_com_dependencia_aninhada() {
         let diretorio = std::env::temp_dir().join(format!("nebula-modulo-aninhado-{}", std::process::id()));
