@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 nebula-fonte = { path = "../fonte" }
 nebula-sintaxe = { path = "../sintaxe" }
+nebula-semantica = { path = "../semantica" }
 
 [lints]
 workspace = true
