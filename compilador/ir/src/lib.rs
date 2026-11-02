@@ -9,10 +9,10 @@ use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
     arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, escrever_arquivo,
-    dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro, subtexto,
-    tempo_unix_milisegundos, texto_contem, texto_maiusculas, texto_minusculas,
-    texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria, OperacaoDecimal,
-    OperacaoInteira, Valor as ValorRuntime,
+    calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
+    subtexto, tempo_unix_milisegundos, texto_contem, texto_maiusculas, texto_minusculas,
+    texto_para_decimal, texto_para_inteiro, ErroRuntime, FuncaoMatematica, Memoria,
+    OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -618,6 +618,33 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Vazio);
                     }
                     return Err("'dormir' exige um inteiro não negativo.".into());
+                }
+                if matches!(
+                    nome.as_str(),
+                    "raiz" | "seno" | "cosseno" | "tangente" | "logaritmo"
+                        | "exponencial" | "piso" | "teto" | "arredondar" | "absoluto"
+                ) {
+                    let valor = match valores.as_slice() {
+                        [ValorIr::Inteiro(valor)] => *valor as f64,
+                        [ValorIr::Decimal(valor)] => *valor,
+                        _ => return Err(format!("'{nome}' exige um argumento numérico.")),
+                    };
+                    let funcao = match nome.as_str() {
+                        "raiz" => FuncaoMatematica::Raiz,
+                        "seno" => FuncaoMatematica::Seno,
+                        "cosseno" => FuncaoMatematica::Cosseno,
+                        "tangente" => FuncaoMatematica::Tangente,
+                        "logaritmo" => FuncaoMatematica::Logaritmo,
+                        "exponencial" => FuncaoMatematica::Exponencial,
+                        "piso" => FuncaoMatematica::Piso,
+                        "teto" => FuncaoMatematica::Teto,
+                        "arredondar" => FuncaoMatematica::Arredondar,
+                        "absoluto" => FuncaoMatematica::Absoluto,
+                        _ => unreachable!("nome validado acima"),
+                    };
+                    return calcular_matematica(funcao, valor)
+                        .map(ValorIr::Decimal)
+                        .map_err(|erro| format!("Falha matemática em '{nome}': {erro:?}"));
                 }
                 if nome == "inteiro" {
                     if let [ValorIr::Texto(texto)] = valores.as_slice() {
