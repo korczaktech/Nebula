@@ -47,58 +47,33 @@ Nebula deverá permitir o desenvolvimento de:
 
 ## 2. Identidade e regras iniciais da linguagem
 
-As decisões abaixo formam a base inicial da especificação. A gramática será formalizada e validada antes de ser considerada estável.
+A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa para a implementação do Lexer e do Parser na Fase 2.
 
-- Código-fonte em UTF-8.
-- Identificadores Unicode normalizados em NFC.
-- Identificadores sensíveis a maiúsculas e minúsculas.
-- Organização visual flexível: espaços, quebras de linha, indentação e delimitadores podem ser combinados.
-- Chaves `{}` podem delimitar blocos; parênteses `()` podem agrupar condições, parâmetros e chamadas; colchetes `[]` podem organizar coleções.
-- Delimitadores não devem ser exigidos quando a estrutura já estiver clara e puder ser interpretada sem ambiguidade.
-- Ponto e vírgula `;` é opcional quando a separação das instruções já estiver clara.
-- Aspas delimitam literais de texto; dentro de uma string, regras próprias de escape serão definidas.
-- Arquivos `.nbx` como unidades de código independentes.
-- Não é obrigatório declarar um projeto ou programa no início de cada arquivo.
-- Palavras-chave e mensagens oficiais em português, combinadas com termos próprios do Nebulês.
-- Operadores familiares combinados com operadores característicos da linguagem.
+- Código-fonte UTF-8; identificadores Unicode comparados em NFC.
+- Palavras-chave da linguagem e mensagens oficiais em português brasileiro.
+- Indentação não define blocos nem altera o significado.
+- Instruções podem ser separadas por quebra de linha ou ponto e vírgula, conforme as regras da gramática.
+- Blocos aceitam chaves ou o terminador fim.
+- Parênteses em condições podem ser omitidos quando o início do bloco delimitar a expressão sem ambiguidade.
+- Chamadas, parâmetros de funções e cabeçalhos de para mantêm os delimitadores definidos na gramática.
+- Literais de texto usam aspas duplas; caracteres usam aspas simples.
 
-### Sintaxe visual e delimitadores flexíveis
+Exemplo do subconjunto inicial:
 
-A Nebula prioriza a leitura natural e a organização visual. Símbolos como parênteses, chaves, colchetes e ponto e vírgula servem para separar e agrupar partes do código, mas não devem ser obrigatórios quando a intenção já estiver clara.
-
-Princípios propostos:
-
-- **Parênteses `()`:** agrupam expressões, condições, parâmetros e argumentos quando isso melhora a leitura ou evita ambiguidades.
-- **Chaves `{}`:** delimitam blocos de funções, condicionais e outras estruturas quando forem úteis para deixar os limites explícitos.
-- **Colchetes `[]`:** delimitam listas, vetores e acessos por índice.
-- **Aspas `""`:** delimitam literais de texto; não são removidas quando necessárias para distinguir texto de identificadores ou expressões.
-- **Ponto e vírgula `;`:** pode separar instruções, mas é dispensável quando quebras de linha ou a própria gramática já fazem essa separação.
-- **Espaços, linhas em branco e indentação:** podem ser usados livremente para melhorar a organização visual, sem criar regras artificiais de formatação.
-
-A gramática deverá aceitar formas compactas e formas mais explícitas sempre que ambas forem inequívocas. O compilador não deverá confundir preferência estética com exigência semântica: delimitadores são ferramentas de clareza, não decoração obrigatória.
-
-Exemplo conceitual — a sintaxe ainda será consolidada na especificação formal:
-
-```nebula
+~~~nebula
 funcao principal(): vazio {
-    variavel nome = "Raphael"
-    variavel idade = 18
+    variavel nome = "Nebula"
+    constante idade: inteiro = 18
 
-    quando (idade >= 18) {
+    quando idade >= 18 {
         exibir("Olá, " + nome)
+    } senao {
+        exibir("Olá")
     }
 }
-```
+~~~
 
-A mesma estrutura poderá admitir uma apresentação mais compacta, caso a gramática consiga identificar os limites sem ambiguidade. O exemplo não representa ainda uma gramática final.
-
-### Vocabulário e operadores em estudo
-
-Palavras candidatas: `variavel`, `constante`, `funcao`, `incluir`, `quando`, `senao`, `avaliar`, `caso`, `para`, `enquanto`, `cada`, `receber`, `devolver`, `exibir`, `encerrar`, `aguardar`, `parar` e `seguir`.
-
-Operadores candidatos: `=`, `==`, `!=`, `>=`, `<=`, `??`, `..`, `**`, `::` e `~>`.
-
-Essas listas são propostas de trabalho, não uma promessa de que todos os itens já estejam implementados ou definitivamente aprovados.
+A lista de palavras reservadas implementadas na gramática e a lista separada de palavras reservadas futuras estão em especificacao/tokens.md. Uma palavra reservada futura não significa que o recurso correspondente já esteja disponível.
 
 ## 3. Arquitetura geral do compilador
 
@@ -339,7 +314,8 @@ nebula/
 │   ├── operadores.md
 │   ├── modulos.md
 │   ├── diagnosticos.md
-│   └── alvos.md
+│   ├── alvos.md
+│   └── criterios-fase-1.md
 ├── compilador/
 │   ├── fonte/
 │   │   ├── Cargo.toml
@@ -356,7 +332,6 @@ nebula/
 │   └── conformidade/
 │       ├── README.md
 │       └── sintaxe_visual.nbx
-└── .gitignore
 ```
 
 Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionados nas fases correspondentes. Não existem pastas vazias declaradas como componentes implementados.
