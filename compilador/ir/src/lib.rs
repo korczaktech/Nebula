@@ -1498,6 +1498,15 @@ mod testes {
     }
 
     #[test]
+    fn constroi_enumeracao_com_payload_no_runtime() {
+        let ir = compilar(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nexibir(resultado)",
+        );
+        let resultado = executar(&ir, 100).expect("payload de enumeração válido");
+        assert_eq!(resultado.saida, vec!["Resultado::Sucesso { 0: 42 }"]);
+    }
+
+    #[test]
     fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
         let mut ir = compilar("constante limite = 9");
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
