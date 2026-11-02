@@ -268,8 +268,57 @@ impl Emissor {
                     OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]),
                     OperadorIr::Vezes => self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]),
                     OperadorIr::Divide | OperadorIr::Resto => {
+                        // A divisão por zero termina com código estável, em vez de SIGFPE.
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let divisor_valido = self.emitir_jcc(0x85);
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(divisor_valido, self.codigo.len());
+
+                        // INT64_MIN / -1 não é representável em signed division.
+                        // A semântica inteira do backend é wraparound de 64 bits.
+                        self.codigo.extend_from_slice(&[0x48, 0x83, 0xF9, 0xFF]);
+                        let divisor_normal = self.emitir_jcc(0x85);
+                        self.codigo.extend_from_slice(&[0x48, 0xBA]);
+                        self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
+                        self.codigo.extend_from_slice(&[0x48, 0x39, 0xD0]);
+                        let dividendo_normal = self.emitir_jcc(0x85);
+                        if *operador == OperadorIr::Divide {
+                            self.codigo.extend_from_slice(&[0x48, 0xBA]);
+                            self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
+                            self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]);
+                        } else {
+                            self.codigo.extend_from_slice(&[0x31, 0xC0]);
+                        }
+                        let fim_especial = self.emitir_jmp();
+                        self.aplicar_salto(divisor_normal, self.codigo.len());
+                        self.aplicar_salto(dividendo_normal, self.codigo.len());
                         self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
                         if *operador == OperadorIr::Resto { self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); }
+                        self.aplicar_salto(fim_especial, self.codigo.len());
+                    }
+                    OperadorIr::Potencia => {
+                        // Exponenciação inteira por quadratura: O(log expoente), sem runtime.
+                        // Expoente negativo é rejeitado com código de saída 2.
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let expoente_nao_negativo = self.emitir_jcc(0x89); // JNS
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(expoente_nao_negativo, self.codigo.len());
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // rdx = base
+                        self.mov_rax(1); // acumulador
+                        let inicio = self.codigo.len();
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let fim = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0xF6, 0xC1, 0x01]);
+                        let multiplicar = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC2]);
+                        self.aplicar_salto(multiplicar, self.codigo.len());
+                        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xE9]); // expoente >>= 1
+                        let terminar = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xD2]); // base *= base
+                        self.emitir_salto_para(inicio);
+                        let destino_fim = self.codigo.len();
+                        self.aplicar_salto(fim, destino_fim);
+                        self.aplicar_salto(terminar, destino_fim);
                     }
                     OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual => {
                         self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
@@ -282,7 +331,7 @@ impl Emissor {
                         self.codigo.extend_from_slice(&[0x0F, set, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                     }
                     OperadorIr::E | OperadorIr::Ou => unreachable!(),
-                    OperadorIr::Potencia | OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
+                    OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
                         return Err("Operador ainda não implementado no backend nativo.".into());
                     }
                 }
@@ -321,8 +370,11 @@ impl Emissor {
     }
 
     fn declarar(&mut self, nome: &str) -> Result<i32, String> {
+        if self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome)) {
+            return Err(format!("Identificador '{nome}' declarado mais de uma vez no mesmo escopo."));
+        }
         if self.proximo_slot >= LIMITE_VARIAVEIS {
-            return Err("A função excedeu o limite inicial de variáveis locais.".into());
+            return Err("A função excedeu o limite inicial de 512 posições locais.".into());
         }
         self.proximo_slot += 1;
         let deslocamento = -((self.proximo_slot * 8) as i32);
@@ -333,6 +385,11 @@ impl Emissor {
     fn buscar(&self, nome: &str) -> Result<i32, String> {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
             .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))
+    }
+
+    fn encerrar_com_erro(&mut self, codigo: u8) {
+        // Linux x86-64: exit(codigo), syscall 60.
+        self.codigo.extend_from_slice(&[0xBF, codigo, 0, 0, 0, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
     }
 
     fn normalizar_logico(&mut self) {
@@ -485,6 +542,28 @@ mod testes {
         let binario = gerar_executavel(&programa_com_retorno(0)).unwrap();
         assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 1);
         assert_eq!(u32::from_le_bytes(binario[64..68].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn aceita_potencia_inteira_sem_runtime() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Binaria {
+                esquerda: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(2))),
+                operador: OperadorIr::Potencia,
+                direita: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(10))),
+            }))
+        ];
+        let binario = gerar_executavel(&programa).unwrap();
+        assert!(binario.len() > TAMANHO_CABECALHO);
+    }
+
+    #[test]
+    fn rejeita_declaracao_duplicada_no_mesmo_escopo() {
+        let mut emissor = Emissor::novo();
+        emissor.escopos.push(HashMap::new());
+        assert!(emissor.declarar("valor").is_ok());
+        assert!(emissor.declarar("valor").is_err());
     }
 
     #[test]
