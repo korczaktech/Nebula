@@ -64,6 +64,18 @@ impl Alocador {
         self.bytes_ativos
     }
 
+    /// Retorna o limite máximo configurado para bytes ativos.
+    #[must_use]
+    pub fn limite_bytes(&self) -> usize {
+        self.limite_bytes
+    }
+
+    /// Retorna quantos bytes ainda podem ser alocados dentro do limite.
+    #[must_use]
+    pub fn bytes_disponiveis(&self) -> usize {
+        self.limite_bytes.saturating_sub(self.bytes_ativos)
+    }
+
     /// Retorna a quantidade de blocos ativos.
     #[must_use]
     pub fn blocos_ativos(&self) -> usize {
@@ -325,6 +337,50 @@ mod testes {
             alocador.ler(bloco, 0, 1),
             Err(ErroAlocador::IdentificadorInvalido)
         );
+    }
+
+    #[test]
+    fn informa_limite_e_capacidade_disponivel() {
+        let mut alocador = Alocador::novo(12);
+        assert_eq!(alocador.limite_bytes(), 12);
+        assert_eq!(alocador.bytes_disponiveis(), 12);
+
+        let bloco = alocador.alocar(5).unwrap();
+        assert_eq!(alocador.bytes_alocados(), 5);
+        assert_eq!(alocador.bytes_disponiveis(), 7);
+
+        alocador.liberar(bloco).unwrap();
+        assert_eq!(alocador.bytes_disponiveis(), 12);
+    }
+
+    #[test]
+    fn redimensionamento_para_menor_preserva_prefixo_e_libera_capacidade() {
+        let mut alocador = Alocador::novo(10);
+        let antigo = alocador.alocar(8).unwrap();
+        alocador.escrever(antigo, 0, &[1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+
+        let novo = alocador.redimensionar(antigo, 3).unwrap();
+        assert_eq!(alocador.ler(novo, 0, 3), Ok(&[1, 2, 3][..]));
+        assert_eq!(alocador.bytes_alocados(), 3);
+        assert_eq!(alocador.bytes_disponiveis(), 7);
+        assert_eq!(
+            alocador.ler(antigo, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
+    }
+
+    #[test]
+    fn blocos_vazios_sao_validos_sem_permitir_acesso_inexistente() {
+        let mut alocador = Alocador::novo(0);
+        let bloco = alocador.alocar(0).unwrap();
+        assert_eq!(alocador.bytes_alocados(), 0);
+        assert_eq!(alocador.ler(bloco, 0, 0), Ok(&[][..]));
+        assert_eq!(
+            alocador.ler(bloco, 0, 1),
+            Err(ErroAlocador::AcessoForaDosLimites)
+        );
+        alocador.liberar(bloco).unwrap();
+        assert_eq!(alocador.blocos_ativos(), 0);
     }
 
     #[test]
