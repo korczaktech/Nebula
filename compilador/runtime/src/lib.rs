@@ -101,6 +101,31 @@ pub enum OperacaoInteira {
     Potencia,
 }
 
+/// Funções matemáticas escalares disponíveis no runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FuncaoMatematica {
+    /// Raiz quadrada.
+    Raiz,
+    /// Seno em radianos.
+    Seno,
+    /// Cosseno em radianos.
+    Cosseno,
+    /// Tangente em radianos.
+    Tangente,
+    /// Logaritmo natural.
+    Logaritmo,
+    /// Exponencial natural.
+    Exponencial,
+    /// Arredonda para baixo.
+    Piso,
+    /// Arredonda para cima.
+    Teto,
+    /// Arredonda para o inteiro mais próximo.
+    Arredondar,
+    /// Valor absoluto.
+    Absoluto,
+}
+
 /// Operação decimal com validação de resultados não finitos.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OperacaoDecimal {
@@ -160,6 +185,8 @@ pub enum ErroRuntime {
     FalhaIo(String),
     /// O relógio do sistema não está disponível antes da época Unix.
     RelogioIndisponivel,
+    /// O argumento está fora do domínio matemático da função.
+    DominioMatematico,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -511,6 +538,33 @@ pub fn texto_para_decimal(texto: &str) -> Resultado<f64> {
     Ok(valor)
 }
 
+/// Executa uma função matemática e valida domínio e resultado finito.
+pub fn calcular_matematica(funcao: FuncaoMatematica, valor: f64) -> Resultado<f64> {
+    let resultado = match funcao {
+        FuncaoMatematica::Raiz if valor < 0.0 => {
+            return Err(ErroRuntime::DominioMatematico);
+        }
+        FuncaoMatematica::Raiz => valor.sqrt(),
+        FuncaoMatematica::Seno => valor.sin(),
+        FuncaoMatematica::Cosseno => valor.cos(),
+        FuncaoMatematica::Tangente => valor.tan(),
+        FuncaoMatematica::Logaritmo if valor <= 0.0 => {
+            return Err(ErroRuntime::DominioMatematico);
+        }
+        FuncaoMatematica::Logaritmo => valor.ln(),
+        FuncaoMatematica::Exponencial => valor.exp(),
+        FuncaoMatematica::Piso => valor.floor(),
+        FuncaoMatematica::Teto => valor.ceil(),
+        FuncaoMatematica::Arredondar => valor.round(),
+        FuncaoMatematica::Absoluto => valor.abs(),
+    };
+    if resultado.is_finite() {
+        Ok(resultado)
+    } else {
+        Err(ErroRuntime::ResultadoNaoFinito)
+    }
+}
+
 /// Executa operação decimal e rejeita divisão por zero e resultados não finitos.
 pub fn operar_decimal(operacao: OperacaoDecimal, esquerda: f64, direita: f64) -> Resultado<f64> {
     let valor = match operacao {
@@ -703,6 +757,22 @@ mod testes {
             Err(ErroRuntime::ResultadoNaoFinito)
         );
         assert_eq!(inteiro_para_texto(i128::MIN), i128::MIN.to_string());
+    }
+
+    #[test]
+    fn funcoes_matematicas_validam_dominio() {
+        assert_eq!(
+            calcular_matematica(FuncaoMatematica::Raiz, 9.0),
+            Ok(3.0)
+        );
+        assert_eq!(
+            calcular_matematica(FuncaoMatematica::Raiz, -1.0),
+            Err(ErroRuntime::DominioMatematico)
+        );
+        assert_eq!(
+            calcular_matematica(FuncaoMatematica::Logaritmo, 0.0),
+            Err(ErroRuntime::DominioMatematico)
+        );
     }
 
     #[test]
