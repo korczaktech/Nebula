@@ -342,8 +342,6 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     let mut programa = parser.programa();
     let mut diagnosticos = lexico.diagnosticos;
     diagnosticos.extend(parser.diagnosticos);
-    // Evita descartar o programa parcial: erros léxicos e sintáticos coexistem.
-    programa.itens.shrink_to_fit();
     ResultadoSintatico { programa, diagnosticos }
 }
 
