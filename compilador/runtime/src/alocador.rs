@@ -67,26 +67,40 @@ impl Alocador {
     /// Retorna a quantidade de blocos ativos.
     #[must_use]
     pub fn blocos_ativos(&self) -> usize {
-        self.blocos.iter().filter(|bloco| bloco.dados.is_some()).count()
+        self.blocos
+            .iter()
+            .filter(|bloco| bloco.dados.is_some())
+            .count()
     }
 
     /// Aloca um bloco preenchido com zeros e retorna seu identificador.
     pub fn alocar(&mut self, tamanho: usize) -> Result<IdentificadorAlocacao, ErroAlocador> {
-        let novo_total = self.bytes_ativos.checked_add(tamanho).ok_or(ErroAlocador::Overflow)?;
+        let novo_total = self
+            .bytes_ativos
+            .checked_add(tamanho)
+            .ok_or(ErroAlocador::Overflow)?;
         if novo_total > self.limite_bytes {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
         let mut dados = Vec::new();
-        dados.try_reserve_exact(tamanho).map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        dados
+            .try_reserve_exact(tamanho)
+            .map_err(|_| ErroAlocador::FalhaAlocacao)?;
         dados.resize(tamanho, 0);
         let identificador = if let Some(indice) = self.livres.pop() {
             let bloco = &mut self.blocos[indice];
             bloco.dados = Some(dados);
-            IdentificadorAlocacao { indice, geracao: bloco.geracao }
+            IdentificadorAlocacao {
+                indice,
+                geracao: bloco.geracao,
+            }
         } else {
             let indice = self.blocos.len();
-            self.blocos.push(Bloco { geracao: 1, dados: Some(dados) });
+            self.blocos.push(Bloco {
+                geracao: 1,
+                dados: Some(dados),
+            });
             IdentificadorAlocacao { indice, geracao: 1 }
         };
         self.bytes_ativos = novo_total;
@@ -101,9 +115,14 @@ impl Alocador {
         tamanho: usize,
     ) -> Result<&[u8], ErroAlocador> {
         let bloco = self.validar(identificador)?;
-        let dados = bloco.dados.as_ref().ok_or(ErroAlocador::IdentificadorInvalido)?;
+        let dados = bloco
+            .dados
+            .as_ref()
+            .ok_or(ErroAlocador::IdentificadorInvalido)?;
         let fim = inicio.checked_add(tamanho).ok_or(ErroAlocador::Overflow)?;
-        dados.get(inicio..fim).ok_or(ErroAlocador::AcessoForaDosLimites)
+        dados
+            .get(inicio..fim)
+            .ok_or(ErroAlocador::AcessoForaDosLimites)
     }
 
     /// Escreve bytes em uma faixa validada do bloco.
@@ -114,9 +133,16 @@ impl Alocador {
         origem: &[u8],
     ) -> Result<(), ErroAlocador> {
         let bloco = self.validar_mutavel(identificador)?;
-        let dados = bloco.dados.as_mut().ok_or(ErroAlocador::IdentificadorInvalido)?;
-        let fim = inicio.checked_add(origem.len()).ok_or(ErroAlocador::Overflow)?;
-        let destino = dados.get_mut(inicio..fim).ok_or(ErroAlocador::AcessoForaDosLimites)?;
+        let dados = bloco
+            .dados
+            .as_mut()
+            .ok_or(ErroAlocador::IdentificadorInvalido)?;
+        let fim = inicio
+            .checked_add(origem.len())
+            .ok_or(ErroAlocador::Overflow)?;
+        let destino = dados
+            .get_mut(inicio..fim)
+            .ok_or(ErroAlocador::AcessoForaDosLimites)?;
         destino.copy_from_slice(origem);
         Ok(())
     }
@@ -127,8 +153,10 @@ impl Alocador {
         identificador: IdentificadorAlocacao,
         novo_tamanho: usize,
     ) -> Result<IdentificadorAlocacao, ErroAlocador> {
-        let dados_atuais = self.validar(identificador)?
-            .dados.as_ref()
+        let dados_atuais = self
+            .validar(identificador)?
+            .dados
+            .as_ref()
             .ok_or(ErroAlocador::IdentificadorInvalido)?;
         let tamanho_antigo = dados_atuais.len();
         let novo_total = self.bytes_ativos
@@ -141,7 +169,9 @@ impl Alocador {
 
         let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
         let mut dados_novos = Vec::new();
-        dados_novos.try_reserve_exact(novo_tamanho).map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        dados_novos
+            .try_reserve_exact(novo_tamanho)
+            .map_err(|_| ErroAlocador::FalhaAlocacao)?;
         dados_novos.resize(novo_tamanho, 0);
         let copiar = tamanho_antigo.min(novo_tamanho);
         dados_novos[..copiar].copy_from_slice(&dados_atuais[..copiar]);
@@ -152,7 +182,10 @@ impl Alocador {
             IdentificadorAlocacao { indice, geracao: bloco.geracao }
         } else {
             let indice = self.blocos.len();
-            self.blocos.push(Bloco { geracao: 1, dados: Some(dados_novos) });
+            self.blocos.push(Bloco {
+                geracao: 1,
+                dados: Some(dados_novos),
+            });
             IdentificadorAlocacao { indice, geracao: 1 }
         };
         self.liberar(identificador)?;
@@ -161,13 +194,13 @@ impl Alocador {
     }
 
     /// Libera um bloco e invalida permanentemente seu identificador anterior.
-    pub fn liberar(
-        &mut self,
-        identificador: IdentificadorAlocacao,
-    ) -> Result<(), ErroAlocador> {
+    pub fn liberar(&mut self, identificador: IdentificadorAlocacao) -> Result<(), ErroAlocador> {
         let (tamanho, reutilizavel) = {
             let bloco = self.validar_mutavel(identificador)?;
-            let dados = bloco.dados.take().ok_or(ErroAlocador::IdentificadorInvalido)?;
+            let dados = bloco
+                .dados
+                .take()
+                .ok_or(ErroAlocador::IdentificadorInvalido)?;
             let reutilizavel = if let Some(proxima_geracao) = bloco.geracao.checked_add(1) {
                 bloco.geracao = proxima_geracao;
                 true
@@ -203,7 +236,9 @@ impl Alocador {
     }
 
     fn validar(&self, identificador: IdentificadorAlocacao) -> Result<&Bloco, ErroAlocador> {
-        let bloco = self.blocos.get(identificador.indice)
+        let bloco = self
+            .blocos
+            .get(identificador.indice)
             .ok_or(ErroAlocador::IdentificadorInvalido)?;
         if bloco.geracao != identificador.geracao || bloco.dados.is_none() {
             return Err(ErroAlocador::IdentificadorInvalido);
@@ -215,7 +250,9 @@ impl Alocador {
         &mut self,
         identificador: IdentificadorAlocacao,
     ) -> Result<&mut Bloco, ErroAlocador> {
-        let bloco = self.blocos.get_mut(identificador.indice)
+        let bloco = self
+            .blocos
+            .get_mut(identificador.indice)
             .ok_or(ErroAlocador::IdentificadorInvalido)?;
         if bloco.geracao != identificador.geracao || bloco.dados.is_none() {
             return Err(ErroAlocador::IdentificadorInvalido);
@@ -237,7 +274,10 @@ mod testes {
         assert_eq!(alocador.bytes_alocados(), 8);
         alocador.liberar(bloco).unwrap();
         assert_eq!(alocador.bytes_alocados(), 0);
-        assert_eq!(alocador.ler(bloco, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.ler(bloco, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
     }
 
     #[test]
@@ -245,8 +285,14 @@ mod testes {
         let mut alocador = Alocador::novo(4);
         let bloco = alocador.alocar(4).unwrap();
         assert_eq!(alocador.alocar(1), Err(ErroAlocador::LimiteExcedido));
-        assert_eq!(alocador.ler(bloco, 3, 2), Err(ErroAlocador::AcessoForaDosLimites));
-        assert_eq!(alocador.escrever(bloco, usize::MAX, &[1]), Err(ErroAlocador::Overflow));
+        assert_eq!(
+            alocador.ler(bloco, 3, 2),
+            Err(ErroAlocador::AcessoForaDosLimites)
+        );
+        assert_eq!(
+            alocador.escrever(bloco, usize::MAX, &[1]),
+            Err(ErroAlocador::Overflow)
+        );
     }
 
     #[test]
@@ -256,7 +302,10 @@ mod testes {
         alocador.liberar(antigo).unwrap();
         let novo = alocador.alocar(4).unwrap();
         assert_ne!(antigo, novo);
-        assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.ler(antigo, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
         assert_eq!(alocador.ler(novo, 0, 1), Ok(&[0][..]));
     }
 
@@ -285,7 +334,10 @@ mod testes {
         let mut alocador = Alocador::novo(4);
         let bloco = alocador.alocar(4).unwrap();
         alocador.escrever(bloco, 0, &[1, 2, 3, 4]).unwrap();
-        assert_eq!(alocador.redimensionar(bloco, 5), Err(ErroAlocador::LimiteExcedido));
+        assert_eq!(
+            alocador.redimensionar(bloco, 5),
+            Err(ErroAlocador::LimiteExcedido)
+        );
         assert_eq!(alocador.ler(bloco, 0, 4), Ok(&[1, 2, 3, 4][..]));
     }
 
@@ -298,7 +350,10 @@ mod testes {
         alocador.limpar();
         let novo = alocador.alocar(4).unwrap();
         assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
-        assert_eq!(alocador.ler(ativo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.ler(ativo, 0, 1),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
         assert_eq!(alocador.blocos_ativos(), 1);
         assert_eq!(alocador.bytes_alocados(), 4);
         assert_ne!(novo, ativo);
@@ -311,6 +366,9 @@ mod testes {
         alocador.limpar();
         assert_eq!(alocador.bytes_alocados(), 0);
         assert_eq!(alocador.blocos_ativos(), 0);
-        assert_eq!(alocador.liberar(bloco), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(
+            alocador.liberar(bloco),
+            Err(ErroAlocador::IdentificadorInvalido)
+        );
     }
 }
