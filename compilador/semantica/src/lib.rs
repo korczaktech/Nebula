@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Tipo {
-    Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128,
+    Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128, InteiroU8, InteiroU16, InteiroU32, InteiroU64, InteiroU128,
     Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
     Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Estrutura(String), Enumeracao(String), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
 }
@@ -57,7 +57,7 @@ pub fn analisar_com_modulos(programa: &Programa, modulos: &ModulosDisponiveis) -
 struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool }
 
 #[derive(Debug, Clone, Copy)]
-enum LiteralNumerico { Inteiro(i128), Decimal(f64) }
+enum LiteralNumerico { Inteiro(i128), InteiroSemSinal(u128), Decimal(f64) }
 
 #[derive(Debug, Clone)]
 struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, retorno: Tipo }
@@ -902,6 +902,16 @@ impl<'a> Analisador<'a> {
             "inteiro32" => Tipo::Inteiro32,
             "inteiro64" => Tipo::Inteiro64,
             "inteiro128" => Tipo::Inteiro128,
+            "inteiro_u8" => Tipo::InteiroU8,
+            "inteiro_u16" => Tipo::InteiroU16,
+            "inteiro_u32" => Tipo::InteiroU32,
+            "inteiro_u64" => Tipo::InteiroU64,
+            "inteiro_u128" => Tipo::InteiroU128,
+            "inteiro_u8" => Tipo::InteiroU8,
+            "inteiro_u16" => Tipo::InteiroU16,
+            "inteiro_u32" => Tipo::InteiroU32,
+            "inteiro_u64" => Tipo::InteiroU64,
+            "inteiro_u128" => Tipo::InteiroU128,
             "decimal" => Tipo::Decimal64,
             "decimal32" => Tipo::Decimal32,
             "decimal64" => Tipo::Decimal64,
@@ -993,6 +1003,7 @@ impl<'a> Analisador<'a> {
         matches!(tipo,
             Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 |
             Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 |
+            Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 |
             Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte
         )
     }
@@ -1038,6 +1049,16 @@ impl<'a> Analisador<'a> {
                 (LiteralNumerico::Inteiro(v), Tipo::Inteiro32) => i32::try_from(v).is_ok(),
                 (LiteralNumerico::Inteiro(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
                 (LiteralNumerico::Inteiro(_), Tipo::Inteiro128 | Tipo::Inteiro) => true,
+                (LiteralNumerico::Inteiro(v), Tipo::InteiroU8) => u8::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::InteiroU16) => u16::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::InteiroU32) => u32::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::InteiroU64) => u64::try_from(v).is_ok(),
+                (LiteralNumerico::Inteiro(v), Tipo::InteiroU128) => u128::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU8) => u8::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU16) => u16::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU32) => u32::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU64) => u64::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(_), Tipo::InteiroU128) => true,
                 (LiteralNumerico::Inteiro(v), Tipo::Byte) => u8::try_from(v).is_ok(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal32) => (v as f32).is_finite(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal64 | Tipo::Decimal) => v.is_finite(),
@@ -1064,19 +1085,20 @@ impl<'a> Analisador<'a> {
             Expressao::Literal(bruto) => {
                 let limpo = bruto.replace('_', "");
                 if limpo.starts_with("0x") || limpo.starts_with("0X") {
-                    i128::from_str_radix(&limpo[2..], 16).ok().map(LiteralNumerico::Inteiro)
+                    i128::from_str_radix(&limpo[2..], 16).ok().map(LiteralNumerico::Inteiro).or_else(|| u128::from_str_radix(&limpo[2..], 16).ok().map(LiteralNumerico::InteiroSemSinal))
                 } else if limpo.starts_with("0b") || limpo.starts_with("0B") {
-                    i128::from_str_radix(&limpo[2..], 2).ok().map(LiteralNumerico::Inteiro)
+                    i128::from_str_radix(&limpo[2..], 2).ok().map(LiteralNumerico::Inteiro).or_else(|| u128::from_str_radix(&limpo[2..], 2).ok().map(LiteralNumerico::InteiroSemSinal))
                 } else if limpo.starts_with("0o") || limpo.starts_with("0O") {
-                    i128::from_str_radix(&limpo[2..], 8).ok().map(LiteralNumerico::Inteiro)
+                    i128::from_str_radix(&limpo[2..], 8).ok().map(LiteralNumerico::Inteiro).or_else(|| u128::from_str_radix(&limpo[2..], 8).ok().map(LiteralNumerico::InteiroSemSinal))
                 } else if limpo.contains('.') || limpo.contains('e') || limpo.contains('E') {
                     limpo.parse().ok().map(LiteralNumerico::Decimal)
                 } else {
-                    limpo.parse().ok().map(LiteralNumerico::Inteiro)
+                    limpo.parse().ok().map(LiteralNumerico::Inteiro).or_else(|| limpo.parse().ok().map(LiteralNumerico::InteiroSemSinal))
                 }
             }
             Expressao::Unaria { operador: TipoToken::Menos, valor } => match Self::literal_numerico(valor)? {
                 LiteralNumerico::Inteiro(v) => v.checked_neg().map(LiteralNumerico::Inteiro),
+                LiteralNumerico::InteiroSemSinal(v) => i128::try_from(v).ok()?.checked_neg().map(LiteralNumerico::Inteiro),
                 LiteralNumerico::Decimal(v) => Some(LiteralNumerico::Decimal(-v)),
             },
             Expressao::Unaria { operador: TipoToken::Mais, valor } => Self::literal_numerico(valor),
@@ -1105,7 +1127,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn inteiro(tipo: &Tipo) -> bool {
-        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::Byte)
+        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte)
     }
 
     fn numerico(tipo: &Tipo) -> bool {
@@ -1117,11 +1139,11 @@ impl<'a> Analisador<'a> {
             return Tipo::Decimal64;
         }
         let largura = |tipo: &Tipo| match tipo {
-            Tipo::Inteiro8 | Tipo::Byte => 8,
-            Tipo::Inteiro16 => 16,
-            Tipo::Inteiro32 => 32,
-            Tipo::Inteiro64 | Tipo::Inteiro => 64,
-            Tipo::Inteiro128 => 128,
+            Tipo::Inteiro8 | Tipo::InteiroU8 | Tipo::Byte => 8,
+            Tipo::Inteiro16 | Tipo::InteiroU16 => 16,
+            Tipo::Inteiro32 | Tipo::InteiroU32 => 32,
+            Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro => 64,
+            Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
             _ => 64,
         };
         if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 {
@@ -1181,6 +1203,9 @@ impl Tipo {
             Self::Inteiro8 => "inteiro8".into(), Self::Inteiro16 => "inteiro16".into(),
             Self::Inteiro32 => "inteiro32".into(), Self::Inteiro64 => "inteiro64".into(),
             Self::Inteiro128 => "inteiro128".into(),
+            Self::InteiroU8 => "inteiro_u8".into(), Self::InteiroU16 => "inteiro_u16".into(),
+            Self::InteiroU32 => "inteiro_u32".into(), Self::InteiroU64 => "inteiro_u64".into(),
+            Self::InteiroU128 => "inteiro_u128".into(),
             Self::Decimal => "decimal".into(), Self::Decimal32 => "decimal32".into(),
             Self::Decimal64 => "decimal64".into(),
             Self::Texto => "texto".into(), Self::Caractere => "caractere".into(),
