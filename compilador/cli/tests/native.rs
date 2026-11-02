@@ -3,14 +3,14 @@
 use std::fs;
 use std::process::Command;
 
-fn arquivo_temporario() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("nebula-e2e-{}.nbx", std::process::id()))
+fn arquivo_temporario(rotulo: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("nebula-e2e-{rotulo}-{}.nbx", std::process::id()))
 }
 
 #[test]
 #[rustfmt::skip]
 fn compila_e_executa_programa_nativo() {
-    let origem = arquivo_temporario();
+    let origem = arquivo_temporario("valido");
     fs::write(
         &origem,
         "funcao principal(): vazio {\n    exibir(40 + 2)\n}\n",
@@ -43,7 +43,7 @@ fn compila_e_executa_programa_nativo() {
 #[test]
 #[rustfmt::skip]
 fn rejeita_codigo_semantica_ou_sintaticamente_invalido() {
-    let origem = arquivo_temporario();
+    let origem = arquivo_temporario("invalido");
     fs::write(&origem, "funcao principal(): vazio {\n    ausente()\n}\n").unwrap();
     let exe = std::env::temp_dir().join(format!(
         "nebula-e2e-invalido-{}",
