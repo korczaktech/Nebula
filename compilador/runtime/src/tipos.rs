@@ -1015,5 +1015,4 @@ mod testes {
         assert_eq!(layout.tamanho, 8);
         assert_eq!(layout.alinhamento, 8);
     }
-
 }
