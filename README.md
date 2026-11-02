@@ -325,7 +325,7 @@ nebula/
 │       └── sintaxe_visual.nbx
 ```
 
-Lexer, Parser e AST estão reunidos no crate `nebula-sintaxe`. Os componentes de semântica, tipos, IR e backends serão adicionados nas fases correspondentes.
+Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. Backends e otimizadores pertencem às fases seguintes.
 
 ### Crates Rust
 
@@ -337,10 +337,11 @@ Lexer, Parser e AST estão reunidos no crate `nebula-sintaxe`. Os componentes de
 **Criada na Fase 2:**
 - `nebula-sintaxe`: Lexer, AST e Parser do subconjunto gramatical inicial.
 
+**Criadas na Fase 3:**
+- `nebula-semantica`: símbolos, escopos, resolução de módulos, inferência e verificação estática.
+- `nebula-ir`: representação intermediária e interpretador de referência.
+
 **Planejadas para fases posteriores:**
-- `nebula-semantica`
-- `nebula-tipos`
-- `nebula-ir`
 - `nebula-otimizador`
 - `nebula-backend`
 - `nebula-biblioteca`
@@ -407,9 +408,9 @@ Critérios de conclusão:
 
 ## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
 
-**Estado: implementação integrada; aceite final condicionado à CI verde.**
+**Estado: Fase 2 concluída; CI verde no commit `d50b121317e19d4eb73453407b095a4c6ad44283`.**
 
-**Objetivo:** transformar código Nebula em uma representação sintática confiável. O frontend sintático está implementado; a aprovação final depende da validação integral da CI.
+**Objetivo:** transformar código Nebula em uma representação sintática confiável.
 
 Entregas:
 - Leitor de arquivos e posições de origem.
@@ -427,18 +428,20 @@ Critérios de conclusão:
 
 ## Fase 3 — Semântica, tipos e IR (meta acumulada: 50%)
 
+**Estado: implementação integrada; aceite final condicionado à CI verde e auditoria dos testes.**
+
 **Objetivo:** dar significado e consistência aos programas.
 
-Entregas:
-- Tabelas de símbolos e escopos.
-- Resolução de nomes e módulos.
-- Sistema de tipos estáticos.
-- Inferência controlada.
-- Verificação semântica.
-- Regras iniciais de propriedade e memória.
-- Construção da IR.
-- Interpretador de IR para testes, quando adequado.
-- Testes semânticos e de IR.
+Entregas implementadas:
+- Tabelas de símbolos e escopos léxicos, com pré-declaração de funções e aliases.
+- Resolução de nomes e de funções exportadas por módulos fornecidos explicitamente.
+- Sistema de tipos estáticos, incluindo larguras inteiras, decimais e listas homogêneas.
+- Inferência local controlada.
+- Verificação de chamadas, operadores, condições, retornos, mutabilidade e controle de laços.
+- Regras iniciais de memória: constantes imutáveis e valores por valor; sem borrow checker nesta fase.
+- Construção da IR com operadores normalizados.
+- Interpretador de referência com limite de passos e profundidade de chamadas.
+- Testes semânticos, de IR e integração da CLI.
 
 Critérios de conclusão:
 - Programas corretos passam pela análise.
@@ -525,4 +528,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 2
 
-O repositório contém o crate `nebula-sintaxe`, que fornece Lexer, AST e Parser, além do comando `nebula verificar arquivo.nbx`. A verificação cobre somente léxico e sintaxe; não executa análise semântica nem gera executáveis. O encerramento formal da Fase 2 depende da CI verde e da auditoria descrita em [critérios da Fase 2](especificacao/criterios-fase-2.md).
+O repositório contém o frontend sintático (`nebula-sintaxe`), a análise semântica (`nebula-semantica`) e a IR com interpretador de referência (`nebula-ir`). A CLI oferece `nebula verificar arquivo.nbx`, `nebula analisar arquivo.nbx` e `nebula ir arquivo.nbx`. A Fase 3 não gera executáveis nativos ou WebAssembly; isso pertence à Fase 4. Os limites e critérios estão em [critérios da Fase 3](especificacao/criterios-fase-3.md).
