@@ -156,9 +156,11 @@ mod testes {
     #[test]
     fn modulos_reais_expoem_funcoes_do_runtime() {
         assert_eq!(super::texto::comprimento_texto("Nebula 🪐"), 8);
-        assert_eq!(super::matematica::operar_inteiro(
-            super::matematica::OperacaoInteira::Soma, 20, 22
-        ).expect("soma"), 42);
+        assert_eq!(
+            super::matematica::operar_inteiro(super::matematica::OperacaoInteira::Soma, 20, 22)
+                .expect("soma"),
+            42
+        );
         assert_eq!(
             super::nucleo::Valor::Inteiro(7),
             super::nucleo::Valor::Inteiro(7)
