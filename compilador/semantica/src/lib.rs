@@ -412,8 +412,7 @@ impl<'a> Analisador<'a> {
                         return if nome == "inteiro" { Tipo::Inteiro } else { Tipo::Decimal64 };
                     }
                     if nome == "adicionar" || nome == "remover" {
-                        let quantidade = if nome == "adicionar" { 2 } else { 2 };
-                        if argumentos.len() != quantidade {
+                        if argumentos.len() != 2 {
                             self.erro("N3015", format!("'{nome}' exige dois argumentos."));
                             for argumento in argumentos { self.expressao(argumento); }
                             return Tipo::Desconhecido;
