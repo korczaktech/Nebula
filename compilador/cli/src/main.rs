@@ -87,7 +87,7 @@ fn compilar_arquivo(caminho: &Path, saida: &Path, otimizacao: &str) -> Result<()
         return Err(sintaxe.diagnosticos.iter().map(|d| format!("{} — {}", d.codigo, d.mensagem)).collect::<Vec<_>>().join("\n"));
     }
     let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
-    if !ir.diagnosticos.is_empty() { return Err(ir.diagnosticos.join("\n")); }
+    if !ir.diagnosticos.is_empty() { return Err(format!("{}\nAST: {:#?}", ir.diagnosticos.join("\n"), sintaxe.programa)); }
     let c = nebula_backend::gerar_c(&ir.programa.expect("IR validada"))?;
     let arquivo_c = std::env::temp_dir().join(format!("nebula-{}-{}.c", std::process::id(), saida.file_stem().and_then(|s| s.to_str()).unwrap_or("programa")));
     std::fs::write(&arquivo_c, c).map_err(|e| format!("não foi possível gravar C temporário: {e}"))?;
