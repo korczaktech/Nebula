@@ -32,6 +32,8 @@ declaracao           = declaracao_variavel
                      | declaracao_constante
                      | declaracao_funcao
                      | declaracao_tipo
+                     | declaracao_estrutura
+                     | declaracao_enumeracao
                      | declaracao_modulo ;
 
 declaracao_variavel  = "variavel", IDENTIFICADOR,
@@ -48,6 +50,15 @@ lista_parametros     = parametro, { ",", parametro } ;
 parametro            = IDENTIFICADOR, ":", tipo ;
 
 declaracao_tipo      = "tipo", IDENTIFICADOR, "=", tipo ;
+declaracao_estrutura = "estrutura", IDENTIFICADOR, "{",
+                       { campo_estrutura, { separador_campo } }, "}" ;
+campo_estrutura     = IDENTIFICADOR, ":", tipo ;
+separador_campo     = "," | NOVA_LINHA | ";" ;
+declaracao_enumeracao = "enumeracao", IDENTIFICADOR, "{",
+                        variante, { separador_variante, variante }, "}" ;
+variante            = IDENTIFICADOR, [ "(", lista_tipos, ")" ] ;
+lista_tipos         = tipo, { ",", tipo } ;
+separador_variante  = "," | NOVA_LINHA | ";" ;
 tipo                 = caminho_tipo | "[", tipo, "]" ;
 caminho_tipo         = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
 
@@ -137,9 +148,9 @@ As formas numéricas, escapes e restrições de texto/caractere estão definidas
 
 ## 7. Escopo desta gramática
 
-Fazem parte do subconjunto sintático inicial: variáveis, constantes, funções, parâmetros tipados, aliases de tipo, inclusão de módulos, blocos, condicionais, laços enquanto e para, retorno, controle de laço, chamadas, listas, indexação, acesso a membros, operadores e literais descritos acima.
+Fazem parte do subconjunto sintático inicial: variáveis, constantes, funções, parâmetros tipados, aliases de tipo, declarações de estruturas e enumerações, inclusão de módulos, blocos, condicionais, laços enquanto e para, retorno, controle de laço, chamadas, listas, indexação, acesso a membros, operadores e literais descritos acima.
 
-As palavras reservadas futuras listadas em tokens.md não possuem produções nesta gramática. Estruturas, enumerações, tratamento de exceções, funções assíncronas, interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita permanecem fora do subconjunto atual.
+As declarações de estruturas e enumerações já possuem produções sintáticas. A construção e o uso de valores desses tipos, incluindo acesso a campos, variantes com payload e padrões, ainda dependem da implementação semântica, da IR e do runtime. Tratamento de exceções, funções assíncronas, interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita permanecem fora do subconjunto atual.
 
 ## 8. Casos de referência
 
