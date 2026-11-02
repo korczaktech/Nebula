@@ -172,7 +172,10 @@ fn resolver_dependencias(
             .map_err(|e| format!("Não foi possível ler pacote '{nome}': {e}"))?;
         let dependencia = Manifesto::analisar(&conteudo)?;
         if dependencia.nome != *nome {
-            return Err(format!("A dependência '{nome}' aponta para o pacote '{}'.", dependencia.nome));
+            return Err(format!(
+                "A dependência '{nome}' aponta para o pacote '{}'.",
+                dependencia.nome
+            ));
         }
         let impressao = fingerprint(conteudo.as_bytes());
         let pacote = PacoteResolvido {
