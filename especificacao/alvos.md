@@ -6,6 +6,7 @@
 - Formato executável ELF64.
 - ABI de chamadas System V AMD64 para funções e parâmetros suportados.
 - O backend escreve o arquivo ELF e as instruções de máquina diretamente em Rust.
+- Segmento de código ELF com permissões RX; dados globais em segmento RW separado; `PT_GNU_STACK` sem permissão de execução.
 - Não exige compilador C/C++, assembler, linker, LLVM ou Cranelift externos.
 
 Este é o único alvo do backend nativo inicial. O código deve rejeitar explicitamente outros sistemas e arquiteturas até que existam implementações e testes próprios.
