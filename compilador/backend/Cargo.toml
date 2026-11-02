@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 nebula-ir = { path = "../ir" }
-nebula-semantic = { package = "nebula-semantica", path = "../semantica" }
+nebula-semantica = { path = "../semantica" }
 
 [lints]
 workspace = true
