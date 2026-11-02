@@ -108,16 +108,46 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
         return Err(ir.diagnosticos.join("\n"));
     }
     let binario = nebula_backend::gerar_executavel(&ir.programa.expect("IR validada"))?;
-    std::fs::write(saida, binario)
-        .map_err(|e| format!("não foi possível gravar executável '{}': {e}", saida.display()))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let permissoes = std::fs::Permissions::from_mode(0o755);
-        std::fs::set_permissions(saida, permissoes)
-            .map_err(|e| format!("não foi possível marcar o executável: {e}"))?;
+    gravar_executavel_atomico(saida, &binario)
+}
+
+fn gravar_executavel_atomico(saida: &Path, binario: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let nome = saida.file_name().ok_or_else(|| {
+        format!("caminho de saída inválido: '{}'", saida.display())
+    })?;
+    let temporario = saida.with_file_name(format!(
+        ".{}.{}.nebula-tmp",
+        nome.to_string_lossy(),
+        std::process::id()
+    ));
+
+    let resultado = (|| {
+        let mut arquivo = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporario)
+            .map_err(|e| format!("não foi possível criar arquivo temporário '{}': {e}", temporario.display()))?;
+        arquivo.write_all(binario)
+            .map_err(|e| format!("não foi possível gravar executável temporário: {e}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            arquivo.set_permissions(std::fs::Permissions::from_mode(0o755))
+                .map_err(|e| format!("não foi possível marcar o executável: {e}"))?;
+        }
+        arquivo.sync_all()
+            .map_err(|e| format!("não foi possível sincronizar o executável: {e}"))?;
+        drop(arquivo);
+        std::fs::rename(&temporario, saida)
+            .map_err(|e| format!("não foi possível publicar o executável '{}': {e}", saida.display()))?;
+        Ok(())
+    })();
+
+    if resultado.is_err() {
+        let _ = std::fs::remove_file(&temporario);
     }
-    Ok(())
+    resultado
 }
 
 fn ajuda() {
