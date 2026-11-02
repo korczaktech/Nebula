@@ -30,6 +30,8 @@ pub enum Valor {
     Logico(bool),
     /// Inteiro assinado de 128 bits.
     Inteiro(i128),
+    /// Inteiro sem sinal de 128 bits.
+    InteiroSemSinal(u128),
     /// Número decimal de 64 bits.
     Decimal(f64),
     /// Texto UTF-8.
@@ -60,6 +62,7 @@ impl PartialEq for Valor {
             (Self::Vazio, Self::Vazio) | (Self::Nulo, Self::Nulo) => true,
             (Self::Logico(a), Self::Logico(b)) => a == b,
             (Self::Inteiro(a), Self::Inteiro(b)) => a == b,
+            (Self::InteiroSemSinal(a), Self::InteiroSemSinal(b)) => a == b,
             (Self::Decimal(a), Self::Decimal(b)) => a == b,
             (Self::Texto(a), Self::Texto(b)) => a == b,
             (Self::Caractere(a), Self::Caractere(b)) => a == b,
