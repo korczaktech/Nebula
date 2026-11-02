@@ -524,6 +524,22 @@ mod testes {
     }
 
     #[test]
+    fn cabecalho_elf_tem_segmento_carregado_coerente() {
+        let binario = gerar_executavel(&programa_com_retorno(0)).unwrap();
+        assert_eq!(u64::from_le_bytes(binario[32..40].try_into().unwrap()), 64);
+        assert_eq!(u16::from_le_bytes([binario[52], binario[53]]), 64);
+        assert_eq!(u16::from_le_bytes([binario[54], binario[55]]), 56);
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 1);
+        assert_eq!(u32::from_le_bytes(binario[64..68].try_into().unwrap()), 1);
+        assert_eq!(u32::from_le_bytes(binario[68..72].try_into().unwrap()), 5);
+        assert_eq!(u64::from_le_bytes(binario[72..80].try_into().unwrap()), 0);
+        assert_eq!(u64::from_le_bytes(binario[80..88].try_into().unwrap()), 0x400000);
+        assert_eq!(u64::from_le_bytes(binario[96..104].try_into().unwrap()), binario.len() as u64);
+        assert_eq!(u64::from_le_bytes(binario[104..112].try_into().unwrap()), binario.len() as u64);
+        assert_eq!(u64::from_le_bytes(binario[112..120].try_into().unwrap()), 0x1000);
+    }
+
+    #[test]
     fn gera_codigo_de_retorno_sem_compilador_externo() {
         let binario = gerar_executavel(&programa_com_retorno(42)).unwrap();
         assert!(binario.len() > TAMANHO_CABECALHO);
