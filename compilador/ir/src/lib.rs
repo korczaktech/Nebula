@@ -222,6 +222,7 @@ impl Lowerer {
                 let tipos: Vec<_> = argumentos.iter().map(|tipo| self.tipo(tipo)).collect();
                 match (base, tipos.as_slice()) {
                     ("Opcional" | "opcional", [tipo]) => Tipo::Opcional(Box::new(tipo.clone())),
+                    ("Intervalo" | "intervalo", [tipo]) => Tipo::Intervalo(Box::new(tipo.clone())),
                     ("Resultado" | "resultado", [ok, erro]) => Tipo::Resultado(Box::new(ok.clone()), Box::new(erro.clone())),
                     ("Tupla" | "tupla", tipos) if !tipos.is_empty() => Tipo::Tupla(tipos.to_vec()),
                     _ => Tipo::Desconhecido,
@@ -1372,7 +1373,7 @@ mod testes {
         let ir = compilar(
             "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([7, 8])",
         );
-        assert!(ir.funcoes.contains_key("primeiro__lista_inteiro"));
+        assert!(ir.funcoes.keys().any(|nome| nome.starts_with("primeiro___inteiro_")));
         let resultado = executar(&ir, 100).expect("instância de lista genérica válida");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
     }
