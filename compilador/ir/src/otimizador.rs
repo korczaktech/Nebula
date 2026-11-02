@@ -325,7 +325,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
                 otimizar_expressao(item, relatorio);
             }
         }
-        ExpressaoIr::Unaria { valor, .. } => otimizar_expressao(valor, relatorio),
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Unaria { valor, .. } => otimizar_expressao(valor, relatorio),
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             otimizar_expressao(esquerda, relatorio);
             otimizar_expressao(direita, relatorio);

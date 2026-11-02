@@ -245,6 +245,7 @@ impl Emissor {
 
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
+            ExpressaoIr::Normalizar { valor, .. } => self.expressao(valor)?,
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
                 self.mov_rax(valor);

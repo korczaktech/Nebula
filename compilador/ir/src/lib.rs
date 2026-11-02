@@ -38,6 +38,7 @@ pub enum OperadorIr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressaoIr {
     Constante(ValorIr),
+    Normalizar { tipo: Tipo, valor: Box<ExpressaoIr> },
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
@@ -472,13 +473,21 @@ impl Lowerer {
             }
             Expressao::Membro { .. } => Tipo::Desconhecido,
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
-            Expressao::Binaria { esquerda, operador, .. } => {
+            Expressao::Binaria { esquerda, operador, direita } => {
+                let a = self.inferir_tipo_ast(esquerda);
+                let b = self.inferir_tipo_ast(direita);
                 if matches!(operador, TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor
                     | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual
                     | TipoToken::E | TipoToken::Ou) {
                     Tipo::Logico
+                } else if *operador == TipoToken::Intervalo {
+                    Tipo::Intervalo(Box::new(a))
+                } else if a == Tipo::Texto && b == Tipo::Texto && *operador == TipoToken::Mais {
+                    Tipo::Texto
+                } else if Self::numerico(&a) && Self::numerico(&b) {
+                    Self::promover_numerico(&a, &b)
                 } else {
-                    self.inferir_tipo_ast(esquerda)
+                    a
                 }
             }
             Expressao::Indexacao { alvo, indice } => match self.inferir_tipo_ast(alvo) {
@@ -581,6 +590,24 @@ impl Lowerer {
     }
 
     fn expressao(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
+        let tipo = self.inferir_tipo_ast(expressao);
+        let valor = self.expressao_sem_tipo(expressao)?;
+        if matches!(
+            tipo,
+            Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                | Tipo::Inteiro64 | Tipo::InteiroU8 | Tipo::InteiroU16
+                | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte | Tipo::Decimal32
+        ) {
+            Some(ExpressaoIr::Normalizar {
+                tipo,
+                valor: Box::new(valor),
+            })
+        } else {
+            Some(valor)
+        }
+    }
+
+    fn expressao_sem_tipo(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
         match expressao {
             Expressao::Nome(nome) => Some(ExpressaoIr::Variavel(nome.clone())),
             Expressao::Literal(valor) => Some(ExpressaoIr::Constante(literal(valor)?)),
@@ -796,6 +823,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Logico(_)) => Tipo::Logico,
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
+        ExpressaoIr::Normalizar { tipo, .. } => tipo.clone(),
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
         ExpressaoIr::ConstrucaoEstrutura { nome, .. } => Tipo::Estrutura(nome.clone()),
@@ -892,6 +920,14 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
         (Tipo::Inteiro32, ValorIr::Inteiro(v)) =>
             i32::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro32.".into()),
         (Tipo::Inteiro128, ValorIr::Inteiro(v)) => Ok(ValorIr::Inteiro(v)),
+        (Tipo::InteiroU8 | Tipo::Byte, ValorIr::Inteiro(v)) if v >= 0 =>
+            u8::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u8/byte.".into()),
+        (Tipo::InteiroU16, ValorIr::Inteiro(v)) if v >= 0 =>
+            u16::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u16.".into()),
+        (Tipo::InteiroU32, ValorIr::Inteiro(v)) if v >= 0 =>
+            u32::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u32.".into()),
+        (Tipo::InteiroU64, ValorIr::Inteiro(v)) if v >= 0 =>
+            u64::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u64.".into()),
         (Tipo::InteiroU8 | Tipo::Byte, ValorIr::InteiroSemSinal(v)) =>
             u8::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u8/byte.".into()),
         (Tipo::InteiroU16, ValorIr::InteiroSemSinal(v)) =>
@@ -1131,6 +1167,7 @@ impl Maquina<'_> {
     fn expressao(&mut self, e: &ExpressaoIr) -> Result<ValorIr, String> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
+            ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
             ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
