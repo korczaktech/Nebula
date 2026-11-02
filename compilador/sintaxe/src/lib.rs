@@ -718,6 +718,21 @@ mod testes {
     fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
 
     #[test]
+    fn nao_aceita_palavras_reservadas_como_identificadores() {
+        for codigo in [
+            "variavel estrutura = 1",
+            "funcao testar(enumeracao: inteiro) { devolver enumeracao }",
+        ] {
+            let r = analisar(&fonte(codigo));
+            assert!(
+                r.diagnosticos.iter().any(|d| d.codigo == "N2011"),
+                "{codigo}: {:?}",
+                r.diagnosticos
+            );
+        }
+    }
+
+    #[test]
     fn diagnostica_construcoes_reservadas_sem_suporte() {
         for codigo in ["estrutura Pessoa {}", "enumeracao Estado {}"] {
             let r = analisar(&fonte(codigo));
