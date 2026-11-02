@@ -98,3 +98,22 @@ fn compila_e_executa_laco_do_benchmark() {
     assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "499999500000");
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn aceita_todos_os_niveis_de_otimizacao() {
+    let origem = arquivo_temporario("otimizacao");
+    fs::write(&origem, "funcao principal(): vazio {\n    exibir(6 * 7)\n}\n").unwrap();
+    for nivel in ["-O0", "-O1", "-O2", "-O3", "-Os"] {
+        let nome = nivel.trim_start_matches('-');
+        let exe = std::env::temp_dir().join(format!("nebula-e2e-{nome}-{}.out", std::process::id()));
+        let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+            .arg("compilar").arg(&origem).arg("-o").arg(&exe).arg(nivel).output().unwrap();
+        assert!(compilacao.status.success(), "{nivel}: {}", String::from_utf8_lossy(&compilacao.stderr));
+        let execucao = Command::new(&exe).output().unwrap();
+        assert!(execucao.status.success());
+        assert_eq!(String::from_utf8_lossy(&execucao.stdout).trim(), "42");
+        let _ = fs::remove_file(exe);
+    }
+    let _ = fs::remove_file(origem);
+}
