@@ -560,7 +560,7 @@ fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
     elf[32..40].copy_from_slice(&64u64.to_le_bytes()); // e_phoff
     elf[52..54].copy_from_slice(&64u16.to_le_bytes());
     elf[54..56].copy_from_slice(&56u16.to_le_bytes());
-    elf[56..58].copy_from_slice(&(if tamanho_dados == 0 { 1u16 } else { 2u16 }).to_le_bytes());
+    elf[56..58].copy_from_slice(&(if tamanho_dados == 0 { 2u16 } else { 3u16 }).to_le_bytes());
 
     // Primeiro PT_LOAD: cabeçalhos e código, somente leitura e execução.
     let ph = 64;
@@ -586,6 +586,12 @@ fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
         elf[dados + 40..dados + 48].copy_from_slice(&(tamanho_dados as u64).to_le_bytes());
         elf[dados + 48..dados + 56].copy_from_slice(&0x1000u64.to_le_bytes());
     }
+
+    // PT_GNU_STACK: a pilha de execução não precisa ser executável.
+    let pilha = if tamanho_dados > 0 { 176 } else { 120 };
+    elf[pilha..pilha + 4].copy_from_slice(&0x6474_E551u32.to_le_bytes());
+    elf[pilha + 4..pilha + 8].copy_from_slice(&6u32.to_le_bytes()); // PF_R | PF_W, sem PF_X
+    elf[pilha + 48..pilha + 56].copy_from_slice(&16u64.to_le_bytes());
 
     elf[TAMANHO_CABECALHO..fim_texto].copy_from_slice(codigo);
     Ok(elf)
