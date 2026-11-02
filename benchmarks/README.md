@@ -1,18 +1,17 @@
 # Benchmarks iniciais da Nebula
 
-Este conjunto mede, de forma reproduzível, o tempo de execução de dois programas Nebula compilados com cada nível aceito pelo backend nativo C++17: `-O0`, `-O1`, `-O2`, `-O3` e `-Os`.
+Este conjunto mede o tempo de execução de programas compilados pelo backend nativo ELF x86-64, implementado em Rust. O backend atual não possui passes de otimização; os resultados são uma linha de base, não uma comparação de níveis de otimização.
 
 ## Requisitos
 
 - Linux x86-64.
 - Rust 1.85.0 e Cargo.
-- Um compilador C++17 acessível como `c++` (G++ ou Clang++).
 - GNU `time` em `/usr/bin/time`.
 
 ## Cargas
 
-- `loop.nbx`: soma de 50 milhões de inteiros em um laço.
-- `fibonacci.nbx`: cálculo recursivo de Fibonacci(37), exercitando chamadas e retornos.
+- `loop.nbx`: laço de 50 milhões de iterações.
+- `fibonacci.nbx`: Fibonacci(37), exercitando chamadas e recursão.
 
 ## Execução
 
@@ -22,14 +21,13 @@ Na raiz do repositório:
 bash benchmarks/executar.sh
 ```
 
-O script compila a CLI em modo release, gera um binário por carga e nível de otimização e executa cada combinação cinco vezes. A saída dos programas é descartada durante a cronometragem.
+O script compila a CLI em modo release, gera um executável para cada carga e executa cada programa cinco vezes. A saída é descartada durante a cronometragem.
 
 ## Interpretação
 
-- Compare somente resultados obtidos na mesma máquina, com o mesmo sistema, compilador C++ e condições de carga.
-- Registre CPU, sistema operacional, versão de `c++`, versão da Nebula e os tempos brutos.
+- Compare somente resultados obtidos na mesma máquina e sob condições equivalentes.
+- Registre CPU, sistema operacional, versão da Nebula e tempos brutos.
 - Repita medições e use mediana; não compare uma única execução.
-- O tempo inclui somente a execução do programa gerado, não a compilação da Nebula ou do C++.
-- Os níveis são encaminhados ao compilador C++ instalado. Resultados variam entre G++, Clang++ e suas versões.
-- Medições abaixo da resolução de `/usr/bin/time` aparecem como `0.00 s`; aumente a carga ou use um medidor de maior resolução antes de tirar conclusões.
-- Este benchmark é uma linha de base inicial, não uma comparação científica nem uma prova de superioridade sobre C/C++. Ele não valida a meta experimental de desempenho de até 3× C++.
+- O tempo medido inclui somente a execução do programa gerado.
+- O backend ainda não aplica otimizações sobre a IR. Os níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os` serão introduzidos somente após a implementação dos recursos-base e do otimizador próprio.
+- Este benchmark é uma linha de base inicial, não uma comparação científica nem uma prova de superioridade sobre C/C++.
