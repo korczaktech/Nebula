@@ -115,6 +115,10 @@ Parâmetros genéricos são variáveis de tipo com escopo limitado à declaraç�
 
 A monomorfização gera uma instância concreta para cada conjunto distinto de argumentos de tipo utilizado. A chave de instância inclui a identidade da função e todos os tipos concretos, incluindo tipos aninhados. Recursão genérica deve reutilizar a instância já registrada e não pode gerar expansão infinita por reentrada. Erros de inferência devem apontar a declaração e as ocorrências incompatíveis.
 
+### 4.1 Tipos de função
+
+A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter outros tipos de função e tipos genéricos. O retorno pode ser `vazio`. A assinatura preserva a ordem e a identidade dos tipos. O layout de um valor de função é um ponteiro de código de 8 bytes, alinhado a 8 bytes, no ABI inicial x86-64. A aceitação dessa assinatura em campos e descrições de tipos não implica suporte a valores de função de primeira classe, closures, captura de ambiente ou chamadas indiretas; essas operações permanecem indisponíveis até que a representação e o backend correspondente sejam implementados.
+
 ## 5. Conversões e promoção
 
 1. Não há coerção implícita entre tipos inteiros de larguras diferentes em atribuições, parâmetros ou retornos.
