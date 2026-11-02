@@ -17,10 +17,6 @@ const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 /// O arquivo é construído diretamente em Rust. Não gera C/C++, assembly textual,
 /// objeto intermediário nem invoca linker ou compilador externo.
 pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
-    if !programa.modulos.is_empty() {
-        return Err("O backend x86-64 ainda não oferece ligação de módulos.".into());
-    }
-
     let mut globais = HashMap::new();
     for instrucao in &programa.instrucoes {
         if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
@@ -413,7 +409,31 @@ impl Emissor {
                 self.chamadas.push((posicao, nome.clone()));
                 if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); }
             }
-            ExpressaoIr::ChamadaQualificada { .. } => return Err("Chamadas de módulos ainda não são suportadas pelo backend nativo.".into()),
+            ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
+                let nome_completo = format!("{modulo}::{nome}");
+                if argumentos.len() > 6 {
+                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
+                }
+                for argumento in argumentos {
+                    self.expressao(argumento)?;
+                    self.push_rax();
+                }
+                let registradores = [7u8, 6, 2, 1, 8, 9];
+                for registrador in registradores.iter().take(argumentos.len()).rev() {
+                    self.pop_rax();
+                    self.mover_rax_registrador(*registrador);
+                }
+                if self.pilha % 2 == 1 {
+                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
+                }
+                self.codigo.push(0xE8);
+                let posicao = self.codigo.len();
+                self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+                self.chamadas.push((posicao, nome_completo));
+                if self.pilha % 2 == 1 {
+                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
+                }
+            }
         }
         Ok(())
     }
