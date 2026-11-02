@@ -63,6 +63,7 @@ A Fase 3 entrega análise semântica, resolução explícita de módulos, tipage
 - `N3025`: alias de tipo fora do escopo de arquivo.
 - `N3026`: inclusão de módulo fora do escopo de arquivo.
 - `N3027`: lista vazia sem contexto de tipo para inferência.
+- `N3028`: literal numérico fora do intervalo representável.
 
 ## Regra de encerramento
 
