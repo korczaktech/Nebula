@@ -113,9 +113,6 @@ fn rejeita_recurso_que_depende_do_runtime_adiado() {
 
 #[test]
 fn compila_instrucoes_globais_sem_funcao_principal() {
-    let resultado = compilar_e_executar(
-        "globais",
-        "variavel total: inteiro = 42",
-    );
+    let resultado = compilar_e_executar("globais", "variavel total: inteiro = 42");
     assert_eq!(resultado.status.code(), Some(0));
 }
