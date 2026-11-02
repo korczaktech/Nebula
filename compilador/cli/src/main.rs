@@ -76,7 +76,6 @@ fn main() {
     }
 }
 
-
 #[rustfmt::skip]
 fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     let bytes = std::fs::read(caminho).map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
