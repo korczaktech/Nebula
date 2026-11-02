@@ -502,7 +502,17 @@ impl Parser {
             self.esperar(TipoToken::FechaColchete, "Esperado ']' após tipo de lista.");
             return Some(format!("[{interno}]"));
         }
-        self.caminho_qualificado("Esperado nome de tipo.")
+        let base = self.caminho_qualificado("Esperado nome de tipo.")?;
+        if !self.corresponde(TipoToken::Menor) {
+            return Some(base);
+        }
+        let mut argumentos = Vec::new();
+        loop {
+            argumentos.push(self.caminho_tipo()?);
+            if !self.corresponde(TipoToken::Virgula) { break; }
+        }
+        self.esperar(TipoToken::Maior, "Esperado '>' após argumentos genéricos do tipo.");
+        Some(format!("{base}<{}>", argumentos.join(",")))
     }
     fn caminho_modulo(&mut self) -> Option<String> {
         self.caminho_qualificado("Esperado nome de módulo.")
