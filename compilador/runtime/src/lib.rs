@@ -158,6 +158,8 @@ pub enum ErroRuntime {
     ResultadoNaoFinito,
     /// Falha em uma operação de entrada/saída.
     FalhaIo(String),
+    /// O relógio do sistema não está disponível antes da época Unix.
+    RelogioIndisponivel,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -559,6 +561,19 @@ pub fn criar_diretorio(caminho: &str) -> Resultado<()> {
     std::fs::create_dir_all(caminho).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
 }
 
+/// Retorna o tempo Unix atual em milissegundos.
+pub fn tempo_unix_milisegundos() -> Resultado<u128> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duracao| duracao.as_millis())
+        .map_err(|_| ErroRuntime::RelogioIndisponivel)
+}
+
+/// Suspende a thread atual pelo número de milissegundos informado.
+pub fn dormir_milisegundos(milisegundos: u64) {
+    std::thread::sleep(std::time::Duration::from_millis(milisegundos));
+}
+
 /// Executa uma operação inteira com overflow e divisão por zero verificados.
 pub fn operar_inteiro(operacao: OperacaoInteira, esquerda: i128, direita: i128) -> Resultado<i128> {
     match operacao {
@@ -701,6 +716,12 @@ mod testes {
             operar_decimal(OperacaoDecimal::Potencia, -1.0, 0.5),
             Err(ErroRuntime::ResultadoNaoFinito)
         );
+    }
+
+    #[test]
+    fn oferece_tempo_unix_e_suspensao() {
+        assert!(tempo_unix_milisegundos().unwrap() > 0);
+        dormir_milisegundos(0);
     }
 
     #[test]
