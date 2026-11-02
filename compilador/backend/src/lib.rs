@@ -870,10 +870,10 @@ mod testes {
         }
         emissor.codigo.clear();
         emissor.armazenar_registrador(8, -8);
-        assert_eq!(emissor.codigo, [0x4C, 0x89, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
+        assert_eq!(emissor.codigo.as_slice(), &[0x4C, 0x89, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
         emissor.codigo.clear();
         emissor.armazenar_registrador(9, -16);
-        assert_eq!(emissor.codigo, [0x4C, 0x89, 0x8D, 0xF0, 0xFF, 0xFF, 0xFF]);
+        assert_eq!(emissor.codigo.as_slice(), &[0x4C, 0x89, 0x8D, 0xF0, 0xFF, 0xFF, 0xFF]);
     }
 
     #[test]
@@ -911,12 +911,14 @@ mod testes {
         let mut emissor = Emissor::novo(HashMap::new());
         let condicional = emissor.emitir_jcc(0x84);
         assert_eq!(&emissor.codigo, &[0x0F, 0x84, 0, 0, 0, 0]);
-        emissor.aplicar_salto(condicional, emissor.codigo.len());
+        let destino_condicional = emissor.codigo.len();
+        emissor.aplicar_salto(condicional, destino_condicional);
         assert_eq!(&emissor.codigo, &[0x0F, 0x84, 0, 0, 0, 0]);
         emissor.codigo.clear();
         let incondicional = emissor.emitir_jmp();
         assert_eq!(&emissor.codigo, &[0xE9, 0, 0, 0, 0]);
-        emissor.aplicar_salto(incondicional, emissor.codigo.len());
+        let destino_incondicional = emissor.codigo.len();
+        emissor.aplicar_salto(incondicional, destino_incondicional);
         assert_eq!(&emissor.codigo, &[0xE9, 0, 0, 0, 0]);
     }
 
