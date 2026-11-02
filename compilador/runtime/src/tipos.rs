@@ -168,7 +168,9 @@ pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
                     return Err(format!("A estrutura '{nome}' possui campo sem nome."));
                 }
                 if !nomes.insert(campo) {
-                    return Err(format!("A estrutura '{nome}' possui campos duplicados: {campo}."));
+                    return Err(format!(
+                        "A estrutura '{nome}' possui campos duplicados: {campo}."
+                    ));
                 }
                 validar_tipo(tipo)?;
             }
@@ -555,7 +557,11 @@ mod testes {
     #[test]
     fn rejeita_larguras_invalidas_em_tipos_aninhados() {
         let tipo = TipoRuntime::Lista(Box::new(TipoRuntime::Decimal { bits: 16 }));
-        assert!(validar_tipo(&tipo).unwrap_err().contains("Largura decimal inválida"));
+        assert!(
+            validar_tipo(&tipo)
+                .unwrap_err()
+                .contains("Largura decimal inválida")
+        );
         assert!(calcular_layout(&tipo).is_err());
     }
 
@@ -579,8 +585,14 @@ mod testes {
         let variantes_duplicadas = TipoRuntime::Enumeracao {
             nome: "Estado".into(),
             variantes: vec![
-                VarianteRuntime { nome: "Ativo".into(), payload: vec![] },
-                VarianteRuntime { nome: "Ativo".into(), payload: vec![] },
+                VarianteRuntime {
+                    nome: "Ativo".into(),
+                    payload: vec![],
+                },
+                VarianteRuntime {
+                    nome: "Ativo".into(),
+                    payload: vec![],
+                },
             ],
         };
         assert!(validar_tipo(&variantes_duplicadas).is_err());
@@ -588,14 +600,20 @@ mod testes {
 
     #[test]
     fn rejeita_enumeracao_vazia_e_nome_nominal_vazio() {
-        assert!(validar_tipo(&TipoRuntime::Enumeracao {
-            nome: "Estado".into(),
-            variantes: vec![],
-        }).is_err());
-        assert!(validar_tipo(&TipoRuntime::Estrutura {
-            nome: " ".into(),
-            campos: vec![],
-        }).is_err());
+        assert!(
+            validar_tipo(&TipoRuntime::Enumeracao {
+                nome: "Estado".into(),
+                variantes: vec![],
+            })
+            .is_err()
+        );
+        assert!(
+            validar_tipo(&TipoRuntime::Estrutura {
+                nome: " ".into(),
+                campos: vec![],
+            })
+            .is_err()
+        );
     }
 
     #[test]
