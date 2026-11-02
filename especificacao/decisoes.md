@@ -57,7 +57,7 @@ Resultados de desempenho só podem ser anunciados com benchmarks reproduzíveis 
 5. Tipos algébricos, genéricos, opcionais e inferência avançada.
 6. Modelo de concorrência, tarefas e atomics.
 7. Sistema de pacotes, resolução de dependências e versionamento.
-8. Backend nativo e estratégia de ligação.
+8. Estratégia geral de ligação, símbolos e relocação para alvos futuros além do Linux x86-64 ELF64 inicial.
 9. Escopo e momento da autocompilação.
 10. Licença de distribuição do projeto.
 
