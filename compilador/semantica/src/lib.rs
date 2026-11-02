@@ -328,7 +328,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn binaria(&mut self, a: &Tipo, op: TipoToken, b: &Tipo) -> Tipo {
-        use TipoToken::*;
+        use TipoToken::{Diferente, Divide, E, Igual, Intervalo, Maior, MaiorIgual, Menor, MenorIgual, Menos, Mais, Ou, Potencia, Resto, Vezes};
         match op {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Mais | Menos | Vezes | Divide | Resto | Potencia => {
