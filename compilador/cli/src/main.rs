@@ -4,6 +4,7 @@
 
 use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
+use nebula_semantica::analisar_semantica;
 use std::path::Path;
 
 fn main() {
@@ -14,6 +15,17 @@ fn main() {
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
+        Some("analisar") => {
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula analisar <arquivo.nbx>");
+                std::process::exit(2);
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: o comando 'analisar' aceita somente um arquivo.");
+                std::process::exit(2);
+            }
+            analisar_arquivo(Path::new(&caminho));
+        }
         Some("verificar" | "check") => {
             let Some(caminho) = argumentos.next() else {
                 eprintln!("Uso: nebula verificar <arquivo.nbx>");
@@ -43,8 +55,42 @@ fn ajuda() {
     println!("  ajuda                 Exibe esta mensagem");
     println!("  versao                Exibe a versão da ferramenta");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
+    println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!();
     println!("A verificação não realiza análise semântica nem gera executáveis.");
+}
+
+fn analisar_arquivo(caminho: &Path) {
+    let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
+        eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+        std::process::exit(1);
+    });
+    let conteudo = String::from_utf8(bytes).unwrap_or_else(|erro| {
+        eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
+        std::process::exit(1);
+    });
+    let fonte = ArquivoFonte::novo(caminho, conteudo);
+    let sintaxe = analisar(&fonte);
+    if !sintaxe.diagnosticos.is_empty() {
+        for diagnostico in &sintaxe.diagnosticos {
+            let local = diagnostico.intervalo.and_then(|i| fonte.linha_coluna(i.inicio));
+            if let Some((linha, coluna)) = local {
+                eprintln!("{} {}:{}:{} — {}", diagnostico.codigo, caminho.display(), linha, coluna, diagnostico.mensagem);
+            } else {
+                eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
+            }
+        }
+        std::process::exit(1);
+    }
+    let resultado = analisar_semantica(&sintaxe.programa);
+    for diagnostico in &resultado.diagnosticos {
+        eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
+    }
+    if resultado.diagnosticos.is_empty() {
+        println!("Arquivo válido semanticamente: {}", caminho.display());
+    } else {
+        std::process::exit(1);
+    }
 }
 
 fn verificar(caminho: &Path) {
