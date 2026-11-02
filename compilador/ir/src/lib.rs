@@ -705,30 +705,18 @@ impl Maquina<'_> {
                     return Ok(ValorIr::Texto(texto));
                 }
                 let funcao = self.programa.funcoes.get(nome).cloned().ok_or_else(|| format!("Função '{nome}' não encontrada na IR."))?;
-                if funcao.parametros.len() != valores.len() { return Err(format!("Quantidade incorreta de argumentos para '{nome}'.")); }
-                if self.profundidade_chamada >= 32 {
-                    return Err("Limite de profundidade de chamadas da IR excedido.".into());
-                }
-                self.profundidade_chamada += 1;
-                self.memoria.abrir_escopo();
-                let fluxo = (|| {
-                    for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
-                        self.memoria
-                            .declarar(parametro.clone(), converter_para_runtime(valor), true)
-                            .map_err(formatar_erro_runtime)?;
-                    }
-                    self.bloco(&funcao.corpo)
-                })();
-                let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
-                self.profundidade_chamada -= 1;
-                let fluxo = match (fluxo, fechamento) {
-                    (Err(erro), _) => return Err(erro),
-                    (Ok(_), Err(erro)) => return Err(erro),
-                    (Ok(fluxo), Ok(())) => fluxo,
-                };
-                match fluxo { Fluxo::Retorno(v) => Ok(v), _ => Ok(ValorIr::Vazio) }
+                self.chamar_funcao(nome, funcao, valores)
             }
-            ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => Err(format!("A função '{modulo}::{nome}' precisa de uma implementação de módulo em tempo de execução.")),
+            ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
+                let valores = argumentos
+                    .iter()
+                    .map(|argumento| self.expressao(argumento))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let chave = format!("{modulo}::{nome}");
+                let funcao = self.programa.funcoes.get(&chave).cloned()
+                    .ok_or_else(|| format!("Função qualificada '{chave}' não foi ligada ao runtime."))?;
+                self.chamar_funcao(&chave, funcao, valores)
+            }
             ExpressaoIr::Indexacao { alvo, indice } => {
                 let alvo = self.expressao(alvo)?;
                 let indice = self.expressao(indice)?;
@@ -736,6 +724,41 @@ impl Maquina<'_> {
                     usize::try_from(i).ok().and_then(|i| valores.get(i).cloned()).ok_or_else(|| "Índice fora dos limites da lista.".into())
                 } else { Err("Indexação exige lista e índice inteiro.".into()) }
             }
+        }
+    }
+
+    fn chamar_funcao(
+        &mut self,
+        nome: &str,
+        funcao: FuncaoIr,
+        valores: Vec<ValorIr>,
+    ) -> Result<ValorIr, String> {
+        if funcao.parametros.len() != valores.len() {
+            return Err(format!("Quantidade incorreta de argumentos para '{nome}'."));
+        }
+        if self.profundidade_chamada >= 32 {
+            return Err("Limite de profundidade de chamadas da IR excedido.".into());
+        }
+        self.profundidade_chamada += 1;
+        self.memoria.abrir_escopo();
+        let fluxo = (|| {
+            for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
+                self.memoria
+                    .declarar(parametro.clone(), converter_para_runtime(valor), true)
+                    .map_err(formatar_erro_runtime)?;
+            }
+            self.bloco(&funcao.corpo)
+        })();
+        let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+        self.profundidade_chamada -= 1;
+        let fluxo = match (fluxo, fechamento) {
+            (Err(erro), _) => return Err(erro),
+            (Ok(_), Err(erro)) => return Err(erro),
+            (Ok(fluxo), Ok(())) => fluxo,
+        };
+        match fluxo {
+            Fluxo::Retorno(valor) => Ok(valor),
+            _ => Ok(ValorIr::Vazio),
         }
     }
 
