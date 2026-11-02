@@ -302,7 +302,6 @@ fn decimal(valor: f64) -> Option<ValorIr> {
 #[cfg(test)]
 mod testes {
     use super::*;
-    use crate::FuncaoIr;
     use std::collections::HashMap;
 
     fn programa(expressao: ExpressaoIr) -> ProgramaIr {
