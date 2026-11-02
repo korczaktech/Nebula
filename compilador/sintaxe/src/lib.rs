@@ -430,8 +430,16 @@ impl Parser {
         } else { self.erro_atual("N2007", "Esperado bloco com '{' ou quebra de linha seguida de 'fim'."); None }
     }
     fn caminho_tipo(&mut self) -> Option<String> {
+        if self.corresponde(TipoToken::AbreColchete) {
+            let interno = self.caminho_tipo()?;
+            self.esperar(TipoToken::FechaColchete, "Esperado ']' após tipo de lista.");
+            return Some(format!("[{interno}]"));
+        }
         let mut nome = self.consumir_nome("Esperado nome de tipo ou módulo.")?;
-        while self.corresponde(TipoToken::Escopo) { nome.push_str("::"); nome.push_str(&self.consumir_nome("Esperado nome após '::'.")?); }
+        while self.corresponde(TipoToken::Escopo) {
+            nome.push_str("::");
+            nome.push_str(&self.consumir_nome("Esperado nome após '::'.")?);
+        }
         Some(nome)
     }
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
@@ -440,7 +448,7 @@ impl Parser {
                 let op = self.avancar().tipo; let valor = self.expressao(12)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
-            TipoToken::Identificador => Expressao::Nome(self.avancar().lexema),
+            TipoToken::Identificador => Expressao::Nome(self.avancar().lexema.nfc().collect()),
             TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo => Expressao::Literal(self.avancar().lexema),
             TipoToken::AbrePar => { self.avancar(); let e = self.expressao(0)?; self.esperar(TipoToken::FechaPar, "Esperado ')' após expressão."); e }
             TipoToken::AbreColchete => {
@@ -453,6 +461,15 @@ impl Parser {
             _ => { self.erro_atual("N2008", "Esperada uma expressão."); return None; }
         };
         loop {
+            if self.verifica(TipoToken::NovaLinha)
+                && self.tokens.get(self.atual + 1).is_some_and(|t| matches!(t.tipo,
+                    TipoToken::Atribui | TipoToken::Ou | TipoToken::E | TipoToken::Igual
+                    | TipoToken::Diferente | TipoToken::Menor | TipoToken::MenorIgual
+                    | TipoToken::Maior | TipoToken::MaiorIgual | TipoToken::Intervalo
+                    | TipoToken::Mais | TipoToken::Menos | TipoToken::Vezes
+                    | TipoToken::Divide | TipoToken::Resto | TipoToken::Potencia)) {
+                self.avancar();
+            }
             let tipo = self.tipo();
             if tipo == TipoToken::AbrePar && 14 >= minimo {
                 self.avancar(); let mut args = Vec::new();
@@ -479,6 +496,7 @@ impl Parser {
             if precedencia < minimo { break; }
             let op = self.avancar().tipo;
             let proximo = if direita { precedencia } else { precedencia + 1 };
+            self.pular_novas_linhas();
             let valor = self.expressao(proximo)?;
             esquerda = if op == TipoToken::Atribui {
                 Expressao::Atribuicao { destino: Box::new(esquerda), valor: Box::new(valor) }
