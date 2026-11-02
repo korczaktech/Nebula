@@ -827,6 +827,21 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_basica_de_arquivos() {
+        let caminho = std::env::temp_dir()
+            .join(format!("nebula-ir-{}.txt", std::process::id()))
+            .to_string_lossy()
+            .into_owned();
+        let codigo = format!(
+            "escrever_arquivo(\"{caminho}\", \"Nebula\")\nexibir(ler_arquivo(\"{caminho}\"))\nexibir(existe_arquivo(\"{caminho}\"))"
+        );
+        let ir = compilar(&codigo);
+        let resultado = executar(&ir, 1000).expect("operações de arquivo válidas");
+        assert_eq!(resultado.saida, vec!["Nebula", "verdadeiro"]);
+        std::fs::remove_file(caminho).unwrap();
+    }
+
+    #[test]
     fn executa_expressao_e_chamada_exibir() {
         let ir = compilar("variavel total = 1 + 2\nexibir(total)");
         let r = executar(&ir, 100).expect("execução válida");
