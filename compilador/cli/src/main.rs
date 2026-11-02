@@ -806,8 +806,13 @@ mod testes {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
     fn compila_e_executa_bloco_otimizado_em_o2() {
-        let origem = std::env::temp_dir().join(format!("nebula-o2-{}.nbx", std::process::id()));
-        let saida = std::env::temp_dir().join(format!("nebula-o2-{}", std::process::id()));
+        let identificador = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("relógio do sistema")
+            .as_nanos();
+        let prefixo = format!("nebula-o2-{}-{identificador}", std::process::id());
+        let origem = std::env::temp_dir().join(format!("{prefixo}.nbx"));
+        let saida = std::env::temp_dir().join(&prefixo);
         std::fs::write(
             &origem,
             "funcao principal(): inteiro { quando verdadeiro { devolver 7 } senao { devolver 9 } }",
