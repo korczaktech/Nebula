@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 
 use nebula_diagnosticos::{Diagnostico, Severidade};
-use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken, Visibilidade};
+use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use std::collections::{HashMap, HashSet};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
@@ -89,22 +89,27 @@ impl<'a> Analisador<'a> {
 
     fn predeclarar(&mut self, programa: &Programa) {
         for item in &programa.itens {
-            match item {
-                NoAst::Funcao { nome, parametros, retorno, .. } => {
-                    let tipos = parametros.iter().map(|(_, t)| self.resolver_tipo(t)).collect();
-                    let retorno = retorno.as_deref().map_or(Tipo::Vazio, |t| self.resolver_tipo(t));
-                    if self.funcoes.contains_key(nome) {
-                        self.erro("N3001", format!("A função '{nome}' foi declarada mais de uma vez."));
-                    } else {
-                        self.funcoes.insert(nome.clone(), Funcao { parametros: tipos, retorno });
-                    }
+            if let NoAst::Tipo { nome, destino } = item {
+                if self.aliases.insert(nome.clone(), destino.clone()).is_some() {
+                    self.erro("N3002", format!("O tipo '{nome}' foi declarado mais de uma vez."));
                 }
-                NoAst::Tipo { nome, destino } => {
-                    if self.aliases.insert(nome.clone(), destino.clone()).is_some() {
-                        self.erro("N3002", format!("O tipo '{nome}' foi declarado mais de uma vez."));
-                    }
+            }
+        }
+        let aliases: Vec<String> = self.aliases.keys().cloned().collect();
+        for nome in aliases {
+            if self.resolver_tipo(&nome) == Tipo::Desconhecido {
+                self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
+            }
+        }
+        for item in &programa.itens {
+            if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
+                let tipos = parametros.iter().map(|(_, t)| self.resolver_tipo(t)).collect();
+                let retorno = retorno.as_deref().map_or(Tipo::Vazio, |t| self.resolver_tipo(t));
+                if self.funcoes.contains_key(nome) {
+                    self.erro("N3001", format!("A função '{nome}' foi declarada mais de uma vez."));
+                } else {
+                    self.funcoes.insert(nome.clone(), Funcao { parametros: tipos, retorno });
                 }
-                _ => {}
             }
         }
         let aliases: Vec<String> = self.aliases.keys().cloned().collect();
