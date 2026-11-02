@@ -432,6 +432,28 @@ impl<'a> Analisador<'a> {
                         self.expressao(&argumentos[0]);
                         return Tipo::Texto;
                     }
+                    if nome == "ler_arquivo" || nome == "existe_arquivo" || nome == "criar_diretorio" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige um caminho de texto."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let caminho = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&caminho, &Tipo::Texto, "caminho de arquivo");
+                        return if nome == "ler_arquivo" { Tipo::Texto } else { Tipo::Logico };
+                    }
+                    if nome == "escrever_arquivo" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", "'escrever_arquivo' exige caminho e conteúdo.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let caminho = self.expressao(&argumentos[0]);
+                        let conteudo = self.expressao(&argumentos[1]);
+                        self.exigir_tipo(&caminho, &Tipo::Texto, "caminho de arquivo");
+                        self.exigir_tipo(&conteudo, &Tipo::Texto, "conteúdo de arquivo");
+                        return Tipo::Logico;
+                    }
                     if nome == "inteiro" || nome == "decimal" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
