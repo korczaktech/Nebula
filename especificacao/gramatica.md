@@ -46,9 +46,7 @@ lista_parametros     = parametro, { ",", parametro } ;
 parametro            = IDENTIFICADOR, ":", tipo ;
 
 declaracao_tipo      = "tipo", IDENTIFICADOR, "=", tipo ;
-tipo                 = caminho_tipo | "[", tipo, "]" | "?", tipo
-                     | "(", [ lista_tipos ], ")", "->", tipo ;
-lista_tipos          = tipo, { ",", tipo } ;
+tipo                 = caminho_tipo | "[", tipo, "]" ;
 caminho_tipo         = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
 
 declaracao_modulo    = "incluir", caminho_modulo,
@@ -80,7 +78,7 @@ instrucao            = declaracao_variavel
 instrucao_quando     = "quando", condicao, bloco,
                        [ { NOVA_LINHA }, "senao",
                          ( bloco | instrucao_quando ) ] ;
-condicao             = expressao | "(", expressao, ")" ;
+condicao             = expressao ;
 
 instrucao_enquanto   = "enquanto", condicao, bloco ;
 instrucao_para       = "para", "(",
@@ -115,7 +113,7 @@ posfixa             = primaria, { chamada | indexacao | acesso_membro } ;
 chamada             = "(", [ lista_argumentos ], ")" ;
 lista_argumentos    = expressao, { ",", expressao } ;
 indexacao           = "[", expressao, "]" ;
-acesso_membro       = ".", IDENTIFICADOR | "::", IDENTIFICADOR ;
+acesso_membro       = ( "." | "::" ), IDENTIFICADOR ;
 primaria             = IDENTIFICADOR | literal | "(", expressao, ")"
                      | lista_literal ;
 lista_literal       = "[", [ lista_argumentos ], "]" ;
