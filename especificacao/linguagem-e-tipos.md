@@ -1,0 +1,132 @@
+# Especificação normativa da linguagem e do sistema de tipos Nebula
+
+**Status:** especificação-alvo da Fase 5; a conformidade da implementação deve ser demonstrada separadamente pelos testes. Este documento define contratos de linguagem. Uma regra descrita aqui não deve ser anunciada como implementada até existir suporte em Lexer/Parser, AST, análise semântica, IR, execução e backends declarados.
+
+## 1. Princípios
+
+1. A Nebula é estaticamente tipada. O tipo de cada expressão deve ser determinado em compilação, exceto quando uma operação explicitamente dinâmica fizer parte de uma biblioteca futura.
+2. A inferência é local, determinística e não altera o tipo de uma variável depois da declaração.
+3. Não existem conversões implícitas entre texto, caractere, lógico e tipos numéricos.
+4. Uma conversão numérica que possa perder informação deve ser explícita ou rejeitada.
+5. Um programa que viole uma regra estática não pode ser executado pelo interpretador nem gerar executável.
+6. O interpretador e todos os backends devem observar a mesma semântica definida neste documento.
+7. O compilador não pode aceitar silenciosamente uma construção que o backend selecionado não consegue representar.
+
+## 2. Tipos primitivos
+
+Os tipos primitivos planejados são:
+
+| Família | Tipos | Regra |
+|---|---|---|
+| Ausência de valor | `vazio` | Só pode ser usado como retorno sem valor e em posições expressamente permitidas |
+| Lógico | `logico` | Valores `verdadeiro` e `falso` |
+| Inteiros com sinal | `inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128` | Complemento de dois; faixas determinadas pela largura |
+| Inteiro padrão | `inteiro` | Alias semântico de inteiro com sinal de 64 bits no alvo x86-64; não é dependente da largura da máquina hospedeira |
+| Inteiros sem sinal | `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128` | Faixa de zero a 2^N−1; não admite valor negativo |
+| Ponto flutuante | `decimal32`, `decimal64` | IEEE 754 binary32 e binary64, respectivamente |
+| Decimal padrão | `decimal` | Alias semântico de `decimal64` |
+| Byte | `byte` | Unidade sem sinal de 8 bits; conversão para inteiro deve ser explícita |
+| Caractere | `caractere` | Um escalar Unicode válido, não um byte |
+| Texto | `texto` | Sequência UTF-8 válida; indexação por caractere deve respeitar escalares Unicode |
+
+A faixa de um inteiro com sinal de N bits é −2^(N−1) até 2^(N−1)−1. A faixa sem sinal é 0 até 2^N−1. Literais inteiros são analisados sem truncamento; o compilador deve rejeitar valores que não caibam no tipo de destino.
+
+### 2.1 Ponto flutuante
+
+Operações de ponto flutuante seguem IEEE 754. NaN, infinito positivo, infinito negativo, zero positivo e zero negativo são valores distintos conforme IEEE 754. Comparações ordenadas com NaN são falsas; igualdade com NaN é falsa; desigualdade com NaN é verdadeira. Conversões de ponto flutuante para inteiro exigem conversão explícita e devem verificar finitude e faixa antes de converter.
+
+### 2.2 Overflow e divisão
+
+Operações inteiras verificadas não podem produzir wraparound silencioso. Overflow, divisão por zero e resto por zero devem produzir erro de execução definido pela linguagem. Uma operação wrapping, saturating ou unchecked só poderá existir com nome e contrato explícitos na biblioteca padrão. Divisão inteira trunca em direção a zero. O caso mínimo dividido por −1 é overflow.
+
+## 3. Tipos compostos
+
+### 3.1 Listas e vetores
+
+A sintaxe de tipo de lista é `[T]`. Todos os elementos de uma lista possuem exatamente o mesmo tipo. Listas vazias exigem anotação ou contexto de tipo inequívoco. O acesso por índice é verificado em execução; índices negativos e índices fora do limite produzem erro definido, nunca acesso inválido à memória.
+
+### 3.2 Tuplas
+
+Uma tupla é heterogênea e posicional. A sintaxe de valor é `(a, b)`; tupla unitária exige vírgula (`(a,)`); `()` representa a tupla vazia. O tipo preserva ordem e tipo de cada posição. Um acesso por índice literal válido pode ser resolvido estaticamente; acesso dinâmico deve preservar verificação de limites em execução.
+
+### 3.3 Estruturas
+
+Forma normativa planejada:
+
+```nebula
+estrutura Pessoa {
+    nome: texto
+    idade: inteiro
+}
+
+variavel pessoa: Pessoa = Pessoa {
+    nome: "Ana"
+    idade: 30
+}
+```
+
+Cada campo tem nome único e tipo declarado. A construção exige todos os campos obrigatórios exatamente uma vez; campos desconhecidos, ausentes ou duplicados são erros. Acesso é feito por membro (`pessoa.nome`). A ordem declarada dos campos determina a ordem lógica, mas não autoriza assumir layout de memória sem consultar a regra de ABI do alvo. Estruturas são tipos nominais: dois tipos com campos iguais, mas nomes diferentes, não são intercambiáveis implicitamente.
+
+### 3.4 Enumerações
+
+Forma normativa planejada:
+
+```nebula
+enumeracao Estado {
+    Inativo
+    Ativo
+    Falha(texto)
+}
+```
+
+Uma enumeração é uma união discriminada. Cada variante tem discriminante único e pode carregar zero ou mais valores tipados. A construção deve nomear uma variante existente e fornecer os argumentos exigidos. A inspeção de variantes deve ser exaustiva; qualquer padrão não coberto gera diagnóstico estático. O compilador não pode tratar uma enumeração como inteiro sem conversão explícita.
+
+### 3.5 Opcionais e resultados
+
+- `Opcional<T>` representa presença ou ausência de um valor: `Algum(valor)` e `Nenhum`.
+- `Resultado<T, E>` representa sucesso ou falha: `Sucesso(valor)` e `Falha(erro)`.
+- Os parâmetros genéricos devem ser preservados na construção, inferência, retorno, armazenamento e chamada.
+- A extração de um valor exige correspondência de padrão ou operação explícita que trate o caso ausente/falho.
+- A propagação antecipada de falha só pode ser introduzida por sintaxe documentada e deve preservar o tipo de erro declarado.
+- Não existe conversão implícita entre `Opcional<T>` e `Resultado<T,E>`.
+
+## 4. Funções e genéricos
+
+Uma função possui nome, parâmetros tipados, retorno declarado ou inferido quando permitido, e corpo. Tipos de função são definidos pela sequência ordenada dos tipos dos parâmetros e pelo tipo de retorno. A aridade e cada tipo de argumento são verificados antes da execução.
+
+Parâmetros genéricos são variáveis de tipo com escopo limitado à declaração. A inferência usa unificação estrutural determinística. Um mesmo parâmetro genérico deve receber o mesmo tipo em todas as ocorrências da instância. Quando não houver informação suficiente, o compilador deve solicitar anotação em vez de escolher um tipo arbitrário.
+
+A monomorfização gera uma instância concreta para cada conjunto distinto de argumentos de tipo utilizado. A chave de instância inclui a identidade da função e todos os tipos concretos, incluindo tipos aninhados. Recursão genérica deve reutilizar a instância já registrada e não pode gerar expansão infinita por reentrada. Erros de inferência devem apontar a declaração e as ocorrências incompatíveis.
+
+## 5. Conversões e promoção
+
+1. Não há coerção implícita entre tipos inteiros de larguras diferentes em atribuições, parâmetros ou retornos.
+2. Literais numéricos sem contexto recebem o tipo padrão da família; o contexto pode selecionar um tipo de largura explícita apenas quando o valor couber exatamente.
+3. A promoção de operandos em expressões aritméticas deve ser determinística e documentada; não pode depender da arquitetura hospedeira.
+4. Operações entre inteiros com e sem sinal não podem ser promovidas silenciosamente se isso alterar a faixa representável.
+5. Conversões explícitas verificam faixa. Se o valor não couber, a conversão falha de forma definida.
+6. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial.
+
+## 6. Igualdade, cópia e movimentação
+
+Igualdade só é válida para tipos que implementem igualdade. A igualdade de tuplas e estruturas é componente a componente quando todos os componentes implementam igualdade. A igualdade de enumerações exige mesma variante e igualdade de todos os payloads. Listas comparam comprimento e elementos na ordem.
+
+Tipos escalares primitivos são copiáveis. Tipos compostos não são automaticamente copiáveis: sua política depende da implementação explícita de cópia ou movimentação. O compilador deve rejeitar uso após movimentação e não pode inferir cópia apenas porque o valor cabe em um registrador.
+
+## 7. Layout e ABI
+
+O layout de memória é definido por alvo e versão de ABI. Cada tipo deve expor tamanho, alinhamento e representação. Campos de estruturas seguem alinhamento natural do tipo, com padding determinístico; o tamanho final é múltiplo do alinhamento da estrutura. Tuplas seguem regra equivalente à de estruturas anônimas. Enumerações usam discriminante e payload com representação documentada, incluindo tamanho e alinhamento. O layout não pode depender do compilador Rust que hospeda o compilador Nebula.
+
+A ABI de funções deve definir convenção de chamada, passagem de escalares, agregados, retorno, preservação de registradores, alinhamento de pilha e símbolos. Um backend sem suporte a uma representação ou ABI deve rejeitar o programa com diagnóstico, nunca reinterpretar agregado como inteiro de 64 bits.
+
+## 8. Diagnósticos
+
+Os diagnósticos devem ter código estável, severidade, mensagem, intervalo de fonte e, quando possível, indicação da declaração relacionada. Devem distinguir pelo menos: nome/tipo desconhecido, tipos incompatíveis, aridade incorreta, inferência ambígua, literal fora da faixa, conversão inválida, campo ausente/duplicado/desconhecido, variante inexistente, padrão não exaustivo, acesso inválido e recurso não suportado pelo backend.
+
+## 9. Precedência e avaliação
+
+A precedência é definida pela gramática e deve ser idêntica no interpretador e nos backends. A avaliação de chamadas e operadores binários é da esquerda para a direita, salvo quando a gramática declarar associatividade à direita (por exemplo, potência). Curto-circuito lógico não avalia o operando direito quando o resultado já é determinado pelo esquerdo. A ordem de avaliação não pode ser alterada por otimizações quando houver efeitos observáveis.
+
+## 10. Matriz de conformidade da implementação
+
+A especificação é normativa, mas não afirma que todos os recursos já estão implementados. A implementação só é conforme quando cada recurso percorre Lexer/Parser, AST, análise semântica, IR, interpretador, backend aplicável e testes de conformidade. O status real deve permanecer registrado em `criterios-fase-5.md`. Em particular, estruturas, enumerações, opcionais/resultados executáveis, inteiros sem sinal, ABI de agregados e suporte nativo completo não podem ser marcados como concluídos sem testes executáveis em cada camada aplicável.
