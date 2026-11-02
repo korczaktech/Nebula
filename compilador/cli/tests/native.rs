@@ -93,6 +93,33 @@ fn compila_divisao_resto_e_operacoes_com_sinal() {
 }
 
 #[test]
+fn compila_potencia_inteira_por_quadratura() {
+    let resultado = compilar_e_executar(
+        "potencia",
+        "funcao principal(): inteiro { devolver 3 ** 3 }",
+    );
+    assert_eq!(resultado.status.code(), Some(27));
+}
+
+#[test]
+fn divisao_por_zero_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "divisao-zero",
+        "funcao principal(): inteiro { devolver 42 / 0 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
+fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "expoente-negativo",
+        "funcao principal(): inteiro { devolver 2 ** -1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
 fn compila_condicionais_e_comparacoes() {
     let resultado = compilar_e_executar(
         "condicional",
