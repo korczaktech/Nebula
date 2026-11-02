@@ -277,6 +277,14 @@ impl Lowerer {
             "decimal32" => Tipo::Decimal32,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
+            _ if dividir_tipo_funcao(nome).is_some() => {
+                let (parametros, retorno) = dividir_tipo_funcao(nome)
+                    .expect("tipo de função reconhecido");
+                Tipo::Funcao(
+                    parametros.iter().map(|tipo| self.tipo(tipo)).collect(),
+                    Box::new(self.tipo(retorno)),
+                )
+            }
             _ if nome.starts_with('[') && nome.ends_with(']') => Tipo::Lista(Box::new(self.tipo(&nome[1..nome.len()-1]))),
             _ if dividir_tipo_generico(nome).is_some() => {
                 let (base, argumentos) = dividir_tipo_generico(nome).expect("tipo genérico validado");
@@ -808,6 +816,70 @@ fn caminho_campos(expressao: &Expressao) -> Option<(String, Vec<String>)> {
     let mut caminho = Vec::new();
     let raiz = coletar(expressao, &mut caminho)?;
     (!caminho.is_empty()).then_some((raiz, caminho))
+}
+
+fn dividir_tipo_funcao(nome: &str) -> Option<(Vec<&str>, &str)> {
+    let conteudo = nome.strip_prefix("funcao(")?;
+    let mut parenteses = 1usize;
+    let mut angulos = 0usize;
+    let mut colchetes = 0usize;
+    let mut fechamento = None;
+    for (indice, caractere) in conteudo.char_indices() {
+        match caractere {
+            '(' => parenteses += 1,
+            ')' => {
+                parenteses = parenteses.checked_sub(1)?;
+                if parenteses == 0 {
+                    fechamento = Some(indice);
+                    break;
+                }
+            }
+            '<' => angulos += 1,
+            '>' => angulos = angulos.checked_sub(1)?,
+            '[' => colchetes += 1,
+            ']' => colchetes = colchetes.checked_sub(1)?,
+            _ => {}
+        }
+    }
+    let fechamento = fechamento?;
+    let retorno = conteudo[fechamento + 1..].strip_prefix(':')?.trim();
+    if retorno.is_empty() {
+        return None;
+    }
+    let bruto = &conteudo[..fechamento];
+    if bruto.trim().is_empty() {
+        return Some((Vec::new(), retorno));
+    }
+    let mut parametros = Vec::new();
+    let mut inicio = 0usize;
+    let mut parenteses = 0usize;
+    let mut angulos = 0usize;
+    let mut colchetes = 0usize;
+    for (indice, caractere) in bruto.char_indices() {
+        match caractere {
+            '(' => parenteses += 1,
+            ')' => parenteses = parenteses.checked_sub(1)?,
+            '<' => angulos += 1,
+            '>' => angulos = angulos.checked_sub(1)?,
+            '[' => colchetes += 1,
+            ']' => colchetes = colchetes.checked_sub(1)?,
+            ',' if parenteses == 0 && angulos == 0 && colchetes == 0 => {
+                let parametro = bruto[inicio..indice].trim();
+                if parametro.is_empty() {
+                    return None;
+                }
+                parametros.push(parametro);
+                inicio = indice + 1;
+            }
+            _ => {}
+        }
+    }
+    let ultimo = bruto[inicio..].trim();
+    if ultimo.is_empty() {
+        return None;
+    }
+    parametros.push(ultimo);
+    Some((parametros, retorno))
 }
 
 fn dividir_tipo_generico(nome: &str) -> Option<(&str, Vec<&str>)> {
@@ -1825,6 +1897,18 @@ mod testes {
             ValorIr::InteiroSemSinal(1),
         )
         .is_err());
+    }
+
+    #[test]
+    fn calcula_layout_de_campo_com_tipo_de_funcao() {
+        let ast = programa(
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(): vazio }",
+        );
+        let layout = calcular_layout_tipo(&ast, &Tipo::Estrutura("Registro".into())).unwrap();
+        assert_eq!(layout.tamanho, 16);
+        assert_eq!(layout.alinhamento, 8);
+        assert_eq!(layout.campos[0].tamanho, 8);
+        assert_eq!(layout.campos[1].deslocamento, 8);
     }
 
     #[test]
