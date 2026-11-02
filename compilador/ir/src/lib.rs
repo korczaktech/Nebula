@@ -923,6 +923,14 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 .map(|(valor, tipo)| normalizar_valor(tipo, valor))
                 .collect::<Result<_, _>>()?))
         }
+        (Tipo::Intervalo(_), valor @ (ValorIr::Intervalo(_, _) | ValorIr::IntervaloDecimal(_, _))) => Ok(valor),
+        (Tipo::Estrutura(esperado), valor @ ValorIr::Estrutura { ref nome, .. }) if esperado == nome => Ok(valor),
+        (Tipo::Enumeracao(esperado), valor @ ValorIr::Estrutura { ref nome, .. })
+            if nome.starts_with(&format!("{esperado}::")) => Ok(valor),
+        (Tipo::Opcional(_), valor @ ValorIr::Estrutura { ref nome, .. })
+            if nome.starts_with("Opcional::") => Ok(valor),
+        (Tipo::Resultado(_, _), valor @ ValorIr::Estrutura { ref nome, .. })
+            if nome.starts_with("Resultado::") => Ok(valor),
         (_, valor) if *tipo == Tipo::Desconhecido => Ok(valor),
         _ => Err(incompatibilidade()),
     }
@@ -2110,6 +2118,18 @@ mod testes {
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. }
                 if modulo.as_str() == "Matematica" && nome.as_str() == "somar"
         ));
+    }
+
+    #[test]
+    fn normaliza_larguras_e_decimal32() {
+        let decimal = normalizar_valor(&Tipo::Decimal32, ValorIr::Decimal(0.1)).unwrap();
+        assert_eq!(decimal, ValorIr::Decimal((0.1f64 as f32) as f64));
+        assert!(normalizar_valor(&Tipo::Inteiro8, ValorIr::Inteiro(128)).is_err());
+        assert!(normalizar_valor(&Tipo::InteiroU8, ValorIr::InteiroSemSinal(256)).is_err());
+        assert_eq!(
+            normalizar_valor(&Tipo::InteiroU8, ValorIr::InteiroSemSinal(255)).unwrap(),
+            ValorIr::InteiroSemSinal(255)
+        );
     }
 
 }
