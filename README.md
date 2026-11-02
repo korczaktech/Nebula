@@ -163,13 +163,13 @@ Níveis planejados:
 
 | Nível | Objetivo |
 |---|---|
-| O0 | Compilação rápida, otimização mínima |
-| O1 | Otimizações básicas |
-| O2 | Otimizações avançadas |
-| O3 | Otimização agressiva |
-| Os | Redução do tamanho do artefato |
+| O0 | Preserva a IR |
+| O1 | Dobramento conservador de constantes |
+| O2 | Simplificação de ramos constantes e remoção de laços comprovadamente inexecutáveis |
+| O3 | Remove instruções posteriores a transferências incondicionais |
+| Os | Aplica O3 e remove blocos vazios |
 
-Transformações previstas: eliminação de código morto, propagação de constantes, simplificação de expressões, eliminação de cópias redundantes, otimização de chamadas e loops, análise de fluxo e especialização quando vantajosa.
+Transformações atualmente implementadas: dobramento seguro de constantes, simplificação de fluxo constante, remoção de laços comprovadamente inexecutáveis, remoção de instruções inalcançáveis e blocos vazios. Eliminação de cópias redundantes, otimização de chamadas e especialização ainda não estão implementadas.
 
 Nenhuma otimização poderá alterar o comportamento definido pela linguagem. Cada transformação deverá possuir testes de correção e, quando relevante, benchmarks.
 
@@ -179,10 +179,12 @@ Nebula adotará um modelo híbrido:
 
 - Gestão automática quando for segura e adequada.
 - Controle explícito para sistemas, drivers, infraestrutura e código de baixo nível.
-- Propriedade, empréstimo e verificação estática para reduzir referências inválidas, cópias e acessos inseguros.
+- Propriedade, empréstimo e verificação estática planejados para reduzir referências inválidas, cópias e acessos inseguros.
 - Alocadores e estratégias configuráveis conforme o ambiente.
 
-Não haverá exigência de um coletor de lixo global em todos os programas. O runtime deverá ser opcional sempre que possível, especialmente em código de baixo nível.
+O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras e decimais verificadas, conversões numéricas, texto Unicode, tarefas em threads e canais. O interpretador de referência da IR usa esse runtime. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
+
+Não há exigência de um coletor de lixo global em todos os programas. O runtime deverá ser opcional sempre que possível, especialmente em código de baixo nível.
 
 ### Concorrência
 
@@ -270,12 +272,13 @@ nebula verificar
 nebula formatar
 nebula testar
 nebula analisar
+nebula interpretar
 nebula dependencias
 nebula limpar
 nebula versao
 ```
 
-Deverá permitir selecionar arquivo, plataforma, arquitetura, nível de otimização, opções de memória, formato de saída e formato dos diagnósticos.
+O comando `compilar` aceita `-O0`, `-O1`, `-O2`, `-O3` e `-Os`. O comando `interpretar` executa a IR pelo runtime Rust de referência; `executar` continua usando o backend nativo Linux x86-64. A seleção de plataformas e arquiteturas adicionais ainda não está implementada.
 
 ## 9. Estrutura planejada do repositório
 
@@ -361,14 +364,17 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-semantica`: símbolos, escopos, resolução de módulos, inferência e verificação estática.
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
-**Criada na Fase 4:**
-- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 está concluída dentro do escopo inicial documentado, com suíte completa e CI aprovadas.
+**Criadas na Fase 4 e Fase 5:**
+- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura.
+- `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, texto Unicode, tarefas e canais concorrentes. Integrado ao interpretador de referência da IR.
+- `nebula-ir::otimizador`: níveis O0, O1, O2, O3 e Os, com passes conservadores e métricas de transformações.
 
-O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O runtime, a biblioteca padrão e o otimizador continuam adiados conforme o plano.
+O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O comando `nebula interpretar` executa a IR pelo runtime de referência. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
 
-**Planejadas para fases posteriores:**
-- `nebula-otimizador`
-- `nebula-biblioteca`
+**Ainda planejadas:**
+- Biblioteca padrão modular completa (`nebula-biblioteca`)
+- Sistema de pacotes e dependências
+- Backends para ARM64, Windows, macOS e WebAssembly
 
 As dependências deverão ser unidirecionais sempre que possível. AST não dependerá da CLI; Lexer não dependerá do Backend.
 
@@ -558,4 +564,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 e a Fase 4 estão concluídas dentro de seus escopos documentados. A Fase 4 entrega backend Rust que gera ELF64 Linux x86-64 diretamente, com segmentos separados para código e dados, variáveis locais/globais, chamadas, controle de fluxo e aritmética inteira. Runtime, biblioteca padrão, otimizador e demais alvos permanecem adiados conforme o plano. A validação da Fase 4 foi aprovada na CI; consulte [critérios da Fase 4](especificacao/criterios-fase-4.md). Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md).
+A Fase 3 e a Fase 4 estão concluídas dentro de seus escopos documentados. Na Fase 5, o runtime Rust já está criado e integrado ao interpretador de referência; o otimizador O0/O1/O2/O3/Os está implementado na IR e selecionável pela CLI; e a CLI oferece o comando `interpretar`. A biblioteca padrão modular, o borrow checker, o sistema de pacotes, os backends adicionais, a integração do runtime ao backend nativo e os demais critérios da versão 1.0 continuam em desenvolvimento. A CI valida os recursos presentes, mas não significa que a Fase 5 esteja concluída.
