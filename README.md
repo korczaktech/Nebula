@@ -345,7 +345,7 @@ nebula/
 │       └── sintaxe_visual.nbx
 ```
 
-Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo próprio está em desenvolvimento na Fase 4; a implementação inicial gera ELF x86-64 diretamente em Rust, mas ainda não atende a todos os critérios de aceite.
+Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo próprio da Fase 4 gera ELF x86-64 diretamente em Rust para o subconjunto documentado; a fase aguarda a validação automatizada final dos critérios de aceite.
 
 ### Crates Rust
 
