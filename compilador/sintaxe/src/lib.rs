@@ -324,7 +324,7 @@ pub enum Visibilidade { Publico, Privado }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NoAst {
     Variavel { nome: String, tipo: Option<String>, valor: Expressao, constante: bool },
-    Funcao { visibilidade: Option<Visibilidade>, nome: String, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
+    Funcao { visibilidade: Option<Visibilidade>, nome: String, genericos: Vec<String>, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
     Tipo { nome: String, destino: String },
     Incluir { caminho: String, apelido: Option<String> },
     Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
@@ -407,6 +407,22 @@ impl Parser {
     fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo(None) }
     fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
         let nome = self.consumir_nome("Esperado nome da função.")?;
+        let mut genericos = Vec::new();
+        if self.corresponde(TipoToken::Menor) {
+            loop {
+                let parametro = self.consumir_nome("Esperado nome de parâmetro genérico.")?;
+                if genericos.contains(&parametro) {
+                    self.erro_atual("N2014", format!("Parâmetro genérico '{parametro}' duplicado."));
+                } else {
+                    genericos.push(parametro);
+                }
+                if !self.corresponde(TipoToken::Virgula) { break; }
+            }
+            self.esperar(TipoToken::Maior, "Esperado '>' após parâmetros genéricos.");
+            if genericos.is_empty() {
+                self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
+            }
+        }
         if !self.corresponde(TipoToken::AbrePar) { self.erro_atual("N2004", "Esperado '(' após nome da função."); return None; }
         let mut parametros = Vec::new();
         if !self.verifica(TipoToken::FechaPar) {
@@ -420,7 +436,7 @@ impl Parser {
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
         let retorno = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
         let corpo = self.bloco()?;
-        Some(NoAst::Funcao { visibilidade, nome, parametros, retorno, corpo })
+        Some(NoAst::Funcao { visibilidade, nome, genericos, parametros, retorno, corpo })
     }
     fn tipo_alias(&mut self) -> Option<NoAst> {
         self.avancar(); let nome = self.consumir_nome("Esperado nome após 'tipo'.")?;
