@@ -37,6 +37,7 @@ name = "nebula-ir"
 version = "0.1.0"
 dependencies = [
  "nebula-fonte",
+ "nebula-runtime",
  "nebula-semantica",
  "nebula-sintaxe",
 ]
