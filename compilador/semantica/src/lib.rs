@@ -946,12 +946,12 @@ mod testes {
     #[test]
     fn valida_tipos_dos_builtins_de_texto_unicode() {
         let r = analisar_codigo(
-            "variavel limpo = aparar(\" texto \")\nvariavel inicio = comeca_com(limpo, \"te\")\nvariavel fim = termina_com(limpo, \"to\")\nvariavel trocado = substituir(limpo, \"e\", \"E\")",
+            "variavel limpo = aparar(\" texto \")\nvariavel inicio = comeca_com(limpo, \"te\")\nvariavel sufixo_ok = termina_com(limpo, \"to\")\nvariavel trocado = substituir(limpo, \"e\", \"E\")",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("limpo"), Some(&Tipo::Texto));
         assert_eq!(r.tipos_globais.get("inicio"), Some(&Tipo::Logico));
-        assert_eq!(r.tipos_globais.get("fim"), Some(&Tipo::Logico));
+        assert_eq!(r.tipos_globais.get("sufixo_ok"), Some(&Tipo::Logico));
         assert_eq!(r.tipos_globais.get("trocado"), Some(&Tipo::Texto));
     }
 
