@@ -12,7 +12,8 @@ use std::collections::{HashMap, HashSet};
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Tipo {
-    Vazio, Logico, Inteiro, Decimal, Texto, Caractere, Byte,
+    Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128,
+    Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
     Lista(Box<Tipo>), Intervalo(Box<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Desconhecido,
 }
 
@@ -92,6 +93,17 @@ impl<'a> Analisador<'a> {
 
     fn predeclarar(&mut self, programa: &Programa) {
         for item in &programa.itens {
+            if let NoAst::Incluir { caminho, apelido } = item {
+                let alternativo = caminho.replace("::", ".");
+                if !self.modulos.contains_key(caminho) && !self.modulos.contains_key(&alternativo) {
+                    self.erro("N3004", format!("Módulo '{caminho}' não foi disponibilizado ao compilador."));
+                } else {
+                    let nome = apelido.clone().unwrap_or_else(|| caminho.split("::").last().unwrap_or(caminho).to_owned());
+                    if self.modulos_importados.insert(nome.clone(), caminho.clone()).is_some() {
+                        self.erro("N3022", format!("O alias de módulo '{nome}' foi declarado mais de uma vez."));
+                    }
+                }
+            }
             if let NoAst::Tipo { nome, destino } = item {
                 if self.aliases.insert(nome.clone(), destino.clone()).is_some() {
                     self.erro("N3002", format!("O tipo '{nome}' foi declarado mais de uma vez."));
@@ -106,8 +118,20 @@ impl<'a> Analisador<'a> {
         }
         for item in &programa.itens {
             if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
-                let tipos = parametros.iter().map(|(_, t)| self.resolver_tipo(t)).collect();
-                let retorno = retorno.as_deref().map_or(Tipo::Vazio, |t| self.resolver_tipo(t));
+                let tipos: Vec<Tipo> = parametros.iter().map(|(parametro, nome_tipo)| {
+                    let tipo = self.resolver_tipo(nome_tipo);
+                    if tipo == Tipo::Desconhecido {
+                        self.erro("N3021", format!("Tipo '{nome_tipo}' do parâmetro '{parametro}' não foi declarado."));
+                    }
+                    tipo
+                }).collect();
+                let retorno = retorno.as_deref().map_or(Tipo::Vazio, |nome_tipo| {
+                    let tipo = self.resolver_tipo(nome_tipo);
+                    if tipo == Tipo::Desconhecido {
+                        self.erro("N3021", format!("Tipo de retorno '{nome_tipo}' da função '{nome}' não foi declarado."));
+                    }
+                    tipo
+                });
                 if self.funcoes.contains_key(nome) {
                     self.erro("N3001", format!("A função '{nome}' foi declarada mais de uma vez."));
                 } else {
@@ -133,7 +157,10 @@ impl<'a> Analisador<'a> {
             }
             NoAst::Funcao { nome, parametros, corpo, .. } => {
                 if !self.funcoes_vistas.insert(nome.clone()) { return; }
-                let Some(funcao) = self.funcoes.get(nome).cloned() else { return };
+                let Some(funcao) = self.funcoes.get(nome).cloned() else {
+                    self.erro("N3023", format!("Função aninhada '{nome}' não é permitida no escopo inicial."));
+                    return;
+                };
                 self.abrir_escopo();
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
                     self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true });
@@ -142,18 +169,21 @@ impl<'a> Analisador<'a> {
                 let laco_anterior = self.profundidade_laco;
                 self.profundidade_laco = 0;
                 for instrucao in corpo { self.item(instrucao); }
+                if funcao.retorno != Tipo::Vazio && !Self::garante_retorno(corpo) {
+                    self.erro("N3024", format!("A função '{nome}' pode terminar sem devolver um valor."));
+                }
                 self.profundidade_laco = laco_anterior;
                 self.retorno_atual = retorno_anterior;
                 self.fechar_escopo();
             }
-            NoAst::Tipo { .. } => {}
-            NoAst::Incluir { caminho, apelido } => {
-                let alternativo = caminho.replace("::", ".");
-                if !self.modulos.contains_key(caminho) && !self.modulos.contains_key(&alternativo) {
-                    self.erro("N3004", format!("Módulo '{caminho}' não foi disponibilizado ao compilador."));
-                } else {
-                    let nome = apelido.clone().unwrap_or_else(|| caminho.split("::").last().unwrap_or(caminho).to_owned());
-                    self.modulos_importados.insert(nome, caminho.clone());
+            NoAst::Tipo { .. } => {
+                if self.escopos.len() > 1 {
+                    self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
+                }
+            }
+            NoAst::Incluir { .. } => {
+                if self.escopos.len() > 1 {
+                    self.erro("N3026", "Módulos só podem ser incluídos no escopo do arquivo.");
                 }
             }
             NoAst::Expressao(expressao) => { self.expressao(expressao); }
@@ -199,6 +229,18 @@ impl<'a> Analisador<'a> {
                 }
             }
         }
+    }
+
+    fn garante_retorno(itens: &[NoAst]) -> bool {
+        for item in itens {
+            match item {
+                NoAst::Devolver(_) => return true,
+                NoAst::Quando { entao, senao, .. }
+                    if Self::garante_retorno(entao) && Self::garante_retorno(senao) => return true,
+                _ => {}
+            }
+        }
+        false
     }
 
     fn bloco(&mut self, itens: &[NoAst]) {
@@ -333,7 +375,7 @@ impl<'a> Analisador<'a> {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Mais | Menos | Vezes | Divide | Resto | Potencia => {
                 if Self::numerico(a) && Self::numerico(b) {
-                    if a == &Tipo::Decimal || b == &Tipo::Decimal { Tipo::Decimal } else { Tipo::Inteiro }
+                    Self::promover_numerico(a, b)
                 } else {
                     self.erro("N3016", "Operação aritmética exige operandos numéricos compatíveis.");
                     Tipo::Desconhecido
@@ -371,7 +413,7 @@ impl<'a> Analisador<'a> {
             "nulo" => Tipo::Desconhecido,
             _ if literal.starts_with('"') => Tipo::Texto,
             _ if literal.starts_with('\'') => Tipo::Caractere,
-            _ if literal.contains('.') || literal.contains('e') || literal.contains('E') => Tipo::Decimal,
+            _ if literal.contains('.') || literal.contains('e') || literal.contains('E') => Tipo::Decimal64,
             _ => Tipo::Inteiro,
         }
     }
@@ -380,8 +422,15 @@ impl<'a> Analisador<'a> {
         match nome {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
-            "inteiro" | "inteiro8" | "inteiro16" | "inteiro32" | "inteiro64" | "inteiro128" => Tipo::Inteiro,
-            "decimal" | "decimal32" | "decimal64" => Tipo::Decimal,
+            "inteiro" => Tipo::Inteiro,
+            "inteiro8" => Tipo::Inteiro8,
+            "inteiro16" => Tipo::Inteiro16,
+            "inteiro32" => Tipo::Inteiro32,
+            "inteiro64" => Tipo::Inteiro64,
+            "inteiro128" => Tipo::Inteiro128,
+            "decimal" => Tipo::Decimal64,
+            "decimal32" => Tipo::Decimal32,
+            "decimal64" => Tipo::Decimal64,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
@@ -421,7 +470,29 @@ impl<'a> Analisador<'a> {
     }
 
     fn numerico(tipo: &Tipo) -> bool {
-        matches!(tipo, Tipo::Inteiro | Tipo::Decimal | Tipo::Byte)
+        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Byte)
+    }
+
+    fn promover_numerico(a: &Tipo, b: &Tipo) -> Tipo {
+        if matches!(a, Tipo::Decimal64 | Tipo::Decimal) || matches!(b, Tipo::Decimal64 | Tipo::Decimal) {
+            return Tipo::Decimal64;
+        }
+        if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 { return Tipo::Decimal32; }
+        let largura = |tipo: &Tipo| match tipo {
+            Tipo::Inteiro8 | Tipo::Byte => 8,
+            Tipo::Inteiro16 => 16,
+            Tipo::Inteiro32 => 32,
+            Tipo::Inteiro64 | Tipo::Inteiro => 64,
+            Tipo::Inteiro128 => 128,
+            _ => 64,
+        };
+        match largura(a).max(largura(b)) {
+            8 => Tipo::Inteiro8,
+            16 => Tipo::Inteiro16,
+            32 => Tipo::Inteiro32,
+            128 => Tipo::Inteiro128,
+            _ => Tipo::Inteiro,
+        }
     }
 
     fn erro(&mut self, codigo: &'static str, mensagem: impl Into<String>) {
@@ -438,7 +509,12 @@ impl Tipo {
     pub fn nome(&self) -> String {
         match self {
             Self::Vazio => "vazio".into(), Self::Logico => "lógico".into(),
-            Self::Inteiro => "inteiro".into(), Self::Decimal => "decimal".into(),
+            Self::Inteiro => "inteiro".into(),
+            Self::Inteiro8 => "inteiro8".into(), Self::Inteiro16 => "inteiro16".into(),
+            Self::Inteiro32 => "inteiro32".into(), Self::Inteiro64 => "inteiro64".into(),
+            Self::Inteiro128 => "inteiro128".into(),
+            Self::Decimal => "decimal".into(), Self::Decimal32 => "decimal32".into(),
+            Self::Decimal64 => "decimal64".into(),
             Self::Texto => "texto".into(), Self::Caractere => "caractere".into(),
             Self::Byte => "byte".into(), Self::Lista(t) => format!("[{}]", t.nome()),
             Self::Intervalo(t) => format!("intervalo<{}>", t.nome()),
