@@ -611,7 +611,7 @@ impl Maquina<'_> {
                         .map_err(|_| "Relógio excedeu a faixa inteira da Nebula.".into());
                 }
                 if nome == "dormir" {
-                    if let [ValorIr::Inteiro(milisegundos)] = valores.as_slice() {
+                    if let [ValorIr::Inteiro(milissegundos)] = valores.as_slice() {
                         let milissegundos = u64::try_from(*milissegundos)
                             .map_err(|_| "Duração inválida para 'dormir'.")?;
                         dormir_milisegundos(milissegundos);
