@@ -6,9 +6,9 @@
 
 | Item | Estado atual |
 |---|---|
-| 1. Linguagem e tipos | Parcial: subconjunto atual preservado; tipos compostos e genéricos ainda pendentes |
-| 2. Memória e segurança | Parcial: escopos, mutabilidade e listas compartilhadas no runtime; propriedade e borrow checker pendentes |
-| 3. Runtime | Parcial implementado: crate Rust e integração ao interpretador de referência; integração nativa e ciclo de vida completo pendentes |
+| 1. Linguagem e tipos | Parcial: parser e semântica reconhecem `Opcional<T>`, `Resultado<T, E>` e `Tupla<T...>` aninhados em assinaturas; faltam construtores de valores, estruturas, enumerações, funções genéricas, inferência/instanciação e lowering completo para IR/ABI |
+| 2. Memória e segurança | Parcial: verificação estática de movimentação de texto/listas, uso após move, cópia de primitivos e reinicialização por atribuição; empréstimos compartilhados/exclusivos, vidas úteis, destruição por valor e inicialização parcial pendentes |
+| 3. Runtime | Parcial: contexto Rust integrado ao interpretador de referência, finalização LIFO idempotente, limpeza no descarte e isolamento de panics em finalizadores; ABI/runtime nativo, alocadores dedicados, política de panic/abort e integração com executáveis nativos pendentes |
 | 4. Concorrência | Parcial: threads, tarefas, canais, inteiros atômicos e token de cancelamento cooperativo no runtime; async/await e integração com propriedade pendentes |
 | 5. Biblioteca padrão | Parcial: texto Unicode ampliado, coleções, números, matemática, leitura/escrita/cópia/movimentação/remoção de arquivos, diretórios e tempo no runtime; módulos completos pendentes |
 | 6. Módulos e pacotes | Parcial: interpretador e backend ELF x86-64 resolvem módulos locais recursivamente, ligam chamadas qualificadas, rejeitam ciclos, bloqueiam travessia de diretórios e symlinks externos; inicializadores globais e gerenciador de pacotes/lockfile pendentes |
