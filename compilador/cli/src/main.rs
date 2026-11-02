@@ -119,9 +119,9 @@ fn validar_caminhos_compilacao(entrada: &Path, saida: &Path) -> Result<(), Strin
             entrada.display()
         )
     })?;
-    let nome_saida = saida.file_name().ok_or_else(|| {
-        format!("caminho de saída inválido: '{}'", saida.display())
-    })?;
+    let nome_saida = saida
+        .file_name()
+        .ok_or_else(|| format!("caminho de saída inválido: '{}'", saida.display()))?;
     let diretorio_saida = saida
         .parent()
         .filter(|diretorio| !diretorio.as_os_str().is_empty())
@@ -134,7 +134,10 @@ fn validar_caminhos_compilacao(entrada: &Path, saida: &Path) -> Result<(), Strin
     })?;
     let saida_real = if saida.exists() {
         std::fs::canonicalize(saida).map_err(|erro| {
-            format!("não foi possível resolver a saída '{}': {erro}", saida.display())
+            format!(
+                "não foi possível resolver a saída '{}': {erro}",
+                saida.display()
+            )
         })?
     } else {
         diretorio_real.join(nome_saida)
@@ -358,14 +361,9 @@ mod testes {
 
     #[test]
     fn falha_de_compilacao_preserva_executavel_anterior() {
-        let origem = std::env::temp_dir().join(format!(
-            "nebula-invalido-{}.nbx",
-            std::process::id()
-        ));
-        let saida = std::env::temp_dir().join(format!(
-            "nebula-preservado-{}",
-            std::process::id()
-        ));
+        let origem =
+            std::env::temp_dir().join(format!("nebula-invalido-{}.nbx", std::process::id()));
+        let saida = std::env::temp_dir().join(format!("nebula-preservado-{}", std::process::id()));
         std::fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
         std::fs::write(&saida, b"executavel anterior").unwrap();
         assert!(compilar_arquivo(&origem, &saida).is_err());
@@ -376,30 +374,24 @@ mod testes {
 
     #[test]
     fn falha_de_publicacao_remove_temporario_e_preserva_destino() {
-        let destino = std::env::temp_dir().join(format!(
-            "nebula-destino-diretorio-{}",
-            std::process::id()
-        ));
+        let destino =
+            std::env::temp_dir().join(format!("nebula-destino-diretorio-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&destino);
         std::fs::create_dir(&destino).unwrap();
         let erro = gravar_executavel_atomico(&destino, b"binario").unwrap_err();
         assert!(erro.contains("não foi possível publicar"));
         assert!(destino.is_dir());
         let nome = destino.file_name().unwrap().to_string_lossy();
-        let temporario = destino.with_file_name(format!(
-            ".{nome}.{}.nebula-tmp",
-            std::process::id()
-        ));
+        let temporario =
+            destino.with_file_name(format!(".{nome}.{}.nebula-tmp", std::process::id()));
         assert!(!temporario.exists());
         std::fs::remove_dir(destino).unwrap();
     }
 
     #[test]
     fn compilacao_nao_sobrescreve_o_arquivo_fonte() {
-        let origem = std::env::temp_dir().join(format!(
-            "nebula-fonte-protegido-{}.nbx",
-            std::process::id()
-        ));
+        let origem =
+            std::env::temp_dir().join(format!("nebula-fonte-protegido-{}.nbx", std::process::id()));
         let conteudo = "funcao principal(): inteiro { devolver 42 }";
         std::fs::write(&origem, conteudo).unwrap();
         let erro = validar_caminhos_compilacao(&origem, &origem).unwrap_err();
