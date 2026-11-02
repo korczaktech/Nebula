@@ -173,7 +173,6 @@ fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     assert_eq!(resultado.status.code(), Some(2));
 }
 
-
 #[test]
 fn overflow_de_soma_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
