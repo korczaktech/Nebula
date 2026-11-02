@@ -646,7 +646,18 @@ impl Parser {
             }
             TipoToken::Identificador => {
                 let nome = self.avancar().lexema.nfc().collect::<String>();
-                if self.corresponde(TipoToken::AbreChave) {
+                let indice_abertura = self.atual;
+                let indice_campo = (indice_abertura + 1..self.tokens.len())
+                    .find(|indice| self.tokens[*indice].tipo != TipoToken::NovaLinha);
+                let indice_dois_pontos = indice_campo.and_then(|indice| {
+                    (indice + 1..self.tokens.len())
+                        .find(|proximo| self.tokens[*proximo].tipo != TipoToken::NovaLinha)
+                });
+                let parece_construcao = self.tokens.get(indice_abertura).is_some_and(|t| t.tipo == TipoToken::AbreChave)
+                    && indice_campo.is_some_and(|indice| self.tokens[indice].tipo == TipoToken::FechaChave
+                        || self.tokens[indice].tipo == TipoToken::Identificador
+                            && indice_dois_pontos.is_some_and(|proximo| self.tokens[proximo].tipo == TipoToken::DoisPontos));
+                if parece_construcao && self.corresponde(TipoToken::AbreChave) {
                     let mut campos = Vec::new();
                     self.separadores();
                     while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
