@@ -337,7 +337,7 @@ impl<'a> Analisador<'a> {
                 }
             }
             Menor | MenorIgual | Maior | MaiorIgual => {
-                if self.numerico(a) && self.numerico(b) { Tipo::Logico } else {
+                if Self::numerico(a) && Self::numerico(b) { Tipo::Logico } else {
                     self.erro("N3017", "Comparação relacional exige operandos numéricos.");
                     Tipo::Desconhecido
                 }
