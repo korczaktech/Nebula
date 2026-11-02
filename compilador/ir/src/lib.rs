@@ -105,6 +105,11 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             Some((nome, caminho.clone()))
         } else { None }
     }).collect::<HashMap<_, _>>();
+    let assinaturas_funcoes = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
+            Some((nome.clone(), (parametros.iter().map(|(_, tipo)| tipo.clone()).collect::<Vec<_>>(), retorno.clone())))
+        } else { None }
+    }).collect::<HashMap<_, _>>();
     let genericas = programa.itens.iter().filter_map(|item| {
         if let NoAst::Funcao { nome, genericos, parametros, retorno, corpo, .. } = item {
             if !genericos.is_empty() {
@@ -121,6 +126,7 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
     let mut lowerer = Lowerer {
         diagnosticos: Vec::new(),
         aliases,
+        assinaturas_funcoes,
         modulos_importados: modulos_importados.clone(),
         genericas,
         instancias: HashMap::new(),
@@ -189,6 +195,7 @@ struct FuncaoGenericaAst {
 struct Lowerer {
     diagnosticos: Vec<String>,
     aliases: HashMap<String, String>,
+    assinaturas_funcoes: HashMap<String, (Vec<String>, Option<String>)>,
     modulos_importados: HashMap<String, String>,
     genericas: HashMap<String, FuncaoGenericaAst>,
     instancias: HashMap<String, FuncaoIr>,
@@ -340,7 +347,7 @@ impl Lowerer {
         Some(nome_instancia)
     }
 
-    fn inferir_tipo_ast(&self, expressao: &Expressao) -> Tipo {
+    fn inferir_tipo_ast(&mut self, expressao: &Expressao) -> Tipo {
         match expressao {
             Expressao::Literal(valor) => literal(valor).as_ref().map_or(Tipo::Desconhecido, |valor| {
                 inferir_tipo(&ExpressaoIr::Constante(valor.clone()))
@@ -350,9 +357,14 @@ impl Lowerer {
                 .unwrap_or(Tipo::Desconhecido),
             Expressao::Lista(itens) => {
                 let Some(primeiro) = itens.first() else { return Tipo::Lista(Box::new(Tipo::Desconhecido)); };
-                Tipo::Lista(Box::new(self.inferir_tipo_ast(primeiro)))
+                let tipo = self.inferir_tipo_ast(primeiro);
+                Tipo::Lista(Box::new(tipo))
             }
-            Expressao::Tupla(itens) => Tipo::Tupla(itens.iter().map(|item| self.inferir_tipo_ast(item)).collect()),
+            Expressao::Tupla(itens) => {
+                let mut tipos = Vec::with_capacity(itens.len());
+                for item in itens { tipos.push(self.inferir_tipo_ast(item)); }
+                Tipo::Tupla(tipos)
+            }
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
             Expressao::Binaria { esquerda, operador, .. } => {
                 if matches!(operador, TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor
@@ -365,10 +377,38 @@ impl Lowerer {
             }
             Expressao::Indexacao { alvo, .. } => match self.inferir_tipo_ast(alvo) {
                 Tipo::Lista(tipo) => *tipo,
+                Tipo::Tupla(_) => Tipo::Desconhecido,
+                _ => Tipo::Desconhecido,
+            },
+            Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
+                Expressao::Nome(nome) => self.inferir_tipo_chamada(nome, argumentos),
                 _ => Tipo::Desconhecido,
             },
             _ => Tipo::Desconhecido,
         }
+    }
+
+    fn inferir_tipo_chamada(&mut self, nome: &str, argumentos: &[Expressao]) -> Tipo {
+        if let Some(modelo) = self.genericas.get(nome).cloned() {
+            if argumentos.len() != modelo.parametros.len() { return Tipo::Desconhecido; }
+            let mut substituicoes = HashMap::new();
+            for ((_, esperado), argumento) in modelo.parametros.iter().zip(argumentos) {
+                let obtido = self.inferir_tipo_ast(argumento);
+                if obtido == Tipo::Desconhecido
+                    || !self.inferir_substituicao(esperado, &obtido, &modelo.genericos, &mut substituicoes) {
+                    return Tipo::Desconhecido;
+                }
+            }
+            let Some(retorno) = modelo.retorno.as_deref() else { return Tipo::Vazio; };
+            let anterior = std::mem::replace(&mut self.substituicoes, substituicoes);
+            let tipo = self.tipo(retorno);
+            self.substituicoes = anterior;
+            return tipo;
+        }
+        let Some((_, retorno)) = self.assinaturas_funcoes.get(nome).cloned() else {
+            return Tipo::Desconhecido;
+        };
+        retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.tipo(tipo))
     }
 
     fn inferir_substituicao(
