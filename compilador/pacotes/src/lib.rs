@@ -215,7 +215,7 @@ fn versao_semantica_valida(versao: &str) -> bool {
     partes.len() == 3
         && partes.iter().all(|p| {
             !p.is_empty()
-                && (p == "0" || (!p.starts_with('0') && p.bytes().all(|b| b.is_ascii_digit())))
+                && (*p == "0" || (!p.starts_with('0') && p.bytes().all(|b| b.is_ascii_digit())))
         })
         && versao
             .bytes()
