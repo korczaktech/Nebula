@@ -496,7 +496,7 @@ fn qualificar_expressao_modulo(
             qualificar_expressao_modulo(esquerda, caminho, funcoes, caminhos_canonicos);
             qualificar_expressao_modulo(direita, caminho, funcoes, caminhos_canonicos);
         }
-        ExpressaoIr::Atribuicao { valor, .. } => {
+        ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => {
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::Chamada { nome, argumentos } => {
