@@ -109,7 +109,7 @@ impl Gerador{
  }
  #[allow(clippy::only_used_in_recursion)]
  fn e(&mut self,e:&ExpressaoIr)->Result<String,String>{match e{
- ExpressaoIr::Constante(v)=>match v{ValorIr::Inteiro(n)=>Ok(n.to_string()),ValorIr::Decimal(n)if n.is_finite()=>Ok(format!("{n:?}")),ValorIr::Logico(b)=>Ok(b.to_string()),ValorIr::Texto(s)=>Ok(format!("\"{}\"",s.chars().flat_map(char::escape_default).collect::<String>())),ValorIr::Caractere(c)=>Ok(format!("'{}'",c.escape_default())),_=>Err("Literal não suportado pelo backend.".into())},
+ ExpressaoIr::Constante(v)=>match v{ValorIr::Inteiro(n)=>Ok(n.to_string()),ValorIr::Decimal(n)if n.is_finite()=>Ok(format!("{n:?}")),ValorIr::Logico(b)=>Ok(b.to_string()),ValorIr::Texto(s)=>{let bytes=s.as_bytes().iter().map(|b|format!("\\{:03o}",b)).collect::<String>();Ok(format!("\"{bytes}\""))},ValorIr::Caractere(c) if c.is_ascii()=>Ok(format!("'{}'",c.escape_default())),ValorIr::Caractere(_)=>Err("Caractere Unicode não ASCII ainda não possui representação char portável no backend C11.".into()),_=>Err("Literal não suportado pelo backend.".into())},
  ExpressaoIr::Variavel(n)=>Ok(nc(n)),
  ExpressaoIr::Lista(_)|ExpressaoIr::Indexacao{..}=>Err("Listas e indexação não suportadas pelo backend nativo inicial.".into()),
  ExpressaoIr::Unaria{operador,valor}=>{let o=match operador{OperadorIr::Menos=>"-",OperadorIr::Mais=>"+",OperadorIr::Nao|OperadorIr::Negacao=>"!",_=>return Err("Operador unário não suportado.".into())};Ok(format!("({o}{})",self.e(valor)?))},
