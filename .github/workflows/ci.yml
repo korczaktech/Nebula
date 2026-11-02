@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Obter código
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Instalar Rust 1.85.0
         uses: dtolnay/rust-toolchain@1.85.0
