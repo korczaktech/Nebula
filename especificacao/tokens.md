@@ -12,7 +12,7 @@
 
 ## 2. Espaços e quebras de linha
 
-- Espaço, tabulação e demais espaços horizontais Unicode reconhecidos pela especificação são ignorados entre tokens.
+- Espaço ASCII (U+0020) e tabulação horizontal (U+0009) são ignorados entre tokens. Outros caracteres de espaço não são aceitos como separadores na versão inicial.
 - A quebra de linha é preservada como token NOVA_LINHA.
 - Dentro de parênteses () e colchetes [], a quebra de linha funciona como espaço e não separa instruções.
 - Dentro de chaves {}, quebras de linha continuam podendo separar instruções.
@@ -31,9 +31,9 @@ Identificador:
 
 ### Palavras reservadas da gramática inicial
 
-variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, vazio, fim, parar, seguir, e, ou, nao, publico, privado, tipo.
+variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, seguir, e, ou, nao, publico, privado, tipo.
 
-Os nomes de tipos como inteiro, logico, texto, caractere e byte são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
+Os nomes de tipos como inteiro, logico, texto, caractere, byte e vazio são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
 
 ### Palavras reservadas para estudo futuro
 
@@ -55,7 +55,13 @@ Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **n�
 
 - Texto usa aspas duplas e não pode atravessar uma quebra de linha física na versão inicial.
 - Caractere usa aspas simples e representa exatamente um escalar Unicode após a interpretação dos escapes.
-- Escapes aceitos: barra invertida, aspas duplas, aspas simples, n, r, t, 0 e u{H...}, com um ou mais dígitos hexadecimais e valor Unicode escalar válido.
+- Escapes aceitos, escritos exatamente como aparecem no código-fonte:
+
+~~~text
+\\   \\"   \\'   \\n   \\r   \\t   \\0   \\u{...}
+~~~
+
+- O escape Unicode contém um ou mais dígitos hexadecimais e deve representar um valor escalar Unicode válido.
 - Escape desconhecido, sequência Unicode inválida e literal sem fechamento são erros.
 - Interpolação e strings multilinha não fazem parte da gramática inicial.
 
@@ -77,7 +83,7 @@ Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **n�
 
 Operadores lógicos textuais: e, ou, nao.
 
-O Lexer aplica maior correspondência: por exemplo, >= antes de >, == antes de =, :: antes de :, ** antes de * e .. antes de ..
+O Lexer aplica maior correspondência: >= antes de >, == antes de =, :: antes de :, ** antes de * e .. antes de .
 
 ?? e ~> são reservados para estudo, mas não são operadores da gramática inicial.
 
