@@ -421,6 +421,7 @@ impl Parser {
     fn tipo_alias(&mut self) -> Option<NoAst> {
         self.avancar(); let nome = self.consumir_nome("Esperado nome após 'tipo'.")?;
         if !self.corresponde(TipoToken::Atribui) { self.erro_atual("N2006", "Esperado '=' na declaração de tipo."); return None; }
+        self.pular_novas_linhas();
         Some(NoAst::Tipo { nome, destino: self.caminho_tipo()? })
     }
     fn incluir(&mut self) -> Option<NoAst> {
@@ -501,7 +502,7 @@ impl Parser {
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
             TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos | TipoToken::Mais => {
-                let op = self.avancar().tipo; let valor = self.expressao(9)?;
+                let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(9)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
             TipoToken::Identificador => Expressao::Nome(self.avancar().lexema.nfc().collect()),
@@ -692,6 +693,16 @@ impl Parser {
     #[test]
     fn permite_quebra_de_linha_dentro_de_delimitadores() {
         let r = analisar(&fonte("variavel soma = calcular(1,\n 2)\nvariavel lista = [1,\n 2]"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_quebra_apos_atribuicao_declarativa() {
+        let r = analisar(&fonte("variavel soma =\n 1 + 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_quebra_apos_operador_unario() {
+        let r = analisar(&fonte("variavel negativo = -\n 2"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
