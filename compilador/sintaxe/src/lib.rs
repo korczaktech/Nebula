@@ -290,7 +290,7 @@ pub enum Expressao {
     Atribuicao { destino: Box<Expressao>, valor: Box<Expressao> },
     Chamada { alvo: Box<Expressao>, argumentos: Vec<Expressao> },
     Indexacao { alvo: Box<Expressao>, indice: Box<Expressao> },
-    Membro { alvo: Box<Expressao>, nome: String },
+    Membro { alvo: Box<Expressao>, operador: TipoToken, nome: String },
 }
 /// Visibilidade declarada para uma função.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
