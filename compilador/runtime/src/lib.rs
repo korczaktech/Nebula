@@ -219,7 +219,7 @@ impl Memoria {
     ) -> Resultado<()> {
         let celula = self
             .escopos
-            .iter()
+            .iter_mut()
             .rev()
             .find_map(|escopo| escopo.get_mut(nome))
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
