@@ -82,7 +82,7 @@ fn compila_laco_para_e_controle() {
         "para",
         "funcao principal(): inteiro {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 10; i = i + 1) {\n        quando i == 2 { seguir }\n        quando i == 8 { parar }\n        total = total + i\n    }\n    devolver total\n}",
     );
-    assert_eq!(resultado.status.code(), Some(19));
+    assert_eq!(resultado.status.code(), Some(26));
 }
 
 #[test]
@@ -103,17 +103,10 @@ fn rejeita_recurso_que_depende_do_runtime_adiado() {
 }
 
 #[test]
-fn rejeita_programa_sem_funcao_principal() {
-    let (origem, executavel) = caminhos("sem-principal");
-    fs::write(&origem, "variavel total: inteiro = 42").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("compilar")
-        .arg(&origem)
-        .arg("-o")
-        .arg(&executavel)
-        .output()
-        .unwrap();
-    assert!(!resultado.status.success());
-    assert!(!executavel.exists());
-    let _ = fs::remove_file(origem);
+fn compila_instrucoes_globais_sem_funcao_principal() {
+    let resultado = compilar_e_executar(
+        "globais",
+        "variavel total: inteiro = 42",
+    );
+    assert_eq!(resultado.status.code(), Some(0));
 }
