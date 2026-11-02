@@ -375,6 +375,16 @@ mod testes {
     use super::*;
 
     #[test]
+    fn reconhece_todos_os_niveis_de_otimizacao() {
+        assert_eq!(nivel_otimizacao("O0"), Ok(NivelOtimizacao::O0));
+        assert_eq!(nivel_otimizacao("O1"), Ok(NivelOtimizacao::O1));
+        assert_eq!(nivel_otimizacao("O2"), Ok(NivelOtimizacao::O2));
+        assert_eq!(nivel_otimizacao("O3"), Ok(NivelOtimizacao::O3));
+        assert_eq!(nivel_otimizacao("Os"), Ok(NivelOtimizacao::Os));
+        assert!(nivel_otimizacao("O4").is_err());
+    }
+
+    #[test]
     fn publica_executavel_atomico_e_substitui_saida_anterior() {
         let caminho = std::env::temp_dir().join(format!("nebula-atomic-{}", std::process::id()));
         let _ = std::fs::remove_file(&caminho);
