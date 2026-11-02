@@ -633,6 +633,12 @@ mod testes {
         assert_eq!(r.programa.itens.len(), 2);
     }
     #[test]
+    fn condicional_sem_senao_preserva_separador_da_proxima_instrucao() {
+        let r = analisar(&fonte("quando verdadeiro { exibir(1) }\nvariavel depois = 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.programa.itens.len(), 2);
+    }
+    #[test]
     fn aceita_quando_senao_em_linhas_separadas() {
         let r = analisar(&fonte("quando verdadeiro {\n exibir(1)\n}\nsenao {\n exibir(0)\n}"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
