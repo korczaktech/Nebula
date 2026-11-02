@@ -854,6 +854,73 @@ mod testes {
     }
 
     #[test]
+    fn codifica_registradores_de_argumentos_system_v() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        for (registrador, esperado) in [
+            (7, vec![0x48, 0x89, 0xC7]),
+            (6, vec![0x48, 0x89, 0xC6]),
+            (2, vec![0x48, 0x89, 0xC2]),
+            (1, vec![0x48, 0x89, 0xC1]),
+            (8, vec![0x49, 0x89, 0xC0]),
+            (9, vec![0x49, 0x89, 0xC1]),
+        ] {
+            emissor.codigo.clear();
+            emissor.mover_rax_registrador(registrador);
+            assert_eq!(emissor.codigo, esperado);
+        }
+        emissor.codigo.clear();
+        emissor.armazenar_registrador(8, -8);
+        assert_eq!(emissor.codigo, [0x4C, 0x89, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
+        emissor.codigo.clear();
+        emissor.armazenar_registrador(9, -16);
+        assert_eq!(emissor.codigo, [0x4C, 0x89, 0x8D, 0xF0, 0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn codifica_operacoes_aritmeticas_e_comparacao_signed() {
+        let casos = [
+            (OperadorIr::Mais, vec![0x48, 0x01, 0xC8]),
+            (OperadorIr::Menos, vec![0x48, 0x29, 0xC8]),
+            (OperadorIr::Vezes, vec![0x48, 0x0F, 0xAF, 0xC1]),
+            (OperadorIr::Divide, vec![0x48, 0x99, 0x48, 0xF7, 0xF9]),
+            (OperadorIr::Resto, vec![0x48, 0x99, 0x48, 0xF7, 0xF9]),
+            (OperadorIr::Menor, vec![0x48, 0x39, 0xC8, 0x0F, 0x9C, 0xC0]),
+            (OperadorIr::MenorIgual, vec![0x48, 0x39, 0xC8, 0x0F, 0x9E, 0xC0]),
+            (OperadorIr::Maior, vec![0x48, 0x39, 0xC8, 0x0F, 0x9F, 0xC0]),
+            (OperadorIr::MaiorIgual, vec![0x48, 0x39, 0xC8, 0x0F, 0x9D, 0xC0]),
+            (OperadorIr::Igual, vec![0x48, 0x39, 0xC8, 0x0F, 0x94, 0xC0]),
+            (OperadorIr::Diferente, vec![0x48, 0x39, 0xC8, 0x0F, 0x95, 0xC0]),
+        ];
+        for (operador, bytes_esperados) in casos {
+            let mut emissor = Emissor::novo(HashMap::new());
+            let expressao = ExpressaoIr::Binaria {
+                esquerda: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(7))),
+                operador,
+                direita: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(3))),
+            };
+            emissor.expressao(&expressao).unwrap();
+            assert!(
+                emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados),
+                "codificação ausente para {operador:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn codifica_saltos_condicionais_e_incondicionais() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let condicional = emissor.emitir_jcc(0x84);
+        assert_eq!(&emissor.codigo, &[0x0F, 0x84, 0, 0, 0, 0]);
+        emissor.aplicar_salto(condicional, emissor.codigo.len());
+        assert_eq!(&emissor.codigo, &[0x0F, 0x84, 0, 0, 0, 0]);
+        emissor.codigo.clear();
+        let incondicional = emissor.emitir_jmp();
+        assert_eq!(&emissor.codigo, &[0xE9, 0, 0, 0, 0]);
+        emissor.aplicar_salto(incondicional, emissor.codigo.len());
+        assert_eq!(&emissor.codigo, &[0xE9, 0, 0, 0, 0]);
+    }
+
+    #[test]
     fn rejeita_deslocamentos_relativos_fora_de_i32() {
         assert!(calcular_relativo32(4, i128::from(i32::MAX) + 5).is_err());
         assert!(calcular_relativo32(i128::from(i32::MAX) + 5, 0).is_err());
