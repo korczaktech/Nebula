@@ -115,6 +115,7 @@ fn ajuda() {
     println!("  compilar <arquivo>    Gera executável nativo; -O0, -O1, -O2, -O3 ou -Os");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!();
+    println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
     println!("O backend nativo inicial gera C11 e utiliza um compilador C instalado (cc).");
 }
 
