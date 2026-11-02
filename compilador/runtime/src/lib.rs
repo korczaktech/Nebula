@@ -156,6 +156,8 @@ pub enum ErroRuntime {
     TextoNumericoInvalido,
     /// Operação decimal produziu NaN ou infinito.
     ResultadoNaoFinito,
+    /// Falha em uma operação de entrada/saída.
+    FalhaIo(String),
 }
 
 /// Resultado padrão das operações do runtime.
@@ -536,6 +538,30 @@ pub fn inteiro_para_texto(valor: i128) -> String {
     valor.to_string()
 }
 
+/// Lê um arquivo de texto UTF-8.
+pub fn ler_arquivo(caminho: &str) -> Resultado<String> {
+    std::fs::read_to_string(caminho)
+        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
+/// Escreve texto em um arquivo, substituindo seu conteúdo anterior.
+pub fn escrever_arquivo(caminho: &str, conteudo: &str) -> Resultado<()> {
+    std::fs::write(caminho, conteudo)
+        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
+/// Verifica se o caminho aponta para um arquivo regular existente.
+#[must_use]
+pub fn arquivo_existe(caminho: &str) -> bool {
+    std::path::Path::new(caminho).is_file()
+}
+
+/// Cria um diretório e seus diretórios pais ausentes.
+pub fn criar_diretorio(caminho: &str) -> Resultado<()> {
+    std::fs::create_dir_all(caminho)
+        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
 /// Executa uma operação inteira com overflow e divisão por zero verificados.
 pub fn operar_inteiro(operacao: OperacaoInteira, esquerda: i128, direita: i128) -> Resultado<i128> {
     match operacao {
@@ -678,6 +704,17 @@ mod testes {
             operar_decimal(OperacaoDecimal::Potencia, -1.0, 0.5),
             Err(ErroRuntime::ResultadoNaoFinito)
         );
+    }
+
+    #[test]
+    fn opera_arquivos_de_texto() {
+        let caminho = std::env::temp_dir().join(format!("nebula-runtime-{}.txt", std::process::id()));
+        let caminho = caminho.to_string_lossy().into_owned();
+        escrever_arquivo(&caminho, "Nebula").unwrap();
+        assert!(arquivo_existe(&caminho));
+        assert_eq!(ler_arquivo(&caminho), Ok("Nebula".into()));
+        std::fs::remove_file(&caminho).unwrap();
+        assert!(!arquivo_existe(&caminho));
     }
 
     #[test]
