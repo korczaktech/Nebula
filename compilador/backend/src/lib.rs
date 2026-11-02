@@ -997,3 +997,45 @@ mod testes {
 }
 
 pub use implementacao::gerar_executavel;
+
+/// Retorna os identificadores de alvo que possuem backend implementado.
+#[must_use]
+pub const fn alvos_suportados() -> &'static [&'static str] {
+    &["linux-x86_64"]
+}
+
+/// Valida um alvo sem recorrer a compilação cruzada ou ferramentas externas.
+pub fn validar_alvo(alvo: &str) -> Result<(), String> {
+    match alvo {
+        "linux-x86_64" => Ok(()),
+        "linux-aarch64" | "windows-x86_64" | "macos-x86_64" | "macos-aarch64" | "wasm32" => {
+            Err(format!("O alvo '{alvo}' ainda não possui backend implementado. Alvos disponíveis: {}.", alvos_suportados().join(", ")))
+        }
+        _ => Err(format!("Alvo desconhecido: '{alvo}'. Alvos disponíveis: {}.", alvos_suportados().join(", "))),
+    }
+}
+
+#[cfg(test)]
+mod testes_alvos {
+    use super::*;
+
+    #[test]
+    fn aceita_somente_o_alvo_nativo_implementado() {
+        assert!(validar_alvo("linux-x86_64").is_ok());
+        assert_eq!(alvos_suportados(), &["linux-x86_64"]);
+    }
+
+    #[test]
+    fn informa_backends_ainda_indisponiveis() {
+        for alvo in ["linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64", "wasm32"] {
+            let erro = validar_alvo(alvo).expect_err("alvo não implementado");
+            assert!(erro.contains("ainda não possui backend implementado"));
+        }
+    }
+
+    #[test]
+    fn rejeita_identificador_de_alvo_desconhecido() {
+        assert!(validar_alvo("dos-16").unwrap_err().contains("Alvo desconhecido"));
+    }
+}
+
