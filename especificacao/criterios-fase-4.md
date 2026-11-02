@@ -23,16 +23,16 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 | Pipeline Lexer/Parser → semântica → IR → backend | Implementado em código; validação completa pendente |
 | Escrita de cabeçalho ELF64 em Rust | Implementação inicial presente |
 | Emissão de instruções x86-64 em Rust | Subconjunto inicial presente |
-| Entrada e saída de processo | Entrada ELF e syscall de encerramento inicial |
-| Variáveis locais e parâmetros | Implementação inicial |
-| Expressões inteiras e lógicas | Implementação inicial |
-| Funções, chamadas e recursão | Implementação inicial |
+| Entrada ELF e encerramento do processo | Implementados para o alvo Linux x86-64 |
+| Variáveis locais, sombreamento e parâmetros (até seis registradores do ABI) | Implementados; testes de integração em expansão |
+| Expressões inteiras e lógicas, incluindo potência inteira por quadratura | Implementação em Rust; testes de execução adicionados |
+| Funções, chamadas aninhadas, seis parâmetros e recursão | Implementação em Rust; testes de ABI adicionados |
 | Condicionais e laços | Implementação inicial |
 | CLI sem invocar compilador C/C++ | Implementada; validação contínua |
 | Testes Rust do backend | Testes unitários e integração substituíram os testes C++ |
 | Runtime e biblioteca padrão | Adiados; não implementados |
 | Otimizador e níveis de otimização | Adiados; não implementados |
-| Benchmark sem otimizações | Linha de base em desenvolvimento |
+| Benchmark sem otimizações | Script e cargas presentes; execução de CI ainda precisa ser confirmada |
 
 ## Critérios de conclusão
 
@@ -40,7 +40,9 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 - A CLI não invoca compilador, assembler ou linker externo.
 - O executável gerado roda no alvo Linux x86-64 declarado.
 - As instruções implementadas têm testes unitários de codificação e testes de integração que executam os binários.
-- Chamadas, parâmetros, recursão, escopos, retorno, saltos e alinhamento de pilha seguem o ABI x86-64 documentado.
+- Chamadas, parâmetros (até seis), chamadas aninhadas, recursão, escopos, retorno, saltos e alinhamento de pilha seguem o ABI x86-64 documentado.
+- Potência inteira usa exponenciação por quadratura, sem runtime; expoente negativo, divisão por zero e overflow de divisão signed terminam com código de saída 2.
+- A gravação do executável é atômica: falhas de compilação não publicam arquivos parciais nem destroem uma saída anterior.
 - Entradas inválidas ou recursos ainda não implementados geram diagnósticos claros e não deixam executáveis inválidos.
 - A CI valida formatação, Clippy, todos os testes e benchmark aplicável.
 - A documentação não anuncia como prontos recursos que dependem do runtime ou do otimizador.
