@@ -11,7 +11,7 @@
 ## Tipos reconhecidos pela análise semântica
 
 - logico
-- inteiro (tipo inteiro padrão do subconjunto; ABI ainda não fixada)
+- inteiro (tipo inteiro padrão; no alvo inicial Linux x86-64, signed de 64 bits)
 - inteiro8, inteiro16, inteiro32, inteiro64, inteiro128
 - decimal e decimal64
 - decimal32
