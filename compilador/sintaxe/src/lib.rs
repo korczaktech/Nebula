@@ -18,7 +18,7 @@ pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
     Variavel, Constante, Funcao, Quando, Senao, Para, Enquanto, Devolver,
     Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Seguir,
-    E, Ou, Nao, Publico, Privado, Tipo, ReservadaFutura,
+    E, Ou, Nao, Publico, Privado, Tipo, Estrutura, Enumeracao, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
     Virgula, PontoVirgula, DoisPontos, Ponto,
     Atribui, Mais, Menos, Vezes, Divide, Resto, Potencia,
@@ -187,8 +187,9 @@ impl<'a> Lexer<'a> {
             "parar" => TipoToken::Parar, "seguir" => TipoToken::Seguir,
             "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" => TipoToken::Nao,
             "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
-            "tipo" => TipoToken::Tipo,
-            "cada" | "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" | "estrutura" | "enumeracao" => TipoToken::ReservadaFutura,
+            "tipo" => TipoToken::Tipo, "estrutura" => TipoToken::Estrutura,
+            "enumeracao" => TipoToken::Enumeracao,
+            "cada" | "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" => TipoToken::ReservadaFutura,
             _ => TipoToken::Identificador,
         };
         self.adicionar(tipo, self.inicio, self.atual);
@@ -326,6 +327,8 @@ pub enum NoAst {
     Variavel { nome: String, tipo: Option<String>, valor: Expressao, constante: bool },
     Funcao { visibilidade: Option<Visibilidade>, nome: String, genericos: Vec<String>, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
     Tipo { nome: String, destino: String },
+    Estrutura { nome: String, campos: Vec<(String, String)> },
+    Enumeracao { nome: String, variantes: Vec<(String, Vec<String>)> },
     Incluir { caminho: String, apelido: Option<String> },
     Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
     Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
@@ -386,6 +389,8 @@ impl Parser {
                 }
             }
             TipoToken::Tipo => self.tipo_alias(),
+            TipoToken::Estrutura => self.estrutura(),
+            TipoToken::Enumeracao => self.enumeracao(),
             TipoToken::ReservadaFutura => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
@@ -454,6 +459,75 @@ impl Parser {
         self.pular_novas_linhas();
         Some(NoAst::Tipo { nome, destino: self.caminho_tipo()? })
     }
+    fn estrutura(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let nome = self.consumir_nome("Esperado nome após 'estrutura'.")?;
+        if !self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual("N2030", "Esperado '{' após o nome da estrutura.");
+            return None;
+        }
+        self.separadores();
+        let mut campos = Vec::new();
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+            let campo = self.consumir_nome("Esperado nome do campo da estrutura.")?;
+            self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
+            let tipo = self.caminho_tipo()?;
+            if campos.iter().any(|(existente, _)| existente == &campo) {
+                self.erro_atual("N2031", "Campo declarado mais de uma vez na estrutura.");
+            } else {
+                campos.push((campo, tipo));
+            }
+            if !self.corresponde(TipoToken::Virgula) && !self.separador_atual()
+                && !self.verifica(TipoToken::FechaChave) {
+                self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
+                self.sincronizar();
+            }
+            self.separadores();
+        }
+        self.esperar(TipoToken::FechaChave, "Estrutura não foi fechada com '}'.");
+        Some(NoAst::Estrutura { nome, campos })
+    }
+
+    fn enumeracao(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let nome = self.consumir_nome("Esperado nome após 'enumeracao'.")?;
+        if !self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual("N2033", "Esperado '{' após o nome da enumeração.");
+            return None;
+        }
+        self.separadores();
+        let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+            let variante = self.consumir_nome("Esperado nome da variante.")?;
+            let mut payload = Vec::new();
+            if self.corresponde(TipoToken::AbrePar) {
+                if !self.verifica(TipoToken::FechaPar) {
+                    loop {
+                        payload.push(self.caminho_tipo()?);
+                        if !self.corresponde(TipoToken::Virgula) { break; }
+                    }
+                }
+                self.esperar(TipoToken::FechaPar, "Esperado ')' após tipos da variante.");
+            }
+            if variantes.iter().any(|(existente, _)| existente == &variante) {
+                self.erro_atual("N2034", "Variante declarada mais de uma vez na enumeração.");
+            } else {
+                variantes.push((variante, payload));
+            }
+            if !self.corresponde(TipoToken::Virgula) && !self.separador_atual()
+                && !self.verifica(TipoToken::FechaChave) {
+                self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
+                self.sincronizar();
+            }
+            self.separadores();
+        }
+        self.esperar(TipoToken::FechaChave, "Enumeração não foi fechada com '}'.");
+        if variantes.is_empty() {
+            self.erro_atual("N2036", "Uma enumeração precisa declarar ao menos uma variante.");
+        }
+        Some(NoAst::Enumeracao { nome, variantes })
+    }
+
     fn incluir(&mut self) -> Option<NoAst> {
         self.avancar(); let caminho = self.caminho_modulo()?;
         let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
@@ -742,6 +816,22 @@ mod testes {
                 r.diagnosticos
             );
         }
+    }
+
+    #[test]
+    fn analisa_declaracoes_de_estrutura_e_enumeracao() {
+        let r = analisar(&fonte("estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo, Erro(texto) }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Estrutura { nome, campos } if nome == "Pessoa" && campos.len() == 2));
+        assert!(matches!(&r.programa.itens[1], NoAst::Enumeracao { nome, variantes } if nome == "Estado" && variantes.len() == 3 && variantes[2].1 == ["texto"]));
+    }
+
+    #[test]
+    fn rejeita_campos_e_variantes_duplicados() {
+        let estrutura = analisar(&fonte("estrutura Pessoa { nome: texto, nome: inteiro }"));
+        assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
+        let enumeracao = analisar(&fonte("enumeracao Estado { Ativo, Ativo }"));
+        assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
     }
 
     #[test]
