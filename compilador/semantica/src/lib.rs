@@ -907,11 +907,6 @@ impl<'a> Analisador<'a> {
             "inteiro_u32" => Tipo::InteiroU32,
             "inteiro_u64" => Tipo::InteiroU64,
             "inteiro_u128" => Tipo::InteiroU128,
-            "inteiro_u8" => Tipo::InteiroU8,
-            "inteiro_u16" => Tipo::InteiroU16,
-            "inteiro_u32" => Tipo::InteiroU32,
-            "inteiro_u64" => Tipo::InteiroU64,
-            "inteiro_u128" => Tipo::InteiroU128,
             "decimal" => Tipo::Decimal64,
             "decimal32" => Tipo::Decimal32,
             "decimal64" => Tipo::Decimal64,
@@ -1060,6 +1055,7 @@ impl<'a> Analisador<'a> {
                 (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU64) => u64::try_from(v).is_ok(),
                 (LiteralNumerico::InteiroSemSinal(_), Tipo::InteiroU128) => true,
                 (LiteralNumerico::Inteiro(v), Tipo::Byte) => u8::try_from(v).is_ok(),
+                (LiteralNumerico::InteiroSemSinal(v), Tipo::Byte) => u8::try_from(v).is_ok(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal32) => (v as f32).is_finite(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal64 | Tipo::Decimal) => v.is_finite(),
                 _ => false,
@@ -1150,7 +1146,20 @@ impl<'a> Analisador<'a> {
             let outro = if a == &Tipo::Decimal32 { b } else { a };
             return if largura(outro) > 16 { Tipo::Decimal64 } else { Tipo::Decimal32 };
         }
-        match largura(a).max(largura(b)) {
+        let sem_sinal = |tipo: &Tipo| matches!(tipo,
+            Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128
+        );
+        let largura_maxima = largura(a).max(largura(b));
+        if sem_sinal(a) && sem_sinal(b) {
+            return match largura_maxima {
+                8 => Tipo::InteiroU8,
+                16 => Tipo::InteiroU16,
+                32 => Tipo::InteiroU32,
+                64 => Tipo::InteiroU64,
+                _ => Tipo::InteiroU128,
+            };
+        }
+        match largura_maxima {
             8 => Tipo::Inteiro8,
             16 => Tipo::Inteiro16,
             32 => Tipo::Inteiro32,
