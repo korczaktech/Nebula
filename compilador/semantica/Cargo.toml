@@ -1,0 +1,13 @@
+[package]
+name = "nebula-semantica"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+nebula-diagnosticos = { path = "../diagnosticos" }
+nebula-sintaxe = { path = "../sintaxe" }
+
+[lints]
+workspace = true
