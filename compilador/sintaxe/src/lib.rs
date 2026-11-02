@@ -566,7 +566,11 @@ impl Parser {
                 self.separadores();
                 continue;
             }
-            let (enumeracao, variante, vinculacoes) = if self.corresponde(TipoToken::Identificador) {
+            let (enumeracao, variante, vinculacoes) = if self.verifica(TipoToken::Identificador)
+                && self.tokens.get(self.atual).is_some_and(|token| token.lexema == "_") {
+                self.avancar();
+                (None, None, Vec::new())
+            } else if self.corresponde(TipoToken::Identificador) {
                 let primeiro = self.tokens[self.atual - 1].lexema.nfc().collect::<String>();
                 if self.corresponde(TipoToken::Escopo) {
                     let variante = self.consumir_nome("Esperado variante após '::'.")?;
@@ -585,8 +589,6 @@ impl Parser {
                     self.erro_atual("N2042", "Padrão deve ser uma variante Enum::Variante ou '_'.");
                     (None, None, Vec::new())
                 }
-            } else if self.corresponde(TipoToken::Identificador) {
-                (None, None, Vec::new())
             } else {
                 self.erro_atual("N2042", "Esperado padrão de enumeração ou '_'.");
                 (None, None, Vec::new())
@@ -911,6 +913,16 @@ mod testes {
         assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
         let enumeracao = analisar(&fonte("enumeracao Estado { Ativo, Ativo }"));
         assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
+    }
+
+    #[test]
+    fn analisa_escolha_de_enumeracao_com_payload_e_curinga() {
+        let r = analisar(&fonte("escolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        let NoAst::Escolha { casos, .. } = &r.programa.itens[0] else { panic!("AST não contém escolha"); };
+        assert_eq!(casos.len(), 3);
+        assert_eq!(casos[0].vinculacoes, ["valor"]);
+        assert!(casos[2].enumeracao.is_none() && casos[2].variante.is_none());
     }
 
     #[test]
