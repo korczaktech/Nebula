@@ -730,6 +730,21 @@ mod testes {
     }
 
     #[test]
+    fn lista_compartilhada_e_segura_entre_threads() {
+        let lista = Valor::Lista(Arc::new(RwLock::new(vec![Valor::Inteiro(1)])));
+        let mut memoria = Memoria::nova();
+        memoria.declarar("itens", lista, true).unwrap();
+        let mut outra_memoria = memoria.clone();
+        let tarefa = std::thread::spawn(move || {
+            outra_memoria
+                .definir_elemento_lista("itens", 0, Valor::Inteiro(9))
+                .unwrap();
+        });
+        tarefa.join().unwrap();
+        assert_eq!(memoria.elemento_lista("itens", 0), Ok(Valor::Inteiro(9)));
+    }
+
+    #[test]
     fn tarefas_e_canais_sincronizam_threads() {
         let canal = Canal::novo();
         let emissor = canal.clonar();
