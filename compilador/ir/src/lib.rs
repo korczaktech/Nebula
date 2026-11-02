@@ -960,6 +960,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_de_texto_unicode() {
+        let ir = compilar(
+            "exibir(aparar(\"  olá 🌌  \"))\nexibir(comeca_com(\"Nebula\", \"Neb\"))\nexibir(termina_com(\"Nebula\", \"ula\"))\nexibir(substituir(\"a-b-a\", \"a\", \"x\"))",
+        );
+        let resultado = executar(&ir, 100).expect("builtins de texto válidos");
+        assert_eq!(resultado.saida, vec!["olá 🌌", "verdadeiro", "verdadeiro", "x-b-x"]);
+    }
+
+    #[test]
     fn executa_expressao_e_chamada_exibir() {
         let ir = compilar("variavel total = 1 + 2\nexibir(total)");
         let r = executar(&ir, 100).expect("execução válida");
