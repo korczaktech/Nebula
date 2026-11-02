@@ -42,8 +42,14 @@ impl PartialEq for Valor {
             (Self::Texto(a), Self::Texto(b)) => a == b,
             (Self::Caractere(a), Self::Caractere(b)) => a == b,
             (
-                Self::Intervalo { inicio: ai, fim: af },
-                Self::Intervalo { inicio: bi, fim: bf },
+                Self::Intervalo {
+                    inicio: ai,
+                    fim: af,
+                },
+                Self::Intervalo {
+                    inicio: bi,
+                    fim: bf,
+                },
             ) => ai == bi && af == bf,
             (Self::Lista(a), Self::Lista(b)) => match (a.read(), b.read()) {
                 (Ok(a), Ok(b)) => *a == *b,
@@ -154,7 +160,10 @@ impl Memoria {
         mutavel: bool,
     ) -> Resultado<()> {
         let nome = nome.into();
-        let escopo = self.escopos.last_mut().expect("escopo global sempre existe");
+        let escopo = self
+            .escopos
+            .last_mut()
+            .expect("escopo global sempre existe");
         if escopo.contains_key(&nome) {
             return Err(ErroRuntime::NomeDuplicado(nome));
         }
@@ -210,9 +219,7 @@ impl Memoria {
             ));
         };
 
-        let mut itens = lista
-            .write()
-            .map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+        let mut itens = lista.write().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
         let tamanho = itens.len();
         let destino = itens
             .get_mut(indice)
@@ -229,9 +236,7 @@ impl Memoria {
                 "a variável não contém uma lista",
             ));
         };
-        let itens = lista
-            .read()
-            .map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+        let itens = lista.read().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
         itens
             .get(indice)
             .cloned()
@@ -274,11 +279,7 @@ pub fn caractere_texto(texto: &str, indice: usize) -> Resultado<char> {
 }
 
 /// Executa uma operação inteira com overflow e divisão por zero verificados.
-pub fn operar_inteiro(
-    operacao: OperacaoInteira,
-    esquerda: i128,
-    direita: i128,
-) -> Resultado<i128> {
+pub fn operar_inteiro(operacao: OperacaoInteira, esquerda: i128, direita: i128) -> Resultado<i128> {
     match operacao {
         OperacaoInteira::Soma => esquerda.checked_add(direita),
         OperacaoInteira::Subtracao => esquerda.checked_sub(direita),
@@ -296,8 +297,7 @@ pub fn operar_inteiro(
             esquerda.checked_rem(direita)
         }
         OperacaoInteira::Potencia => {
-            let expoente = u32::try_from(direita)
-                .map_err(|_| ErroRuntime::ExpoenteNegativo)?;
+            let expoente = u32::try_from(direita).map_err(|_| ErroRuntime::ExpoenteNegativo)?;
             esquerda.checked_pow(expoente)
         }
     }
@@ -311,13 +311,9 @@ mod testes {
     #[test]
     fn escopos_sombreiam_e_restauram_variaveis() {
         let mut memoria = Memoria::nova();
-        memoria
-            .declarar("valor", Valor::Inteiro(10), true)
-            .unwrap();
+        memoria.declarar("valor", Valor::Inteiro(10), true).unwrap();
         memoria.abrir_escopo();
-        memoria
-            .declarar("valor", Valor::Inteiro(20), true)
-            .unwrap();
+        memoria.declarar("valor", Valor::Inteiro(20), true).unwrap();
         assert_eq!(memoria.obter("valor"), Ok(Valor::Inteiro(20)));
         memoria.fechar_escopo().unwrap();
         assert_eq!(memoria.obter("valor"), Ok(Valor::Inteiro(10)));
@@ -338,9 +334,7 @@ mod testes {
     #[test]
     fn impede_declaracao_duplicada_no_mesmo_escopo() {
         let mut memoria = Memoria::nova();
-        memoria
-            .declarar("x", Valor::Inteiro(1), true)
-            .unwrap();
+        memoria.declarar("x", Valor::Inteiro(1), true).unwrap();
         assert_eq!(
             memoria.declarar("x", Valor::Inteiro(2), true),
             Err(ErroRuntime::NomeDuplicado("x".into()))
@@ -365,10 +359,7 @@ mod testes {
         memoria
             .definir_elemento_lista("itens", 1, Valor::Inteiro(7))
             .unwrap();
-        assert_eq!(
-            memoria.elemento_lista("itens", 1),
-            Ok(Valor::Inteiro(7))
-        );
+        assert_eq!(memoria.elemento_lista("itens", 1), Ok(Valor::Inteiro(7)));
         assert_eq!(memoria.comprimento_lista("itens"), Ok(2));
     }
 
@@ -402,10 +393,7 @@ mod testes {
             operar_inteiro(OperacaoInteira::Divisao, 10, 0),
             Err(ErroRuntime::DivisaoPorZero)
         );
-        assert_eq!(
-            operar_inteiro(OperacaoInteira::Potencia, 2, 10),
-            Ok(1024)
-        );
+        assert_eq!(operar_inteiro(OperacaoInteira::Potencia, 2, 10), Ok(1024));
     }
 
     #[test]
