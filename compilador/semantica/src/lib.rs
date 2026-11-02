@@ -1380,6 +1380,31 @@ mod testes {
     }
 
     #[test]
+    fn valida_construcao_de_variante_com_payload() {
+        let r = analisar_codigo(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("resultado"), Some(&Tipo::Enumeracao("Resultado".into())));
+    }
+
+    #[test]
+    fn rejeita_payload_de_variante_com_tipo_incorreto() {
+        let r = analisar_codigo(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(\"texto\")",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_quantidade_incorreta_de_payload() {
+        let r = analisar_codigo(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso()",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3044"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn rejeita_tipo_desconhecido_em_estrutura_e_enumeracao() {
         let r = analisar_codigo(
             "estrutura Pessoa { nome: TipoAusente }\nenumeracao Estado { Falha(TipoAusente) }",
