@@ -503,7 +503,10 @@ impl Memoria {
         if caminho.is_empty() {
             return Err(ErroRuntime::TipoIncompativel("caminho de campo vazio"));
         }
-        let celula = self.escopos.iter_mut().rev()
+        let celula = self
+            .escopos
+            .iter_mut()
+            .rev()
             .find_map(|escopo| escopo.get_mut(nome))
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
         if !celula.mutavel {
@@ -512,17 +515,25 @@ impl Memoria {
         let mut atual = celula.valor.clone();
         for campo in &caminho[..caminho.len() - 1] {
             let Valor::Estrutura { campos, .. } = atual else {
-                return Err(ErroRuntime::TipoIncompativel("campo intermediário não é estrutura"));
+                return Err(ErroRuntime::TipoIncompativel(
+                    "campo intermediário não é estrutura",
+                ));
             };
-            atual = campos.read().map_err(|_| ErroRuntime::MemoriaCorrompida)?
-                .get(campo).cloned()
-                .ok_or(ErroRuntime::TipoIncompativel("campo intermediário inexistente"))?;
+            atual = campos
+                .read()
+                .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+                .get(campo)
+                .cloned()
+                .ok_or(ErroRuntime::TipoIncompativel(
+                    "campo intermediário inexistente",
+                ))?;
         }
         let Valor::Estrutura { campos, .. } = atual else {
             return Err(ErroRuntime::TipoIncompativel("destino não é estrutura"));
         };
         let mut campos = campos.write().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
-        let destino = campos.get_mut(caminho.last().expect("caminho validado"))
+        let destino = campos
+            .get_mut(caminho.last().expect("caminho validado"))
             .ok_or(ErroRuntime::TipoIncompativel("campo inexistente"))?;
         *destino = valor;
         Ok(())
