@@ -1001,4 +1001,15 @@ mod testes {
         };
         assert!(calcular_layout(&tipo).is_err());
     }
+    #[test]
+    fn layout_de_funcao_e_ponteiro_de_codigo() {
+        let tipo = TipoRuntime::Funcao(
+            vec![TipoRuntime::Inteiro { bits: 64, assinado: true }],
+            Box::new(TipoRuntime::Logico),
+        );
+        let layout = calcular_layout(&tipo).unwrap();
+        assert_eq!(layout.tamanho, 8);
+        assert_eq!(layout.alinhamento, 8);
+    }
+
 }

@@ -8,6 +8,7 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
+    LayoutRuntime,
     arquivo_existe, caractere_texto, comprimento_texto, copiar_arquivo, criar_diretorio,
     diretorio_existe, escrever_arquivo, listar_diretorio, mover_arquivo, remover_arquivo,
     calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
@@ -84,6 +85,8 @@ pub struct ProgramaIr {
     pub instrucoes: Vec<InstrucaoIr>,
     pub funcoes: HashMap<String, FuncaoIr>,
     pub modulos: HashMap<String, String>,
+    /// Layouts físicos validados das estruturas e enumerações declaradas.
+    pub layouts_tipos: HashMap<String, LayoutRuntime>,
 }
 
 /// Resultado da conversão da AST para IR.
@@ -155,7 +158,28 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
         escopos_tipos: vec![HashMap::new()],
         substituicoes: HashMap::new(),
     };
-    let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new(), modulos: modulos_importados };
+    let mut layouts_tipos = HashMap::new();
+    for item in &programa.itens {
+        let tipo = match item {
+            NoAst::Estrutura { nome, .. } => Some((nome, Tipo::Estrutura(nome.clone()))),
+            NoAst::Enumeracao { nome, .. } => Some((nome, Tipo::Enumeracao(nome.clone()))),
+            _ => None,
+        };
+        if let Some((nome, tipo)) = tipo {
+            match crate::layout::calcular_layout_tipo(programa, &tipo) {
+                Ok(layout) => { layouts_tipos.insert(nome.clone(), layout); }
+                Err(erro) => lowerer.diagnosticos.push(format!(
+                    "Não foi possível definir o layout de '{nome}': {erro}"
+                )),
+            }
+        }
+    }
+    let mut ir = ProgramaIr {
+        instrucoes: Vec::new(),
+        funcoes: HashMap::new(),
+        modulos: modulos_importados,
+        layouts_tipos,
+    };
     for item in &programa.itens {
         match item {
             NoAst::Funcao { nome, genericos, parametros, retorno, corpo, .. } if genericos.is_empty() => {
