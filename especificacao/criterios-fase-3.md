@@ -67,11 +67,11 @@ A Fase 3 entrega análise semântica, resolução explícita de módulos, tipage
 
 ## Resultado do aceite
 
-- Commit de código validado: `6d270f873cc95bab5c5c2776f9fa609371dd6b52`.
-- [GitHub Actions — execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41372653540).
+- Commit de código auditado e corrigido: `e1135a4e9244495bad5386b138368eb980f49a19`.
+- [GitHub Actions — execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41373216680).
 - `cargo fmt --all -- --check`: aprovado.
 - `cargo clippy --locked --workspace --all-targets -- -D warnings`: aprovado.
 - `cargo test --locked --workspace --all-targets`: aprovado.
-- **104 testes aprovados; 0 falhas.**
+- **107 testes aprovados; 0 falhas.**
 
 A Fase 3 está concluída dentro do escopo definido neste documento. Isso não significa que a Nebula já gere executáveis nativos/WebAssembly, possua carregador de módulos, biblioteca padrão completa ou borrow checker; esses itens permanecem explicitamente fora desta fase.
