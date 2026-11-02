@@ -568,6 +568,31 @@ mod testes {
     }
 
     #[test]
+    fn rejeita_funcao_com_mais_de_seis_parametros() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.insert("excesso".into(), FuncaoIr {
+            nome: "excesso".into(),
+            parametros: (0..7).map(|indice| (format!("p{indice}"), Tipo::Inteiro)).collect(),
+            retorno: Tipo::Inteiro,
+            corpo: Vec::new(),
+        });
+        assert!(gerar_executavel(&programa).unwrap_err().contains("seis parâmetros"));
+    }
+
+    #[test]
+    fn rejeita_quadro_local_maior_que_o_limite() {
+        let mut programa = programa_com_retorno(0);
+        let corpo = (0..=LIMITE_VARIAVEIS).map(|indice| InstrucaoIr::Declarar {
+            nome: format!("v{indice}"),
+            tipo: Tipo::Inteiro,
+            valor: ExpressaoIr::Constante(ValorIr::Inteiro(0)),
+            constante: false,
+        }).collect();
+        programa.funcoes.get_mut("principal").unwrap().corpo = corpo;
+        assert!(gerar_executavel(&programa).unwrap_err().contains("512 posições"));
+    }
+
+    #[test]
     fn rejeita_declaracao_duplicada_no_mesmo_escopo() {
         let mut emissor = Emissor::novo();
         emissor.escopos.push(HashMap::new());
