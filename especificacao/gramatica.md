@@ -171,4 +171,4 @@ Forma com separadores explícitos:
 variavel total = 10; constante taxa = 2; exibir(total * taxa)
 ~~~
 
-Esses exemplos são casos de referência executados pela suíte de conformidade da Fase 2 por meio do comando `nebula verificar`.
+Esses exemplos são casos de referência; a CLI `nebula verificar` permite executá-los contra a implementação do Parser.
