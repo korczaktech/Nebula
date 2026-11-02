@@ -54,7 +54,7 @@ A Fase 3 entrega análise semântica, resolução explícita de módulos, tipage
 - `N3014`: acesso a membro não definido.
 - `N3015`: aridade incorreta.
 - `N3016`–`N3018`: operandos incompatíveis.
-- `N3019`: declaração duplicada no mesmo escopo.
+- `N3019`: declaração duplicada no mesmo escopo ou colisão entre função, variável e alias de módulo.
 - `N3020`: incompatibilidade de tipos.
 - `N3021`: tipo não declarado.
 - `N3022`: alias de módulo duplicado.
