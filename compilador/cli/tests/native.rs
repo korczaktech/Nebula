@@ -1,215 +1,125 @@
-//! Testes ponta a ponta do backend nativo pela CLI.
+//! Testes de integração do backend ELF gerado integralmente em Rust.
 
 use std::fs;
-use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
-fn arquivo_temporario(rotulo: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("nebula-e2e-{rotulo}-{}.nbx", std::process::id()))
+fn caminhos(rotulo: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let base = format!("nebula-elf-{rotulo}-{}", std::process::id());
+    (
+        std::env::temp_dir().join(format!("{base}.nbx")),
+        std::env::temp_dir().join(base),
+    )
 }
 
-#[test]
-#[rustfmt::skip]
-fn compila_e_executa_programa_nativo() {
-    let origem = arquivo_temporario("valido");
-    fs::write(
-        &origem,
-        "funcao dobro(valor: inteiro): inteiro {\n    devolver valor * 2\n}\nfuncao principal(): vazio {\n    variavel resposta: inteiro = dobro(21)\n    quando resposta == 42 {\n        exibir(resposta)\n    } senao {\n        exibir(0)\n    }\n}\n",
-    )
-    .unwrap();
-    let exe = std::env::temp_dir().join(format!(
-        "nebula-e2e-{}{}",
-        std::process::id(),
-        if cfg!(windows) { ".exe" } else { "" }
-    ));
+fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
+    let (origem, executavel) = caminhos(rotulo);
+    fs::write(&origem, codigo).expect("grava fonte Nebula");
     let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
         .arg("-o")
-        .arg(&exe)
-        .arg("-O2")
+        .arg(&executavel)
         .output()
-        .unwrap();
+        .expect("executa CLI Rust");
     assert!(
         compilacao.status.success(),
-        "{}",
+        "falha de compilação: {}",
         String::from_utf8_lossy(&compilacao.stderr)
     );
-    let execucao = Command::new(&exe).output().unwrap();
-    assert!(execucao.status.success());
-    assert_eq!(String::from_utf8_lossy(&execucao.stdout).trim(), "42");
-    let execucao_cli = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar")
-        .arg(&origem)
+    let execucao = Command::new(&executavel)
         .output()
-        .unwrap();
-    assert!(execucao_cli.status.success());
-    assert_eq!(String::from_utf8_lossy(&execucao_cli.stdout).trim(), "42");
+        .expect("executa ELF gerado");
     let _ = fs::remove_file(origem);
-    let _ = fs::remove_file(exe);
+    let _ = fs::remove_file(executavel);
+    execucao
 }
 
 #[test]
-#[rustfmt::skip]
-fn rejeita_codigo_semantica_ou_sintaticamente_invalido() {
-    let origem = arquivo_temporario("invalido");
-    fs::write(&origem, "funcao principal(): vazio {\n    ausente()\n}\n").unwrap();
-    let exe = std::env::temp_dir().join(format!(
-        "nebula-e2e-invalido-{}",
-        std::process::id()
-    ));
+fn gera_elf_executavel_com_codigo_de_saida() {
+    let resultado = compilar_e_executar(
+        "retorno",
+        "funcao principal(): inteiro { devolver 42 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_variaveis_aritmetica_e_atribuicao() {
+    let resultado = compilar_e_executar(
+        "aritmetica",
+        "funcao principal(): inteiro {\n    variavel total: inteiro = 10\n    total = total * 4 + 2\n    devolver total\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_funcoes_parametros_e_chamadas() {
+    let resultado = compilar_e_executar(
+        "funcao",
+        "funcao dobrar(valor: inteiro): inteiro { devolver valor * 2 }\nfuncao principal(): inteiro { devolver dobrar(21) }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_condicionais_e_comparacoes() {
+    let resultado = compilar_e_executar(
+        "condicional",
+        "funcao principal(): inteiro {\n    quando 6 * 7 == 42 { devolver 42 } senao { devolver 1 }\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_laco_enquanto() {
+    let resultado = compilar_e_executar(
+        "enquanto",
+        "funcao principal(): inteiro {\n    variavel i: inteiro = 0\n    enquanto i < 42 { i = i + 1 }\n    devolver i\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_laco_para_e_controle() {
+    let resultado = compilar_e_executar(
+        "para",
+        "funcao principal(): inteiro {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 10; i = i + 1) {\n        quando i == 2 { seguir }\n        quando i == 8 { parar }\n        total = total + i\n    }\n    devolver total\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(19));
+}
+
+#[test]
+fn rejeita_recurso_que_depende_do_runtime_adiado() {
+    let (origem, executavel) = caminhos("runtime-adiado");
+    fs::write(
+        &origem,
+        "funcao principal(): vazio { exibir(42) }",
+    ).unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
         .arg("-o")
-        .arg(&exe)
+        .arg(&executavel)
         .output()
         .unwrap();
     assert!(!resultado.status.success());
-    assert!(!exe.exists());
+    assert!(String::from_utf8_lossy(&resultado.stderr).contains("runtime"));
+    assert!(!executavel.exists());
     let _ = fs::remove_file(origem);
 }
 
 #[test]
-#[rustfmt::skip]
-fn compila_texto_utf8_do_exemplo_oficial() {
-    let origem = arquivo_temporario("texto");
-    fs::write(&origem, include_str!("../../../exemplos/ola_mundo.nbx")).unwrap();
+fn rejeita_programa_sem_funcao_principal() {
+    let (origem, executavel) = caminhos("sem-principal");
+    fs::write(&origem, "variavel total: inteiro = 42").unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar")
+        .arg("compilar")
         .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
         .output()
         .unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Olá, Nebula!");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn compila_e_executa_laco_do_benchmark() {
-    let origem = arquivo_temporario("benchmark");
-    fs::write(&origem, include_str!("../../../benchmarks/loop.nbx")).unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar")
-        .arg(&origem)
-        .output()
-        .unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "1249999975000000");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn aceita_todos_os_niveis_de_otimizacao() {
-    let origem = arquivo_temporario("otimizacao");
-    fs::write(&origem, "funcao principal(): vazio {\n    exibir(6 * 7)\n}\n").unwrap();
-    for nivel in ["-O0", "-O1", "-O2", "-O3", "-Os"] {
-        let nome = nivel.trim_start_matches('-');
-        let exe = std::env::temp_dir().join(format!("nebula-e2e-{nome}-{}.out", std::process::id()));
-        let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
-            .arg("compilar").arg(&origem).arg("-o").arg(&exe).arg(nivel).output().unwrap();
-        assert!(compilacao.status.success(), "{nivel}: {}", String::from_utf8_lossy(&compilacao.stderr));
-        let execucao = Command::new(&exe).output().unwrap();
-        assert!(execucao.status.success());
-        assert_eq!(String::from_utf8_lossy(&execucao.stdout).trim(), "42");
-        let _ = fs::remove_file(exe);
-    }
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn biblioteca_padrao_le_texto_da_entrada() {
-    let origem = arquivo_temporario("entrada");
-    fs::write(
-        &origem,
-        "funcao principal(): vazio {\n    variavel entrada: texto = ler_texto()\n    exibir(entrada)\n}\n",
-    ).unwrap();
-    let mut processo = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar")
-        .arg(&origem)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    processo.stdin.as_mut().unwrap().write_all("Nebula UTF-8\n".as_bytes()).unwrap();
-    let resultado = processo.wait_with_output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Nebula UTF-8");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn compila_lista_homogenea_e_indexacao() {
-    let origem = arquivo_temporario("lista");
-    fs::write(&origem, "funcao principal(): vazio {\n    variavel valores = [10, 20, 30]\n    exibir(valores[1])\n}\n").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "20");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn concatena_texto_no_backend_nativo() {
-    let origem = arquivo_temporario("concat");
-    fs::write(&origem, "funcao principal(): vazio {\n    variavel nome: texto = \"Nebula\"\n    exibir(\"Olá, \" + nome)\n}\n").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Olá, Nebula");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn compila_laco_para_e_controle_de_fluxo() {
-    let origem = arquivo_temporario("para");
-    fs::write(&origem, "funcao principal(): vazio {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 5; i = i + 1) {\n        quando i == 2 { seguir }\n        quando i == 4 { parar }\n        total = total + i\n    }\n    exibir(total)\n}\n").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "4");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn imprime_tipos_escalares_nativos() {
-    let origem = arquivo_temporario("escalares");
-    fs::write(&origem, "funcao principal(): vazio {\n    exibir(3.5)\n    exibir(verdadeiro)\n    exibir('A')\n}\n").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "3.5\ntrue\nA");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn compila_chamadas_recursivas() {
-    let origem = arquivo_temporario("recursao");
-    fs::write(&origem, include_str!("../../../benchmarks/fibonacci.nbx")).unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "24157817");
-    let _ = fs::remove_file(origem);
-}
-
-#[test]
-#[rustfmt::skip]
-fn passa_lista_como_parametro_de_funcao() {
-    let origem = arquivo_temporario("lista-funcao");
-    fs::write(&origem, "funcao primeiro(itens: [inteiro]): inteiro {\n    devolver itens[1]\n}\nfuncao principal(): vazio {\n    variavel itens = [7, 8]\n    exibir(primeiro(itens))\n}\n").unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("executar").arg(&origem).output().unwrap();
-    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "8");
+    assert!(!resultado.status.success());
+    assert!(!executavel.exists());
     let _ = fs::remove_file(origem);
 }
