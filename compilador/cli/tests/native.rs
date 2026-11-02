@@ -201,3 +201,15 @@ fn compila_chamadas_recursivas() {
     assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "24157817");
     let _ = fs::remove_file(origem);
 }
+
+#[test]
+#[rustfmt::skip]
+fn passa_e_retorna_listas_em_funcoes() {
+    let origem = arquivo_temporario("lista-funcao");
+    fs::write(&origem, "funcao criar(): [inteiro] {\n    devolver [7, 8]\n}\nfuncao principal(): vazio {\n    variavel itens = criar()\n    exibir(itens[1])\n}\n").unwrap();
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar").arg(&origem).output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "8");
+    let _ = fs::remove_file(origem);
+}
