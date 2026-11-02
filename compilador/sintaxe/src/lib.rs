@@ -99,15 +99,15 @@ impl<'a> Lexer<'a> {
                         fechado = true;
                         break;
                     }
-                    if self.byte(0) == Some(b'\\n') && self.profundidade_continuacao == 0 {
+                    if self.byte(0) == Some(b'\n') && self.profundidade_continuacao == 0 {
                         let pos = self.atual;
                         self.atual += 1;
                         self.adicionar(TipoToken::NovaLinha, pos, self.atual);
-                    } else if self.byte(0) == Some(b'\\r') && self.byte(1) == Some(b'\\n') && self.profundidade_continuacao == 0 {
+                    } else if self.byte(0) == Some(b'\r') && self.byte(1) == Some(b'\n') && self.profundidade_continuacao == 0 {
                         let pos = self.atual;
                         self.atual += 2;
                         self.adicionar(TipoToken::NovaLinha, pos, self.atual);
-                    } else if self.byte(0) == Some(b'\\r') && self.byte(1) != Some(b'\\n') {
+                    } else if self.byte(0) == Some(b'\r') && self.byte(1) != Some(b'\n') {
                         let pos = self.atual;
                         self.atual += 1;
                         self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", pos, self.atual);
@@ -244,13 +244,13 @@ impl<'a> Lexer<'a> {
         let mut unidades = 0usize;
         let mut fechado = false;
         while !self.fim() {
-            if self.byte(0) == Some(b'\\'') {
+            if self.byte(0) == Some(b'\'') {
                 self.atual += 1;
                 fechado = true;
                 break;
             }
-            if matches!(self.byte(0), Some(b'\\n' | b'\\r')) { break; }
-            if self.byte(0) == Some(b'\\\\') {
+            if matches!(self.byte(0), Some(b'\n' | b'\r')) { break; }
+            if self.byte(0) == Some(b'\\') {
                 self.atual += 1;
                 if !self.escape_valido() {
                     self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual);
