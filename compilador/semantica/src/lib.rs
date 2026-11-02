@@ -798,13 +798,15 @@ impl<'a> Analisador<'a> {
             Expressao::Membro { alvo, operador, nome } => {
                 if *operador == TipoToken::Ponto {
                     let tipo_alvo = self.expressao(alvo);
-                    if let Tipo::Estrutura(nome_estrutura) = tipo_alvo {
-                        if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
-                            return tipo_campo;
+                    match tipo_alvo {
+                        Tipo::Estrutura(nome_estrutura) => {
+                            if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
+                                return tipo_campo;
+                            }
+                            self.erro("N3040", format!("A estrutura '{nome_estrutura}' não possui o campo '{nome}'."));
                         }
-                        self.erro("N3040", format!("A estrutura '{nome_estrutura}' não possui o campo '{nome}'."));
-                    } else if tipo_alvo != Tipo::Desconhecido {
-                        self.erro("N3041", format!("O tipo {} não possui campos acessíveis por '.'.", tipo_alvo.nome()));
+                        Tipo::Desconhecido => {}
+                        outro => self.erro("N3041", format!("O tipo {} não possui campos acessíveis por '.'.", outro.nome())),
                     }
                 }
                 Tipo::Desconhecido
