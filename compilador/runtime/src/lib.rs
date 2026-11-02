@@ -254,9 +254,7 @@ impl Memoria {
                 "a variável não contém uma lista",
             ));
         };
-        let itens = lista
-            .read()
-            .map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+        let itens = lista.read().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
         Ok(itens.len())
     }
 }
