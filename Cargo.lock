@@ -10,6 +10,15 @@ dependencies = [
  "nebula-sintaxe",
  "nebula-semantica",
  "nebula-ir",
+ "nebula-backend",
+]
+
+[[package]]
+name = "nebula-backend"
+version = "0.1.0"
+dependencies = [
+ "nebula-ir",
+ "nebula-semantica",
 ]
 
 [[package]]
