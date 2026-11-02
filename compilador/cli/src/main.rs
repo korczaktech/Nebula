@@ -108,7 +108,12 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     if !ir.diagnosticos.is_empty() {
         return Err(ir.diagnosticos.join("\n"));
     }
-    let binario = nebula_backend::gerar_executavel(&ir.programa.expect("IR validada"))?;
+    let mut programa = ir.programa.expect("IR validada");
+    nebula_ir::otimizador::otimizar(
+        &mut programa,
+        nebula_ir::otimizador::NivelOtimizacao::O1,
+    )?;
+    let binario = nebula_backend::gerar_executavel(&programa)?;
     gravar_executavel_atomico(saida, &binario)
 }
 
