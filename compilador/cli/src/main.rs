@@ -68,6 +68,33 @@ fn main() {
                 Err(erro) => { eprintln!("Erro de execução: {erro}"); std::process::exit(1); }
             }
         }
+        Some("dependencias") => {
+            let Some(acao) = argumentos.next() else {
+                eprintln!("Uso: nebula dependencias resolver [diretorio]");
+                std::process::exit(2);
+            };
+            if acao != "resolver" || argumentos.len() > 1 {
+                eprintln!("Uso: nebula dependencias resolver [diretorio]");
+                std::process::exit(2);
+            }
+            let diretorio = argumentos.next().map(PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            match nebula_pacotes::resolver(&diretorio) {
+                Ok(resolucao) => {
+                    let destino = diretorio.join("nebula.lock");
+                    if let Err(erro) = std::fs::write(&destino, resolucao.lockfile) {
+                        eprintln!("Não foi possível gravar lockfile: {erro}");
+                        std::process::exit(1);
+                    }
+                    println!("Dependências resolvidas: {}", resolucao.pacotes.len());
+                    println!("Lockfile: {}", destino.display());
+                }
+                Err(erro) => {
+                    eprintln!("Erro ao resolver dependências: {erro}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Some("ir") => {
             let Some(caminho) = argumentos.next() else {
                 eprintln!("Uso: nebula ir <arquivo.nbx>");
