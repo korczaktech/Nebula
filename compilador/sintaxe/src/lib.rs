@@ -386,6 +386,16 @@ impl Parser {
                 }
             }
             TipoToken::Tipo => self.tipo_alias(),
+            TipoToken::ReservadaFutura => {
+                let token = self.avancar();
+                self.diagnosticos.push(Diagnostico::novo(
+                    "N2016",
+                    Severidade::Erro,
+                    format!("A construção '{}' está reservada para uma versão futura e ainda não possui implementação.", token.lexema),
+                    Some(token.intervalo),
+                ));
+                None
+            }
             TipoToken::Incluir => self.incluir(),
             TipoToken::Quando => self.quando(),
             TipoToken::Enquanto => self.enquanto(),
@@ -706,6 +716,18 @@ impl Parser {
 mod testes {
     use super::*;
     fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
+
+    #[test]
+    fn diagnostica_construcoes_reservadas_sem_suporte() {
+        for codigo in ["estrutura Pessoa {}", "enumeracao Estado {}"] {
+            let r = analisar(&fonte(codigo));
+            assert!(
+                r.diagnosticos.iter().any(|d| d.codigo == "N2016"),
+                "{codigo}: {:?}",
+                r.diagnosticos
+            );
+        }
+    }
 
     #[test]
     fn reconhece_palavras_identificadores_e_operadores_maiores() {
