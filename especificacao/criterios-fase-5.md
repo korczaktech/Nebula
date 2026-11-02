@@ -19,7 +19,7 @@
 | 11. Documentação e lançamento | Parcial: README e critérios atualizados; estabilidade 1.0, instaladores, assinaturas e distribuição pendentes |
 | 12. Autocompilação | Não implementada; permanece dependente de maturidade da linguagem |
 
-A validação automatizada dos recursos de runtime, interpretador, CLI e otimizador passou em [CI no commit 0aff663](https://github.com/korczaktech/Nebula/actions/runs/41396629431). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
+A validação automatizada do runtime, builtins, interpretador, CLI, otimizador e testes de compartilhamento concorrente passou em [CI no commit d658bad](https://github.com/korczaktech/Nebula/actions/runs/41398108101). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
 
 ## Objetivo
 
