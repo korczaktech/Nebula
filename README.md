@@ -346,9 +346,7 @@ Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionad
 - `nebula-sintaxe`: Lexer, AST e Parser do subconjunto gramatical inicial.
 
 **Planejadas para fases posteriores:**
-- `nebula-lexer`
-- `nebula-parser`
-- `nebula-ast`
+- `nebula-semantica`
 - `nebula-semantica`
 - `nebula-tipos`
 - `nebula-ir`
