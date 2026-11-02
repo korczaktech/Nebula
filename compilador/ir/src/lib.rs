@@ -16,14 +16,21 @@ pub enum ValorIr {
     Lista(Vec<ValorIr>), Intervalo(i128, i128), Nulo, Vazio,
 }
 
+/// Operadores normalizados da representação intermediária.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperadorIr {
+    Mais, Menos, Vezes, Divide, Resto, Potencia, Igual, Diferente,
+    Menor, MenorIgual, Maior, MaiorIgual, E, Ou, Intervalo, Negacao, Nao,
+}
+
 /// Expressão em forma independente da AST.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressaoIr {
     Constante(ValorIr),
     Variavel(String),
     Lista(Vec<ExpressaoIr>),
-    Unaria { operador: TipoToken, valor: Box<ExpressaoIr> },
-    Binaria { esquerda: Box<ExpressaoIr>, operador: TipoToken, direita: Box<ExpressaoIr> },
+    Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
+    Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
     Atribuicao { nome: String, valor: Box<ExpressaoIr> },
     Chamada { nome: String, argumentos: Vec<ExpressaoIr> },
     ChamadaQualificada { modulo: String, nome: String, argumentos: Vec<ExpressaoIr> },
@@ -167,11 +174,12 @@ impl Lowerer {
                 valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
             )),
             Expressao::Unaria { operador, valor } => Some(ExpressaoIr::Unaria {
-                operador: *operador, valor: Box::new(self.expressao(valor)?),
+                operador: converter_operador(*operador)?,
+                valor: Box::new(self.expressao(valor)?),
             }),
             Expressao::Binaria { esquerda, operador, direita } => Some(ExpressaoIr::Binaria {
                 esquerda: Box::new(self.expressao(esquerda)?),
-                operador: *operador,
+                operador: converter_operador(*operador)?,
                 direita: Box::new(self.expressao(direita)?),
             }),
             Expressao::Atribuicao { destino, valor } => {
@@ -211,6 +219,21 @@ impl Lowerer {
     }
 }
 
+fn converter_operador(operador: TipoToken) -> Option<OperadorIr> {
+    use OperadorIr::*;
+    match operador {
+        TipoToken::Mais => Some(Mais), TipoToken::Menos => Some(Menos),
+        TipoToken::Vezes => Some(Vezes), TipoToken::Divide => Some(Divide),
+        TipoToken::Resto => Some(Resto), TipoToken::Potencia => Some(Potencia),
+        TipoToken::Igual => Some(Igual), TipoToken::Diferente => Some(Diferente),
+        TipoToken::Menor => Some(Menor), TipoToken::MenorIgual => Some(MenorIgual),
+        TipoToken::Maior => Some(Maior), TipoToken::MaiorIgual => Some(MaiorIgual),
+        TipoToken::E => Some(E), TipoToken::Ou => Some(Ou),
+        TipoToken::Intervalo => Some(Intervalo), TipoToken::Negacao => Some(Negacao),
+        TipoToken::Nao => Some(Nao), _ => None,
+    }
+}
+
 fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
     match expressao {
         ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Tipo::Inteiro,
@@ -221,8 +244,8 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
         ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
-            TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor | TipoToken::MenorIgual
-            | TipoToken::Maior | TipoToken::MaiorIgual | TipoToken::E | TipoToken::Ou => Tipo::Logico,
+            OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual
+            | OperadorIr::Maior | OperadorIr::MaiorIgual | OperadorIr::E | OperadorIr::Ou => Tipo::Logico,
             _ => inferir_tipo(esquerda),
         },
         ExpressaoIr::Unaria { valor, .. } => inferir_tipo(valor),
@@ -375,17 +398,17 @@ impl Maquina<'_> {
             ExpressaoIr::Unaria { operador, valor } => {
                 let valor = self.expressao(valor)?;
                 match (operador, valor) {
-                    (TipoToken::Negacao | TipoToken::Nao, ValorIr::Logico(v)) => Ok(ValorIr::Logico(!v)),
-                    (TipoToken::Menos, ValorIr::Inteiro(v)) => v.checked_neg().map(ValorIr::Inteiro).ok_or_else(|| "Overflow em negação inteira.".into()),
-                    (TipoToken::Menos, ValorIr::Decimal(v)) => Ok(ValorIr::Decimal(-v)),
-                    (TipoToken::Mais, v @ (ValorIr::Inteiro(_) | ValorIr::Decimal(_))) => Ok(v),
+                    (OperadorIr::Negacao | OperadorIr::Nao, ValorIr::Logico(v)) => Ok(ValorIr::Logico(!v)),
+                    (OperadorIr::Menos, ValorIr::Inteiro(v)) => v.checked_neg().map(ValorIr::Inteiro).ok_or_else(|| "Overflow em negação inteira.".into()),
+                    (OperadorIr::Menos, ValorIr::Decimal(v)) => Ok(ValorIr::Decimal(-v)),
+                    (OperadorIr::Mais, v @ (ValorIr::Inteiro(_) | ValorIr::Decimal(_))) => Ok(v),
                     _ => Err("Operador unário incompatível na IR.".into()),
                 }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
                 let a = self.expressao(esquerda)?;
-                if *operador == TipoToken::E && a == ValorIr::Logico(false) { return Ok(ValorIr::Logico(false)); }
-                if *operador == TipoToken::Ou && a == ValorIr::Logico(true) { return Ok(ValorIr::Logico(true)); }
+                if *operador == OperadorIr::E && a == ValorIr::Logico(false) { return Ok(ValorIr::Logico(false)); }
+                if *operador == OperadorIr::Ou && a == ValorIr::Logico(true) { return Ok(ValorIr::Logico(true)); }
                 let b = self.expressao(direita)?;
                 binaria(a, *operador, b)
             }
@@ -432,8 +455,8 @@ impl Maquina<'_> {
     }
 }
 
-fn binaria(a: ValorIr, op: TipoToken, b: ValorIr) -> Result<ValorIr, String> {
-    use TipoToken::*;
+fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
+    use OperadorIr::*;
     match (a, op, b) {
         (ValorIr::Inteiro(a), Mais, ValorIr::Inteiro(b)) => a.checked_add(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em soma inteira.".into()),
         (ValorIr::Inteiro(a), Menos, ValorIr::Inteiro(b)) => a.checked_sub(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em subtração inteira.".into()),
