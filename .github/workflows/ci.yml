@@ -36,3 +36,6 @@ jobs:
 
       - name: Validar script de benchmark
         run: bash -n benchmarks/executar.sh
+
+      - name: Executar benchmark inicial
+        run: bash benchmarks/executar.sh
