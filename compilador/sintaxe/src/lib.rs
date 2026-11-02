@@ -387,7 +387,12 @@ impl Parser {
     fn quando(&mut self) -> Option<NoAst> {
         self.avancar(); let condicao = self.expressao(0)?; let entao = self.bloco()?;
         let mut senao = Vec::new();
-        self.pular_novas_linhas();
+        let proximo_significativo = self.tokens.iter().skip(self.atual)
+            .find(|token| token.tipo != TipoToken::NovaLinha)
+            .map(|token| token.tipo);
+        if proximo_significativo == Some(TipoToken::Senao) {
+            self.pular_novas_linhas();
+        }
         if self.corresponde(TipoToken::Senao) {
             if self.verifica(TipoToken::Quando) { senao.push(self.quando()?); }
             else { senao = self.bloco()?; }
