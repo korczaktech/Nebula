@@ -165,7 +165,7 @@ impl<'a> Analisador<'a> {
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
                     self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true });
                 }
-                let retorno_anterior = self.retorno_atual.replace(funcao.retorno);
+                let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
                 self.profundidade_laco = 0;
                 for instrucao in corpo { self.item(instrucao); }
