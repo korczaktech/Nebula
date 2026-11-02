@@ -988,6 +988,34 @@ mod testes {
         assert_eq!(resultado.saida, vec!["verdadeiro"]);
     }
 
+    #[rustfmt::skip]
+    #[test]
+    fn executa_operacoes_de_copia_movimentacao_e_remocao_de_arquivo() {
+        let identificador = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let raiz = std::env::temp_dir().join(format!("nebula-ir-arquivos-{}-{identificador}", std::process::id()));
+        std::fs::create_dir_all(&raiz).unwrap();
+        let origem = raiz.join("origem.txt");
+        let copia = raiz.join("copia.txt");
+        let destino = raiz.join("destino.txt");
+        std::fs::write(&origem, "Nebula").unwrap();
+        let codigo = format!(
+            "exibir(copiar_arquivo(\"{}\", \"{}\"))\nexibir(mover_arquivo(\"{}\", \"{}\"))\nexibir(ler_arquivo(\"{}\"))\nexibir(remover_arquivo(\"{}\"))",
+            origem.display(),
+            copia.display(),
+            copia.display(),
+            destino.display(),
+            destino.display(),
+            destino.display()
+        );
+        let ir = compilar(&codigo);
+        let resultado = executar(&ir, 100).expect("operações de arquivo válidas");
+        assert_eq!(resultado.saida, vec!["6", "verdadeiro", "Nebula", "verdadeiro"]);
+        std::fs::remove_dir_all(raiz).unwrap();
+    }
+
     #[test]
     fn executa_biblioteca_de_diretorios() {
         let raiz = std::env::temp_dir().join(format!("nebula-ir-listar-{}", std::process::id()));
