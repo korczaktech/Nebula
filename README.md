@@ -326,6 +326,9 @@ nebula/
 │   ├── backend/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
+│   ├── runtime/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
 │   ├── diagnosticos/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
@@ -502,7 +505,7 @@ Limites explícitos desta etapa:
 - O único alvo nativo implementado é Linux x86-64 / ELF64.
 - Inteiros de 8, 16, 32 e 128 bits, byte, strings, decimais, listas, indexação, caracteres Unicode e entrada/saída aguardam suas etapas próprias.
 - Módulos e chamadas qualificadas ainda não são ligados pelo backend.
-- Runtime Nebula, biblioteca padrão e otimizador permanecem adiados.
+- Na conclusão da Fase 4, runtime Nebula, biblioteca padrão e otimizador ainda estavam adiados; o runtime e o otimizador foram iniciados posteriormente na Fase 5.
 - O benchmark é uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
 
 A conclusão foi confirmada pela aprovação de formatação, Clippy, 169 testes e benchmark no GitHub Actions. Consulte [critérios da Fase 4](especificacao/criterios-fase-4.md) e a [execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41392238233).
