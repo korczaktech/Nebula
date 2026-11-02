@@ -1257,6 +1257,28 @@ mod testes {
     }
 
     #[test]
+    fn resolve_tipos_genericos_aninhados_em_assinaturas() {
+        let r = analisar_codigo(
+            "funcao recebe(valor: Opcional<[inteiro]>) { exibir(\"ok\") }\nfuncao tenta(valor: Resultado<texto,inteiro>) { exibir(\"ok\") }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn resolve_tupla_generica_com_mais_de_dois_elementos() {
+        let r = analisar_codigo(
+            "funcao recebe(valor: Tupla<inteiro,texto,logico>) { exibir(\"ok\") }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_aridade_incorreta_de_tipo_generico() {
+        let r = analisar_codigo("funcao recebe(valor: Resultado<inteiro>) { exibir(\"ok\") }");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn nao_coage_literal_inteiro_para_tipo_decimal() {
         let r = analisar_codigo("variavel valor: decimal32 = 1");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
