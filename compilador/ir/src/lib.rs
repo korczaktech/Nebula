@@ -292,6 +292,7 @@ pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<Resultado
         saida: Vec::new(),
         passos: 0,
         limite: limite_passos.max(1),
+        profundidade_chamada: 0,
     };
     let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
     if matches!(&fluxo, Fluxo::Parar | Fluxo::Seguir) {
@@ -308,6 +309,7 @@ struct Maquina<'a> {
     saida: Vec<String>,
     passos: usize,
     limite: usize,
+    profundidade_chamada: usize,
 }
 
 impl Maquina<'_> {
@@ -397,7 +399,7 @@ impl Maquina<'_> {
             ExpressaoIr::Lista(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::Unaria { operador, valor } => {
                 let valor = self.expressao(valor)?;
-                match (operador, valor) {
+                match (*operador, valor) {
                     (OperadorIr::Negacao | OperadorIr::Nao, ValorIr::Logico(v)) => Ok(ValorIr::Logico(!v)),
                     (OperadorIr::Menos, ValorIr::Inteiro(v)) => v.checked_neg().map(ValorIr::Inteiro).ok_or_else(|| "Overflow em negação inteira.".into()),
                     (OperadorIr::Menos, ValorIr::Decimal(v)) => Ok(ValorIr::Decimal(-v)),
@@ -427,13 +429,18 @@ impl Maquina<'_> {
                 }
                 let funcao = self.programa.funcoes.get(nome).cloned().ok_or_else(|| format!("Função '{nome}' não encontrada na IR."))?;
                 if funcao.parametros.len() != valores.len() { return Err(format!("Quantidade incorreta de argumentos para '{nome}'.")); }
+                if self.profundidade_chamada >= 256 {
+                    return Err("Limite de profundidade de chamadas da IR excedido.".into());
+                }
+                self.profundidade_chamada += 1;
                 self.escopos.push(HashMap::new());
                 for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
                     self.escopos.last_mut().expect("escopo ativo").insert(parametro.clone(), valor);
                 }
-                let fluxo = self.bloco(&funcao.corpo)?;
+                let fluxo = self.bloco(&funcao.corpo);
                 self.escopos.pop();
-                match fluxo { Fluxo::Retorno(v) => Ok(v), _ => Ok(ValorIr::Vazio) }
+                self.profundidade_chamada -= 1;
+                match fluxo? { Fluxo::Retorno(v) => Ok(v), _ => Ok(ValorIr::Vazio) }
             }
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => Err(format!("A função '{modulo}::{nome}' precisa de uma implementação de módulo em tempo de execução.")),
             ExpressaoIr::Indexacao { alvo, indice } => {
@@ -552,6 +559,27 @@ mod testes {
         assert!(executar(&ir, 5).is_err());
     }
 }
+
+    #[test]
+    fn executa_operacoes_decimais_e_mistas() {
+        let ir = compilar("variavel total = 2 + 0.5\nvariavel comparacao = total > 2");
+        let r = executar(&ir, 100).expect("execução válida");
+        assert_eq!(r.globais.get("total"), Some(&ValorIr::Decimal(2.5)));
+        assert_eq!(r.globais.get("comparacao"), Some(&ValorIr::Logico(true)));
+    }
+
+    #[test]
+    fn rejeita_divisao_por_zero_em_tempo_de_execucao() {
+        let ir = compilar("variavel resultado = 10 / 0");
+        assert!(executar(&ir, 100).is_err());
+    }
+
+    #[test]
+    fn limita_recursao_da_maquina() {
+        let ir = compilar("funcao recursiva(n: inteiro): inteiro { devolver recursiva(n + 1) }\nvariavel x = recursiva(0)");
+        assert!(executar(&ir, 10_000).is_err());
+    }
+
 }
 
 pub use implementacao::*;
