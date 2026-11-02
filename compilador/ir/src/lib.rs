@@ -332,7 +332,7 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ))),
         ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
         ValorIr::IntervaloDecimal(inicio, fim) => {
-            ValorRuntime::Texto(format!("{inicio}..{fim}"))
+            ValorRuntime::IntervaloDecimal { inicio, fim }
         }
         ValorIr::Nulo => ValorRuntime::Nulo,
         ValorIr::Vazio => ValorRuntime::Vazio,
@@ -351,6 +351,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
         }
         ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::IntervaloDecimal { inicio, fim } => {
+            Ok(ValorIr::IntervaloDecimal(inicio, fim))
+        }
         ValorRuntime::Nulo => Ok(ValorIr::Nulo),
         ValorRuntime::Vazio => Ok(ValorIr::Vazio),
     }
