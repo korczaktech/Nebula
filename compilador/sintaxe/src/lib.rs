@@ -582,6 +582,27 @@ mod testes {
         assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::MaiorIgual));
     }
     #[test]
+    fn trata_crlf_como_uma_quebra_logica() {
+        let r = analisar_lexico(&fonte("variavel a = 1\\r\\nvariavel b = 2"));
+        assert!(r.diagnosticos.is_empty());
+        assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 1);
+    }
+    #[test]
+    fn rejeita_cr_isolado() {
+        let r = analisar_lexico(&fonte("variavel a = 1\\rvariavel b = 2"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1001"));
+    }
+    #[test]
+    fn rejeita_escape_unicode_fora_do_intervalo_escalar() {
+        let r = analisar_lexico(&fonte("\"\\\\u{110000}\""));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1007"));
+    }
+    #[test]
+    fn rejeita_comentario_de_bloco_nao_terminado() {
+        let r = analisar_lexico(&fonte("variavel a = 1 /* sem fim"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1002"));
+    }
+    #[test]
     fn normaliza_identificadores_em_nfc() {
         let composto = analisar(&fonte("variavel café = 1"));
         let decomposto = analisar(&fonte("variavel cafe\u{301} = 1"));
