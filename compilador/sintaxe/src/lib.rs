@@ -309,7 +309,7 @@ impl<'a> Lexer<'a> {
 /// Tipos de nós da AST, independentes de detalhes de formatação.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expressao {
-    Nome(String), Literal(String), Lista(Vec<Expressao>),
+    Nome(String), Literal(String), Lista(Vec<Expressao>), Tupla(Vec<Expressao>),
     Unaria { operador: TipoToken, valor: Box<Expressao> },
     Binaria { esquerda: Box<Expressao>, operador: TipoToken, direita: Box<Expressao> },
     Atribuicao { destino: Box<Expressao>, valor: Box<Expressao> },
@@ -561,7 +561,26 @@ impl Parser {
             }
             TipoToken::Identificador => Expressao::Nome(self.avancar().lexema.nfc().collect()),
             TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo => Expressao::Literal(self.avancar().lexema),
-            TipoToken::AbrePar => { self.avancar(); let e = self.expressao(0)?; self.esperar(TipoToken::FechaPar, "Esperado ')' após expressão."); e }
+            TipoToken::AbrePar => {
+                self.avancar();
+                if self.corresponde(TipoToken::FechaPar) {
+                    Expressao::Tupla(Vec::new())
+                } else {
+                    let primeiro = self.expressao(0)?;
+                    if self.corresponde(TipoToken::Virgula) {
+                        let mut elementos = vec![primeiro];
+                        while !self.verifica(TipoToken::FechaPar) && !self.verifica(TipoToken::Fim) {
+                            elementos.push(self.expressao(0)?);
+                            if !self.corresponde(TipoToken::Virgula) { break; }
+                        }
+                        self.esperar(TipoToken::FechaPar, "Esperado ')' após elementos da tupla.");
+                        Expressao::Tupla(elementos)
+                    } else {
+                        self.esperar(TipoToken::FechaPar, "Esperado ')' após expressão.");
+                        primeiro
+                    }
+                }
+            }
             TipoToken::AbreColchete => {
                 self.avancar(); let mut valores = Vec::new();
                 if !self.verifica(TipoToken::FechaColchete) {
@@ -779,6 +798,18 @@ mod testes {
         let r = analisar(&fonte("variavel soma = 1 +\n 2"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
+    #[test]
+    fn analisa_tuplas_com_elementos_e_tupla_unitaria() {
+        for codigo in [
+            "variavel ponto = (10, 20)",
+            "variavel unidade = (42,)",
+            "variavel vazio = ()",
+        ] {
+            let r = analisar(&fonte(codigo));
+            assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
+        }
+    }
+
     #[test]
     fn permite_tipos_de_lista() {
         let r = analisar(&fonte("variavel valores: [inteiro] = [1, 2]"));
