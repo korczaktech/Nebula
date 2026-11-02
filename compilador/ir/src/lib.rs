@@ -125,7 +125,7 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
         genericas,
         instancias: HashMap::new(),
         fila_instancias: Vec::new(),
-        escopos_tipos: Vec::new(),
+        escopos_tipos: vec![HashMap::new()],
         substituicoes: HashMap::new(),
     };
     let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new(), modulos: modulos_importados };
@@ -312,10 +312,11 @@ impl Lowerer {
             }
         }
 
-        let sufixo = modelo.genericos.iter()
-            .map(|parametro| nome_tipo(&self.tipo(substituicoes.get(parametro)?)))
-            .collect::<Option<Vec<_>>>()?
-            .join("__");
+        let mut partes_sufixo = Vec::new();
+        for parametro in &modelo.genericos {
+            partes_sufixo.push(nome_tipo(&self.tipo(substituicoes.get(parametro)?)));
+        }
+        let sufixo = partes_sufixo.join("__");
         let nome_instancia = format!("{nome}__{}", sufixo.chars()
             .map(|caractere| if caractere.is_ascii_alphanumeric() || caractere == '_' { caractere } else { '_' })
             .collect::<String>());
