@@ -111,14 +111,21 @@ fn main() {
 fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
     let bytes = std::fs::read(caminho)
         .map_err(|erro| format!("não foi possível ler '{}': {erro}", caminho.display()))?;
-    let conteudo = String::from_utf8(bytes)
-        .map_err(|erro| format!("arquivo não contém UTF-8 válido no byte {}", erro.utf8_error().valid_up_to()))?;
+    let conteudo = String::from_utf8(bytes).map_err(|erro| {
+        format!(
+            "arquivo não contém UTF-8 válido no byte {}",
+            erro.utf8_error().valid_up_to()
+        )
+    })?;
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
-        return Err(sintaxe.diagnosticos.iter()
+        return Err(sintaxe
+            .diagnosticos
+            .iter()
             .map(|d| format!("{} — {}", d.codigo, d.mensagem))
-            .collect::<Vec<_>>().join("\n"));
+            .collect::<Vec<_>>()
+            .join("\n"));
     }
     let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
     if !resultado.diagnosticos.is_empty() {
@@ -413,8 +420,13 @@ mod testes {
 
     #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
-        let caminho = std::env::temp_dir().join(format!("nebula-runtime-{}.nbx", std::process::id()));
-        std::fs::write(&caminho, "variavel nome = \"Nebula\"\nexibir(\"Olá, \" + nome)").unwrap();
+        let caminho =
+            std::env::temp_dir().join(format!("nebula-runtime-{}.nbx", std::process::id()));
+        std::fs::write(
+            &caminho,
+            "variavel nome = \"Nebula\"\nexibir(\"Olá, \" + nome)",
+        )
+        .unwrap();
         let saida = interpretar_arquivo(&caminho).expect("interpretação válida");
         assert_eq!(saida, vec!["Olá, Nebula"]);
         let _ = std::fs::remove_file(caminho);
