@@ -107,6 +107,10 @@ impl<'a> Lexer<'a> {
                         let pos = self.atual;
                         self.atual += 2;
                         self.adicionar(TipoToken::NovaLinha, pos, self.atual);
+                    } else if self.byte(0) == Some(b'\\r') && self.byte(1) != Some(b'\\n') {
+                        let pos = self.atual;
+                        self.atual += 1;
+                        self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", pos, self.atual);
                     } else {
                         self.atual += 1;
                     }
