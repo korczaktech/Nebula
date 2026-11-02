@@ -586,6 +586,25 @@ impl Lowerer {
             Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => Some(ExpressaoIr::Membro {
                 alvo: Box::new(self.expressao(alvo)?), campo: nome.clone(),
             }),
+            Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
+                if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
+                    if self.variantes_enumeracoes.get(tipo_enum)
+                        .and_then(|variantes| variantes.get(variante))
+                        .is_some_and(Vec::is_empty) {
+                        Some(ExpressaoIr::ConstrucaoEnumeracao {
+                            nome: tipo_enum.clone(),
+                            variante: variante.clone(),
+                            valores: Vec::new(),
+                        })
+                    } else {
+                        self.diagnosticos.push(format!("A variante '{tipo_enum}::{variante}' não existe ou exige payload."));
+                        None
+                    }
+                } else {
+                    self.diagnosticos.push("Alvo qualificado inválido na IR.".into());
+                    None
+                }
+            },
             Expressao::Membro { .. } => {
                 self.diagnosticos.push("Acesso de escopo inválido na IR.".into());
                 None
