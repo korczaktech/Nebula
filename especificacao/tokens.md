@@ -58,7 +58,7 @@ Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **n�
 - Escapes aceitos, escritos exatamente como aparecem no código-fonte:
 
 ~~~text
-\\   \\"   \\'   \\n   \\r   \\t   \\0   \\u{...}
+\\   \"   \'   \n   \r   \t   \0   \u{...}
 ~~~
 
 - O escape Unicode contém um ou mais dígitos hexadecimais e deve representar um valor escalar Unicode válido.
