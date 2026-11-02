@@ -4,7 +4,8 @@
 
 use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
-use nebula_semantica::analisar_semantica;
+use nebula_semantica::{analisar_semantica, ModulosDisponiveis};
+use nebula_ir::baixar;
 use std::path::Path;
 
 fn main() {
@@ -15,6 +16,17 @@ fn main() {
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
+        Some("ir") => {
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula ir <arquivo.nbx>");
+                std::process::exit(2);
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: o comando 'ir' aceita somente um arquivo.");
+                std::process::exit(2);
+            }
+            mostrar_ir(Path::new(&caminho));
+        }
         Some("analisar") => {
             let Some(caminho) = argumentos.next() else {
                 eprintln!("Uso: nebula analisar <arquivo.nbx>");
@@ -56,8 +68,34 @@ fn ajuda() {
     println!("  versao                Exibe a versão da ferramenta");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
+    println!("  ir <arquivo>          Gera e exibe a representação intermediária");
     println!();
     println!("A verificação não realiza análise semântica nem gera executáveis.");
+}
+
+fn mostrar_ir(caminho: &Path) {
+    let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
+        eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+        std::process::exit(1);
+    });
+    let conteudo = String::from_utf8(bytes).unwrap_or_else(|erro| {
+        eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
+        std::process::exit(1);
+    });
+    let fonte = ArquivoFonte::novo(caminho, conteudo);
+    let sintaxe = analisar(&fonte);
+    if !sintaxe.diagnosticos.is_empty() {
+        for diagnostico in &sintaxe.diagnosticos {
+            eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
+        }
+        std::process::exit(1);
+    }
+    let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    if !resultado.diagnosticos.is_empty() {
+        for diagnostico in &resultado.diagnosticos { eprintln!("{diagnostico}"); }
+        std::process::exit(1);
+    }
+    println!("{:#?}", resultado.programa.expect("baixamento validado"));
 }
 
 fn analisar_arquivo(caminho: &Path) {
