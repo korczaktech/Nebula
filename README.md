@@ -14,7 +14,7 @@ Nebula é uma linguagem de programação de propósito geral, com identidade bra
 | Tipagem | Estática, com inferência controlada |
 | Organização visual | Delimitadores flexíveis; uso conforme necessidade de clareza |
 | Memória | Modelo híbrido |
-| Alvos iniciais | Código nativo e WebAssembly |
+| Alvos planejados | Código nativo e WebAssembly |
 
 A meta de desempenho é investigar e buscar resultados de até 3× C++ em cargas específicas. Isso é uma meta experimental, não uma garantia universal: qualquer comparação deverá ser sustentada por benchmarks reproduzíveis.
 
