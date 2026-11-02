@@ -401,6 +401,37 @@ impl<'a> Analisador<'a> {
                         self.exigir_tipo(&trecho, &Tipo::Texto, "segundo argumento de 'contem'");
                         return Tipo::Logico;
                     }
+                    if nome == "maiusculas" || nome == "minusculas" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "conversão de caixa");
+                        return Tipo::Texto;
+                    }
+                    if nome == "caractere" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", "'caractere' exige texto e índice.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let texto = self.expressao(&argumentos[0]);
+                        let indice = self.expressao(&argumentos[1]);
+                        self.exigir_tipo(&texto, &Tipo::Texto, "primeiro argumento de 'caractere'");
+                        self.exigir_tipo(&indice, &Tipo::Inteiro, "índice de 'caractere'");
+                        return Tipo::Caractere;
+                    }
+                    if nome == "texto" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "'texto' exige exatamente um argumento.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        self.expressao(&argumentos[0]);
+                        return Tipo::Texto;
+                    }
                     if nome == "inteiro" || nome == "decimal" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
