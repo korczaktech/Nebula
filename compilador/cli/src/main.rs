@@ -112,10 +112,7 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     gravar_executavel_atomico(saida, &binario)
 }
 
-fn validar_caminhos_compilacao(
-    entrada: &Path,
-    saida: &Path,
-) -> Result<(), String> {
+fn validar_caminhos_compilacao(entrada: &Path, saida: &Path) -> Result<(), String> {
     let entrada_real = std::fs::canonicalize(entrada).map_err(|erro| {
         format!(
             "não foi possível resolver o arquivo de entrada '{}': {erro}",
