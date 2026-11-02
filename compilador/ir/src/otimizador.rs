@@ -178,12 +178,12 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
         (V::Inteiro(a), O::MenorIgual, V::Inteiro(b)) => Some(V::Logico(a <= b)),
         (V::Inteiro(a), O::Maior, V::Inteiro(b)) => Some(V::Logico(a > b)),
         (V::Inteiro(a), O::MaiorIgual, V::Inteiro(b)) => Some(V::Logico(a >= b)),
-        (V::Decimal(a), O::Mais, V::Decimal(b)) => decimal(a + b),
-        (V::Decimal(a), O::Menos, V::Decimal(b)) => decimal(a - b),
-        (V::Decimal(a), O::Vezes, V::Decimal(b)) => decimal(a * b),
-        (V::Decimal(a), O::Divide, V::Decimal(b)) if *b != 0.0 => decimal(a / b),
-        (V::Decimal(a), O::Resto, V::Decimal(b)) if *b != 0.0 => decimal(a % b),
-        (V::Decimal(a), O::Potencia, V::Decimal(b)) => decimal(a.powf(*b)),
+        (V::Decimal(a), O::Mais, V::Decimal(b)) => decimal(*a + *b),
+        (V::Decimal(a), O::Menos, V::Decimal(b)) => decimal(*a - *b),
+        (V::Decimal(a), O::Vezes, V::Decimal(b)) => decimal(*a * *b),
+        (V::Decimal(a), O::Divide, V::Decimal(b)) if *b != 0.0 => decimal(*a / *b),
+        (V::Decimal(a), O::Resto, V::Decimal(b)) if *b != 0.0 => decimal(*a % *b),
+        (V::Decimal(a), O::Potencia, V::Decimal(b)) => decimal((*a).powf(*b)),
         (V::Decimal(a), O::Intervalo, V::Decimal(b)) => {
             Some(V::IntervaloDecimal(*a, *b))
         }
@@ -207,7 +207,7 @@ fn decimal(valor: f64) -> Option<ValorIr> {
 #[cfg(test)]
 mod testes {
     use super::*;
-    use crate::{FuncaoIr, Tipo};
+    use crate::FuncaoIr;
     use std::collections::HashMap;
 
     fn programa(expressao: ExpressaoIr) -> ProgramaIr {
