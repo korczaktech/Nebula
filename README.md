@@ -73,6 +73,8 @@ funcao principal(): vazio {
 }
 ~~~
 
+O trecho acima ilustra a sintaxe; chamadas como `exibir` e operações com texto dependem do runtime/biblioteca padrão, que não fazem parte do backend inicial da Fase 4 e ainda não podem ser compiladas para o alvo nativo.
+
 A lista de palavras reservadas implementadas na gramática e a lista separada de palavras reservadas futuras estão em especificacao/tokens.md. Uma palavra reservada futura não significa que o recurso correspondente já esteja disponível.
 
 ## 3. Arquitetura geral do compilador
@@ -360,7 +362,9 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
 **Criada na Fase 4:**
-- `nebula-backend`: geração direta de executáveis ELF x86-64 em Rust (em desenvolvimento).
+- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais, controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 permanece aberta enquanto a suíte completa e a CI não forem validadas.
+
+O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O runtime, a biblioteca padrão e o otimizador continuam adiados conforme o plano.
 
 **Planejadas para fases posteriores:**
 - `nebula-otimizador`
