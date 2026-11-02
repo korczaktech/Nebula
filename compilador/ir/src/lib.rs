@@ -1330,6 +1330,42 @@ mod testes {
     }
 
     #[test]
+    fn executa_literal_inteiro_u128_acima_de_i128() {
+        let ir = compilar(
+            "variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455\nexibir(maximo)",
+        );
+        let resultado = executar(&ir, 100).expect("inteiro sem sinal válido");
+        assert_eq!(
+            resultado.saida,
+            vec!["340282366920938463463374607431768211455"]
+        );
+    }
+
+    #[test]
+    fn opera_inteiros_u128_com_overflow_verificado() {
+        assert_eq!(
+            binaria(
+                ValorIr::InteiroSemSinal(u128::MAX - 1),
+                OperadorIr::Mais,
+                ValorIr::InteiroSemSinal(1),
+            ),
+            Ok(ValorIr::InteiroSemSinal(u128::MAX))
+        );
+        assert!(binaria(
+            ValorIr::InteiroSemSinal(u128::MAX),
+            OperadorIr::Mais,
+            ValorIr::InteiroSemSinal(1),
+        )
+        .is_err());
+        assert!(binaria(
+            ValorIr::InteiroSemSinal(0),
+            OperadorIr::Menos,
+            ValorIr::InteiroSemSinal(1),
+        )
+        .is_err());
+    }
+
+    #[test]
     fn baixa_assinaturas_com_tipos_nominais() {
         let ir = compilar(
             "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa { devolver pessoa }",
