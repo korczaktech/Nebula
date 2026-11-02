@@ -1579,7 +1579,7 @@ mod testes {
         let r = analisar_codigo(
             "variavel itens = [1]\nvariavel resultado: Resultado<[inteiro], texto> = Resultado::Sucesso(itens)\nexibir(itens)",
         );
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3005"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
 
     #[test]
