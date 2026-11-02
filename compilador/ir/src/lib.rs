@@ -1700,6 +1700,28 @@ mod testes {
     }
 
     #[test]
+    fn verifica_overflow_em_operacoes_de_largura_reduzida() {
+        let assinado = compilar(
+            "variavel a: inteiro8 = 127\nvariavel b: inteiro8 = 1\nvariavel c: inteiro8 = a + b",
+        );
+        assert!(executar(&assinado, 100).unwrap_err().contains("inteiro8"));
+
+        let sem_sinal = compilar(
+            "variavel a: inteiro_u8 = 255\nvariavel b: inteiro_u8 = 1\nvariavel c: inteiro_u8 = a + b",
+        );
+        assert!(executar(&sem_sinal, 100).unwrap_err().contains("inteiro_u8"));
+    }
+
+    #[test]
+    fn arredonda_decimal32_apos_cada_operacao() {
+        let ir = compilar(
+            "variavel a: decimal32 = 16777216.0\nvariavel b: decimal32 = 1.0\nvariavel c: decimal32 = 1.0\nexibir(a + b + c)",
+        );
+        let resultado = executar(&ir, 100).expect("operações decimal32 válidas");
+        assert_eq!(resultado.saida, vec!["16777216"]);
+    }
+
+    #[test]
     fn executa_literal_inteiro_u128_acima_de_i128() {
         let ir = compilar(
             "variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455\nexibir(maximo)",
