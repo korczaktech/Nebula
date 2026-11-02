@@ -1306,6 +1306,23 @@ impl<'a> Analisador<'a> {
             Expressao::ConstrucaoEstrutura { campos, .. } => {
                 for (_, valor) in campos { self.mover_valor(valor); }
             }
+            Expressao::Chamada { alvo, argumentos } => {
+                let construtor_algebrico = matches!(
+                    alvo.as_ref(),
+                    Expressao::Membro {
+                        alvo: tipo,
+                        operador: TipoToken::Escopo,
+                        ..
+                    } if matches!(tipo.as_ref(), Expressao::Nome(nome)
+                        if self.variantes_enumeracoes.contains_key(nome)
+                            || matches!(nome.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado"))
+                );
+                if construtor_algebrico {
+                    for argumento in argumentos {
+                        self.mover_valor(argumento);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1555,6 +1572,14 @@ mod testes {
             "funcao nada(): vazio {}\nvariavel comparacao = nada() == nada()",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3056"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn move_payload_de_enum_opcional_e_resultado() {
+        let r = analisar_codigo(
+            "variavel itens = [1]\nvariavel resultado: Resultado<[inteiro], texto> = Resultado::Sucesso(itens)\nexibir(itens)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3005"), "{:?}", r.diagnosticos);
     }
 
     #[test]
