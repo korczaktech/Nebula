@@ -1,5 +1,16 @@
 # Histórico de alterações
 
+## Não lançado — Reestruturação do backend nativo (Fase 4 em desenvolvimento)
+
+- Remove a geração de código C++17 e a invocação do compilador `c++`.
+- Substitui o backend anterior por geração direta de instruções x86-64 e ELF64 em Rust.
+- Limita explicitamente o alvo inicial a Linux x86-64.
+- Remove da CLI os níveis de otimização que eram apenas encaminhados ao compilador C++ externo.
+- Mantém o runtime e a biblioteca padrão fora desta alteração; recursos que dependem deles são rejeitados explicitamente.
+- Substitui os testes baseados no backend C++ por testes unitários Rust e testes de integração que executam ELF gerado.
+- Adapta o benchmark para uma linha de base sem otimizador.
+- Atualiza critérios da Fase 4 e decisões arquiteturais; a fase permanece em desenvolvimento.
+
 ## Não lançado — Fase 3: semântica, tipos e IR
 
 - Adiciona o crate nebula-semantica com tabelas de símbolos, escopos léxicos e resolução de nomes.
