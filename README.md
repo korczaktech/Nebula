@@ -182,7 +182,7 @@ Nebula adotará um modelo híbrido:
 - Propriedade, empréstimo e verificação estática planejados para reduzir referências inválidas, cópias e acessos inseguros.
 - Alocadores e estratégias configuráveis conforme o ambiente.
 
-O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras/decimais e matemáticas verificadas, conversões numéricas, texto Unicode (recorte, busca, prefixos, sufixos, substituição e normalização de espaços), leitura/escrita de arquivos, relógio e suspensão, tarefas em threads, canais e inteiros atômicos. O interpretador de referência da IR usa esse runtime por meio de builtins semântica e execução. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
+O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras/decimais e matemáticas verificadas, conversões numéricas, texto Unicode (recorte, busca, prefixos, sufixos, substituição e normalização de espaços), leitura/escrita de arquivos, relógio e suspensão, tarefas em threads, canais, inteiros atômicos e cancelamento cooperativo. O interpretador de referência da IR usa esse runtime por meio de builtins semântica e execução. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
 
 Não há exigência de um coletor de lixo global em todos os programas. O runtime deverá ser opcional sempre que possível, especialmente em código de baixo nível.
 
