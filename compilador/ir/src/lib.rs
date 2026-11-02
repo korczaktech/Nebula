@@ -1362,6 +1362,29 @@ mod testes {
     }
 
     #[test]
+    fn executa_tuplas_heterogeneas_e_acesso_por_indice() {
+        let ir = compilar(
+            "variavel ponto = (10, \"norte\", verdadeiro)\nvariavel x = ponto[0]\nvariavel direcao = ponto[1]\nvariavel ativo = ponto[2]\nexibir(x)\nexibir(direcao)\nexibir(ativo)",
+        );
+        let resultado = executar(&ir, 100).expect("tupla válida");
+        assert_eq!(resultado.saida, vec!["10", "norte", "verdadeiro"]);
+        assert_eq!(ir.instrucoes.iter().filter(|instrucao| matches!(
+            instrucao,
+            InstrucaoIr::Declarar { nome, tipo: Tipo::Tupla(_), .. } if nome == "ponto"
+        )).count(), 1);
+    }
+
+    #[test]
+    fn monomorfiza_generico_com_tupla() {
+        let ir = compilar(
+            "funcao primeiro<T>(ponto: Tupla<T,T>): T { devolver ponto[0] }\nvariavel numero = primeiro((7, 8))",
+        );
+        assert!(ir.funcoes.keys().any(|nome| nome.starts_with("primeiro__Tupla_")));
+        let resultado = executar(&ir, 100).expect("genérico com tupla válido");
+        assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
+    }
+
+    #[test]
     fn monomorfiza_funcao_generica_para_tipos_inferidos() {
         let ir = compilar(
             "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
