@@ -146,6 +146,66 @@ fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     assert_eq!(resultado.status.code(), Some(2));
 }
 
+
+#[test]
+fn overflow_de_soma_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-soma",
+        "funcao principal(): inteiro { devolver 9223372036854775807 + 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
+fn overflow_de_multiplicacao_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-multiplicacao",
+        "funcao principal(): inteiro { devolver 3037000500 * 3037000500 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
+fn overflow_de_potencia_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-potencia",
+        "funcao principal(): inteiro { devolver 2 ** 63 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
+fn overflow_de_negacao_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-negacao",
+        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver -minimo }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
+fn aceita_literal_minimo_de_inteiro_assinado() {
+    let resultado = compilar_e_executar(
+        "inteiro-minimo-literal",
+        "funcao principal(): inteiro { devolver -9223372036854775808 }",
+    );
+    assert_eq!(resultado.status.code(), Some(0));
+}
+
+#[test]
+fn divisao_e_resto_negativos_seguem_semantica_signed() {
+    let divisao = compilar_e_executar(
+        "divisao-negativa",
+        "funcao principal(): inteiro { devolver -7 / 2 }",
+    );
+    assert_eq!(divisao.status.code(), Some(253));
+    let resto = compilar_e_executar(
+        "resto-negativo",
+        "funcao principal(): inteiro { devolver -5 % 2 }",
+    );
+    assert_eq!(resto.status.code(), Some(255));
+}
+
 #[test]
 fn compila_condicionais_e_comparacoes() {
     let resultado = compilar_e_executar(
