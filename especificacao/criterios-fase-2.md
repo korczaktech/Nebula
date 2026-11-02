@@ -36,6 +36,7 @@ A Fase 2 entrega o frontend sintático executável da Nebula. O escopo é o subc
 - `N1008`: literal de texto não terminado.
 - `N1009`: literal de caractere inválido.
 - `N2001`–`N2010`: erros sintáticos e construções incompletas.
+- `N2011`: uso de palavra reservada para recurso futuro.
 
 ## Limites explícitos
 
