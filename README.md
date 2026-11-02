@@ -290,7 +290,7 @@ Deverá permitir selecionar arquivo, plataforma, arquitetura, nível de otimiza�
 
 ## 9. Estrutura planejada do repositório
 
-A estrutura inicial já criada na Fase 1 é:
+A estrutura atual do repositório é:
 
 ```text
 nebula/
