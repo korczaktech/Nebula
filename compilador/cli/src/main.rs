@@ -9,6 +9,7 @@ use nebula_sintaxe::analisar;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[rustfmt::skip]
 fn main() {
     let mut argumentos = std::env::args().skip(1);
     match argumentos.next().as_deref() {
@@ -76,6 +77,7 @@ fn main() {
 }
 
 
+#[rustfmt::skip]
 fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     let bytes = std::fs::read(caminho).map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
     let conteudo = String::from_utf8(bytes).map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
