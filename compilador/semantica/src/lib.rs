@@ -1729,6 +1729,30 @@ mod testes {
     }
 
     #[test]
+    fn construcao_de_estrutura_valida_todos_os_campos() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn construcao_de_estrutura_rejeita_campo_ausente() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\" }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3043"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn construcao_de_estrutura_rejeita_tipo_incompativel() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { idade: inteiro }\nvariavel pessoa = Pessoa { idade: \"vinte\" }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn reinicializacao_em_todos_os_ramos_remove_estado_de_movido() {
         let r = analisar_codigo(
             "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" } senao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
