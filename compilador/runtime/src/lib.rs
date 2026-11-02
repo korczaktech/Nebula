@@ -496,11 +496,7 @@ pub fn texto_para_decimal(texto: &str) -> Resultado<f64> {
 }
 
 /// Executa operação decimal e rejeita divisão por zero e resultados não finitos.
-pub fn operar_decimal(
-    operacao: OperacaoDecimal,
-    esquerda: f64,
-    direita: f64,
-) -> Resultado<f64> {
+pub fn operar_decimal(operacao: OperacaoDecimal, esquerda: f64, direita: f64) -> Resultado<f64> {
     let valor = match operacao {
         OperacaoDecimal::Soma => esquerda + direita,
         OperacaoDecimal::Subtracao => esquerda - direita,
