@@ -345,7 +345,7 @@ nebula/
 │       └── sintaxe_visual.nbx
 ```
 
-Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo próprio da Fase 4 gera ELF x86-64 diretamente em Rust para o subconjunto documentado; a fase aguarda a validação automatizada final dos critérios de aceite.
+Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo próprio da Fase 4 gera ELF x86-64 diretamente em Rust para o subconjunto documentado; implementação e critérios de aceite foram validados pela CI em Linux x86-64.
 
 ### Crates Rust
 
@@ -362,7 +362,7 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
 **Criada na Fase 4:**
-- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 permanece aberta enquanto a suíte completa e a CI não forem validadas.
+- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 está concluída dentro do escopo inicial documentado, com suíte completa e CI aprovadas.
 
 O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O runtime, a biblioteca padrão e o otimizador continuam adiados conforme o plano.
 
@@ -475,9 +475,9 @@ Critérios de conclusão:
 - IR representa os recursos já aprovados da linguagem.
 - Testes validam o comportamento da análise e da representação intermediária.
 
-## Fase 4 — Compilação nativa própria (meta acumulada: mínimo de 75%)
+## Fase 4 — Compilação nativa própria (escopo inicial concluído)
 
-**Estado: implementação do backend ampliada; validação final automatizada pendente.**
+**Estado: CONCLUÍDA E VALIDADA.** CI aprovada no commit `e3a2ad338f96b832bd652876e220114f8bd53858`: `cargo fmt`, `cargo clippy`, 169 testes e benchmark inicial.
 
 **Objetivo:** transformar a IR em executáveis nativos sem gerar outra linguagem e sem depender de compilador, assembler ou linker externo.
 
@@ -499,7 +499,7 @@ Limites explícitos desta etapa:
 - Runtime Nebula, biblioteca padrão e otimizador permanecem adiados.
 - O benchmark é uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
 
-A conclusão depende da aprovação real de formatação, Clippy, testes e benchmark no GitHub Actions do commit final. Consulte [critérios da Fase 4](especificacao/criterios-fase-4.md).
+A conclusão foi confirmada pela aprovação de formatação, Clippy, 169 testes e benchmark no GitHub Actions. Consulte [critérios da Fase 4](especificacao/criterios-fase-4.md) e a [execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41392238233).
 
 
 ## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
@@ -556,4 +556,4 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 
 ## Estado atual da Fase 3
 
-A Fase 3 está concluída. A Fase 4 está em implementação: o backend gera ELF64 Linux x86-64 diretamente em Rust, com segmentos separados para código e dados, variáveis locais/globais, chamadas, controle de fluxo e aritmética inteira. Runtime, biblioteca padrão e otimizador permanecem adiados conforme o plano. A conclusão da Fase 4 depende da validação integral dos novos testes e da CI no commit final; não há declaração de conclusão enquanto essa evidência não existir. Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md).
+A Fase 3 e a Fase 4 estão concluídas dentro de seus escopos documentados. A Fase 4 entrega backend Rust que gera ELF64 Linux x86-64 diretamente, com segmentos separados para código e dados, variáveis locais/globais, chamadas, controle de fluxo e aritmética inteira. Runtime, biblioteca padrão, otimizador e demais alvos permanecem adiados conforme o plano. A validação da Fase 4 foi aprovada na CI; consulte [critérios da Fase 4](especificacao/criterios-fase-4.md). Consulte [critérios da Fase 3](especificacao/criterios-fase-3.md) e [critérios da Fase 4](especificacao/criterios-fase-4.md).
