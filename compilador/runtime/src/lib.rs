@@ -761,10 +761,7 @@ mod testes {
 
     #[test]
     fn funcoes_matematicas_validam_dominio() {
-        assert_eq!(
-            calcular_matematica(FuncaoMatematica::Raiz, 9.0),
-            Ok(3.0)
-        );
+        assert_eq!(calcular_matematica(FuncaoMatematica::Raiz, 9.0), Ok(3.0));
         assert_eq!(
             calcular_matematica(FuncaoMatematica::Raiz, -1.0),
             Err(ErroRuntime::DominioMatematico)
