@@ -110,9 +110,15 @@ impl Lowerer {
         match nome {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
-            "inteiro" | "inteiro8" | "inteiro16" | "inteiro32" | "inteiro64" | "inteiro128" => Tipo::Inteiro,
+            "inteiro" => Tipo::Inteiro,
+            "inteiro8" => Tipo::Inteiro8,
+            "inteiro16" => Tipo::Inteiro16,
+            "inteiro32" => Tipo::Inteiro32,
+            "inteiro64" => Tipo::Inteiro64,
+            "inteiro128" => Tipo::Inteiro128,
             "byte" => Tipo::Byte,
-            "decimal" | "decimal32" | "decimal64" => Tipo::Decimal,
+            "decimal" | "decimal64" => Tipo::Decimal64,
+            "decimal32" => Tipo::Decimal32,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             _ if nome.starts_with('[') && nome.ends_with(']') => Tipo::Lista(Box::new(self.tipo(&nome[1..nome.len()-1]))),
@@ -208,7 +214,7 @@ impl Lowerer {
 fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
     match expressao {
         ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Tipo::Inteiro,
-        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Tipo::Decimal,
+        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Tipo::Decimal64,
         ExpressaoIr::Constante(ValorIr::Logico(_)) => Tipo::Logico,
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
