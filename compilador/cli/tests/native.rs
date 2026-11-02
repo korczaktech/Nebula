@@ -13,7 +13,7 @@ fn compila_e_executa_programa_nativo() {
     let origem = arquivo_temporario();
     fs::write(
         &origem,
-        "funcao principal(): vazio {\n    variavel resposta: inteiro = 40 + 2\n    exibir(resposta)\n}\n",
+        "funcao principal(): vazio {\n    exibir(40 + 2)\n}\n",
     )
     .unwrap();
     let exe = std::env::temp_dir().join(format!(
