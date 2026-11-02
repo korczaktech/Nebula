@@ -105,30 +105,97 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             Some((nome, caminho.clone()))
         } else { None }
     }).collect::<HashMap<_, _>>();
-    let mut lowerer = Lowerer { diagnosticos: Vec::new(), aliases, modulos_importados: modulos_importados.clone() };
+    let genericas = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Funcao { nome, genericos, parametros, retorno, corpo, .. } = item {
+            if !genericos.is_empty() {
+                return Some((nome.clone(), FuncaoGenericaAst {
+                    genericos: genericos.clone(),
+                    parametros: parametros.clone(),
+                    retorno: retorno.clone(),
+                    corpo: corpo.clone(),
+                }));
+            }
+        }
+        None
+    }).collect();
+    let mut lowerer = Lowerer {
+        diagnosticos: Vec::new(),
+        aliases,
+        modulos_importados: modulos_importados.clone(),
+        genericas,
+        instancias: HashMap::new(),
+        fila_instancias: Vec::new(),
+        escopos_tipos: Vec::new(),
+        substituicoes: HashMap::new(),
+    };
     let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new(), modulos: modulos_importados };
     for item in &programa.itens {
         match item {
-            NoAst::Funcao { nome, parametros, retorno, corpo, .. } => {
+            NoAst::Funcao { nome, genericos, parametros, retorno, corpo, .. } if genericos.is_empty() => {
+                let tipos_parametros: Vec<_> = parametros.iter()
+                    .map(|(n, t)| (n.clone(), lowerer.tipo(t)))
+                    .collect();
+                lowerer.escopos_tipos.push(tipos_parametros.iter()
+                    .map(|(nome, tipo)| (nome.clone(), tipo.clone()))
+                    .collect());
+                let corpo = lowerer.bloco(corpo);
+                lowerer.escopos_tipos.pop();
                 let funcao = FuncaoIr {
                     nome: nome.clone(),
-                    parametros: parametros.iter().map(|(n, t)| (n.clone(), lowerer.tipo(t))).collect(),
+                    parametros: tipos_parametros,
                     retorno: retorno.as_deref().map_or(Tipo::Vazio, |t| lowerer.tipo(t)),
-                    corpo: lowerer.bloco(corpo),
+                    corpo,
                 };
                 ir.funcoes.insert(nome.clone(), funcao);
             }
-            NoAst::Tipo { .. } | NoAst::Incluir { .. } => {}
+            NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Incluir { .. } => {}
             _ => if let Some(instrucao) = lowerer.item(item) { ir.instrucoes.push(instrucao); },
         }
     }
+    while let Some((nome_instancia, nome_generica, substituicoes)) = lowerer.fila_instancias.pop() {
+        let Some(modelo) = lowerer.genericas.get(&nome_generica).cloned() else { continue; };
+        let substituicoes_anteriores = std::mem::replace(&mut lowerer.substituicoes, substituicoes);
+        let parametros: Vec<_> = modelo.parametros.iter()
+            .map(|(nome, tipo)| (nome.clone(), lowerer.tipo(tipo)))
+            .collect();
+        lowerer.escopos_tipos.push(parametros.iter()
+            .map(|(nome, tipo)| (nome.clone(), tipo.clone()))
+            .collect());
+        let corpo = lowerer.bloco(&modelo.corpo);
+        lowerer.escopos_tipos.pop();
+        let retorno = modelo.retorno.as_deref().map_or(Tipo::Vazio, |tipo| lowerer.tipo(tipo));
+        lowerer.substituicoes = substituicoes_anteriores;
+        if let Some(funcao) = lowerer.instancias.get_mut(&nome_instancia) {
+            funcao.parametros = parametros;
+            funcao.retorno = retorno;
+            funcao.corpo = corpo;
+        }
+    }
+    ir.funcoes.extend(lowerer.instancias);
     ResultadoIr {
         programa: if lowerer.diagnosticos.is_empty() { Some(ir) } else { None },
         diagnosticos: lowerer.diagnosticos,
     }
 }
 
-struct Lowerer { diagnosticos: Vec<String>, aliases: HashMap<String, String>, modulos_importados: HashMap<String, String> }
+#[derive(Clone)]
+struct FuncaoGenericaAst {
+    genericos: Vec<String>,
+    parametros: Vec<(String, String)>,
+    retorno: Option<String>,
+    corpo: Vec<NoAst>,
+}
+
+struct Lowerer {
+    diagnosticos: Vec<String>,
+    aliases: HashMap<String, String>,
+    modulos_importados: HashMap<String, String>,
+    genericas: HashMap<String, FuncaoGenericaAst>,
+    instancias: HashMap<String, FuncaoIr>,
+    fila_instancias: Vec<(String, String, HashMap<String, String>)>,
+    escopos_tipos: Vec<HashMap<String, Tipo>>,
+    substituicoes: HashMap<String, String>,
+}
 
 impl Lowerer {
     fn tipo(&self, nome: &str) -> Tipo {
