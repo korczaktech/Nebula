@@ -75,4 +75,4 @@ Essas questões devem ser decididas antes de estabilizar as áreas correspondent
 | Otimizador | Implementar somente após os recursos-base do compilador | Não oferecer níveis de otimização delegados a ferramentas externas |
 | Testes do backend | Testes unitários Rust e integração executando os executáveis produzidos | Nenhum teste depende de código C++17 |
 
-O backend nativo inicial é um gerador de código de máquina próprio. A implementação ainda está em desenvolvimento e não implica que todos os tipos, instruções, recursos de memória ou alvos estejam prontos.
+O backend nativo inicial já gera código de máquina e ELF64 para o subconjunto documentado de Linux x86-64. A validação automatizada final ainda está pendente; tipos, instruções, recursos de memória e alvos fora desse subconjunto continuam adiados.
