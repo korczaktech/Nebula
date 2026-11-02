@@ -136,7 +136,8 @@ fn ajuda() {
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
-    println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");\n    println!("O alvo inicial não inclui ainda a biblioteca padrão/runtime, strings ou coleções.");
+    println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");
+    println!("O alvo inicial ainda não inclui runtime, entrada/saída, strings ou coleções.");
 }
 
 fn mostrar_ir(caminho: &Path) {
