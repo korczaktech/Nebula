@@ -54,20 +54,33 @@ impl Manifesto {
         let mut dependencias = BTreeMap::new();
         for (indice, original) in conteudo.lines().enumerate() {
             let linha = original.split('#').next().unwrap_or("").trim();
-            if linha.is_empty() { continue; }
+            if linha.is_empty() {
+                continue;
+            }
             if linha.starts_with('[') && linha.ends_with(']') {
                 secao = &linha[1..linha.len() - 1];
                 if secao != "pacote" && secao != "dependencias" {
-                    return Err(format!("Seção desconhecida na linha {}: {secao}", indice + 1));
+                    return Err(format!(
+                        "Seção desconhecida na linha {}: {secao}",
+                        indice + 1
+                    ));
                 }
                 continue;
             }
-            let (chave, valor) = linha.split_once('=')
+            let (chave, valor) = linha
+                .split_once('=')
                 .ok_or_else(|| format!("Esperado '=' na linha {}.", indice + 1))?;
             let chave = chave.trim();
             let valor = valor.trim();
-            let valor = valor.strip_prefix('"').and_then(|v| v.strip_suffix('"'))
-                .ok_or_else(|| format!("Valor da linha {} deve estar entre aspas duplas.", indice + 1))?;
+            let valor = valor
+                .strip_prefix('"')
+                .and_then(|v| v.strip_suffix('"'))
+                .ok_or_else(|| {
+                    format!(
+                        "Valor da linha {} deve estar entre aspas duplas.",
+                        indice + 1
+                    )
+                })?;
             if valor.is_empty() {
                 return Err(format!("Valor vazio na linha {}.", indice + 1));
             }
