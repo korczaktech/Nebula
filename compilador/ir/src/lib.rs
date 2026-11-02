@@ -462,10 +462,12 @@ impl Lowerer {
                 Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                     let Expressao::Nome(tipo_base) = alvo.as_ref() else { return Tipo::Desconhecido; };
                     match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
-                        ("Opcional" | "opcional", "Algum" | "Nenhum", 1) => Tipo::Opcional(Box::new(
-                            if variante == "Algum" { self.inferir_tipo_ast(&argumentos[0]) } else { Tipo::Desconhecido }
-                        )),
-                        ("Opcional" | "opcional", "Nenhum", 0) => Tipo::Opcional(Box::new(Tipo::Desconhecido)),
+                        ("Opcional" | "opcional", "Algum", 1) => {
+                            Tipo::Opcional(Box::new(self.inferir_tipo_ast(&argumentos[0])))
+                        }
+                        ("Opcional" | "opcional", "Nenhum", 0) => {
+                            Tipo::Opcional(Box::new(Tipo::Desconhecido))
+                        },
                         ("Resultado" | "resultado", "Sucesso", 1) => Tipo::Resultado(
                             Box::new(self.inferir_tipo_ast(&argumentos[0])), Box::new(Tipo::Desconhecido)
                         ),
