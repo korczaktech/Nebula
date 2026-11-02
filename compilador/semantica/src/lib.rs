@@ -712,6 +712,13 @@ mod testes {
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3027"));
     }
 
+
+    #[test]
+    fn promove_decimal32_conforme_largura_do_inteiro() {
+        let r = analisar_codigo("variavel d: decimal32 = 1.0\nvariavel pequeno: inteiro8 = 1\nvariavel grande: inteiro32 = 100\nvariavel x: decimal32 = d + pequeno\nvariavel y: decimal64 = d + grande");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
 }
 }
 
