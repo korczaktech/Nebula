@@ -663,3 +663,6 @@ mod testes {
 }
 
 pub use implementacao::*;
+
+/// Passes de otimização conservadores sobre a IR tipada.
+pub mod otimizador;
