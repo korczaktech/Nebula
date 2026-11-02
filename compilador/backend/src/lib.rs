@@ -49,6 +49,7 @@ struct Emissor {
     globais: HashMap<String, usize>,
     referencias_globais: Vec<(usize, String)>,
     funcao_atual: String,
+    erro_salto: Option<String>,
 }
 
 struct Laco {
@@ -69,6 +70,7 @@ impl Emissor {
             globais,
             referencias_globais: Vec::new(),
             funcao_atual: String::new(),
+            erro_salto: None,
         }
     }
 
@@ -269,10 +271,17 @@ impl Emissor {
             ExpressaoIr::Lista(_) | ExpressaoIr::Indexacao { .. } => {
                 return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
             }
+            ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
+                if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
+                self.mov_rax(i64::MIN);
+            }
             ExpressaoIr::Unaria { operador, valor } => {
                 self.expressao(valor)?;
                 match operador {
-                    OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]),
+                    OperadorIr::Menos => {
+                        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]);
+                        self.verificar_overflow();
+                    }
                     OperadorIr::Nao | OperadorIr::Negacao => {
                         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x94, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                     }
@@ -298,9 +307,9 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
                 self.pop_rax(); // rax=lhs
                 match operador {
-                    OperadorIr::Mais => self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]),
-                    OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]),
-                    OperadorIr::Vezes => self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]),
+                    OperadorIr::Mais => { self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); self.verificar_overflow(); }
+                    OperadorIr::Menos => { self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); self.verificar_overflow(); }
+                    OperadorIr::Vezes => { self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]); self.verificar_overflow(); }
                     OperadorIr::Divide | OperadorIr::Resto => {
                         // A divisão por zero termina com código estável, em vez de SIGFPE.
                         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
@@ -338,10 +347,12 @@ impl Emissor {
                         self.codigo.extend_from_slice(&[0xF6, 0xC1, 0x01]);
                         let multiplicar = self.emitir_jcc(0x84);
                         self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC2]);
+                        self.verificar_overflow();
                         self.aplicar_salto(multiplicar, self.codigo.len());
                         self.codigo.extend_from_slice(&[0x48, 0xD1, 0xE9]); // expoente >>= 1
                         let terminar = self.emitir_jcc(0x84);
                         self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xD2]); // base *= base
+                        self.verificar_overflow();
                         self.emitir_salto_para(inicio);
                         let destino_fim = self.codigo.len();
                         self.aplicar_salto(fim, destino_fim);
@@ -432,6 +443,13 @@ impl Emissor {
         self.referencias_globais.push((posicao, nome.to_owned()));
     }
 
+    fn verificar_overflow(&mut self) {
+        // A semântica inteira é checked: overflow encerra o processo com código 2.
+        let sem_overflow = self.emitir_jcc(0x81); // JNO
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(sem_overflow, self.codigo.len());
+    }
+
     fn encerrar_com_erro(&mut self, codigo: u8) {
         // Linux x86-64: exit(codigo), syscall 60.
         self.codigo.extend_from_slice(&[0xBF, codigo, 0, 0, 0, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
@@ -497,11 +515,26 @@ impl Emissor {
     }
 
     fn aplicar_salto(&mut self, posicao: usize, destino: usize) {
-        let relativo = destino as i64 - (posicao + 4) as i64;
-        self.codigo[posicao..posicao + 4].copy_from_slice(&(relativo as i32).to_le_bytes());
+        let Some(fim_operando) = posicao.checked_add(4) else {
+            self.erro_salto = Some("Posição de relocação de salto excedeu o limite do alvo.".into());
+            return;
+        };
+        if fim_operando > self.codigo.len() {
+            self.erro_salto = Some("Relocação de salto aponta para fora do código gerado.".into());
+            return;
+        }
+        let relativo = i128::try_from(destino).ok()
+            .zip(i128::try_from(fim_operando).ok())
+            .and_then(|(destino, origem)| destino.checked_sub(origem));
+        let Some(relativo) = relativo.and_then(|valor| i32::try_from(valor).ok()) else {
+            self.erro_salto = Some("Salto fora do alcance relativo de 32 bits do x86-64.".into());
+            return;
+        };
+        self.codigo[posicao..fim_operando].copy_from_slice(&relativo.to_le_bytes());
     }
 
     fn finalizar(mut self) -> Result<(Vec<u8>, usize), String> {
+        if let Some(erro) = self.erro_salto.take() { return Err(erro); }
         for (posicao, nome) in self.chamadas {
             let destino = self.funcoes.get(&nome)
                 .ok_or_else(|| format!("Função '{}' não foi encontrada durante a geração nativa.", nome))?;
@@ -513,13 +546,21 @@ impl Emissor {
         let fim_texto = TAMANHO_CABECALHO.checked_add(self.codigo.len())
             .ok_or("Tamanho do segmento de código excedeu o limite do alvo.")?;
         let deslocamento_dados = alinhar_pagina(fim_texto)?;
-        let endereco_dados = 0x400000u64 + deslocamento_dados as u64;
+        let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
+            .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
+            .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
         for (posicao, nome) in self.referencias_globais {
             let deslocamento = *self.globais.get(&nome)
                 .ok_or_else(|| format!("Variável global '{nome}' não foi alocada."))?;
-            let destino = endereco_dados + deslocamento as u64;
-            let origem = 0x401000u64 + (posicao + 4) as u64;
-            let relativo = i32::try_from(destino as i64 - origem as i64)
+            let destino = endereco_dados.checked_add(u64::try_from(deslocamento)
+                .map_err(|_| "Deslocamento da variável global excedeu o limite ELF64.")?)
+                .ok_or("Endereço da variável global excedeu o limite ELF64.")?;
+            let fim_referencia = posicao.checked_add(4)
+                .ok_or("Posição de referência global excedeu o limite ELF64.")?;
+            let origem = 0x401000u64.checked_add(u64::try_from(fim_referencia)
+                .map_err(|_| "Posição de referência global excedeu o limite ELF64.")?)
+                .ok_or("Endereço da instrução excedeu o limite ELF64.")?;
+            let relativo = i32::try_from(i128::from(destino) - i128::from(origem))
                 .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
@@ -767,6 +808,46 @@ mod testes {
         assert!(validar_tipo(&Tipo::Byte).is_err());
     }
 }
+
+
+    #[test]
+    fn codifica_instrucoes_basicas_com_bytes_x86_64_esperados() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.mov_rax(0x0102_0304_0506_0708);
+        assert_eq!(&emissor.codigo, &[0x48, 0xB8, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+        emissor.codigo.clear();
+        emissor.push_rax();
+        emissor.pop_rax();
+        assert_eq!(&emissor.codigo, &[0x50, 0x58]);
+        assert_eq!(emissor.pilha, 0);
+        emissor.codigo.clear();
+        emissor.armazenar_rax(-8);
+        assert_eq!(&emissor.codigo, &[0x48, 0x89, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
+        emissor.codigo.clear();
+        emissor.carregar_rax(-8);
+        assert_eq!(&emissor.codigo, &[0x48, 0x8B, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn rejeita_salto_com_deslocamento_fora_de_i32() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.codigo.extend_from_slice(&[0xE9, 0, 0, 0, 0]);
+        emissor.aplicar_salto(1, i32::MAX as usize + 6);
+        let erro = emissor.finalizar().unwrap_err();
+        assert!(erro.contains("alcance relativo de 32 bits"));
+    }
+
+    #[test]
+    fn aceita_literal_inteiro_minimo_em_negacao_unaria() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Unaria {
+                operador: OperadorIr::Menos,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(i64::MAX as i128 + 1))),
+            }))
+        ];
+        assert!(gerar_executavel(&programa).is_ok());
+    }
 
 }
 
