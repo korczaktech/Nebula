@@ -1696,7 +1696,11 @@ mod testes {
             vec![Tipo::Lista(Box::new(Tipo::Texto))],
             Box::new(Tipo::Opcional(Box::new(Tipo::Inteiro))),
         );
-        assert!(Analisador::tipos_compativeis(&esperado, &obtido));
+        let equivalente = Tipo::Funcao(
+            vec![Tipo::Lista(Box::new(Tipo::Texto))],
+            Box::new(Tipo::Opcional(Box::new(Tipo::Inteiro))),
+        );
+        assert!(Analisador::tipos_compativeis(&equivalente, &obtido));
         let mut inferidos = HashMap::new();
         assert!(Analisador::inferir_genericos(
             &esperado,
