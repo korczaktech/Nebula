@@ -1,5 +1,16 @@
 # Histórico de alterações
 
+## Não lançado — Fase 2: frontend sintático
+
+- Adiciona o crate `nebula-sintaxe` com Lexer, AST e Parser do subconjunto gramatical inicial.
+- Implementa identificadores Unicode XID e normalização NFC.
+- Reconhece palavras reservadas, literais, comentários, pontuação, operadores e separadores.
+- Implementa análise de declarações, blocos, condicionais, laços e expressões com precedência.
+- Adiciona diagnósticos léxicos e sintáticos com intervalos de origem e recuperação de erros.
+- Adiciona `nebula verificar <arquivo.nbx>` à CLI e testes de frontend.
+- Adiciona critérios de aceite específicos para a Fase 2.
+- A análise semântica e a geração de executáveis continuam fora deste escopo.
+
 ## Não lançado — Auditoria final da Fase 1
 
 - Corrige a árvore de arquivos documentada e registra critérios formais de aceite da Fase 1.
