@@ -23,7 +23,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
     Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char),
-    Lista(Vec<ValorIr>), Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
+    Lista(Vec<ValorIr>), Estrutura { nome: String, campos: Vec<(String, ValorIr)> }, Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
 /// Operadores normalizados da representação intermediária.
@@ -45,6 +45,8 @@ pub enum ExpressaoIr {
     Chamada { nome: String, argumentos: Vec<ExpressaoIr> },
     ChamadaQualificada { modulo: String, nome: String, argumentos: Vec<ExpressaoIr> },
     Indexacao { alvo: Box<ExpressaoIr>, indice: Box<ExpressaoIr> },
+    Membro { alvo: Box<ExpressaoIr>, campo: String },
+    ConstrucaoEstrutura { nome: String, campos: Vec<(String, ExpressaoIr)> },
 }
 
 /// Instrução tipada da IR.
@@ -377,6 +379,8 @@ impl Lowerer {
                 for item in itens { tipos.push(self.inferir_tipo_ast(item)); }
                 Tipo::Tupla(tipos)
             }
+            Expressao::ConstrucaoEstrutura { nome, .. } => self.tipo(nome),
+            Expressao::Membro { .. } => Tipo::Desconhecido,
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
             Expressao::Binaria { esquerda, operador, .. } => {
                 if matches!(operador, TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor
@@ -475,6 +479,10 @@ impl Lowerer {
             Expressao::Tupla(valores) => Some(ExpressaoIr::Tupla(
                 valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
             )),
+            Expressao::ConstrucaoEstrutura { nome, campos } => Some(ExpressaoIr::ConstrucaoEstrutura {
+                nome: nome.clone(),
+                campos: campos.iter().map(|(campo, valor)| Some((campo.clone(), self.expressao(valor)?))).collect::<Option<Vec<_>>>()?,
+            }),
             Expressao::Unaria { operador, valor } => Some(ExpressaoIr::Unaria {
                 operador: converter_operador(*operador)?,
                 valor: Box::new(self.expressao(valor)?),
@@ -521,8 +529,11 @@ impl Lowerer {
             Expressao::Indexacao { alvo, indice } => Some(ExpressaoIr::Indexacao {
                 alvo: Box::new(self.expressao(alvo)?), indice: Box::new(self.expressao(indice)?),
             }),
+            Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => Some(ExpressaoIr::Membro {
+                alvo: Box::new(self.expressao(alvo)?), campo: nome.clone(),
+            }),
             Expressao::Membro { .. } => {
-                self.diagnosticos.push("Acesso de membro não é suportado pela IR inicial.".into());
+                self.diagnosticos.push("Acesso de escopo inválido na IR.".into());
                 None
             }
         }
@@ -614,6 +625,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
+        ExpressaoIr::ConstrucaoEstrutura { nome, .. } => Tipo::Estrutura(nome.clone()),
         ExpressaoIr::Tupla(v) => Tipo::Tupla(v.iter().map(inferir_tipo).collect()),
         ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
             OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual
@@ -706,6 +718,9 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
+        ValorIr::Estrutura { campos, .. } => ValorRuntime::Estrutura(Arc::new(RwLock::new(
+            campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
+        ))),
         ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
         ValorIr::IntervaloDecimal(inicio, fim) => {
             ValorRuntime::IntervaloDecimal { inicio, fim }
@@ -723,6 +738,10 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
+        ValorRuntime::Estrutura(campos) => {
+            let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
+            Ok(ValorIr::Estrutura { nome: String::new(), campos: campos.iter().map(|(nome, valor)| Ok((nome.clone(), converter_para_ir(valor.clone())?))).collect::<Result<_, String>>()? })
+        }
         ValorRuntime::Lista(itens) => {
             let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
@@ -856,6 +875,15 @@ impl Maquina<'_> {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
             ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
+            ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
+                nome: nome.clone(),
+                campos: campos.iter().map(|(campo, valor)| Ok((campo.clone(), self.expressao(valor)?))).collect::<Result<_, String>>()?,
+            }),
+            ExpressaoIr::Membro { alvo, campo } => {
+                let ValorIr::Estrutura { campos, .. } = self.expressao(alvo)? else { return Err("Acesso de campo exige uma estrutura.".into()); };
+                campos.into_iter().find(|(nome, _)| nome == campo).map(|(_, valor)| valor)
+                    .ok_or_else(|| format!("Campo '{campo}' não encontrado na estrutura."))
+            }
             ExpressaoIr::Unaria { operador, valor } => {
                 let valor = self.expressao(valor)?;
                 match (*operador, valor) {
@@ -1308,6 +1336,7 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
+        ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
         ValorIr::Intervalo(a,b) => format!("{a}..{b}"),
         ValorIr::IntervaloDecimal(a,b) => format!("{a}..{b}"),
         ValorIr::Nulo => "nulo".into(), ValorIr::Vazio => String::new(),
