@@ -1,36 +1,47 @@
-# Sistema de tipos — decisões iniciais
+# Sistema de tipos — Fase 3
 
-## Modelo
+## Modelo implementado
 
 - Tipagem estática por padrão.
-- Inferência local e determinística quando o tipo puder ser resolvido sem adivinhação.
-- Tipos explícitos para interfaces públicas, ABI e fronteiras de módulos.
-- Conversões potencialmente redutoras exigem conversão explícita.
+- Inferência local e determinística em declarações sem anotação.
+- Tipos explícitos nas interfaces de funções e variáveis anotadas.
 - Não há coerção implícita geral entre texto, números e lógicos.
+- Tipos numéricos de larguras diferentes são distintos; a compatibilidade exige igualdade de tipo, exceto operações aritméticas numéricas com promoção definida pela análise.
 
-## Tipos primitivos planejados
+## Tipos reconhecidos pela análise semântica
 
-- `logico`
-- `inteiro` (largura dependente do alvo, a ser fixada na especificação da ABI)
-- `inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128` quando suportado
-- variantes sem sinal correspondentes
-- `decimal32`, `decimal64`
-- `byte`
-- `caractere`
-- `texto`
-- `vazio`
+- logico
+- inteiro (tipo inteiro padrão do subconjunto; ABI ainda não fixada)
+- inteiro8, inteiro16, inteiro32, inteiro64, inteiro128
+- decimal e decimal64
+- decimal32
+- byte
+- caractere
+- texto
+- vazio
+- listas homogêneas anotadas como [tipo] ou inferidas a partir dos elementos.
 
-## Tipos compostos planejados
+Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destinos desconhecidos são rejeitados.
 
-Vetores, tuplas, estruturas, enumerações, opcionais, resultados, funções, referências, ponteiros e genéricos.
+## Regras estáticas iniciais
 
-## Decisões ainda abertas
+- Condições de quando, enquanto e para devem ser lógicas.
+- Aritmética exige operandos numéricos; texto + texto concatena.
+- Comparações relacionais exigem operandos numéricos.
+- Igualdade exige tipos compatíveis.
+- Listas devem ser homogêneas.
+- Índices de listas devem ser inteiros.
+- Chamadas validam existência da função, aridade, tipos dos argumentos e tipo de retorno.
+- Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
 
-- Largura padrão de `inteiro` por alvo.
-- Overflow em modo seguro e otimizado.
-- Semântica de ponto flutuante e NaN.
-- Representação e propriedade de `texto`.
-- Tipos algébricos e inferência genérica.
-- Layout e alinhamento de estruturas na ABI.
+## Tipos compostos e decisões futuras
 
-Essas decisões devem ser formalizadas antes de estabilizar a ABI e não podem ser presumidas pela implementação.
+Vetores, tuplas, estruturas, enumerações, opcionais, resultados, referências, ponteiros, funções genéricas e tipos algébricos ainda não fazem parte do subconjunto semântico executável.
+
+Continuam abertas antes de estabilizar ABI e backend:
+
+- Largura de inteiro por alvo.
+- Overflow e comportamento aritmético por modo/alvo.
+- Semântica completa de ponto flutuante, NaN e conversões.
+- Layout e alinhamento de tipos na ABI.
+- Inferência genérica e tipos algébricos.
