@@ -20,7 +20,9 @@
 - texto
 - vazio
 - listas homogêneas anotadas como [tipo] ou inferidas a partir dos elementos.
-- construtores de tipo genéricos em assinaturas: `Opcional<T>`, `Resultado<T, E>` e `Tupla<T1, T2, ...>`; os argumentos são analisados recursivamente, inclusive quando aninhados.
+- construtores genéricos em assinaturas: `Opcional<T>`, `Resultado<T, E>` e `Tupla<T1, T2, ...>`, com argumentos recursivos;
+- parâmetros de tipo em funções genéricas, com inferência por unificação estrutural e monomorfização de instâncias concretas na IR;
+- tuplas heterogêneas em expressões `(valor1, valor2, ...)`, incluindo tuplas unitárias `(valor,)` e vazias `()`; acesso por índice literal é verificado estaticamente e executado pelo interpretador.
 
 Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destinos desconhecidos são rejeitados.
 
@@ -38,7 +40,7 @@ Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destino
 
 ## Limites atuais dos tipos compostos
 
-Os construtores `Opcional<T>`, `Resultado<T, E>` e `Tupla<T...>` já são reconhecidos e validados em anotações e assinaturas. Isso ainda não significa suporte completo de valores: não há construtores, padrões de correspondência, acesso a campos, representação em IR/ABI ou lowering completo desses tipos. Estruturas, enumerações, referências, ponteiros, funções genéricas e tipos algébricos definidos pelo usuário ainda não fazem parte do subconjunto executável.
+`Tupla<T...>` possui valores heterogêneos no interpretador e lowering próprio na IR; o backend ELF ainda não implementa layout/ABI de agregados. `Opcional<T>` e `Resultado<T,E>` continuam limitados à resolução de tipos em assinaturas: seus construtores, propagação e padrões de correspondência ainda não estão implementados. Funções genéricas são inferidas e monomorfizadas na IR para tipos que o lowering consegue inferir; a inferência ainda não cobre todos os contextos (por exemplo, retorno de chamadas genéricas encadeadas ou valores de módulo). Estruturas, enumerações e tipos definidos pelo usuário ainda não estão implementados. O sistema de tipos, portanto, permanece parcial.
 
 Continuam abertas para alvos futuros e para estabilização geral da linguagem:
 
