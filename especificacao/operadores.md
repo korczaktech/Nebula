@@ -14,7 +14,7 @@
 ## Lógica
 
 - `e`, `ou`, `nao`.
-- `!` é mantido como operador unário alternativo em avaliação; a forma textual recomendada é `nao`.
+- `!` é aceito como operador unário alternativo na gramática inicial; a forma textual recomendada é `nao`.
 
 ## Outros
 
