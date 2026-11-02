@@ -2,7 +2,6 @@
 
 #![forbid(unsafe_code)]
 #![allow(missing_docs)]
-#![rustfmt::skip]
 
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
@@ -342,7 +341,7 @@ pub struct ResultadoSintatico { pub programa: Programa, pub diagnosticos: Vec<Di
 pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     let lexico = analisar_lexico(fonte);
     let mut parser = Parser::novo(lexico.tokens);
-    let mut programa = parser.programa();
+    let programa = parser.programa();
     let mut diagnosticos = lexico.diagnosticos;
     diagnosticos.extend(parser.diagnosticos);
     ResultadoSintatico { programa, diagnosticos }
