@@ -470,7 +470,12 @@ impl<'a> Analisador<'a> {
                         self.expressao(&argumentos[0]);
                         return Tipo::Texto;
                     }
-                    if nome == "ler_arquivo" || nome == "existe_arquivo" || nome == "criar_diretorio" {
+                    if nome == "ler_arquivo"
+                        || nome == "existe_arquivo"
+                        || nome == "criar_diretorio"
+                        || nome == "diretorio_existe"
+                        || nome == "listar_diretorio"
+                    {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um caminho de texto."));
                             for argumento in argumentos { self.expressao(argumento); }
@@ -478,7 +483,13 @@ impl<'a> Analisador<'a> {
                         }
                         let caminho = self.expressao(&argumentos[0]);
                         self.exigir_tipo(&caminho, &Tipo::Texto, "caminho de arquivo");
-                        return if nome == "ler_arquivo" { Tipo::Texto } else { Tipo::Logico };
+                        return if nome == "ler_arquivo" {
+                            Tipo::Texto
+                        } else if nome == "listar_diretorio" {
+                            Tipo::Lista(Box::new(Tipo::Texto))
+                        } else {
+                            Tipo::Logico
+                        };
                     }
                     if nome == "escrever_arquivo" {
                         if argumentos.len() != 2 {
