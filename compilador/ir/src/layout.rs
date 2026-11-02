@@ -4,7 +4,7 @@
 //! enumerações nominais. Tipos sem representação física definida são
 //! rejeitados explicitamente, em vez de receberem um layout fictício.
 
-use nebula_runtime::{calcular_layout, LayoutRuntime, TipoRuntime, VarianteRuntime};
+use nebula_runtime::{LayoutRuntime, TipoRuntime, VarianteRuntime, calcular_layout};
 use nebula_semantica::Tipo;
 use nebula_sintaxe::{NoAst, Programa};
 use std::collections::HashSet;
@@ -29,22 +29,51 @@ fn converter_tipo_interno(
     tipo: &Tipo,
     ativos: &mut HashSet<String>,
 ) -> Result<TipoRuntime, String> {
-    let converter = |tipo: &Tipo, ativos: &mut HashSet<String>| {
-        converter_tipo_interno(programa, tipo, ativos)
-    };
+    let converter =
+        |tipo: &Tipo, ativos: &mut HashSet<String>| converter_tipo_interno(programa, tipo, ativos);
     Ok(match tipo {
         Tipo::Vazio => TipoRuntime::Vazio,
         Tipo::Logico => TipoRuntime::Logico,
-        Tipo::Inteiro | Tipo::Inteiro64 => TipoRuntime::Inteiro { bits: 64, assinado: true },
-        Tipo::Inteiro8 => TipoRuntime::Inteiro { bits: 8, assinado: true },
-        Tipo::Inteiro16 => TipoRuntime::Inteiro { bits: 16, assinado: true },
-        Tipo::Inteiro32 => TipoRuntime::Inteiro { bits: 32, assinado: true },
-        Tipo::Inteiro128 => TipoRuntime::Inteiro { bits: 128, assinado: true },
-        Tipo::InteiroU8 => TipoRuntime::Inteiro { bits: 8, assinado: false },
-        Tipo::InteiroU16 => TipoRuntime::Inteiro { bits: 16, assinado: false },
-        Tipo::InteiroU32 => TipoRuntime::Inteiro { bits: 32, assinado: false },
-        Tipo::InteiroU64 => TipoRuntime::Inteiro { bits: 64, assinado: false },
-        Tipo::InteiroU128 => TipoRuntime::Inteiro { bits: 128, assinado: false },
+        Tipo::Inteiro | Tipo::Inteiro64 => TipoRuntime::Inteiro {
+            bits: 64,
+            assinado: true,
+        },
+        Tipo::Inteiro8 => TipoRuntime::Inteiro {
+            bits: 8,
+            assinado: true,
+        },
+        Tipo::Inteiro16 => TipoRuntime::Inteiro {
+            bits: 16,
+            assinado: true,
+        },
+        Tipo::Inteiro32 => TipoRuntime::Inteiro {
+            bits: 32,
+            assinado: true,
+        },
+        Tipo::Inteiro128 => TipoRuntime::Inteiro {
+            bits: 128,
+            assinado: true,
+        },
+        Tipo::InteiroU8 => TipoRuntime::Inteiro {
+            bits: 8,
+            assinado: false,
+        },
+        Tipo::InteiroU16 => TipoRuntime::Inteiro {
+            bits: 16,
+            assinado: false,
+        },
+        Tipo::InteiroU32 => TipoRuntime::Inteiro {
+            bits: 32,
+            assinado: false,
+        },
+        Tipo::InteiroU64 => TipoRuntime::Inteiro {
+            bits: 64,
+            assinado: false,
+        },
+        Tipo::InteiroU128 => TipoRuntime::Inteiro {
+            bits: 128,
+            assinado: false,
+        },
         Tipo::Decimal | Tipo::Decimal64 => TipoRuntime::Decimal { bits: 64 },
         Tipo::Decimal32 => TipoRuntime::Decimal { bits: 32 },
         Tipo::Byte => TipoRuntime::Byte,
@@ -52,7 +81,10 @@ fn converter_tipo_interno(
         Tipo::Texto => TipoRuntime::Texto,
         Tipo::Lista(elemento) => TipoRuntime::Lista(Box::new(converter(elemento, ativos)?)),
         Tipo::Tupla(elementos) => TipoRuntime::Tupla(
-            elementos.iter().map(|t| converter(t, ativos)).collect::<Result<_, _>>()?,
+            elementos
+                .iter()
+                .map(|t| converter(t, ativos))
+                .collect::<Result<_, _>>()?,
         ),
         Tipo::Opcional(elemento) => TipoRuntime::Opcional(Box::new(converter(elemento, ativos)?)),
         Tipo::Resultado(sucesso, falha) => TipoRuntime::Resultado(
@@ -67,36 +99,81 @@ fn converter_tipo_interno(
             if !ativos.insert(nome.clone()) {
                 return Err(format!("Tipo recursivo por valor sem indireção: {nome}."));
             }
-            let declaracao = programa.itens.iter().find_map(|item| match item {
-                NoAst::Estrutura { nome: declarado, campos } if declarado == nome => Some(campos),
-                _ => None,
-            }).ok_or_else(|| format!("Declaração da estrutura '{nome}' não encontrada na AST."))?;
-            let campos = declaracao.iter().map(|(campo, tipo)| {
-                let tipo = resolver_tipo_declarado(programa, tipo, ativos)?;
-                Ok((campo.clone(), tipo))
-            }).collect::<Result<Vec<_>, String>>()?;
+            let declaracao = programa
+                .itens
+                .iter()
+                .find_map(|item| match item {
+                    NoAst::Estrutura {
+                        nome: declarado,
+                        campos,
+                    } if declarado == nome => Some(campos),
+                    _ => None,
+                })
+                .ok_or_else(|| {
+                    format!("Declaração da estrutura '{nome}' não encontrada na AST.")
+                })?;
+            let campos = declaracao
+                .iter()
+                .map(|(campo, tipo)| {
+                    let tipo = resolver_tipo_declarado(programa, tipo, ativos)?;
+                    Ok((campo.clone(), tipo))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
             ativos.remove(nome);
-            TipoRuntime::Estrutura { nome: nome.clone(), campos }
+            TipoRuntime::Estrutura {
+                nome: nome.clone(),
+                campos,
+            }
         }
         Tipo::Enumeracao(nome) => {
             if !ativos.insert(nome.clone()) {
                 return Err(format!("Tipo recursivo por valor sem indireção: {nome}."));
             }
-            let declaracao = programa.itens.iter().find_map(|item| match item {
-                NoAst::Enumeracao { nome: declarado, variantes } if declarado == nome => Some(variantes),
-                _ => None,
-            }).ok_or_else(|| format!("Declaração da enumeração '{nome}' não encontrada na AST."))?;
-            let variantes = declaracao.iter().map(|(variante, payload)| {
-                let payload = payload.iter().map(|tipo| resolver_tipo_declarado(programa, tipo, ativos))
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(VarianteRuntime { nome: variante.clone(), payload })
-            }).collect::<Result<Vec<_>, String>>()?;
+            let declaracao = programa
+                .itens
+                .iter()
+                .find_map(|item| match item {
+                    NoAst::Enumeracao {
+                        nome: declarado,
+                        variantes,
+                    } if declarado == nome => Some(variantes),
+                    _ => None,
+                })
+                .ok_or_else(|| {
+                    format!("Declaração da enumeração '{nome}' não encontrada na AST.")
+                })?;
+            let variantes = declaracao
+                .iter()
+                .map(|(variante, payload)| {
+                    let payload = payload
+                        .iter()
+                        .map(|tipo| resolver_tipo_declarado(programa, tipo, ativos))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(VarianteRuntime {
+                        nome: variante.clone(),
+                        payload,
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?;
             ativos.remove(nome);
-            TipoRuntime::Enumeracao { nome: nome.clone(), variantes }
+            TipoRuntime::Enumeracao {
+                nome: nome.clone(),
+                variantes,
+            }
         }
-        Tipo::Funcao(_, _) => return Err("Tipo de função ainda não possui representação de dados no ABI do runtime.".into()),
-        Tipo::Parametro(nome) => return Err(format!("Parâmetro genérico '{nome}' precisa ser instanciado antes do cálculo de layout.")),
-        Tipo::Desconhecido => return Err("Não é possível calcular layout de um tipo desconhecido.".into()),
+        Tipo::Funcao(_, _) => {
+            return Err(
+                "Tipo de função ainda não possui representação de dados no ABI do runtime.".into(),
+            );
+        }
+        Tipo::Parametro(nome) => {
+            return Err(format!(
+                "Parâmetro genérico '{nome}' precisa ser instanciado antes do cálculo de layout."
+            ));
+        }
+        Tipo::Desconhecido => {
+            return Err("Não é possível calcular layout de um tipo desconhecido.".into());
+        }
     })
 }
 
@@ -130,7 +207,10 @@ fn resolver_tipo_declarado(
         }
         _ => {
             if let Some(destino) = programa.itens.iter().find_map(|item| match item {
-                NoAst::Tipo { nome: declarado, destino } if declarado == nome => Some(destino.as_str()),
+                NoAst::Tipo {
+                    nome: declarado,
+                    destino,
+                } if declarado == nome => Some(destino.as_str()),
                 _ => None,
             }) {
                 let chave = format!("alias:{nome}");
@@ -141,11 +221,19 @@ fn resolver_tipo_declarado(
                 ativos.remove(&chave);
                 return resultado;
             }
-            programa.itens.iter().find_map(|item| match item {
-                NoAst::Estrutura { nome: declarado, .. } if declarado == nome => Some(Tipo::Estrutura(nome.into())),
-                NoAst::Enumeracao { nome: declarado, .. } if declarado == nome => Some(Tipo::Enumeracao(nome.into())),
-                _ => None,
-            }).ok_or_else(|| format!("Tipo '{nome}' não possui declaração física conhecida."))?
+            programa
+                .itens
+                .iter()
+                .find_map(|item| match item {
+                    NoAst::Estrutura {
+                        nome: declarado, ..
+                    } if declarado == nome => Some(Tipo::Estrutura(nome.into())),
+                    NoAst::Enumeracao {
+                        nome: declarado, ..
+                    } if declarado == nome => Some(Tipo::Enumeracao(nome.into())),
+                    _ => None,
+                })
+                .ok_or_else(|| format!("Tipo '{nome}' não possui declaração física conhecida."))?
         }
     };
     converter_tipo_interno(programa, &tipo, ativos)
@@ -160,7 +248,11 @@ mod testes {
     fn programa(codigo: &str) -> Programa {
         let fonte = ArquivoFonte::novo("layout.nbx", codigo);
         let resultado = analisar(&fonte);
-        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "{:?}",
+            resultado.diagnosticos
+        );
         resultado.programa
     }
 
@@ -182,7 +274,14 @@ mod testes {
         let tipo = Tipo::Estrutura("Pessoa".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
         assert_eq!(layout.alinhamento, 8);
-        assert_eq!(layout.campos.iter().map(|c| c.deslocamento).collect::<Vec<_>>(), vec![0, 1, 8]);
+        assert_eq!(
+            layout
+                .campos
+                .iter()
+                .map(|c| c.deslocamento)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 8]
+        );
         assert_eq!(layout.tamanho, 16);
     }
 
