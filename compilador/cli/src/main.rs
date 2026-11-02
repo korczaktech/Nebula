@@ -302,6 +302,21 @@ mod testes {
     use super::*;
 
     #[test]
+    fn publica_executavel_atomico_e_substitui_saida_anterior() {
+        let caminho = std::env::temp_dir().join(format!("nebula-atomic-{}", std::process::id()));
+        let _ = std::fs::remove_file(&caminho);
+        gravar_executavel_atomico(&caminho, b"primeira versao").unwrap();
+        gravar_executavel_atomico(&caminho, b"segunda versao").unwrap();
+        assert_eq!(std::fs::read(&caminho).unwrap(), b"segunda versao");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&caminho).unwrap().permissions().mode() & 0o777, 0o755);
+        }
+        let _ = std::fs::remove_file(caminho);
+    }
+
+    #[test]
     fn verifica_arquivo_nebula_valido() {
         let caminho = std::env::temp_dir().join(format!("nebula-{}.nbx", std::process::id()));
         std::fs::write(&caminho, "variavel total = 1 + 2").expect("grava arquivo");
