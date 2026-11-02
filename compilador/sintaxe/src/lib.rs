@@ -607,6 +607,40 @@ mod testes {
         assert!(!r.programa.itens.is_empty());
     }
     #[test]
+    fn analisa_laco_para_e_inclusao_de_modulo() {
+        let r = analisar(&fonte("incluir Matemática como Mat\npara (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.programa.itens.len(), 2);
+    }
+    #[test]
+    fn aceita_quando_senao_em_linhas_separadas() {
+        let r = analisar(&fonte("quando verdadeiro {\n exibir(1)\n}\nsenao {\n exibir(0)\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn rejeita_comparacoes_relacionais_encadeadas() {
+        let r = analisar(&fonte("variavel resultado = 1 < 2 < 3"));
+        assert!(!r.diagnosticos.is_empty());
+    }
+    #[test]
+    fn precedencia_da_potencia_e_superior_a_unaria() {
+        let r = analisar(&fonte("variavel resultado = -2 ** 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        let NoAst::Variavel { valor: Expressao::Unaria { valor, .. }, .. } = &r.programa.itens[0] else {
+            panic!("esperada operação unária envolvendo potência");
+        };
+        assert!(matches!(**valor, Expressao::Binaria { operador: TipoToken::Potencia, .. }));
+    }
+    #[test]
+    fn potencia_associa_a_direita() {
+        let r = analisar(&fonte("variavel resultado = 2 ** 3 ** 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        let NoAst::Variavel { valor: Expressao::Binaria { direita, .. }, .. } = &r.programa.itens[0] else {
+            panic!("esperada potência");
+        };
+        assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::Potencia, .. }));
+    }
+    #[test]
     fn reconhece_lista_chamada_indexacao_e_membro() {
         let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
