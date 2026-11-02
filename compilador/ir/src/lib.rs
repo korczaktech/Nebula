@@ -634,9 +634,9 @@ fn literal(bruto: &str) -> Option<ValorIr> {
         "nulo" => Some(ValorIr::Nulo),
         _ if bruto.starts_with('"') && bruto.ends_with('"') => Some(ValorIr::Texto(desescapar(&bruto[1..bruto.len()-1]))),
         _ if bruto.starts_with('\'') && bruto.ends_with('\'') => desescapar(&bruto[1..bruto.len()-1]).chars().next().map(ValorIr::Caractere),
-        _ if bruto.starts_with("0x") || bruto.starts_with("0X") => i128::from_str_radix(&bruto[2..].replace('_', ""), 16).ok().map(ValorIr::Inteiro),
-        _ if bruto.starts_with("0b") || bruto.starts_with("0B") => i128::from_str_radix(&bruto[2..].replace('_', ""), 2).ok().map(ValorIr::Inteiro),
-        _ if bruto.starts_with("0o") || bruto.starts_with("0O") => i128::from_str_radix(&bruto[2..].replace('_', ""), 8).ok().map(ValorIr::Inteiro),
+        _ if bruto.starts_with("0x") || bruto.starts_with("0X") => i128::from_str_radix(&bruto[2..].replace('_', ""), 16).ok().map(ValorIr::Inteiro).or_else(|| u128::from_str_radix(&bruto[2..].replace('_', ""), 16).ok().map(ValorIr::InteiroSemSinal)),
+        _ if bruto.starts_with("0b") || bruto.starts_with("0B") => i128::from_str_radix(&bruto[2..].replace('_', ""), 2).ok().map(ValorIr::Inteiro).or_else(|| u128::from_str_radix(&bruto[2..].replace('_', ""), 2).ok().map(ValorIr::InteiroSemSinal)),
+        _ if bruto.starts_with("0o") || bruto.starts_with("0O") => i128::from_str_radix(&bruto[2..].replace('_', ""), 8).ok().map(ValorIr::Inteiro).or_else(|| u128::from_str_radix(&bruto[2..].replace('_', ""), 8).ok().map(ValorIr::InteiroSemSinal)),
         _ if bruto.contains('.') || bruto.contains('e') || bruto.contains('E') => bruto.replace('_', "").parse().ok().map(ValorIr::Decimal),
         _ => bruto
             .replace('_', "")
@@ -1235,6 +1235,23 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Inteiro(a), Potencia, ValorIr::Inteiro(b)) if (0..=u32::MAX as i128).contains(&b) => operar_inteiro(OperacaoInteira::Potencia, a, b)
             .map(ValorIr::Inteiro)
             .map_err(|_| "Overflow em potência inteira.".into()),
+        (ValorIr::InteiroSemSinal(a), Mais, ValorIr::InteiroSemSinal(b)) =>
+            a.checked_add(b).map(ValorIr::InteiroSemSinal).ok_or_else(|| "Overflow em soma sem sinal.".into()),
+        (ValorIr::InteiroSemSinal(a), Menos, ValorIr::InteiroSemSinal(b)) =>
+            a.checked_sub(b).map(ValorIr::InteiroSemSinal).ok_or_else(|| "Underflow em subtração sem sinal.".into()),
+        (ValorIr::InteiroSemSinal(a), Vezes, ValorIr::InteiroSemSinal(b)) =>
+            a.checked_mul(b).map(ValorIr::InteiroSemSinal).ok_or_else(|| "Overflow em multiplicação sem sinal.".into()),
+        (ValorIr::InteiroSemSinal(_), Divide, ValorIr::InteiroSemSinal(0))
+        | (ValorIr::InteiroSemSinal(_), Resto, ValorIr::InteiroSemSinal(0)) =>
+            Err("Divisão por zero na IR.".into()),
+        (ValorIr::InteiroSemSinal(a), Divide, ValorIr::InteiroSemSinal(b)) =>
+            Ok(ValorIr::InteiroSemSinal(a / b)),
+        (ValorIr::InteiroSemSinal(a), Resto, ValorIr::InteiroSemSinal(b)) =>
+            Ok(ValorIr::InteiroSemSinal(a % b)),
+        (ValorIr::InteiroSemSinal(a), Potencia, ValorIr::InteiroSemSinal(b))
+            if b <= u128::from(u32::MAX) =>
+            a.checked_pow(b as u32).map(ValorIr::InteiroSemSinal)
+                .ok_or_else(|| "Overflow em potência sem sinal.".into()),
         (ValorIr::Decimal(a), Mais, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Soma, a, b)
             .map(ValorIr::Decimal)
             .map_err(|_| "Resultado decimal não finito na IR.".into()),
@@ -1272,6 +1289,10 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Inteiro(a), MenorIgual, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a <= b)),
         (ValorIr::Inteiro(a), Maior, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a > b)),
         (ValorIr::Inteiro(a), MaiorIgual, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a >= b)),
+        (ValorIr::InteiroSemSinal(a), Menor, ValorIr::InteiroSemSinal(b)) => Ok(ValorIr::Logico(a < b)),
+        (ValorIr::InteiroSemSinal(a), MenorIgual, ValorIr::InteiroSemSinal(b)) => Ok(ValorIr::Logico(a <= b)),
+        (ValorIr::InteiroSemSinal(a), Maior, ValorIr::InteiroSemSinal(b)) => Ok(ValorIr::Logico(a > b)),
+        (ValorIr::InteiroSemSinal(a), MaiorIgual, ValorIr::InteiroSemSinal(b)) => Ok(ValorIr::Logico(a >= b)),
         (ValorIr::Decimal(a), Menor, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a < b)),
         (ValorIr::Decimal(a), MenorIgual, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a <= b)),
         (ValorIr::Decimal(a), Maior, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a > b)),
