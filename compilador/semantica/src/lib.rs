@@ -1181,6 +1181,30 @@ mod testes {
 
 
     #[test]
+    fn rejeita_uso_de_texto_apos_movimentacao() {
+        let r = analisar_codigo("variavel origem: texto = \"Nebula\"\nvariavel destino: texto = origem\nexibir(origem)");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_uso_de_lista_apos_movimentacao() {
+        let r = analisar_codigo("variavel origem = [1, 2]\nvariavel destino = origem\nexibir(comprimento(origem))");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn valores_primitivos_sao_copiados_e_nao_movidos() {
+        let r = analisar_codigo("variavel origem = 42\nvariavel destino = origem\nexibir(origem)");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn reatribuicao_reinicializa_valor_movido() {
+        let r = analisar_codigo("variavel origem: texto = \"antigo\"\nvariavel destino: texto = origem\norigem = \"novo\"\nexibir(origem)");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn nao_coage_literal_inteiro_para_tipo_decimal() {
         let r = analisar_codigo("variavel valor: decimal32 = 1");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
