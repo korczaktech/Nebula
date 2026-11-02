@@ -141,7 +141,24 @@ pub enum ValorTipado {
 ///
 /// Além das larguras numéricas, verifica nomes e unicidade dos campos e
 /// variantes. A validação não depende de o tipo já possuir algum valor.
+const LIMITE_PROFUNDIDADE_TIPO: usize = 256;
+
+/// Valida recursivamente a declaração de um tipo antes de usá-lo no runtime.
+///
+/// Além das larguras numéricas, verifica nomes e unicidade dos campos e
+/// variantes. A profundidade é limitada para rejeitar tipos adversariais sem
+/// permitir estouro de pilha durante validação ou cálculo de layout.
 pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
+    validar_tipo_interno(tipo, 0)
+}
+
+fn validar_tipo_interno(tipo: &TipoRuntime, profundidade: usize) -> Result<(), String> {
+    if profundidade >= LIMITE_PROFUNDIDADE_TIPO {
+        return Err(format!(
+            "Tipo excede o limite de profundidade ({LIMITE_PROFUNDIDADE_TIPO})."
+        ));
+    }
+    let proxima = profundidade + 1;
     match tipo {
         TipoRuntime::Inteiro { bits, .. } if !matches!(bits, 8 | 16 | 32 | 64 | 128) => {
             Err(format!("Largura inteira inválida: {bits}."))
@@ -149,10 +166,12 @@ pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
         TipoRuntime::Decimal { bits } if !matches!(bits, 32 | 64) => {
             Err(format!("Largura decimal inválida: {bits}."))
         }
-        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => validar_tipo(elemento),
+        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => {
+            validar_tipo_interno(elemento, proxima)
+        }
         TipoRuntime::Tupla(tipos) => {
             for tipo in tipos {
-                validar_tipo(tipo)?;
+                validar_tipo_interno(tipo, proxima)?;
             }
             Ok(())
         }
@@ -170,7 +189,7 @@ pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
                         "A estrutura '{nome}' possui campos duplicados: {campo}."
                     ));
                 }
-                validar_tipo(tipo)?;
+                validar_tipo_interno(tipo, proxima)?;
             }
             Ok(())
         }
@@ -193,14 +212,14 @@ pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
                     ));
                 }
                 for tipo in &variante.payload {
-                    validar_tipo(tipo)?;
+                    validar_tipo_interno(tipo, proxima)?;
                 }
             }
             Ok(())
         }
         TipoRuntime::Resultado(sucesso, falha) => {
-            validar_tipo(sucesso)?;
-            validar_tipo(falha)
+            validar_tipo_interno(sucesso, proxima)?;
+            validar_tipo_interno(falha, proxima)
         }
         _ => Ok(()),
     }
@@ -868,6 +887,20 @@ mod testes {
                 .tamanho,
             0
         );
+    }
+
+    #[test]
+    fn rejeita_tipos_com_profundidade_excessiva() {
+        let mut tipo = TipoRuntime::Inteiro {
+            bits: 64,
+            assinado: true,
+        };
+        for _ in 0..LIMITE_PROFUNDIDADE_TIPO {
+            tipo = TipoRuntime::Opcional(Box::new(tipo));
+        }
+        let erro = validar_tipo(&tipo).unwrap_err();
+        assert!(erro.contains("limite de profundidade"), "{erro}");
+        assert!(calcular_layout(&tipo).is_err());
     }
 
     #[test]
