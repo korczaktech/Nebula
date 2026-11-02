@@ -323,6 +323,9 @@ pub enum Expressao {
 /// Visibilidade declarada para uma função.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Visibilidade { Publico, Privado }
+/// Caso de correspondência em uma instrução escolha.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CasoEscolha { pub enumeracao: Option<String>, pub variante: Option<String>, pub vinculacoes: Vec<String>, pub corpo: Vec<NoAst> }
 /// Declarações e instruções representadas na AST.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NoAst {
