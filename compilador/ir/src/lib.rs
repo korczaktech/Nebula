@@ -924,9 +924,6 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 .collect::<Result<_, _>>()?))
         }
         (Tipo::Intervalo(_), valor @ (ValorIr::Intervalo(_, _) | ValorIr::IntervaloDecimal(_, _))) => Ok(valor),
-            if nome.starts_with(&format!("{esperado}::")) => Ok(valor),
-            if nome.starts_with("Opcional::") => Ok(valor),
-            if nome.starts_with("Resultado::") => Ok(valor),
         (_, valor) if *tipo == Tipo::Desconhecido => Ok(valor),
         _ => Ok(valor),
     }
