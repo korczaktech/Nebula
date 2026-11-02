@@ -103,7 +103,7 @@ fn alinhar(valor: u64, alinhamento: u64) -> Result<u64, String> {
 }
 
 fn combinar_campos<'a>(
-    campos: impl IntoIterator<Item = (&'a str, &'a TipoRuntime)>,
+    campos: impl IntoIterator<Item = (String, &'a TipoRuntime)>,
     pilha: &mut HashSet<String>,
 ) -> Result<LayoutRuntime, String> {
     let mut deslocamento = 0u64;
@@ -113,7 +113,7 @@ fn combinar_campos<'a>(
         let layout = calcular_layout_interno(tipo, pilha)?;
         deslocamento = alinhar(deslocamento, layout.alinhamento)?;
         layouts.push(CampoLayoutRuntime {
-            nome: nome.to_owned(),
+            nome,
             deslocamento,
             tamanho: layout.tamanho,
             alinhamento: layout.alinhamento,
@@ -173,7 +173,7 @@ fn calcular_layout_interno(
             if !pilha.insert(nome.clone()) {
                 return Err(format!("Tipo recursivo por valor sem indireção: {nome}."));
             }
-            let resultado = combinar_campos(campos.iter().map(|(n, t)| (n.as_str(), t)), pilha);
+            let resultado = combinar_campos(campos.iter().map(|(n, t)| (n.clone(), t)), pilha);
             pilha.remove(nome);
             resultado
         }
@@ -239,7 +239,7 @@ fn calcular_layout_interno(
                         variante.nome
                     ));
                 }
-                let layout = combinar_campos(variante.payload.iter().map(|t| ("", t)), pilha)?;
+                let layout = combinar_campos(variante.payload.iter().enumerate().map(|(i, t)| (i.to_string(), t)), pilha)?;
                 payload_maximo = payload_maximo.max(layout.tamanho);
                 alinhamento_payload = alinhamento_payload.max(layout.alinhamento);
             }
