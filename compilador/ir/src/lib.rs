@@ -896,6 +896,18 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_matematica() {
+        let ir = compilar(
+            "exibir(raiz(9))\nexibir(arredondar(2.6))\nexibir(absoluto(-5))",
+        );
+        let resultado = executar(&ir, 100).expect("operações matemáticas válidas");
+        assert_eq!(resultado.saida, vec!["3", "3", "5"]);
+
+        let ir = compilar("exibir(raiz(-1))");
+        assert!(executar(&ir, 100).unwrap_err().contains("DominioMatematico"));
+    }
+
+    #[test]
     fn executa_expressao_e_chamada_exibir() {
         let ir = compilar("variavel total = 1 + 2\nexibir(total)");
         let r = executar(&ir, 100).expect("execução válida");
