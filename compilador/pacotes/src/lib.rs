@@ -88,7 +88,9 @@ impl Manifesto {
                 "pacote" => match chave {
                     "nome" if nome.is_none() => nome = Some(valor.to_owned()),
                     "versao" if versao.is_none() => versao = Some(valor.to_owned()),
-                    "nome" | "versao" => return Err(format!("Chave duplicada na linha {}: {chave}", indice + 1)),
+                    "nome" | "versao" => {
+                        return Err(format!("Chave duplicada na linha {}: {chave}", indice + 1));
+                    }
                     _ => return Err(format!("Chave desconhecida na seção pacote: {chave}")),
                 },
                 "dependencias" => {
