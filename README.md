@@ -321,7 +321,6 @@ A estrutura inicial já criada na Fase 1 é:
 nebula/
 ├── README.md
 ├── CONTRIBUTING.md
-├── CHANGELOG.md
 ├── Cargo.toml
 ├── rust-toolchain.toml
 ├── .gitignore
@@ -349,7 +348,7 @@ nebula/
 │   └── conformidade/
 │       ├── README.md
 │       └── sintaxe_visual.nbx
-└── CHANGELOG.md
+└── testes/conformidade/sintaxe_visual.nbx
 ```
 
 Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionados nas fases correspondentes. Não existem pastas vazias declaradas como componentes implementados.
@@ -408,25 +407,28 @@ Os percentuais são metas de conclusão do escopo total planejado, não medidas 
 
 ## Fase 1 — Fundação e especificação (meta acumulada: 10%)
 
-**Estado: Fase 1 concluída; CI aprovado.**
+**Estado: Fase 1 concluída; especificação consolidada e CI aprovado.**
 
 **Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
 
 Entregas realizadas:
-- Especificação inicial da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos, alvos e registro de decisões.
+- Especificação inicial consolidada da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos, alvos e registro de decisões.
+- Separação explícita entre palavras reservadas da gramática inicial e palavras reservadas futuras.
+- Regras léxicas e gramaticais alinhadas para quebras de linha, delimitadores, precedência, literais e construções suportadas.
 - Regras de separação visual flexível, com delimitadores opcionais e indentação sem significado semântico.
-- Workspace Cargo com Rust estável e edição 2024.
+- Workspace Cargo com Rust 1.85.0 fixado, edição 2024 e Cargo.lock versionado.
 - Crates iniciais `nebula-fonte`, `nebula-diagnosticos` e `nebula-cli`.
 - Tipos básicos de fonte, intervalos, linha/coluna e diagnósticos.
 - CLI informativa com ajuda e versão, sem alegar compilação de arquivos.
 - Exemplo .nbx e fixtures de conformidade.
-- CI para formatação, Clippy e testes.
+- CI para formatação, Clippy e testes com versão Rust e dependências travadas pelo lockfile.
 - Política de contribuição, progresso e changelog.
 
 Critérios de conclusão:
 - A estrutura e os contratos iniciais estão registrados.
 - O código-base está preparado para validação automatizada.
-- A gramática documenta explicitamente as ambiguidades ainda pendentes.
+- Gramática e tokens descrevem o mesmo subconjunto inicial, documentam regras de separação e identificam explicitamente os recursos futuros e as decisões ainda abertas.
+- Toolchain e resolução de dependências são reproduzíveis por versão fixada e Cargo.lock.
 - Workspace compila, passa pela formatação, análise Clippy e testes automatizados no GitHub Actions.
 
 ## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
