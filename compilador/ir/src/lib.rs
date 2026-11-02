@@ -38,7 +38,7 @@ pub enum OperadorIr {
 pub enum ExpressaoIr {
     Constante(ValorIr),
     Variavel(String),
-    Lista(Vec<ExpressaoIr>),
+    Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
     Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
     Atribuicao { nome: String, valor: Box<ExpressaoIr> },
@@ -352,6 +352,7 @@ impl Lowerer {
                 let Some(primeiro) = itens.first() else { return Tipo::Lista(Box::new(Tipo::Desconhecido)); };
                 Tipo::Lista(Box::new(self.inferir_tipo_ast(primeiro)))
             }
+            Expressao::Tupla(itens) => Tipo::Tupla(itens.iter().map(|item| self.inferir_tipo_ast(item)).collect()),
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
             Expressao::Binaria { esquerda, operador, .. } => {
                 if matches!(operador, TipoToken::Igual | TipoToken::Diferente | TipoToken::Menor
@@ -412,6 +413,9 @@ impl Lowerer {
             Expressao::Nome(nome) => Some(ExpressaoIr::Variavel(nome.clone())),
             Expressao::Literal(valor) => Some(ExpressaoIr::Constante(literal(valor)?)),
             Expressao::Lista(valores) => Some(ExpressaoIr::Lista(
+                valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
+            )),
+            Expressao::Tupla(valores) => Some(ExpressaoIr::Tupla(
                 valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
             )),
             Expressao::Unaria { operador, valor } => Some(ExpressaoIr::Unaria {
@@ -545,6 +549,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
+        ExpressaoIr::Tupla(v) => Tipo::Tupla(v.iter().map(inferir_tipo).collect()),
         ExpressaoIr::Binaria { esquerda, operador, .. } => match operador {
             OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual
             | OperadorIr::Maior | OperadorIr::MaiorIgual | OperadorIr::E | OperadorIr::Ou => Tipo::Logico,
@@ -778,7 +783,7 @@ impl Maquina<'_> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
-            ExpressaoIr::Lista(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
+            ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::Unaria { operador, valor } => {
                 let valor = self.expressao(valor)?;
                 match (*operador, valor) {
