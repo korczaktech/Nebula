@@ -5,7 +5,7 @@
 
 #[rustfmt::skip]
 mod implementacao {
-use nebula_semantica::{analisar_com_modulos, AssinaturaFuncao, ModulosDisponiveis, Tipo};
+use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use std::collections::HashMap;
 
@@ -77,7 +77,10 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
                 .map(|d| format!("{}: {}", d.codigo, d.mensagem)).collect(),
         };
     }
-    let mut lowerer = Lowerer { diagnosticos: Vec::new() };
+    let aliases = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Tipo { nome, destino } = item { Some((nome.clone(), destino.clone())) } else { None }
+    }).collect();
+    let mut lowerer = Lowerer { diagnosticos: Vec::new(), aliases };
     let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new() };
     for item in &programa.itens {
         match item {
@@ -100,19 +103,20 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
     }
 }
 
-struct Lowerer { diagnosticos: Vec<String> }
+struct Lowerer { diagnosticos: Vec<String>, aliases: HashMap<String, String> }
 
 impl Lowerer {
     fn tipo(&self, nome: &str) -> Tipo {
         match nome {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
-            "inteiro" | "inteiro8" | "inteiro16" | "inteiro32" | "inteiro64" | "inteiro128" | "byte" => Tipo::Inteiro,
+            "inteiro" | "inteiro8" | "inteiro16" | "inteiro32" | "inteiro64" | "inteiro128" => Tipo::Inteiro,
+            "byte" => Tipo::Byte,
             "decimal" | "decimal32" | "decimal64" => Tipo::Decimal,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             _ if nome.starts_with('[') && nome.ends_with(']') => Tipo::Lista(Box::new(self.tipo(&nome[1..nome.len()-1]))),
-            _ => Tipo::Desconhecido,
+            _ => self.aliases.get(nome).map_or(Tipo::Desconhecido, |destino| self.tipo(destino)),
         }
     }
 
@@ -260,7 +264,7 @@ pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<Resultado
         passos: 0,
         limite: limite_passos.max(1),
     };
-    let fluxo = vm.bloco(&programa.instrucoes)?;
+    let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
     if matches!(fluxo, Fluxo::Parar | Fluxo::Seguir) {
         return Err("Controle de laço escapou do seu contexto.".into());
     }
@@ -281,6 +285,16 @@ impl Maquina<'_> {
     fn passo(&mut self) -> Result<(), String> {
         self.passos += 1;
         if self.passos > self.limite { Err("Limite de passos da IR excedido.".into()) } else { Ok(()) }
+    }
+
+    fn bloco_raiz(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
+        let mut fluxo = Fluxo::Normal;
+        for item in itens {
+            self.passo()?;
+            fluxo = self.instrucao(item)?;
+            if !matches!(fluxo, Fluxo::Normal) { break; }
+        }
+        Ok(fluxo)
     }
 
     fn bloco(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
