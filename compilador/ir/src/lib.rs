@@ -1379,7 +1379,7 @@ mod testes {
         let ir = compilar(
             "funcao primeiro<T>(ponto: Tupla<T,T>): T { devolver ponto[0] }\nvariavel numero = primeiro((7, 8))",
         );
-        assert!(ir.funcoes.keys().any(|nome| nome.starts_with("primeiro__Tupla_")));
+        assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("genérico com tupla válido");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
     }
@@ -1401,7 +1401,7 @@ mod testes {
         let ir = compilar(
             "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([7, 8])",
         );
-        assert!(ir.funcoes.keys().any(|nome| nome.starts_with("primeiro___inteiro_")));
+        assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("instância de lista genérica válida");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
     }
