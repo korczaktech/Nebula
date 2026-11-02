@@ -890,6 +890,54 @@ mod testes {
     }
 
     #[test]
+    fn layout_de_enumeracao_escolhe_tag_pelo_numero_de_variantes() {
+        let criar = |quantidade: usize| TipoRuntime::Enumeracao {
+            nome: "Estado".into(),
+            variantes: (0..quantidade)
+                .map(|indice| VarianteRuntime {
+                    nome: format!("Variante{indice}"),
+                    payload: vec![],
+                })
+                .collect(),
+        };
+
+        let limite_u8 = calcular_layout(&criar(256)).unwrap();
+        assert_eq!(limite_u8.tamanho_tag, 1);
+        assert_eq!(limite_u8.tamanho, 1);
+
+        let limite_u16 = calcular_layout(&criar(257)).unwrap();
+        assert_eq!(limite_u16.tamanho_tag, 2);
+        assert_eq!(limite_u16.tamanho, 2);
+    }
+
+    #[test]
+    fn layout_de_enumeracao_alinha_payload_ao_maior_requisito() {
+        let tipo = TipoRuntime::Enumeracao {
+            nome: "Evento".into(),
+            variantes: vec![
+                VarianteRuntime {
+                    nome: "Vazio".into(),
+                    payload: vec![],
+                },
+                VarianteRuntime {
+                    nome: "Numero".into(),
+                    payload: vec![TipoRuntime::Inteiro {
+                        bits: 64,
+                        assinado: true,
+                    }],
+                },
+            ],
+        };
+
+        let layout = calcular_layout(&tipo).unwrap();
+        assert_eq!(layout.tamanho_tag, 1);
+        assert_eq!(layout.alinhamento, 8);
+        assert_eq!(layout.campos[0].deslocamento, 8);
+        assert_eq!(layout.campos[0].tamanho, 8);
+        assert_eq!(layout.tamanho, 16);
+    }
+
+    #[test]
     fn rejeita_tipos_com_profundidade_excessiva() {
         let mut tipo = TipoRuntime::Inteiro {
             bits: 64,
