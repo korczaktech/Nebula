@@ -585,6 +585,17 @@ mod testes {
         assert_eq!(r.tokens[0].tipo, TipoToken::NovaLinha);
     }
     #[test]
+    fn texto_invalido_nao_consume_separador_da_proxima_instrucao() {
+        let r = analisar(&fonte("variavel a = \"sem fim\nvariavel b = 2"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1006"));
+        assert!(r.programa.itens.len() >= 1);
+    }
+    #[test]
+    fn caractere_unicode_conta_um_escalar() {
+        let r = analisar(&fonte("variavel inicial = 'á'"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
     fn diagnostica_texto_nao_terminado() {
         let r = analisar_lexico(&fonte("\"abc"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1008"));
