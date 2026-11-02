@@ -147,6 +147,24 @@ fn expoente_acima_de_u32_termina_com_codigo_de_erro_estavel() {
 }
 
 #[test]
+fn aceita_expoente_maximo_da_ir() {
+    let resultado = compilar_e_executar(
+        "expoente-maximo-u32",
+        "funcao principal(): inteiro { devolver 1 ** 4294967295 }",
+    );
+    assert_eq!(resultado.status.code(), Some(1));
+}
+
+#[test]
+fn overflow_de_resto_signed_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "overflow-resto",
+        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver minimo % -1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
 fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "expoente-negativo",
