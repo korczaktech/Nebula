@@ -249,7 +249,7 @@ impl Emissor {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
                 self.mov_rax(valor);
             }
-            ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(if *valor { 1 } else { 0 }),
+            ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
             ExpressaoIr::Constante(ValorIr::Decimal(_)
                 | ValorIr::Texto(_)
@@ -298,7 +298,7 @@ impl Emissor {
                     self.normalizar_logico();
                     let fim = self.emitir_jmp();
                     self.aplicar_salto(salto_curto, self.codigo.len());
-                    self.mov_rax(if *operador == OperadorIr::Ou { 1 } else { 0 });
+                    self.mov_rax(i64::from(*operador == OperadorIr::Ou));
                     self.aplicar_salto(fim, self.codigo.len());
                     return Ok(());
                 }
