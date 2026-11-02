@@ -8,7 +8,7 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
-    caractere_texto, comprimento_texto, operar_decimal, operar_inteiro, subtexto,
+    comprimento_texto, operar_decimal, operar_inteiro, subtexto,
     texto_contem, texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria,
     OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
