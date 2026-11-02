@@ -1272,6 +1272,10 @@ impl<'a> Analisador<'a> {
                     && Self::inferir_genericos(b, d, genericos, inferidos)),
             Tipo::Tupla(a) => matches!(obtido, Tipo::Tupla(b) if a.len() == b.len()
                 && a.iter().zip(b).all(|(a, b)| Self::inferir_genericos(a, b, genericos, inferidos))),
+            Tipo::Funcao(parametros, retorno) => matches!(obtido, Tipo::Funcao(outros, outro_retorno)
+                if parametros.len() == outros.len()
+                    && parametros.iter().zip(outros).all(|(a, b)| Self::inferir_genericos(a, b, genericos, inferidos))
+                    && Self::inferir_genericos(retorno, outro_retorno, genericos, inferidos)),
             _ => Self::tipos_compativeis(obtido, esperado),
         }
     }
@@ -1501,6 +1505,11 @@ impl<'a> Analisador<'a> {
                 Self::tipos_compativeis(a1, b1) && Self::tipos_compativeis(a2, b2),
             (Tipo::Tupla(a), Tipo::Tupla(b)) => a.len() == b.len()
                 && a.iter().zip(b).all(|(a, b)| Self::tipos_compativeis(a, b)),
+            (Tipo::Funcao(a, retorno_a), Tipo::Funcao(b, retorno_b)) => {
+                a.len() == b.len()
+                    && a.iter().zip(b).all(|(a, b)| Self::tipos_compativeis(a, b))
+                    && Self::tipos_compativeis(retorno_a, retorno_b)
+            }
             _ => obtido == esperado,
         }
     }
@@ -1675,6 +1684,30 @@ mod testes {
             "variavel a: inteiro = 1\nvariavel b: inteiro_u32 = 2\nvariavel c = a + b",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3038"));
+    }
+
+    #[test]
+    fn compara_e_infere_assinaturas_de_funcao_recursivamente() {
+        let esperado = Tipo::Funcao(
+            vec![Tipo::Lista(Box::new(Tipo::Parametro("T".into())))],
+            Box::new(Tipo::Opcional(Box::new(Tipo::Parametro("R".into())))),
+        );
+        let obtido = Tipo::Funcao(
+            vec![Tipo::Lista(Box::new(Tipo::Texto))],
+            Box::new(Tipo::Opcional(Box::new(Tipo::Inteiro))),
+        );
+        assert!(Analisador::tipos_compativeis(&esperado, &obtido));
+        let mut inferidos = HashMap::new();
+        assert!(Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &["T".into(), "R".into()],
+            &mut inferidos,
+        ));
+        assert_eq!(inferidos.get("T"), Some(&Tipo::Texto));
+        assert_eq!(inferidos.get("R"), Some(&Tipo::Inteiro));
+        let incompatível = Tipo::Funcao(vec![Tipo::Texto], Box::new(Tipo::Logico));
+        assert!(!Analisador::tipos_compativeis(&obtido, &incompatível));
     }
 
     #[test]
