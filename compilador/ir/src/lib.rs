@@ -1602,10 +1602,10 @@ mod testes {
     #[test]
     fn executa_escolha_com_payload_de_enumeracao() {
         let ir = compilar(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }",
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }\nvariavel erro = Resultado::Falha(\"opa\")\nescolha erro { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
         );
         let resultado = executar(&ir, 200).expect("pattern matching válido");
-        assert_eq!(resultado.saida, vec!["42"]);
+        assert_eq!(resultado.saida, vec!["42", "opa"]);
     }
 
     #[test]
