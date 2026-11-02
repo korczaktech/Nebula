@@ -493,7 +493,16 @@ impl Parser {
             return Some(format!("[{interno}]"));
         }
         let mut nome = self.consumir_nome("Esperado nome de tipo ou módulo.")?;
-        while self.corresponde(TipoToken::Escopo) {
+        loop {
+            if self.verifica(TipoToken::NovaLinha) {
+                let proximo = self.tokens.iter().skip(self.atual)
+                    .find(|token| token.tipo != TipoToken::NovaLinha)
+                    .map(|token| token.tipo);
+                if proximo == Some(TipoToken::Escopo) {
+                    self.pular_novas_linhas();
+                }
+            }
+            if !self.corresponde(TipoToken::Escopo) { break; }
             self.pular_novas_linhas();
             nome.push_str("::");
             nome.push_str(&self.consumir_nome("Esperado nome após '::'.")?);
