@@ -30,6 +30,8 @@ pub enum Valor {
     Lista(Arc<RwLock<Vec<Valor>>>),
     /// Intervalo inteiro inclusivo.
     Intervalo { inicio: i128, fim: i128 },
+    /// Intervalo decimal inclusivo.
+    IntervaloDecimal { inicio: f64, fim: f64 },
 }
 
 impl PartialEq for Valor {
@@ -50,6 +52,10 @@ impl PartialEq for Valor {
                     inicio: bi,
                     fim: bf,
                 },
+            ) => ai == bi && af == bf,
+            (
+                Self::IntervaloDecimal { inicio: ai, fim: af },
+                Self::IntervaloDecimal { inicio: bi, fim: bf },
             ) => ai == bi && af == bf,
             (Self::Lista(a), Self::Lista(b)) => match (a.read(), b.read()) {
                 (Ok(a), Ok(b)) => *a == *b,
