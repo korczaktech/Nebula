@@ -655,7 +655,7 @@ mod testes {
         assert!(matches!(
             valor,
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. }
-                if modulo == "Matematica" && nome == "somar"
+                if modulo.as_str() == "Matematica" && nome.as_str() == "somar"
         ));
     }
 
