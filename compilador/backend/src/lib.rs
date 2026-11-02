@@ -834,6 +834,10 @@ mod testes {
     }
 }
 
+#[cfg(test)]
+mod testes_codificacao {
+    use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn codifica_instrucoes_basicas_com_bytes_x86_64_esperados() {
@@ -950,6 +954,8 @@ mod testes {
         ];
         assert!(gerar_executavel(&programa).is_ok());
     }
+}
+
 
 }
 
