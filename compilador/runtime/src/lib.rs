@@ -356,7 +356,9 @@ impl Memoria {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
         let Valor::Lista(lista) = &celula.valor else {
-            return Err(ErroRuntime::TipoIncompativel("a variável não contém uma lista"));
+            return Err(ErroRuntime::TipoIncompativel(
+                "a variável não contém uma lista",
+            ));
         };
         lista
             .write()
@@ -540,9 +542,14 @@ mod testes {
         let lista = Valor::Lista(Arc::new(RwLock::new(vec![Valor::Inteiro(1)])));
         let mut memoria = Memoria::nova();
         memoria.declarar("itens", lista, true).unwrap();
-        memoria.adicionar_elemento_lista("itens", Valor::Inteiro(2)).unwrap();
+        memoria
+            .adicionar_elemento_lista("itens", Valor::Inteiro(2))
+            .unwrap();
         assert_eq!(memoria.comprimento_lista("itens"), Ok(2));
-        assert_eq!(memoria.remover_elemento_lista("itens", 0), Ok(Valor::Inteiro(1)));
+        assert_eq!(
+            memoria.remover_elemento_lista("itens", 0),
+            Ok(Valor::Inteiro(1))
+        );
         assert_eq!(memoria.comprimento_lista("itens"), Ok(1));
     }
 
