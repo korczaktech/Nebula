@@ -141,10 +141,10 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
 
 fn ligar_modulos(programa: &mut ProgramaIr, programas_modulos: Vec<(String, ProgramaIr)>) {
     for (caminho_modulo, modulo) in programas_modulos {
-        for (nome, funcao) in modulo.funcoes {
-            programa
-                .funcoes
-                .insert(format!("{caminho_modulo}::{nome}"), funcao);
+        for (nome, mut funcao) in modulo.funcoes {
+            let nome_completo = format!("{caminho_modulo}::{nome}");
+            funcao.nome = nome_completo.clone();
+            programa.funcoes.insert(nome_completo, funcao);
         }
     }
 }
@@ -516,11 +516,13 @@ fn compilar_arquivo_com_nivel(
             .map(|d| format!("{} — {}", d.codigo, d.mensagem))
             .collect::<Vec<_>>().join("\n"));
     }
-    let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    let (modulos, programas_modulos) = carregar_modulos(caminho, &sintaxe.programa)?;
+    let ir = baixar(&sintaxe.programa, &modulos);
     if !ir.diagnosticos.is_empty() {
         return Err(ir.diagnosticos.join("\n"));
     }
     let mut programa = ir.programa.expect("IR validada");
+    ligar_modulos(&mut programa, programas_modulos);
     nebula_ir::otimizador::otimizar(&mut programa, nivel)?;
     let binario = nebula_backend::gerar_executavel(&programa)?;
     gravar_executavel_atomico(saida, &binario)
