@@ -1194,6 +1194,23 @@ mod testes {
     }
 
     #[test]
+    fn valida_campos_de_estrutura_e_payloads_de_enumeracao() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto, inteiro) }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_tipo_desconhecido_em_estrutura_e_enumeracao() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: TipoAusente }\nenumeracao Estado { Falha(TipoAusente) }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3037"));
+    }
+
+    #[test]
     fn infere_tuplas_heterogeneas_e_acesso_estatico() {
         let r = analisar_codigo(
             "variavel ponto = (10, \"norte\", verdadeiro)\nvariavel x = ponto[0]\nvariavel direcao = ponto[1]\nvariavel ativo = ponto[2]",
