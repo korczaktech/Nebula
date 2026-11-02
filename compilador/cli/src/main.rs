@@ -807,7 +807,14 @@ mod testes {
     #[rustfmt::skip]
     #[test]
     fn compila_e_executa_chamada_de_modulo_no_backend_nativo() {
-        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-elf-{}", std::process::id()));
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-modulo-elf-{}-{sufixo}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
@@ -918,7 +925,11 @@ mod testes {
         std::fs::write(&origem, "incluir Interno\nexibir(Interno::segredo())").unwrap();
 
         let erro = interpretar_arquivo(&origem).unwrap_err();
-        assert!(erro.contains("não é pública") || erro.contains("não foi declarada"));
+        assert!(
+            erro.contains("não foi encontrada em um módulo importado")
+                || erro.contains("não foi declarada"),
+            "{erro}"
+        );
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
