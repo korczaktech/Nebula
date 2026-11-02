@@ -982,6 +982,31 @@ mod testes {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[cfg(unix)]
+    #[rustfmt::skip]
+    #[test]
+    fn rejeita_symlink_de_modulo_para_fora_da_raiz() {
+        use std::os::unix::fs::symlink;
+
+        let raiz = std::env::temp_dir().join(format!("nebula-symlink-raiz-{}", std::process::id()));
+        let externo = std::env::temp_dir().join(format!("nebula-symlink-externo-{}", std::process::id()));
+        std::fs::create_dir_all(&raiz).unwrap();
+        std::fs::create_dir_all(&externo).unwrap();
+        std::fs::write(
+            externo.join("Segredo.nbx"),
+            "publico funcao valor(): inteiro { devolver 42 }",
+        )
+        .unwrap();
+        symlink(externo.join("Segredo.nbx"), raiz.join("Atalho.nbx")).unwrap();
+        let origem = raiz.join("principal.nbx");
+        std::fs::write(&origem, "incluir Atalho\nexibir(Atalho::valor())").unwrap();
+
+        let erro = interpretar_arquivo(&origem).unwrap_err();
+        assert!(erro.contains("fora do diretório permitido"), "{erro}");
+        std::fs::remove_dir_all(raiz).unwrap();
+        std::fs::remove_dir_all(externo).unwrap();
+    }
+
     #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
         let caminho =
