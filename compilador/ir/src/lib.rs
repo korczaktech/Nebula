@@ -8,8 +8,9 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
-    operar_decimal, operar_inteiro, ErroRuntime, Memoria, OperacaoDecimal, OperacaoInteira,
-    Valor as ValorRuntime,
+    caractere_texto, comprimento_texto, operar_decimal, operar_inteiro, subtexto,
+    texto_contem, texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria,
+    OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -508,6 +509,95 @@ impl Maquina<'_> {
                 if nome == "exibir" {
                     self.saida.push(valores.iter().map(formatar).collect::<Vec<_>>().join(" "));
                     return Ok(ValorIr::Vazio);
+                }
+                if nome == "comprimento" {
+                    let Some(valor) = valores.first() else {
+                        return Err("'comprimento' exige um argumento.".into());
+                    };
+                    return match valor {
+                        ValorIr::Texto(texto) => Ok(ValorIr::Inteiro(comprimento_texto(texto) as i128)),
+                        ValorIr::Lista(itens) => Ok(ValorIr::Inteiro(itens.len() as i128)),
+                        _ => Err("'comprimento' exige texto ou lista.".into()),
+                    };
+                }
+                if nome == "subtexto" {
+                    if valores.len() != 3 {
+                        return Err("'subtexto' exige texto, início e fim.".into());
+                    }
+                    let (ValorIr::Texto(texto), ValorIr::Inteiro(inicio), ValorIr::Inteiro(fim)) =
+                        (&valores[0], &valores[1], &valores[2])
+                    else {
+                        return Err("'subtexto' exige texto e dois inteiros.".into());
+                    };
+                    let inicio = usize::try_from(*inicio).map_err(|_| "Índice inicial inválido.")?;
+                    let fim = usize::try_from(*fim).map_err(|_| "Índice final inválido.")?;
+                    return subtexto(texto, inicio, fim)
+                        .map(ValorIr::Texto)
+                        .map_err(|erro| format!("Falha em 'subtexto': {erro:?}"));
+                }
+                if nome == "contem" {
+                    if let [ValorIr::Texto(texto), ValorIr::Texto(trecho)] = valores.as_slice() {
+                        return Ok(ValorIr::Logico(texto_contem(texto, trecho)));
+                    }
+                    return Err("'contem' exige dois textos.".into());
+                }
+                if nome == "inteiro" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        return texto_para_inteiro(texto)
+                            .map(ValorIr::Inteiro)
+                            .map_err(|erro| format!("Falha na conversão para inteiro: {erro:?}"));
+                    }
+                    return Err("'inteiro' exige um texto.".into());
+                }
+                if nome == "decimal" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        return texto_para_decimal(texto)
+                            .map(ValorIr::Decimal)
+                            .map_err(|erro| format!("Falha na conversão para decimal: {erro:?}"));
+                    }
+                    return Err("'decimal' exige um texto.".into());
+                }
+                if nome == "adicionar" {
+                    if argumentos.len() != 2 {
+                        return Err("'adicionar' exige uma lista e um valor.".into());
+                    }
+                    let ExpressaoIr::Variavel(variavel) = &argumentos[0] else {
+                        return Err("'adicionar' exige uma variável de lista modificável.".into());
+                    };
+                    let valor = self.expressao(&argumentos[1])?;
+                    self.memoria
+                        .adicionar_elemento_lista(variavel, converter_para_runtime(valor))
+                        .map_err(formatar_erro_runtime)?;
+                    return Ok(ValorIr::Vazio);
+                }
+                if nome == "remover" {
+                    if argumentos.len() != 2 {
+                        return Err("'remover' exige uma lista e um índice.".into());
+                    }
+                    let ExpressaoIr::Variavel(variavel) = &argumentos[0] else {
+                        return Err("'remover' exige uma variável de lista modificável.".into());
+                    };
+                    let indice = self.expressao(&argumentos[1])?;
+                    let ValorIr::Inteiro(indice) = indice else {
+                        return Err("O índice de 'remover' deve ser inteiro.".into());
+                    };
+                    let indice = usize::try_from(indice).map_err(|_| "Índice inválido para 'remover'.")?;
+                    let valor = self.memoria
+                        .remover_elemento_lista(variavel, indice)
+                        .map_err(formatar_erro_runtime)?;
+                    return converter_para_ir(valor);
+                }
+                if nome == "ler_texto" {
+                    if !argumentos.is_empty() {
+                        return Err("'ler_texto' não aceita argumentos.".into());
+                    }
+                    let mut texto = String::new();
+                    std::io::stdin()
+                        .read_line(&mut texto)
+                        .map_err(|erro| format!("Falha ao ler texto: {erro}"))?;
+                    if texto.ends_with('\n') { texto.pop(); }
+                    if texto.ends_with('\r') { texto.pop(); }
+                    return Ok(ValorIr::Texto(texto));
                 }
                 let funcao = self.programa.funcoes.get(nome).cloned().ok_or_else(|| format!("Função '{nome}' não encontrada na IR."))?;
                 if funcao.parametros.len() != valores.len() { return Err(format!("Quantidade incorreta de argumentos para '{nome}'.")); }
