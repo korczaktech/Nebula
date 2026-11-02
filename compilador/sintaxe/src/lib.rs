@@ -684,6 +684,12 @@ mod testes {
         assert_eq!(r.programa.itens.len(), 1);
     }
     #[test]
+    fn preserva_visibilidade_de_funcao_na_ast() {
+        let r = analisar(&fonte("publico funcao abrir() { devolver }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Funcao { visibilidade: Some(Visibilidade::Publico), .. }));
+    }
+    #[test]
     fn analisa_bloco_com_fim() {
         let r = analisar(&fonte("funcao executar()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
