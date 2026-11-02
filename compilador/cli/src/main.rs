@@ -529,6 +529,9 @@ fn qualificar_expressao_modulo(
                 qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
             }
         }
+        ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
+            for valor in valores { qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos); }
+        }
         ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
     }
     if let Some(nome) = chamada_local {
