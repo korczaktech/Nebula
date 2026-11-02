@@ -308,7 +308,7 @@ fn variaveis_globais_sao_compartilhadas_entre_funcoes() {
 fn compila_seis_parametros_pelo_abi_system_v() {
     let resultado = compilar_e_executar(
         "seis-parametros",
-        "funcao somar(a: inteiro, b: inteiro, c: inteiro, d: inteiro, e: inteiro, f: inteiro): inteiro { devolver a + b + c + d + e + f }\nfuncao principal(): inteiro { devolver somar(1, 2, 3, 4, 5, 6) }",
+        "funcao somar(primeiro: inteiro, segundo: inteiro, terceiro: inteiro, quarto: inteiro, quinto: inteiro, sexto: inteiro): inteiro { devolver primeiro + segundo + terceiro + quarto + quinto + sexto }\nfuncao principal(): inteiro { devolver somar(1, 2, 3, 4, 5, 6) }",
     );
     assert_eq!(resultado.status.code(), Some(21));
 }
