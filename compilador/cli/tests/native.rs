@@ -84,6 +84,15 @@ fn compila_funcoes_parametros_e_chamadas() {
 }
 
 #[test]
+fn monomorfiza_funcao_generica_no_backend_nativo() {
+    let resultado = compilar_e_executar(
+        "generica",
+        "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao principal(): inteiro { devolver identidade(42) }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_divisao_resto_e_operacoes_com_sinal() {
     let resultado = compilar_e_executar(
         "divisao-resto",
