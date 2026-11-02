@@ -6,6 +6,7 @@ fn arquivo_temporario() -> std::path::PathBuf {
 }
 
 #[test]
+#[rustfmt::skip]
 fn compila_e_executa_programa_nativo() {
     let origem = arquivo_temporario();
     fs::write(
@@ -38,6 +39,7 @@ fn compila_e_executa_programa_nativo() {
 }
 
 #[test]
+#[rustfmt::skip]
 fn rejeita_codigo_semantica_ou_sintaticamente_invalido() {
     let origem = arquivo_temporario();
     fs::write(&origem, "funcao principal(): vazio {\n    ausente()\n}").unwrap();
