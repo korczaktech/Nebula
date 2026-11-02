@@ -714,8 +714,7 @@ mod testes {
 
     #[test]
     fn interpreta_modulo_local_com_funcao_publica_e_auxiliar_privada() {
-        let diretorio = std::env::temp_dir()
-            .join(format!("nebula-modulo-{}", std::process::id()));
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-{}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
         let modulo = diretorio.join("Matematica.nbx");
         let origem = diretorio.join("principal.nbx");
@@ -724,11 +723,7 @@ mod testes {
             "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\npublico funcao dobro(valor: inteiro): inteiro { devolver somar(valor, valor) }",
         )
         .unwrap();
-        std::fs::write(
-            &origem,
-            "incluir Matematica\nexibir(Matematica::dobro(21))",
-        )
-        .unwrap();
+        std::fs::write(&origem, "incluir Matematica\nexibir(Matematica::dobro(21))").unwrap();
 
         let saida = interpretar_arquivo(&origem).expect("módulo local válido");
         assert_eq!(saida, vec!["42"]);
