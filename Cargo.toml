@@ -4,6 +4,7 @@ members = [
     "compilador/fonte",
     "compilador/diagnosticos",
     "compilador/sintaxe",
+    "compilador/semantica",
     "compilador/cli",
 ]
 
