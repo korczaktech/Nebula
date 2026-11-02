@@ -1483,7 +1483,7 @@ mod testes {
     #[test]
     fn rejeita_parametro_generico_sem_inferencia() {
         let r = analisar_codigo(
-            "funcao constante<T>(valor: inteiro): T { devolver valor }\nvariavel resultado = constante(1)",
+            "funcao produzir<T>(valor: inteiro): T { devolver valor }\nvariavel resultado = produzir(1)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3033"), "{:?}", r.diagnosticos);
     }
