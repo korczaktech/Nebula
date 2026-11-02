@@ -20,10 +20,9 @@ pub mod matematica {
 /// Manipulação de texto Unicode.
 pub mod texto {
     pub use nebula_runtime::{
-        caractere_texto, comprimento_texto, inteiro_para_texto, subtexto,
-        texto_aparar, texto_comeca_com, texto_contem, texto_termina_com,
-        texto_maiusculas, texto_minusculas, texto_para_decimal,
-        texto_para_inteiro, texto_substituir,
+        caractere_texto, comprimento_texto, inteiro_para_texto, subtexto, texto_aparar,
+        texto_comeca_com, texto_contem, texto_maiusculas, texto_minusculas, texto_para_decimal,
+        texto_para_inteiro, texto_substituir, texto_termina_com,
     };
 }
 
