@@ -1,11 +1,11 @@
 # Histórico de alterações
 
-## 0.1.2 — Auditoria final da Fase 1
+## Não lançado — Auditoria final da Fase 1
 
 - Corrige a árvore de arquivos documentada e registra critérios formais de aceite da Fase 1.
 - Remove produções de tipos sem tokens correspondentes e elimina ambiguidades na notação da gramática.
 
-## 0.1.1 — Consolidação da fundação
+## Não lançado — Consolidação da fundação
 
 - Sincroniza a gramática, as palavras reservadas e as regras léxicas do subconjunto inicial.
 - Define explicitamente recursos reservados para versões futuras e evita apresentá-los como sintaxe disponível.
