@@ -26,4 +26,4 @@ jobs:
       - name: Instalar cargo-audit
         uses: taiki-e/install-action@cargo-audit
       - name: Auditar dependências travadas
-        run: cargo audit --locked
+        run: cargo audit
