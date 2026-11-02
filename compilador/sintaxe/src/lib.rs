@@ -397,6 +397,7 @@ impl Parser {
         self.avancar(); let nome = self.consumir_nome("Esperado nome após declaração.")?;
         let tipo = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
         if !self.corresponde(TipoToken::Atribui) { self.erro_atual("N2003", "Esperado '=' na declaração."); return None; }
+        self.pular_novas_linhas();
         let valor = self.expressao(0)?;
         Some(NoAst::Variavel { nome, tipo, valor, constante })
     }
