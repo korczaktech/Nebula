@@ -631,6 +631,29 @@ mod testes {
     }
 
     #[test]
+    fn gera_segmento_de_dados_rw_para_variaveis_globais() {
+        let mut programa = programa_com_retorno(0);
+        programa.instrucoes.push(InstrucaoIr::Declarar {
+            nome: "global".into(),
+            tipo: Tipo::Inteiro,
+            valor: ExpressaoIr::Constante(ValorIr::Inteiro(42)),
+            constante: false,
+        });
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("global".into())))
+        ];
+        let binario = gerar_executavel(&programa).unwrap();
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 2);
+        assert_eq!(u32::from_le_bytes(binario[120..124].try_into().unwrap()), 1);
+        assert_eq!(u32::from_le_bytes(binario[124..128].try_into().unwrap()), 6);
+        let deslocamento = u64::from_le_bytes(binario[128..136].try_into().unwrap());
+        let endereco = u64::from_le_bytes(binario[136..144].try_into().unwrap());
+        assert_eq!(deslocamento % 0x1000, endereco % 0x1000);
+        assert_eq!(u64::from_le_bytes(binario[152..160].try_into().unwrap()), 8);
+        assert_eq!(u64::from_le_bytes(binario[160..168].try_into().unwrap()), 8);
+    }
+
+    #[test]
     fn gera_codigo_de_retorno_sem_compilador_externo() {
         let binario = gerar_executavel(&programa_com_retorno(42)).unwrap();
         assert!(binario.len() > TAMANHO_CABECALHO);
