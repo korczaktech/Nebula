@@ -189,7 +189,7 @@ fn termina_fluxo(instrucao: &InstrucaoIr) -> bool {
 
 fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtimizacao) {
     match expressao {
-        ExpressaoIr::Lista(itens) => {
+        ExpressaoIr::Lista(itens) | ExpressaoIr::Tupla(itens) => {
             for item in itens {
                 otimizar_expressao(item, relatorio);
             }
