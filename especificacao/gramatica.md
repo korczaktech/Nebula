@@ -1,6 +1,6 @@
 # Gramática inicial da Nebula
 
-**Estado:** gramática normativa do subconjunto sintático inicial definido na Fase 1. A implementação do Lexer e do Parser pertence à Fase 2. Esta gramática não declara esses componentes implementados.
+**Estado:** gramática normativa do subconjunto sintático inicial. O Lexer, a AST e o Parser estão implementados no crate `nebula-sintaxe`; os critérios e a validação da implementação estão em `especificacao/criterios-fase-2.md`.
 
 ## 1. Notação
 
@@ -171,4 +171,4 @@ Forma com separadores explícitos:
 variavel total = 10; constante taxa = 2; exibir(total * taxa)
 ~~~
 
-Esses exemplos são fixtures de especificação, não testes executados por um Parser nesta fase.
+Esses exemplos são casos de referência executados pela suíte de conformidade da Fase 2 por meio do comando `nebula verificar`.
