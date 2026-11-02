@@ -1148,6 +1148,12 @@ mod ciclo_vida {
         }
     }
     
+    impl Drop for ContextoRuntime {
+        fn drop(&mut self) {
+            let _ = self.finalizar();
+        }
+    }
+
     impl ContextoRuntime {
         /// Cria um contexto ativo com memória global independente.
         #[must_use]
@@ -1292,6 +1298,20 @@ mod ciclo_vida {
             assert_eq!(contexto.finalizar(), Err(ErroRuntime::FalhaTarefa));
             assert_eq!(*ordem.lock().unwrap(), vec![3, 1]);
             assert_eq!(contexto.estado(), EstadoRuntime::Finalizado);
+        }
+
+        #[test]
+        fn descarte_do_contexto_executa_finalizadores_pendentes() {
+            let executado = Arc::new(Mutex::new(false));
+            let marcador = Arc::clone(&executado);
+            {
+                let mut contexto = ContextoRuntime::novo();
+                contexto.registrar_finalizador(move || {
+                    *marcador.lock().unwrap() = true;
+                    Ok(())
+                }).unwrap();
+            }
+            assert!(*executado.lock().unwrap());
         }
 
         #[test]
