@@ -1,7 +1,8 @@
 //! Testes ponta a ponta do backend nativo pela CLI.
 
 use std::fs;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 fn arquivo_temporario(rotulo: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("nebula-e2e-{rotulo}-{}.nbx", std::process::id()))
@@ -115,5 +116,28 @@ fn aceita_todos_os_niveis_de_otimizacao() {
         assert_eq!(String::from_utf8_lossy(&execucao.stdout).trim(), "42");
         let _ = fs::remove_file(exe);
     }
+    let _ = fs::remove_file(origem);
+}
+
+#[test]
+#[rustfmt::skip]
+fn biblioteca_padrao_le_texto_da_entrada() {
+    let origem = arquivo_temporario("entrada");
+    fs::write(
+        &origem,
+        "funcao principal(): vazio {\n    variavel entrada: texto = ler_texto()\n    exibir(entrada)\n}\n",
+    ).unwrap();
+    let mut processo = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar")
+        .arg(&origem)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    processo.stdin.as_mut().unwrap().write_all("Nebula UTF-8\n".as_bytes()).unwrap();
+    let resultado = processo.wait_with_output().unwrap();
+    assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "Nebula UTF-8");
     let _ = fs::remove_file(origem);
 }
