@@ -102,6 +102,24 @@ fn compila_potencia_inteira_por_quadratura() {
 }
 
 #[test]
+fn potencia_usa_expoente_calculado_em_tempo_de_execucao() {
+    let resultado = compilar_e_executar(
+        "potencia-dinamica",
+        "funcao principal(): inteiro { variavel expoente: inteiro = 3 devolver 2 ** expoente }",
+    );
+    assert_eq!(resultado.status.code(), Some(8));
+}
+
+#[test]
+fn expoente_zero_produz_unidade() {
+    let resultado = compilar_e_executar(
+        "potencia-zero",
+        "funcao principal(): inteiro { devolver 7 ** 0 }",
+    );
+    assert_eq!(resultado.status.code(), Some(1));
+}
+
+#[test]
 fn divisao_por_zero_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "divisao-zero",
