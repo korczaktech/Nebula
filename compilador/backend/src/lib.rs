@@ -250,7 +250,7 @@ impl Emissor {
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
             ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)
                 | ValorIr::Decimal(_)
-                | ValorIr::Texto(_
+                | ValorIr::Texto(_)
                 | ValorIr::Lista(_)
                 | ValorIr::Intervalo(_, _)
                 | ValorIr::IntervaloDecimal(_, _)
