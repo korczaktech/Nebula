@@ -1552,6 +1552,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_escolha_com_payload_de_enumeracao() {
+        let ir = compilar(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }",
+        );
+        let resultado = executar(&ir, 200).expect("pattern matching válido");
+        assert_eq!(resultado.saida, vec!["42"]);
+    }
+
+    #[test]
     fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
         let mut ir = compilar("constante limite = 9");
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
