@@ -161,11 +161,13 @@ fn converter_tipo_interno(
                 variantes,
             }
         }
-        Tipo::Funcao(_, _) => {
-            return Err(
-                "Tipo de função ainda não possui representação de dados no ABI do runtime.".into(),
-            );
-        }
+        Tipo::Funcao(parametros, retorno) => TipoRuntime::Funcao(
+            parametros
+                .iter()
+                .map(|tipo| converter(tipo, ativos))
+                .collect::<Result<_, _>>()?,
+            Box::new(converter(retorno, ativos)?),
+        ),
         Tipo::Parametro(nome) => {
             return Err(format!(
                 "Parâmetro genérico '{nome}' precisa ser instanciado antes do cálculo de layout."

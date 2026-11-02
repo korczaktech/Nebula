@@ -53,6 +53,8 @@ pub enum TipoRuntime {
     Opcional(Box<TipoRuntime>),
     /// Resultado de sucesso ou falha com tipos independentes.
     Resultado(Box<TipoRuntime>, Box<TipoRuntime>),
+    /// Ponteiro de código com assinatura fixa na ABI x86-64 inicial.
+    Funcao(Vec<TipoRuntime>, Box<TipoRuntime>),
 }
 
 /// Variante de uma enumeração e os tipos de seu payload posicional.
@@ -221,6 +223,15 @@ fn validar_tipo_interno(tipo: &TipoRuntime, profundidade: usize) -> Result<(), S
             validar_tipo_interno(sucesso, proxima)?;
             validar_tipo_interno(falha, proxima)
         }
+        TipoRuntime::Funcao(parametros, retorno) => {
+            for parametro in parametros {
+                if matches!(parametro, TipoRuntime::Vazio) {
+                    return Err("Parâmetro de função não pode ter tipo vazio.".into());
+                }
+                validar_tipo_interno(parametro, proxima)?;
+            }
+            validar_tipo_interno(retorno, proxima)
+        }
         _ => Ok(()),
     }
 }
@@ -299,7 +310,7 @@ fn calcular_layout_interno(
             Ok(escalar(tamanho, tamanho))
         }
         TipoRuntime::Caractere => Ok(escalar(4, 4)),
-        TipoRuntime::Texto | TipoRuntime::Lista(_) => Ok(escalar(16, 8)),
+        TipoRuntime::Texto | TipoRuntime::Lista(_) | TipoRuntime::Funcao(_, _) => Ok(escalar(8, 8)),
         TipoRuntime::Tupla(tipos) => {
             let campos = tipos.iter().enumerate().map(|(i, t)| (i.to_string(), t));
             combinar_campos(campos, pilha)
