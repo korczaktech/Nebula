@@ -6,7 +6,10 @@ fn main() {
     let mut argumentos = std::env::args().skip(1);
     match argumentos.next().as_deref() {
         Some("versao" | "--version" | "-V") => {
-            println!("Nebula {} — fundação em desenvolvimento", env!("CARGO_PKG_VERSION"));
+            println!(
+                "Nebula {} — fundação em desenvolvimento",
+                env!("CARGO_PKG_VERSION")
+            );
         }
         Some("ajuda" | "--help" | "-h") | None => {
             println!("Nebula — linguagem de programação");
