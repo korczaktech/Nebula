@@ -253,6 +253,7 @@ impl<'a> Lexer<'a> {
         self.adicionar(TipoToken::Caractere, self.inicio, self.atual);
     }
     fn escape_valido(&mut self) -> bool {
+        if self.fim() { return false; }
         match self.avancar() {
             b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' | b'0' => true,
             b'u' if self.corresponde(b'{') => {
@@ -546,6 +547,37 @@ mod testes {
         let nome_a = match &composto.programa.itens[0] { NoAst::Variavel { nome, .. } => nome, _ => unreachable!() };
         let nome_b = match &decomposto.programa.itens[0] { NoAst::Variavel { nome, .. } => nome, _ => unreachable!() };
         assert_eq!(nome_a, nome_b);
+    }
+    #[test]
+    fn reconhece_inteiros_em_bases_diferentes() {
+        let r = analisar_lexico(&fonte("0xFF 0b1010 0o77"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Inteiro).count(), 3);
+    }
+    #[test]
+    fn rejeita_inteiro_de_base_malformado() {
+        let r = analisar_lexico(&fonte("0b102"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1005"));
+    }
+    #[test]
+    fn preserva_quebras_dentro_de_comentario_de_bloco() {
+        let r = analisar_lexico(&fonte("variavel a = 1 /* comentário\ncontinua */ variavel b = 2"));
+        assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::NovaLinha));
+    }
+    #[test]
+    fn permite_quebra_de_linha_dentro_de_delimitadores() {
+        let r = analisar(&fonte("variavel soma = calcular(1,\n 2)\nvariavel lista = [1,\n 2]"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_continuacao_de_expressao_apos_operador() {
+        let r = analisar(&fonte("variavel soma = 1 +\n 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_tipos_de_lista() {
+        let r = analisar(&fonte("variavel valores: [inteiro] = [1, 2]"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
     fn comenta_bloco_e_preserva_nova_linha() {
