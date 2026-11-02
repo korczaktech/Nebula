@@ -22,4 +22,4 @@ cargo test --locked --workspace --all-targets
 
 ## Escopo atual
 
-A Fase 1 estabelece especificação, workspace e estruturas-base. Lexer, Parser, AST completa, semântica e geração de código ainda não estão implementados. Contribuições não devem preencher essas lacunas com stubs que aparentem funcionalidade real.
+A Fase 1 estabelece especificação, workspace e estruturas-base. Lexer, AST e Parser estão implementados em `nebula-sintaxe`; análise semântica, tipos, IR e geração de código pertencem às fases posteriores. Contribuições não devem preencher essas lacunas com stubs que aparentem funcionalidade real.
