@@ -904,7 +904,7 @@ mod testes_codificacao {
             };
             emissor.expressao(&expressao).unwrap();
             assert!(
-                emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados),
+                emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados.as_slice()),
                 "codificação ausente para {operador:?}"
             );
         }
