@@ -356,12 +356,10 @@ impl<'a> Analisador<'a> {
                         }
                     }
                 }
-                if let Some(primeiro) = estados.first().cloned() {
-                    let mut combinado = primeiro;
+                if let Some(primeiro) = estados.first() {
+                    let mut combinado = primeiro.clone();
                     for estado in estados.iter().skip(1) {
-                        for (nome, movido) in estado {
-                            combinado.entry(nome.clone()).and_modify(|atual| *atual |= *movido);
-                        }
+                        combinado.extend(estado.iter().cloned());
                     }
                     self.mesclar_movidos(&antes, &combinado);
                 }
