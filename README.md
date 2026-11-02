@@ -317,6 +317,9 @@ nebula/
 │   ├── alvos.md
 │   └── criterios-fase-1.md
 ├── compilador/
+│   ├── sintaxe/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
 │   ├── fonte/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
