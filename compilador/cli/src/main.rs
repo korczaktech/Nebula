@@ -169,7 +169,10 @@ fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, Stri
     }
     let base = origem.parent().unwrap_or_else(|| Path::new("."));
     let base_canonica = std::fs::canonicalize(base).map_err(|erro| {
-        format!("Não foi possível resolver diretório de módulos '{}': {erro}", base.display())
+        format!(
+            "Não foi possível resolver diretório de módulos '{}': {erro}",
+            base.display()
+        )
     })?;
     let mut relativo = PathBuf::new();
     for componente in componentes {
@@ -185,8 +188,12 @@ fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, Stri
             base_canonica.display()
         ));
     }
-    let arquivo_canonico = std::fs::canonicalize(&candidato)
-        .map_err(|erro| format!("Não foi possível resolver módulo '{}': {erro}", candidato.display()))?;
+    let arquivo_canonico = std::fs::canonicalize(&candidato).map_err(|erro| {
+        format!(
+            "Não foi possível resolver módulo '{}': {erro}",
+            candidato.display()
+        )
+    })?;
     if !arquivo_canonico.starts_with(&base_canonica) {
         return Err(format!(
             "O módulo '{caminho}' aponta para fora do diretório permitido '{}'.",
