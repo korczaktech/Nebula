@@ -92,6 +92,7 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         return Err("O backend inicial gera executáveis somente para Linux x86-64.".into());
     }
+    validar_caminhos_compilacao(caminho, saida)?;
     let bytes = std::fs::read(caminho)
         .map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
     let conteudo = String::from_utf8(bytes)
@@ -109,6 +110,28 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     }
     let binario = nebula_backend::gerar_executavel(&ir.programa.expect("IR validada"))?;
     gravar_executavel_atomico(saida, &binario)
+}
+
+fn validar_caminhos_compilacao(entrada: &Path, saida: &Path) -> Result<(), String> {
+    let entrada_real = std::fs::canonicalize(entrada)
+        .map_err(|erro| format!("não foi possível resolver o arquivo de entrada '{}': {erro}", entrada.display()))?;
+    let nome_saida = saida.file_name()
+        .ok_or_else(|| format!("caminho de saída inválido: '{}'", saida.display()))?;
+    let diretorio_saida = saida.parent()
+        .filter(|diretorio| !diretorio.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let diretorio_real = std::fs::canonicalize(diretorio_saida)
+        .map_err(|erro| format!("não foi possível resolver o diretório de saída '{}': {erro}", diretorio_saida.display()))?;
+    let saida_real = if saida.exists() {
+        std::fs::canonicalize(saida)
+            .map_err(|erro| format!("não foi possível resolver a saída '{}': {erro}", saida.display()))?
+    } else {
+        diretorio_real.join(nome_saida)
+    };
+    if entrada_real == saida_real {
+        return Err("O executável de saída não pode sobrescrever o arquivo-fonte.".into());
+    }
+    Ok(())
 }
 
 #[rustfmt::skip]
@@ -338,6 +361,17 @@ mod testes {
         assert_eq!(std::fs::read(&saida).unwrap(), b"executavel anterior");
         let _ = std::fs::remove_file(origem);
         let _ = std::fs::remove_file(saida);
+    }
+
+    #[test]
+    fn compilacao_nao_sobrescreve_o_arquivo_fonte() {
+        let origem = std::env::temp_dir().join(format!("nebula-fonte-protegido-{}.nbx", std::process::id()));
+        let conteudo = "funcao principal(): inteiro { devolver 42 }";
+        std::fs::write(&origem, conteudo).unwrap();
+        let erro = validar_caminhos_compilacao(&origem, &origem).unwrap_err();
+        assert!(erro.contains("não pode sobrescrever"));
+        assert_eq!(std::fs::read_to_string(&origem).unwrap(), conteudo);
+        let _ = std::fs::remove_file(origem);
     }
 
     #[test]
