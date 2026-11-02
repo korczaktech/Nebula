@@ -110,7 +110,7 @@ impl PartialEq for Valor {
                         (Ok(a), Ok(b)) => *a == *b,
                         _ => false,
                     }
-            },
+            }
             _ => false,
         }
     }
