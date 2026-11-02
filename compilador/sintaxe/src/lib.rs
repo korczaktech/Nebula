@@ -292,11 +292,14 @@ pub enum Expressao {
     Indexacao { alvo: Box<Expressao>, indice: Box<Expressao> },
     Membro { alvo: Box<Expressao>, nome: String },
 }
+/// Visibilidade declarada para uma função.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Visibilidade { Publico, Privado }
 /// Declarações e instruções representadas na AST.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NoAst {
     Variavel { nome: String, tipo: Option<String>, valor: Expressao, constante: bool },
-    Funcao { nome: String, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
+    Funcao { visibilidade: Option<Visibilidade>, nome: String, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
     Tipo { nome: String, destino: String },
     Incluir { caminho: String, apelido: Option<String> },
     Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
