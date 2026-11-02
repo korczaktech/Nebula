@@ -8,6 +8,7 @@ members = [
     "compilador/ir",
     "compilador/backend",
     "compilador/cli",
+    "compilador/runtime",
 ]
 
 [workspace.package]
