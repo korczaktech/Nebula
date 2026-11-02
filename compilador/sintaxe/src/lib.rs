@@ -470,6 +470,14 @@ mod testes {
         assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::MaiorIgual));
     }
     #[test]
+    fn normaliza_identificadores_em_nfc() {
+        let composto = analisar(&fonte("variavel café = 1"));
+        let decomposto = analisar(&fonte("variavel cafe\u{301} = 1"));
+        let nome_a = match &composto.programa.itens[0] { NoAst::Variavel { nome, .. } => nome, _ => unreachable!() };
+        let nome_b = match &decomposto.programa.itens[0] { NoAst::Variavel { nome, .. } => nome, _ => unreachable!() };
+        assert_eq!(nome_a, nome_b);
+    }
+    #[test]
     fn comenta_bloco_e_preserva_nova_linha() {
         let r = analisar_lexico(&fonte("/* x */\nvariavel a = 1"));
         assert_eq!(r.tokens[0].tipo, TipoToken::NovaLinha);
