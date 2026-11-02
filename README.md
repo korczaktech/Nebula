@@ -182,7 +182,7 @@ Nebula adotará um modelo híbrido:
 - Propriedade, empréstimo e verificação estática planejados para reduzir referências inválidas, cópias e acessos inseguros.
 - Alocadores e estratégias configuráveis conforme o ambiente.
 
-O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras/decimais e matemáticas verificadas, conversões numéricas, texto Unicode, leitura/escrita de arquivos, relógio e suspensão, tarefas em threads e canais. O interpretador de referência da IR usa esse runtime por meio de builtins semântica e execução. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
+O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras/decimais e matemáticas verificadas, conversões numéricas, texto Unicode (recorte, busca, prefixos, sufixos, substituição e normalização de espaços), leitura/escrita de arquivos, relógio e suspensão, tarefas em threads, canais e inteiros atômicos. O interpretador de referência da IR usa esse runtime por meio de builtins semântica e execução. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
 
 Não há exigência de um coletor de lixo global em todos os programas. O runtime deverá ser opcional sempre que possível, especialmente em código de baixo nível.
 
@@ -369,10 +369,10 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 
 **Criadas na Fase 4 e Fase 5:**
 - `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura.
-- `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, texto Unicode, tarefas e canais concorrentes. Integrado ao interpretador de referência da IR.
+- `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, operações Unicode de texto, arquivos, tempo, tarefas, canais e inteiros atômicos concorrentes. Integrado ao interpretador de referência da IR.
 - `nebula-ir::otimizador`: níveis O0, O1, O2, O3 e Os, com passes conservadores e métricas de transformações.
 
-O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O comando `nebula interpretar` executa a IR pelo runtime de referência e carrega módulos locais com funções públicas, ligando chamadas qualificadas e chamadas internas. O carregador resolve imports aninhados recursivamente, valida os identificadores dos caminhos, bloqueia travessia de diretórios, liga chamadas qualificadas entre módulos e rejeita ciclos de dependência. Módulos importados ainda não aceitam inicializadores globais; o gerenciador de pacotes e o lockfile continuam pendentes. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
+O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O comando `nebula interpretar` executa a IR pelo runtime de referência e carrega módulos locais com funções públicas, ligando chamadas qualificadas e chamadas internas. O carregador resolve imports aninhados recursivamente, valida os identificadores dos caminhos, bloqueia travessia de diretórios, liga chamadas qualificadas entre módulos e rejeita ciclos de dependência. Módulos importados ainda não aceitam inicializadores globais; o gerenciador de pacotes, manifesto, versionamento e lockfile continuam pendentes. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
 
 **Ainda planejadas:**
 - Biblioteca padrão modular completa (`nebula-biblioteca`)
