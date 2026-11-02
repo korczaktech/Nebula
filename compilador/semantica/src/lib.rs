@@ -450,6 +450,10 @@ impl<'a> Analisador<'a> {
     }
 
     fn declarar(&mut self, nome: &str, simbolo: Simbolo) {
+        if self.funcoes.contains_key(nome) || self.modulos_importados.contains_key(nome) {
+            self.erro("N3019", format!("O nome '{nome}' já identifica uma função ou módulo neste programa."));
+            return;
+        }
         let escopo = self.escopos.last_mut().expect("sempre há escopo global");
         if escopo.contains_key(nome) {
             self.diagnosticos.push(Diagnostico::novo(
