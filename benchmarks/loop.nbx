@@ -1,4 +1,4 @@
-funcao principal(): vazio {
+funcao principal(): inteiro {
     variavel indice: inteiro = 0
     variavel total: inteiro = 0
 
@@ -7,5 +7,5 @@ funcao principal(): vazio {
         indice = indice + 1
     }
 
-    exibir(total)
+    devolver 0
 }
