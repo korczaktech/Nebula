@@ -24,6 +24,7 @@ fn main() {
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
             let mut saida = PathBuf::from(&caminho).with_extension("out");
             let mut nivel = NivelOtimizacao::O1;
+            let mut alvo = String::from("linux-x86_64");
             while let Some(arg) = argumentos.next() {
                 if arg == "-o" {
                     let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); };
