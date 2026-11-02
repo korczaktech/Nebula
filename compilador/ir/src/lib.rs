@@ -376,9 +376,14 @@ impl Lowerer {
                     self.inferir_tipo_ast(esquerda)
                 }
             }
-            Expressao::Indexacao { alvo, .. } => match self.inferir_tipo_ast(alvo) {
+            Expressao::Indexacao { alvo, indice } => match self.inferir_tipo_ast(alvo) {
                 Tipo::Lista(tipo) => *tipo,
-                Tipo::Tupla(_) => Tipo::Desconhecido,
+                Tipo::Tupla(tipos) => {
+                    let Expressao::Literal(bruto) = indice.as_ref() else { return Tipo::Desconhecido; };
+                    let Some(ValorIr::Inteiro(posicao)) = literal(bruto) else { return Tipo::Desconhecido; };
+                    usize::try_from(posicao).ok().and_then(|posicao| tipos.get(posicao).cloned())
+                        .unwrap_or(Tipo::Desconhecido)
+                }
                 _ => Tipo::Desconhecido,
             },
             Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
@@ -1469,6 +1474,17 @@ mod testes {
         assert_eq!(declaracao, Some(&Tipo::Inteiro));
         let resultado = executar(&ir, 100).expect("retorno tipado inferido");
         assert_eq!(resultado.globais.get("total"), Some(&ValorIr::Inteiro(42)));
+    }
+
+    #[test]
+    fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
+        let ir = compilar(
+            "funcao extrair<T,U>(ponto: Tupla<T,U>): T { devolver ponto[0] }\\nfuncao identidade<T>(valor: T): T { devolver valor }\\nvariavel ponto = (42, \"Nebula\")\\nvariavel numero = identidade(extrair(ponto))",
+        );
+        assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
+        assert!(ir.funcoes.contains_key("identidade__inteiro"));
+        let resultado = executar(&ir, 100).expect("inferência por índice de tupla válida");
+        assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(42)));
     }
 
     #[test]
