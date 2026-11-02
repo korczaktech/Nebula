@@ -600,13 +600,13 @@ impl Parser {
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
     fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao) }
-    fn sincronizar(&mut self) {
+        let r = analisar_lexico(&fonte("variavel a = 1\r\nvariavel b = 2"));
         while !self.verifica(TipoToken::Fim) && !self.separador_atual() && !matches!(self.tipo(), TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Senao) { self.avancar(); }
     }
 }
 
 #[cfg(test)]
-mod testes {
+        let r = analisar_lexico(&fonte("variavel a = 1\rvariavel b = 2"));
     use super::*;
     fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
 
@@ -631,11 +631,11 @@ mod testes {
     }
     #[test]
     fn rejeita_escape_unicode_fora_do_intervalo_escalar() {
-        let r = analisar_lexico(&fonte("\"\\\\u{110000}\""));
+    fn rejeita_escape_unicode_fora_do_intervalo_escalar() {
+        let barra = char::from(92);
+        let codigo = format!("\"{barra}u{{110000}}\"");
+        let r = analisar_lexico(&fonte(&codigo));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1007"));
-    }
-    #[test]
-    fn rejeita_comentario_de_bloco_nao_terminado() {
         let r = analisar_lexico(&fonte("variavel a = 1 /* sem fim"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1002"));
     }
@@ -748,6 +748,16 @@ mod testes {
     fn rejeita_comparacoes_relacionais_encadeadas() {
         let r = analisar(&fonte("variavel resultado = 1 < 2 < 3"));
         assert!(!r.diagnosticos.is_empty());
+    }
+    #[test]
+    fn rejeita_comparacao_relacional_encadeada_com_codigo_especifico() {
+        let r = analisar(&fonte("variavel resultado = 1 < 2 < 3"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2012"));
+    }
+    #[test]
+    fn permite_comparacoes_relacionais_separadas_por_parenteses() {
+        let r = analisar(&fonte("variavel resultado = (1 < 2) e (2 < 3)"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
     fn precedencia_da_potencia_e_superior_a_unaria() {
