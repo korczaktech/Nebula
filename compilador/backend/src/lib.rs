@@ -270,8 +270,9 @@ impl Emissor {
             ExpressaoIr::Lista(_) | ExpressaoIr::Tupla(_) | ExpressaoIr::Indexacao { .. } => {
                 return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
             }
-            ExpressaoIr::Membro { .. } | ExpressaoIr::ConstrucaoEstrutura { .. } => {
-                return Err("Estruturas aguardam a implementação do layout e ABI no backend nativo.".into());
+            ExpressaoIr::Membro { .. } | ExpressaoIr::ConstrucaoEstrutura { .. }
+            | ExpressaoIr::ConstrucaoEnumeracao { .. } => {
+                return Err("Estruturas e enumerações aguardam a implementação do layout e ABI no backend nativo.".into());
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
