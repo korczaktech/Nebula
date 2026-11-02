@@ -1117,8 +1117,6 @@ mod testes {
     }
 }
 
-
-
 #[rustfmt::skip]
 mod ciclo_vida {
     use super::*;
