@@ -119,12 +119,6 @@ impl<'a> Analisador<'a> {
                 self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
             }
         }
-        let aliases_modulos: Vec<String> = self.modulos_importados.keys().cloned().collect();
-        for alias in aliases_modulos {
-            if self.funcoes.contains_key(&alias) {
-                self.erro("N3019", format!("O nome '{alias}' já identifica uma função e um módulo."));
-            }
-        }
         for item in &programa.itens {
             if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
                 let tipos: Vec<Tipo> = parametros.iter().map(|(parametro, nome_tipo)| {
@@ -146,6 +140,12 @@ impl<'a> Analisador<'a> {
                 } else {
                     self.funcoes.insert(nome.clone(), Funcao { parametros: tipos, retorno });
                 }
+            }
+        }
+        let aliases_modulos: Vec<String> = self.modulos_importados.keys().cloned().collect();
+        for alias in aliases_modulos {
+            if self.funcoes.contains_key(&alias) {
+                self.erro("N3019", format!("O nome '{alias}' já identifica uma função e um módulo."));
             }
         }
     }
@@ -377,7 +377,9 @@ impl<'a> Analisador<'a> {
             Expressao::Indexacao { alvo, indice } => {
                 let tipo_alvo = self.expressao(alvo);
                 let tipo_indice = self.expressao(indice);
-                self.exigir_tipo(&tipo_indice, &Tipo::Inteiro, "índice de lista");
+                if !Self::inteiro(&tipo_indice) && tipo_indice != Tipo::Desconhecido {
+                    self.erro("N3020", format!("Índice de lista deve ser inteiro, mas recebeu {}.", tipo_indice.nome()));
+                }
                 if let Tipo::Lista(elemento) = tipo_alvo { *elemento } else {
                     self.erro("N3013", "Indexação exige uma lista.");
                     Tipo::Desconhecido
@@ -573,6 +575,10 @@ impl<'a> Analisador<'a> {
             }
             _ => obtido == esperado,
         }
+    }
+
+    fn inteiro(tipo: &Tipo) -> bool {
+        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::Byte)
     }
 
     fn numerico(tipo: &Tipo) -> bool {
@@ -813,6 +819,33 @@ mod testes {
     fn rejeita_literal_decimal_infinito() {
         let r = analisar_codigo("variavel valor = 1e400");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3028"));
+    }
+
+
+    #[test]
+    fn rejeita_colisao_entre_funcao_e_alias_de_modulo() {
+        let mut modulos = ModulosDisponiveis::new();
+        modulos.insert("Matematica".into(), HashMap::new());
+        let fonte = ArquivoFonte::novo(
+            "teste.nbx",
+            "incluir Matematica como calcular\nfuncao calcular(): inteiro { devolver 1 }",
+        );
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let r = analisar_com_modulos(&sintaxe.programa, &modulos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3019"));
+    }
+
+    #[test]
+    fn aceita_indices_com_larguras_inteiras_explicitas() {
+        let r = analisar_codigo("variavel itens = [10, 20]\nvariavel indice: inteiro32 = 1\nvariavel valor = itens[indice]\nvariavel byte: byte = 0\nvariavel outro = itens[byte]");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_indice_decimal() {
+        let r = analisar_codigo("variavel itens = [10, 20]\nvariavel indice: decimal32 = 1.0\nvariavel valor = itens[indice]");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
 
 }
