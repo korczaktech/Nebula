@@ -1291,6 +1291,17 @@ mod testes {
     }
 
     #[test]
+    fn baixa_assinaturas_com_tipos_nominais() {
+        let ir = compilar(
+            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa { devolver pessoa }",
+        );
+        let funcao = ir.funcoes.get("receber").expect("função declarada");
+        assert_eq!(funcao.parametros[0].1, Tipo::Estrutura("Pessoa".into()));
+        assert_eq!(funcao.parametros[1].1, Tipo::Enumeracao("Estado".into()));
+        assert_eq!(funcao.retorno, Tipo::Estrutura("Pessoa".into()));
+    }
+
+    #[test]
     fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
         let mut ir = compilar("constante limite = 9");
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
