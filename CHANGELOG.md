@@ -9,7 +9,11 @@
 - Mantém o runtime e a biblioteca padrão fora desta alteração; recursos que dependem deles são rejeitados explicitamente.
 - Substitui os testes baseados no backend C++ por testes unitários Rust e testes de integração que executam ELF gerado.
 - Adapta o benchmark para uma linha de base sem otimizador.
-- Atualiza critérios da Fase 4 e decisões arquiteturais; a fase permanece em desenvolvimento.
+- Define aritmética signed de 64 bits com overflow checked e código de erro estável; trata corretamente o literal inteiro mínimo.
+- Valida alcance de saltos, chamadas e relocações RIP-relative, rejeitando deslocamentos inválidos.
+- Amplia testes unitários de codificação x86-64, limites de quadro local e testes nativos de overflow, ABI e controle de fluxo.
+- Impede que a CLI sobrescreva o arquivo-fonte e testa a limpeza de temporários quando a publicação falha.
+- Atualiza README, alvos, tipos, critérios de aceite e decisões arquiteturais; a validação final da fase permanece pendente.
 
 ## Não lançado — Fase 3: semântica, tipos e IR
 
