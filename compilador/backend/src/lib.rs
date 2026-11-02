@@ -139,7 +139,10 @@ impl Emissor {
             self.armazenar_registrador(registradores[indice], deslocamento);
         }
 
-        self.bloco(&funcao.corpo)?;
+        // Parâmetros e declarações do corpo compartilham o escopo da função.
+        for instrucao in &funcao.corpo {
+            self.instrucao(instrucao)?;
+        }
         self.codigo.extend_from_slice(&[0x31, 0xC0, 0xC9, 0xC3]); // retorno implícito zero
         self.escopos.clear();
         Ok(())
@@ -160,7 +163,7 @@ impl Emissor {
                 validar_tipo(tipo)?;
                 self.expressao(valor)?;
                 if self.funcao_atual == "__nebula_inicio"
-                    && self.escopos.len() == 2
+                    && self.escopos.len() == 1
                     && self.globais.contains_key(nome)
                 {
                     self.armazenar_global(nome);
