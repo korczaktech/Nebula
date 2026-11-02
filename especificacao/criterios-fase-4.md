@@ -47,7 +47,7 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 
 ## Recursos explicitamente fora desta implementação inicial
 
-- Strings e concatenação de texto.
+- Tipos inteiros de 8, 16, 32 e 128 bits, byte e caractere como variável (o alvo inicial só aceita inteiro de 64 bits e lógico).\n- Strings e concatenação de texto.
 - Entrada e saída padrão da linguagem (`exibir`, `ler_texto`).
 - Listas, indexação e alocação dinâmica.
 - Tipos decimais e operações de ponto flutuante.
