@@ -827,7 +827,13 @@ impl<'a> Analisador<'a> {
                 }
             }
             Menor | MenorIgual | Maior | MaiorIgual => {
-                if Self::numerico(a) && Self::numerico(b) { Tipo::Logico } else {
+                if Self::numerico(a) && Self::numerico(b) {
+                    if Self::inteiro(a) && Self::inteiro(b)
+                        && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                        self.erro("N3038", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                    }
+                    Tipo::Logico
+                } else {
                     self.erro("N3017", "Comparação relacional exige operandos numéricos.");
                     Tipo::Desconhecido
                 }
