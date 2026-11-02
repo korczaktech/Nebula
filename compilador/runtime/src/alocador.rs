@@ -21,6 +21,8 @@ pub enum ErroAlocador {
     AcessoForaDosLimites,
     /// O cálculo de tamanho excedeu a capacidade de usize.
     Overflow,
+    /// O sistema não conseguiu reservar a memória solicitada.
+    FalhaAlocacao,
 }
 
 #[derive(Debug)]
@@ -75,7 +77,9 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
-        let dados = vec![0; tamanho];
+        let mut dados = Vec::new();
+        dados.try_reserve_exact(tamanho).map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        dados.resize(tamanho, 0);
         let identificador = if let Some(indice) = self.livres.pop() {
             let bloco = &mut self.blocos[indice];
             bloco.dados = Some(dados);
@@ -136,7 +140,9 @@ impl Alocador {
         }
 
         let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
-        let mut dados_novos = vec![0; novo_tamanho];
+        let mut dados_novos = Vec::new();
+        dados_novos.try_reserve_exact(novo_tamanho).map_err(|_| ErroAlocador::FalhaAlocacao)?;
+        dados_novos.resize(novo_tamanho, 0);
         let copiar = tamanho_antigo.min(novo_tamanho);
         dados_novos[..copiar].copy_from_slice(&dados_atuais[..copiar]);
 
@@ -179,10 +185,12 @@ impl Alocador {
             if bloco.dados.take().is_some() {
                 if let Some(proxima_geracao) = bloco.geracao.checked_add(1) {
                     bloco.geracao = proxima_geracao;
-                    self.livres.push(indice);
                 } else {
                     bloco.geracao = 0;
                 }
+            }
+            if bloco.dados.is_none() && bloco.geracao != 0 {
+                self.livres.push(indice);
             }
         }
     }
@@ -272,6 +280,21 @@ mod testes {
         alocador.escrever(bloco, 0, &[1, 2, 3, 4]).unwrap();
         assert_eq!(alocador.redimensionar(bloco, 5), Err(ErroAlocador::LimiteExcedido));
         assert_eq!(alocador.ler(bloco, 0, 4), Ok(&[1, 2, 3, 4][..]));
+    }
+
+    #[test]
+    fn limpar_preserva_slots_reutilizaveis_sem_revalidar_handles() {
+        let mut alocador = Alocador::novo(16);
+        let antigo = alocador.alocar(4).unwrap();
+        alocador.liberar(antigo).unwrap();
+        let ativo = alocador.alocar(4).unwrap();
+        alocador.limpar();
+        let novo = alocador.alocar(4).unwrap();
+        assert_eq!(alocador.ler(antigo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(alocador.ler(ativo, 0, 1), Err(ErroAlocador::IdentificadorInvalido));
+        assert_eq!(alocador.blocos_ativos(), 1);
+        assert_eq!(alocador.bytes_alocados(), 4);
+        assert_ne!(novo, ativo);
     }
 
     #[test]
