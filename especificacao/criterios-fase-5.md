@@ -6,7 +6,7 @@
 
 | Item | Estado atual |
 |---|---|
-| 1. Linguagem e tipos | Parcial: parser e semântica reconhecem `Opcional<T>`, `Resultado<T, E>` e `Tupla<T...>` aninhados em assinaturas; faltam construtores de valores, estruturas, enumerações, funções genéricas, inferência/instanciação e lowering completo para IR/ABI |
+| 1. Linguagem e tipos | Parcial: funções genéricas com inferência e monomorfização na IR; tuplas heterogêneas no interpretador com indexação literal; tipos `Opcional`, `Resultado` e `Tupla` em assinaturas; ainda faltam estruturas, enumerações, construtores e padrões de `Opcional`/`Resultado`, cobertura completa da inferência, tipos primitivos unsigned/float adicionais, layout/ABI de agregados e backend nativo para esses valores |
 | 2. Memória e segurança | Parcial: verificação de move, uso após move, cópia de primitivos, reinicialização e junção conservadora de estados em ramos/laços; alocador Rust com handles geracionais e limites; borrow checker, vidas úteis, destruição por valor e inicialização parcial pendentes |
 | 3. Runtime | Parcial: contexto Rust integrado ao interpretador, finalização LIFO/idempotente, limpeza no descarte, isolamento de panics e alocador seguro de blocos com quota e handles geracionais; ABI/runtime nativo, ligação com executáveis, política de panic/abort e integração da biblioteca padrão pendentes |
 | 4. Concorrência | Parcial: threads, tarefas, canais, inteiros atômicos e token de cancelamento cooperativo no runtime; async/await e integração com propriedade pendentes |
