@@ -294,12 +294,27 @@ impl Lowerer {
             }),
             NoAst::Escolha { valor, casos } => Some(InstrucaoIr::Escolha {
                 valor: self.expressao(valor)?,
-                casos: casos.iter().map(|caso: &CasoEscolha| Some(CasoEscolhaIr {
-                    enumeracao: caso.enumeracao.clone(),
-                    variante: caso.variante.clone(),
-                    vinculacoes: caso.vinculacoes.clone(),
-                    corpo: self.bloco(&caso.corpo),
-                })).collect::<Option<Vec<_>>>()?,
+                casos: casos.iter().map(|caso: &CasoEscolha| {
+                    self.escopos_tipos.push(HashMap::new());
+                    if let (Some(enumeracao), Some(variante)) = (&caso.enumeracao, &caso.variante) {
+                        if let Some(tipos) = self.variantes_enumeracoes.get(enumeracao)
+                            .and_then(|variantes| variantes.get(variante)).cloned() {
+                            for (nome, tipo) in caso.vinculacoes.iter().zip(tipos) {
+                                if let Some(escopo) = self.escopos_tipos.last_mut() {
+                                    escopo.insert(nome.clone(), self.tipo(&tipo));
+                                }
+                            }
+                        }
+                    }
+                    let corpo = self.bloco(&caso.corpo);
+                    self.escopos_tipos.pop();
+                    Some(CasoEscolhaIr {
+                        enumeracao: caso.enumeracao.clone(),
+                        variante: caso.variante.clone(),
+                        vinculacoes: caso.vinculacoes.clone(),
+                        corpo,
+                    })
+                }).collect::<Option<Vec<_>>>()?,
             }),
             NoAst::Enquanto { condicao, corpo } => Some(InstrucaoIr::Enquanto {
                 condicao: self.expressao(condicao)?, corpo: self.bloco(corpo),
