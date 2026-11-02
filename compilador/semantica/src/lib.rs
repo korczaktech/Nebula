@@ -514,8 +514,6 @@ impl<'a> Analisador<'a> {
                 (LiteralNumerico::Inteiro(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
                 (LiteralNumerico::Inteiro(_), Tipo::Inteiro128 | Tipo::Inteiro) => true,
                 (LiteralNumerico::Inteiro(v), Tipo::Byte) => u8::try_from(v).is_ok(),
-                (LiteralNumerico::Inteiro(v), Tipo::Decimal32) => (v as f32).is_finite(),
-                (LiteralNumerico::Inteiro(v), Tipo::Decimal64 | Tipo::Decimal) => (v as f64).is_finite(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal32) => (v as f32).is_finite(),
                 (LiteralNumerico::Decimal(v), Tipo::Decimal64 | Tipo::Decimal) => v.is_finite(),
                 _ => false,
@@ -845,6 +843,13 @@ mod testes {
     #[test]
     fn rejeita_indice_decimal() {
         let r = analisar_codigo("variavel itens = [10, 20]\nvariavel indice: decimal32 = 1.0\nvariavel valor = itens[indice]");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+
+    #[test]
+    fn nao_coage_literal_inteiro_para_tipo_decimal() {
+        let r = analisar_codigo("variavel valor: decimal32 = 1");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
 
