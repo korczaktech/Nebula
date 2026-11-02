@@ -294,13 +294,22 @@ impl Lowerer {
             }),
             NoAst::Escolha { valor, casos } => Some(InstrucaoIr::Escolha {
                 valor: self.expressao(valor)?,
-                casos: casos.iter().map(|caso: &CasoEscolha| {
+                casos: {
+                    let tipo_escolhido = self.inferir_tipo_ast(valor);
+                    casos.iter().map(|caso: &CasoEscolha| {
                     self.escopos_tipos.push(HashMap::new());
                     if let (Some(enumeracao), Some(variante)) = (&caso.enumeracao, &caso.variante) {
-                        if let Some(tipos) = self.variantes_enumeracoes.get(enumeracao)
-                            .and_then(|variantes| variantes.get(variante)).cloned() {
+                        let tipos = match (&tipo_escolhido, enumeracao.as_str(), variante.as_str()) {
+                            (Tipo::Opcional(tipo), "Opcional", "Algum") => Some(vec![(**tipo).clone()]),
+                            (Tipo::Opcional(_), "Opcional", "Nenhum") => Some(Vec::new()),
+                            (Tipo::Resultado(ok, _), "Resultado", "Sucesso") => Some(vec![(**ok).clone()]),
+                            (Tipo::Resultado(_, erro), "Resultado", "Falha") => Some(vec![(**erro).clone()]),
+                            _ => self.variantes_enumeracoes.get(enumeracao)
+                                .and_then(|variantes| variantes.get(variante))
+                                .map(|tipos| tipos.iter().map(|tipo| self.tipo(tipo)).collect()),
+                        };
+                        if let Some(tipos) = tipos {
                             for (nome, tipo) in caso.vinculacoes.iter().zip(tipos) {
-                                let tipo = self.tipo(&tipo);
                                 if let Some(escopo) = self.escopos_tipos.last_mut() {
                                     escopo.insert(nome.clone(), tipo);
                                 }
@@ -315,7 +324,8 @@ impl Lowerer {
                         vinculacoes: caso.vinculacoes.clone(),
                         corpo,
                     })
-                }).collect::<Option<Vec<_>>>()?,
+                }).collect::<Option<Vec<_>>>()?
+                },
             }),
             NoAst::Enquanto { condicao, corpo } => Some(InstrucaoIr::Enquanto {
                 condicao: self.expressao(condicao)?, corpo: self.bloco(corpo),

@@ -303,14 +303,27 @@ impl<'a> Analisador<'a> {
             }
             NoAst::Escolha { valor, casos } => {
                 let tipo_valor = self.expressao(valor);
-                let Tipo::Enumeracao(nome_enum) = tipo_valor else {
-                    self.erro("N3046", "A expressão de 'escolha' precisa ter tipo de enumeração.");
-                    for caso in casos { self.bloco(&caso.corpo); }
-                    return;
-                };
-                let Some(variantes) = self.variantes_enumeracoes.get(&nome_enum).cloned() else {
-                    self.erro("N3047", format!("Enumeração '{nome_enum}' não foi encontrada."));
-                    return;
+                let (nome_enum, variantes) = match tipo_valor {
+                    Tipo::Enumeracao(nome) => {
+                        let Some(variantes) = self.variantes_enumeracoes.get(&nome).cloned() else {
+                            self.erro("N3047", format!("Enumeração '{nome}' não foi encontrada."));
+                            return;
+                        };
+                        (nome, variantes)
+                    }
+                    Tipo::Opcional(tipo) => ("Opcional".to_owned(), HashMap::from([
+                        ("Algum".to_owned(), vec![*tipo]),
+                        ("Nenhum".to_owned(), Vec::new()),
+                    ])),
+                    Tipo::Resultado(sucesso, falha) => ("Resultado".to_owned(), HashMap::from([
+                        ("Sucesso".to_owned(), vec![*sucesso]),
+                        ("Falha".to_owned(), vec![*falha]),
+                    ])),
+                    _ => {
+                        self.erro("N3046", "A expressão de 'escolha' precisa ter tipo de enumeração, Opcional ou Resultado.");
+                        for caso in casos { self.bloco(&caso.corpo); }
+                        return;
+                    }
                 };
                 let mut cobertas = HashSet::new();
                 let mut possui_curinga = false;
