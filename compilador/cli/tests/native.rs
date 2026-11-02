@@ -204,7 +204,7 @@ fn compila_chamadas_recursivas() {
 
 #[test]
 #[rustfmt::skip]
-fn passa_e_retorna_listas_em_funcoes() {
+fn passa_lista_como_parametro_de_funcao() {
     let origem = arquivo_temporario("lista-funcao");
     fs::write(&origem, "funcao primeiro(itens: [inteiro]): inteiro {\n    devolver itens[1]\n}\nfuncao principal(): vazio {\n    variavel itens = [7, 8]\n    exibir(primeiro(itens))\n}\n").unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
