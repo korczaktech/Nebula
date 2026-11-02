@@ -494,6 +494,7 @@ impl Parser {
         }
         let mut nome = self.consumir_nome("Esperado nome de tipo ou módulo.")?;
         while self.corresponde(TipoToken::Escopo) {
+            self.pular_novas_linhas();
             nome.push_str("::");
             nome.push_str(&self.consumir_nome("Esperado nome após '::'.")?);
         }
@@ -557,6 +558,7 @@ impl Parser {
             }
             if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo) && 14 >= minimo {
                 let operador = self.avancar().tipo;
+                self.pular_novas_linhas();
                 let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
                 esquerda = Expressao::Membro { alvo: Box::new(esquerda), operador, nome };
                 continue;
@@ -815,6 +817,16 @@ impl Parser {
     #[test]
     fn permite_acesso_a_membro_apos_quebra_de_linha() {
         let r = analisar(&fonte("variavel valor = objeto\n.nome"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_quebra_apos_operador_de_membro() {
+        let r = analisar(&fonte("variavel valor = objeto.\n nome"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_quebra_apos_operador_de_escopo_em_tipo() {
+        let r = analisar(&fonte("tipo Caminho = Modulo::\n Tipo"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
