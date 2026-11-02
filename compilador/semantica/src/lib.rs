@@ -210,15 +210,28 @@ impl<'a> Analisador<'a> {
             NoAst::Quando { condicao, entao, senao } => {
                 let tipo = self.expressao(condicao);
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'quando'");
+
+                // Cada ramo parte do mesmo estado. Após a junção, um valor é
+                // considerado movido se qualquer caminho possível o moveu.
+                let antes = self.snapshot_movidos();
                 self.bloco(entao);
+                let depois_entao = self.snapshot_movidos();
+                self.restaurar_movidos(&antes);
                 self.bloco(senao);
+                let depois_senao = self.snapshot_movidos();
+                self.mesclar_movidos(&depois_entao, &depois_senao);
             }
             NoAst::Enquanto { condicao, corpo } => {
                 let tipo = self.expressao(condicao);
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'enquanto'");
+                let antes_corpo = self.snapshot_movidos();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
+                let depois_corpo = self.snapshot_movidos();
+                // O laço pode executar zero vezes; preserva qualquer move
+                // que possa ocorrer em uma iteração.
+                self.mesclar_movidos(&antes_corpo, &depois_corpo);
             }
             NoAst::Para { inicial, condicao, atualizacao, corpo } => {
                 self.abrir_escopo();
@@ -227,10 +240,13 @@ impl<'a> Analisador<'a> {
                     let tipo = self.expressao(condicao);
                     self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'para'");
                 }
+                let antes_corpo = self.snapshot_movidos();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
                 if let Some(atualizacao) = atualizacao { self.expressao(atualizacao); }
+                let depois_corpo = self.snapshot_movidos();
+                self.mesclar_movidos(&antes_corpo, &depois_corpo);
                 self.fechar_escopo();
             }
             NoAst::Devolver(valor) => {
@@ -969,6 +985,31 @@ impl<'a> Analisador<'a> {
         self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, None));
     }
 
+    fn snapshot_movidos(&self) -> HashSet<(usize, String)> {
+        self.escopos.iter().enumerate().flat_map(|(indice, escopo)| {
+            escopo.iter().filter_map(move |(nome, simbolo)| {
+                simbolo.movido.then(|| (indice, nome.clone()))
+            })
+        }).collect()
+    }
+
+    fn restaurar_movidos(&mut self, estado: &HashSet<(usize, String)>) {
+        for (indice, escopo) in self.escopos.iter_mut().enumerate() {
+            for (nome, simbolo) in escopo {
+                simbolo.movido = estado.contains(&(indice, nome.clone()));
+            }
+        }
+    }
+
+    fn mesclar_movidos(
+        &mut self,
+        primeiro: &HashSet<(usize, String)>,
+        segundo: &HashSet<(usize, String)>,
+    ) {
+        let combinado = primeiro.union(segundo).cloned().collect();
+        self.restaurar_movidos(&combinado);
+    }
+
     fn abrir_escopo(&mut self) { self.escopos.push(HashMap::new()); }
     fn fechar_escopo(&mut self) { if self.escopos.len() > 1 { self.escopos.pop(); } }
 }
@@ -1285,6 +1326,30 @@ mod testes {
     }
 
 }
+    #[test]
+    fn movimento_em_um_ramo_e_propagado_apos_a_juncao() {
+        let r = analisar_codigo(
+            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel destino = texto }\nexibir(texto)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn movimento_em_laco_e_considerado_possivel_apos_o_laco() {
+        let r = analisar_codigo(
+            "variavel texto = \"Nebula\"\nenquanto verdadeiro { variavel destino = texto }\nexibir(texto)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn reinicializacao_em_todos_os_ramos_remove_estado_de_movido() {
+        let r = analisar_codigo(
+            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" } senao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
+        );
+        assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
 }
 
 pub use implementacao::*;
