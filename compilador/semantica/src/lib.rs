@@ -588,6 +588,51 @@ mod testes {
         let r = analisar_codigo("tipo Numero = inteiro\nvariavel x: Numero = 1");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
+
+    #[test]
+    fn resolve_modulo_e_funcao_exportada() {
+        let mut modulos = ModulosDisponiveis::new();
+        modulos.insert("Matematica".into(), HashMap::from([(
+            "somar".into(),
+            AssinaturaFuncao { parametros: vec![Tipo::Inteiro, Tipo::Inteiro], retorno: Tipo::Inteiro },
+        )]));
+        let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir Matematica como Mat");
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let r = analisar_com_modulos(&sintaxe.programa, &modulos);
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_modulo_ausente() {
+        let r = analisar_codigo("incluir ModuloInexistente");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3004"));
+    }
+
+    #[test]
+    fn rejeita_funcao_que_pode_terminar_sem_retorno() {
+        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } }");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3024"));
+    }
+
+    #[test]
+    fn aceita_retorno_em_todos_os_caminhos_condicionais() {
+        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } senao { devolver 2 } }");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn distingue_larguras_de_inteiros() {
+        let r = analisar_codigo("variavel a: inteiro8 = 1\nvariavel b: inteiro64 = a");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+    #[test]
+    fn detecta_alias_de_tipo_ciclico() {
+        let r = analisar_codigo("tipo A = B\ntipo B = A");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3003"));
+    }
+
 }
 }
 
