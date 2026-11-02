@@ -560,7 +560,8 @@ impl<'a> Analisador<'a> {
             Expressao::Chamada { alvo, argumentos } => {
                 if let Expressao::Membro { alvo: tipo_expr, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
                     if let Expressao::Nome(tipo_base) = tipo_expr.as_ref() {
-                        match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
+                        if !self.variantes_enumeracoes.contains_key(tipo_base) {
+                            match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
                             ("Opcional" | "opcional", "Algum", 1) => {
                                 let interno = self.expressao(&argumentos[0]);
                                 return Tipo::Opcional(Box::new(interno));
@@ -578,10 +579,11 @@ impl<'a> Analisador<'a> {
                             }
                             _ => {}
                         }
-                        if matches!(tipo_base.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado") {
-                            self.erro("N3054", format!("Construtor inválido: '{tipo_base}::{variante}' com {} argumento(s).", argumentos.len()));
-                            for argumento in argumentos { self.expressao(argumento); }
-                            return Tipo::Desconhecido;
+                            if matches!(tipo_base.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado") {
+                                self.erro("N3054", format!("Construtor inválido: '{tipo_base}::{variante}' com {} argumento(s).", argumentos.len()));
+                                for argumento in argumentos { self.expressao(argumento); }
+                                return Tipo::Desconhecido;
+                            }
                         }
                     }
                 }

@@ -461,6 +461,9 @@ impl Lowerer {
                 Expressao::Nome(nome) => self.inferir_tipo_chamada(nome, argumentos),
                 Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                     let Expressao::Nome(tipo_base) = alvo.as_ref() else { return Tipo::Desconhecido; };
+                    if self.variantes_enumeracoes.contains_key(tipo_base) {
+                        return Tipo::Enumeracao(tipo_base.clone());
+                    }
                     match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
                         ("Opcional" | "opcional", "Algum", 1) => {
                             Tipo::Opcional(Box::new(self.inferir_tipo_ast(&argumentos[0])))
@@ -590,12 +593,16 @@ impl Lowerer {
                     },
                     Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                         if let Expressao::Nome(tipo_base) = alvo.as_ref() {
-                            let construtor = match (tipo_base.as_str(), variante.as_str(), args.len()) {
+                            let construtor = if self.variantes_enumeracoes.contains_key(tipo_base) {
+                                None
+                            } else {
+                                match (tipo_base.as_str(), variante.as_str(), args.len()) {
                                 ("Opcional" | "opcional", "Algum", 1) => Some(("Opcional", "Algum")),
                                 ("Opcional" | "opcional", "Nenhum", 0) => Some(("Opcional", "Nenhum")),
                                 ("Resultado" | "resultado", "Sucesso", 1) => Some(("Resultado", "Sucesso")),
                                 ("Resultado" | "resultado", "Falha", 1) => Some(("Resultado", "Falha")),
-                                _ => None,
+                                    _ => None,
+                                }
                             };
                             if let Some((nome, variante)) = construtor {
                                 return Some(ExpressaoIr::ConstrucaoEnumeracao {
