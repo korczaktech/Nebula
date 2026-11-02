@@ -276,19 +276,19 @@ impl<'a> Analisador<'a> {
 
     fn expressao(&mut self, expressao: &Expressao) -> Tipo {
         match expressao {
-            Expressao::Nome(nome) => self.buscar(nome).map(|s| {
-                if s.movido {
-                    self.erro("N3030", format!("O valor '{nome}' foi movido e não pode ser utilizado novamente."));
-                }
-                s.tipo.clone()
-            }).unwrap_or_else(|| {
-                if let Some(f) = self.funcoes.get(nome) {
+            Expressao::Nome(nome) => {
+                if let Some(simbolo) = self.buscar(nome).cloned() {
+                    if simbolo.movido {
+                        self.erro("N3030", format!("O valor '{nome}' foi movido e não pode ser utilizado novamente."));
+                    }
+                    simbolo.tipo
+                } else if let Some(f) = self.funcoes.get(nome) {
                     Tipo::Funcao(f.parametros.clone(), Box::new(f.retorno.clone()))
                 } else {
                     self.erro("N3007", format!("Nome '{nome}' não foi declarado."));
                     Tipo::Desconhecido
                 }
-            }),
+            },
             Expressao::Literal(valor) => {
                 let tipo = Self::tipo_literal(valor);
                 match Self::literal_numerico(expressao) {
