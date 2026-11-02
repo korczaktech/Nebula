@@ -136,6 +136,10 @@ O layout de memória é definido por alvo e versão de ABI. Cada tipo deve expor
 
 A ABI de funções deve definir convenção de chamada, passagem de escalares, agregados, retorno, preservação de registradores, alinhamento de pilha e símbolos. Um backend sem suporte a uma representação ou ABI deve rejeitar o programa com diagnóstico, nunca reinterpretar agregado como inteiro de 64 bits.
 
+### 7.1 Representação inicial de tipos de função
+
+No ABI inicial Linux x86-64, o descritor físico de um tipo de função ocupa um ponteiro de código de 8 bytes, alinhado a 8 bytes. A assinatura mantém a ordem e os tipos dos parâmetros e o tipo de retorno. Esse descritor de layout não implica, por si só, suporte a closures, captura de ambiente, valores de função armazenáveis ou chamadas indiretas: tais operações só podem ser aceitas quando a representação de valor, a convenção de chamada e a geração de código correspondente estiverem implementadas. O backend deve rejeitar chamadas indiretas e valores de função ainda não suportados.
+
 ## 8. Diagnósticos
 
 Os diagnósticos devem ter código estável, severidade, mensagem, intervalo de fonte e, quando possível, indicação da declaração relacionada. Devem distinguir pelo menos: nome/tipo desconhecido, tipos incompatíveis, aridade incorreta, inferência ambígua, literal fora da faixa, conversão inválida, campo ausente/duplicado/desconhecido, variante inexistente, padrão não exaustivo, acesso inválido e recurso não suportado pelo backend.
