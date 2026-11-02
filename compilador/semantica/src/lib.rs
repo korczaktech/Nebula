@@ -1089,6 +1089,71 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn dividir_tipo_funcao(nome: &str) -> Option<(Vec<&str>, &str)> {
+        let conteudo = nome.strip_prefix("funcao(")?;
+        let mut parenteses = 1usize;
+        let mut angulos = 0usize;
+        let mut colchetes = 0usize;
+        let mut fechamento = None;
+        for (indice, caractere) in conteudo.char_indices() {
+            match caractere {
+                '(' => parenteses += 1,
+                ')' => {
+                    parenteses = parenteses.checked_sub(1)?;
+                    if parenteses == 0 {
+                        fechamento = Some(indice);
+                        break;
+                    }
+                }
+                '<' => angulos += 1,
+                '>' => angulos = angulos.checked_sub(1)?,
+                '[' => colchetes += 1,
+                ']' => colchetes = colchetes.checked_sub(1)?,
+                _ => {}
+            }
+        }
+        let fechamento = fechamento?;
+        let restante = &conteudo[fechamento + 1..];
+        let retorno = restante.strip_prefix(':')?;
+        if retorno.trim().is_empty() {
+            return None;
+        }
+        let parametros_brutos = &conteudo[..fechamento];
+        if parametros_brutos.trim().is_empty() {
+            return Some((Vec::new(), retorno.trim()));
+        }
+        let mut parametros = Vec::new();
+        let mut inicio = 0usize;
+        let mut parenteses = 0usize;
+        let mut angulos = 0usize;
+        let mut colchetes = 0usize;
+        for (indice, caractere) in parametros_brutos.char_indices() {
+            match caractere {
+                '(' => parenteses += 1,
+                ')' => parenteses = parenteses.checked_sub(1)?,
+                '<' => angulos += 1,
+                '>' => angulos = angulos.checked_sub(1)?,
+                '[' => colchetes += 1,
+                ']' => colchetes = colchetes.checked_sub(1)?,
+                ',' if parenteses == 0 && angulos == 0 && colchetes == 0 => {
+                    let parametro = parametros_brutos[inicio..indice].trim();
+                    if parametro.is_empty() {
+                        return None;
+                    }
+                    parametros.push(parametro);
+                    inicio = indice + 1;
+                }
+                _ => {}
+            }
+        }
+        let ultimo = parametros_brutos[inicio..].trim();
+        if ultimo.is_empty() {
+            return None;
+        }
+        parametros.push(ultimo);
+        Some((parametros, retorno.trim()))
+    }
+
     fn argumentos_genericos(nome: &str) -> Option<(&str, Vec<&str>)> {
         let abertura = nome.find('<')?;
         if !nome.ends_with('>') { return None; }
@@ -1145,6 +1210,14 @@ impl<'a> Analisador<'a> {
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
+            _ if Self::dividir_tipo_funcao(nome).is_some() => {
+                let (parametros, retorno) = Self::dividir_tipo_funcao(nome)
+                    .expect("tipo de função reconhecido");
+                Tipo::Funcao(
+                    parametros.iter().map(|tipo| self.resolver_tipo(tipo)).collect(),
+                    Box::new(self.resolver_tipo(retorno)),
+                )
+            }
             _ if nome.starts_with('[') && nome.ends_with(']') => {
                 Tipo::Lista(Box::new(self.resolver_tipo(&nome[1..nome.len()-1])))
             }
@@ -1602,6 +1675,14 @@ mod testes {
             "variavel a: inteiro = 1\nvariavel b: inteiro_u32 = 2\nvariavel c = a + b",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3038"));
+    }
+
+    #[test]
+    fn resolve_tipos_de_funcao_em_campos_nominais() {
+        let r = analisar_codigo(
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(): vazio }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
     #[test]
