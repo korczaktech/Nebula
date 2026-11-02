@@ -91,6 +91,7 @@ impl Gerador{
     }
     Ok(())
  }
+ #[allow(clippy::only_used_in_recursion)]
  fn e(&mut self,e:&ExpressaoIr)->Result<String,String>{match e{
  ExpressaoIr::Constante(v)=>match v{ValorIr::Inteiro(n)=>Ok(n.to_string()),ValorIr::Decimal(n)if n.is_finite()=>Ok(format!("{n:?}")),ValorIr::Logico(b)=>Ok(b.to_string()),ValorIr::Texto(s)=>Ok(format!("\"{}\"",s.chars().flat_map(char::escape_default).collect::<String>())),ValorIr::Caractere(c)=>Ok(format!("'{}'",c.escape_default())),_=>Err("Literal não suportado pelo backend.".into())},
  ExpressaoIr::Variavel(n)=>Ok(nc(n)),
