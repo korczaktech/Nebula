@@ -36,10 +36,7 @@ fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
 
 #[test]
 fn gera_elf_executavel_com_codigo_de_saida() {
-    let resultado = compilar_e_executar(
-        "retorno",
-        "funcao principal(): inteiro { devolver 42 }",
-    );
+    let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro { devolver 42 }");
     assert_eq!(resultado.status.code(), Some(42));
 }
 
@@ -91,10 +88,7 @@ fn compila_laco_para_e_controle() {
 #[test]
 fn rejeita_recurso_que_depende_do_runtime_adiado() {
     let (origem, executavel) = caminhos("runtime-adiado");
-    fs::write(
-        &origem,
-        "funcao principal(): vazio { exibir(42) }",
-    ).unwrap();
+    fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
