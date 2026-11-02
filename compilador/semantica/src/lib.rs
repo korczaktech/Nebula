@@ -1496,7 +1496,7 @@ mod testes {
     #[test]
     fn exige_caso_curinga_ao_final() {
         let r = analisar_codigo(
-            "enumeracao Estado { Ativo(inteiro), Inativo(texto) }\nvariavel estado = Estado::Ativo(1)\nescolha estado { caso _ { exibir(0) } caso Estado::Ativo(valor) { exibir(valor) } }",
+            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso _ { exibir(0) } caso Estado::Ativo { exibir(1) } }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
     }
