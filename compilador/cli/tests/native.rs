@@ -174,6 +174,42 @@ fn compila_laco_para_e_controle() {
 }
 
 #[test]
+fn compila_seis_parametros_pelo_abi_system_v() {
+    let resultado = compilar_e_executar(
+        "seis-parametros",
+        "funcao somar(a: inteiro, b: inteiro, c: inteiro, d: inteiro, e: inteiro, f: inteiro): inteiro { devolver a + b + c + d + e + f }\nfuncao principal(): inteiro { devolver somar(1, 2, 3, 4, 5, 6) }",
+    );
+    assert_eq!(resultado.status.code(), Some(21));
+}
+
+#[test]
+fn compila_chamadas_aninhadas_sem_perder_alinhamento() {
+    let resultado = compilar_e_executar(
+        "chamadas-aninhadas",
+        "funcao dobrar(valor: inteiro): inteiro { devolver valor * 2 }\nfuncao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nfuncao principal(): inteiro { devolver somar(dobrar(2), dobrar(3)) }",
+    );
+    assert_eq!(resultado.status.code(), Some(10));
+}
+
+#[test]
+fn preserva_sombreamento_de_variaveis_em_blocos() {
+    let resultado = compilar_e_executar(
+        "sombreamento",
+        "funcao principal(): inteiro { variavel valor: inteiro = 1; quando verdadeiro { variavel valor: inteiro = 41; devolver valor }; devolver valor }",
+    );
+    assert_eq!(resultado.status.code(), Some(41));
+}
+
+#[test]
+fn compila_negacao_logica_unaria() {
+    let resultado = compilar_e_executar(
+        "negacao-logica",
+        "funcao principal(): inteiro { quando nao falso { devolver 42 }; devolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_chamadas_recursivas_com_alinhamento_de_pilha() {
     let resultado = compilar_e_executar(
         "recursao",
