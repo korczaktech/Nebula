@@ -86,6 +86,15 @@ fn compila_laco_para_e_controle() {
 }
 
 #[test]
+fn compila_chamadas_recursivas_com_alinhamento_de_pilha() {
+    let resultado = compilar_e_executar(
+        "recursao",
+        "funcao fibonacci(n: inteiro): inteiro {\n    quando n <= 1 { devolver n }\n    devolver fibonacci(n - 1) + fibonacci(n - 2)\n}\nfuncao principal(): inteiro { devolver fibonacci(10) }",
+    );
+    assert_eq!(resultado.status.code(), Some(55));
+}
+
+#[test]
 fn rejeita_recurso_que_depende_do_runtime_adiado() {
     let (origem, executavel) = caminhos("runtime-adiado");
     fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
