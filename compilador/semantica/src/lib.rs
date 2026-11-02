@@ -472,6 +472,22 @@ impl<'a> Analisador<'a> {
                         self.exigir_tipo(&duracao, &Tipo::Inteiro, "duração de 'dormir'");
                         return Tipo::Vazio;
                     }
+                    if matches!(
+                        nome.as_str(),
+                        "raiz" | "seno" | "cosseno" | "tangente" | "logaritmo"
+                            | "exponencial" | "piso" | "teto" | "arredondar" | "absoluto"
+                    ) {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige um argumento numérico."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let tipo = self.expressao(&argumentos[0]);
+                        if !Self::numerico(&tipo) && tipo != Tipo::Desconhecido {
+                            self.erro("N3016", format!("'{nome}' exige um argumento numérico."));
+                        }
+                        return Tipo::Decimal64;
+                    }
                     if nome == "inteiro" || nome == "decimal" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige um argumento de texto."));
