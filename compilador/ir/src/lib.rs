@@ -621,10 +621,23 @@ impl Lowerer {
                 nome: nome.clone(),
                 campos: campos.iter().map(|(campo, valor)| Some((campo.clone(), self.expressao(valor)?))).collect::<Option<Vec<_>>>()?,
             }),
-            Expressao::Unaria { operador, valor } => Some(ExpressaoIr::Unaria {
-                operador: converter_operador(*operador)?,
-                valor: Box::new(self.expressao(valor)?),
-            }),
+            Expressao::Unaria { operador, valor } => {
+                let valor_ir = if *operador == TipoToken::Menos {
+                    match valor.as_ref() {
+                        Expressao::Literal(bruto) => match literal(bruto) {
+                            Some(valor @ ValorIr::Inteiro(_)) => ExpressaoIr::Constante(valor),
+                            _ => self.expressao(valor)?,
+                        },
+                        _ => self.expressao(valor)?,
+                    }
+                } else {
+                    self.expressao(valor)?
+                };
+                Some(ExpressaoIr::Unaria {
+                    operador: converter_operador(*operador)?,
+                    valor: Box::new(valor_ir),
+                })
+            },
             Expressao::Binaria { esquerda, operador, direita } => Some(ExpressaoIr::Binaria {
                 esquerda: Box::new(self.expressao(esquerda)?),
                 operador: converter_operador(*operador)?,
