@@ -349,6 +349,9 @@ impl<'a> Analisador<'a> {
             Expressao::Chamada { alvo, argumentos } => {
                 if let Expressao::Nome(nome) = alvo.as_ref() {
                     if nome == "exibir" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "A função 'exibir' exige exatamente um argumento.");
+                        }
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Vazio;
                     }
