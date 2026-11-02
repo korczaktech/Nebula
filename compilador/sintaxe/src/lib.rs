@@ -834,6 +834,11 @@ impl Parser {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
+    fn permite_quebra_antes_de_operador_de_escopo_em_tipo() {
+        let r = analisar(&fonte("tipo Caminho = Modulo\n:: Tipo"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
     fn permite_quebra_apos_operador_de_escopo_em_tipo() {
         let r = analisar(&fonte("tipo Caminho = Modulo::\n Tipo"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
