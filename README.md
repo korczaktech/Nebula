@@ -437,7 +437,7 @@ Critérios de conclusão:
 
 **Estado: Fase 3 concluída — 108 testes aprovados, 0 falhas; CI verde.**
 
-[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41373435069).
+[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41373497754).
 
 **Objetivo:** dar significado e consistência aos programas.
 
