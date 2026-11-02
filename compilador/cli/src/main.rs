@@ -137,7 +137,9 @@ fn nivel_otimizacao(valor: &str) -> Result<NivelOtimizacao, String> {
         "o2" | "2" => Ok(NivelOtimizacao::O2),
         "o3" | "3" => Ok(NivelOtimizacao::O3),
         "os" | "s" => Ok(NivelOtimizacao::Os),
-        _ => Err(format!("Nível de otimização inválido: '{valor}'. Use O0, O1, O2, O3 ou Os.")),
+        _ => Err(format!(
+            "Nível de otimização inválido: '{valor}'. Use O0, O1, O2, O3 ou Os."
+        )),
     }
 }
 
@@ -230,7 +232,9 @@ fn ajuda() {
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
-    println!("  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)");
+    println!(
+        "  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)"
+    );
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
