@@ -1609,6 +1609,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_escolha_de_variantes_sem_payload() {
+        let ir = compilar(
+            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso Estado::Ativo { exibir(\"ativo\") } caso Estado::Inativo { exibir(\"inativo\") } }",
+        );
+        let resultado = executar(&ir, 200).expect("enumeração sem payload válida");
+        assert_eq!(resultado.saida, vec!["ativo"]);
+    }
+
+    #[test]
     fn executor_usa_runtime_e_rejeita_atribuicao_em_constante() {
         let mut ir = compilar("constante limite = 9");
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
