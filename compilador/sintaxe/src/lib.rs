@@ -3,6 +3,10 @@
 #![forbid(unsafe_code)]
 #![allow(missing_docs)]
 
+#[rustfmt::skip]
+mod implementacao {
+//! Lexer, AST e Parser do subconjunto inicial da linguagem Nebula.
+
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use unicode_ident::{is_xid_continue, is_xid_start};
@@ -916,3 +920,7 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 }
+
+}
+
+pub use implementacao::*;
