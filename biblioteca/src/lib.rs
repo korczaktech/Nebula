@@ -170,8 +170,13 @@ mod testes {
     #[test]
     fn memoria_e_tempo_estao_expostos_por_apis_tipadas() {
         let mut memoria = super::colecoes::Memoria::nova();
-        memoria.declarar("x", super::colecoes::Valor::Inteiro(3), false).expect("declaração");
-        assert_eq!(memoria.obter("x").expect("leitura"), super::colecoes::Valor::Inteiro(3));
+        memoria
+            .declarar("x", super::colecoes::Valor::Inteiro(3), false)
+            .expect("declaração");
+        assert_eq!(
+            memoria.obter("x").expect("leitura"),
+            super::colecoes::Valor::Inteiro(3)
+        );
         assert!(super::tempo::tempo_unix_milisegundos().is_ok());
     }
 }
