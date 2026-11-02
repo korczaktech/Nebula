@@ -93,7 +93,9 @@ pub mod rede {
             for endereco in enderecos {
                 match TcpStream::connect_timeout(&endereco, timeout) {
                     Ok(fluxo) => {
-                        fluxo.set_read_timeout(Some(timeout)).map_err(ErroRede::Io)?;
+                        fluxo
+                            .set_read_timeout(Some(timeout))
+                            .map_err(ErroRede::Io)?;
                         fluxo.set_write_timeout(Some(timeout)).map_err(ErroRede::Io)?;
                         return Ok(Self { fluxo, limite_leitura: 1024 * 1024 });
                     }
