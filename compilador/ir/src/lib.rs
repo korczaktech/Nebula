@@ -882,7 +882,7 @@ fn formatar_erro_runtime(erro: ErroRuntime) -> String {
 }
 
 fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
-    match (tipo, valor) {
+    match (tipo, valor.clone()) {
         (Tipo::Inteiro | Tipo::Inteiro64, ValorIr::Inteiro(v)) =>
             i64::try_from(v).map(|v| ValorIr::Inteiro(v as i128)).map_err(|_| "Valor fora da faixa de inteiro64.".into()),
         (Tipo::Inteiro8, ValorIr::Inteiro(v)) =>
@@ -1772,6 +1772,7 @@ mod testes {
         ir.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
             nome: "limite".into(),
             valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(10))),
+            tipo: Tipo::Inteiro,
         }));
         let erro = executar(&ir, 100).expect_err("constante não pode ser alterada");
         assert!(erro.contains("VariavelImutavel"), "{erro}");
