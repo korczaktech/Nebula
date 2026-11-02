@@ -1,6 +1,25 @@
 # Critérios de aceite — Fase 5 e Nebula 1.0
 
-**Estado: NÃO INICIADA / EM DEFINIÇÃO.** Este documento define o alvo integral solicitado para a Fase 5. Nenhum item é considerado concluído apenas por estar especificado. A fase só poderá ser encerrada após implementação, testes automatizados, execução nos alvos declarados, documentação e distribuição verificáveis.
+**Estado: EM DESENVOLVIMENTO.** Este documento define o alvo integral solicitado para a Fase 5. Os itens abaixo distinguem implementações parciais de requisitos completos. Nenhum item amplo é considerado concluído apenas porque uma parte foi implementada. A fase só poderá ser encerrada após implementação, testes automatizados, execução nos alvos declarados, documentação e distribuição verificáveis.
+
+## Progresso de implementação verificado
+
+| Item | Estado atual |
+|---|---|
+| 1. Linguagem e tipos | Parcial: subconjunto atual preservado; tipos compostos e genéricos ainda pendentes |
+| 2. Memória e segurança | Parcial: escopos, mutabilidade e listas compartilhadas no runtime; propriedade e borrow checker pendentes |
+| 3. Runtime | Parcial implementado: crate Rust e integração ao interpretador de referência; integração nativa e ciclo de vida completo pendentes |
+| 4. Concorrência | Parcial: threads, tarefas e canais; async/await, atomics e modelo formal pendentes |
+| 5. Biblioteca padrão | Parcial: primitivas de texto, coleções e números no runtime; módulos completos pendentes |
+| 6. Módulos e pacotes | Não implementado integralmente: resolução e gerenciador de pacotes ainda pendentes |
+| 7. Otimizador | Parcial implementado: O0/O1/O2/O3/Os com dobramento, fluxo constante, remoção de código inalcançável e blocos vazios; passes avançados pendentes |
+| 8. Backends | Parcial: Linux x86-64 ELF64; ARM64, Windows, macOS e WebAssembly pendentes |
+| 9. Ferramentas | Parcial: CLI com interpretar e seleção de níveis de otimização; formatador, dependências e cache incremental pendentes |
+| 10. Qualidade e segurança | Parcial: CI Rust com fmt, Clippy, testes e benchmark; fuzzing, auditorias e matriz multiplataforma pendentes |
+| 11. Documentação e lançamento | Parcial: README e critérios atualizados; estabilidade 1.0, instaladores, assinaturas e distribuição pendentes |
+| 12. Autocompilação | Não implementada; permanece dependente de maturidade da linguagem |
+
+A validação automatizada dos recursos de runtime, interpretador, CLI e otimizador passou em [CI no commit 0aff663](https://github.com/korczaktech/Nebula/actions/runs/41396629431). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
 
 ## Objetivo
 
