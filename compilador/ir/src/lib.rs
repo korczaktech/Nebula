@@ -870,6 +870,42 @@ impl Maquina<'_> {
                 let condicao = self.expressao(condicao)?;
                 if self.logico(condicao)? { self.bloco(entao) } else { self.bloco(senao) }
             }
+            InstrucaoIr::Escolha { valor, casos } => {
+                let valor = self.expressao(valor)?;
+                let (nome_enum, variante, campos) = match valor {
+                    ValorIr::Estrutura { nome, campos } => {
+                        let Some((tipo, variante)) = nome.rsplit_once("::") else {
+                            return Err("Valor não contém uma variante de enumeração válida.".into());
+                        };
+                        (tipo.to_owned(), variante.to_owned(), campos)
+                    }
+                    _ => return Err("Valor de 'escolha' não é uma enumeração.".into()),
+                };
+                let caso = casos.iter().find(|caso| {
+                    match (&caso.enumeracao, &caso.variante) {
+                        (Some(tipo), Some(nome)) => tipo == &nome_enum && nome == &variante,
+                        _ => true,
+                    }
+                });
+                if let Some(caso) = caso {
+                    let mut instrucoes = Vec::with_capacity(caso.vinculacoes.len() + caso.corpo.len());
+                    for (indice, vinculo) in caso.vinculacoes.iter().enumerate() {
+                        let campo = campos.iter().find(|(nome, _)| nome == &indice.to_string())
+                            .map(|(_, valor)| valor.clone())
+                            .ok_or_else(|| format!("Payload ausente na variante '{variante}'.") )?;
+                        instrucoes.push(InstrucaoIr::Declarar {
+                            nome: vinculo.clone(),
+                            tipo: Tipo::Desconhecido,
+                            valor: ExpressaoIr::Constante(campo),
+                            constante: true,
+                        });
+                    }
+                    instrucoes.extend(caso.corpo.clone());
+                    self.bloco(&instrucoes)
+                } else {
+                    Err(format!("Nenhum caso corresponde à variante '{variante}'."))
+                }
+            }
             InstrucaoIr::Enquanto { condicao, corpo } => {
                 loop {
                     self.passo()?;
