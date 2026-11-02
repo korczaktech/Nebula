@@ -72,7 +72,9 @@ fn verificar(caminho: &Path) {
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let resultado = analisar(&fonte);
     for diagnostico in &resultado.diagnosticos {
-        let local = diagnostico.intervalo.and_then(|i| fonte.linha_coluna(i.inicio));
+        let local = diagnostico
+            .intervalo
+            .and_then(|i| fonte.linha_coluna(i.inicio));
         if let Some((linha, coluna)) = local {
             eprintln!(
                 "{} {}:{}:{} — {}",
@@ -102,7 +104,11 @@ mod testes {
         let caminho = std::env::temp_dir().join(format!("nebula-{}.nbx", std::process::id()));
         std::fs::write(&caminho, "variavel total = 1 + 2").expect("grava arquivo");
         let texto = std::fs::read_to_string(&caminho).expect("lê arquivo");
-        assert!(analisar(&ArquivoFonte::novo(&caminho, texto)).diagnosticos.is_empty());
+        assert!(
+            analisar(&ArquivoFonte::novo(&caminho, texto))
+                .diagnosticos
+                .is_empty()
+        );
         let _ = std::fs::remove_file(caminho);
     }
 }
