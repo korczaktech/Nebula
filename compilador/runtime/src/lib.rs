@@ -29,9 +29,19 @@ pub enum Valor {
     /// Lista compartilhada e protegida contra acesso concorrente.
     Lista(Arc<RwLock<Vec<Valor>>>),
     /// Intervalo inteiro inclusivo.
-    Intervalo { inicio: i128, fim: i128 },
+    Intervalo {
+        /// Limite inferior inclusivo.
+        inicio: i128,
+        /// Limite superior inclusivo.
+        fim: i128,
+    },
     /// Intervalo decimal inclusivo.
-    IntervaloDecimal { inicio: f64, fim: f64 },
+    IntervaloDecimal {
+        /// Limite inferior inclusivo.
+        inicio: f64,
+        /// Limite superior inclusivo.
+        fim: f64,
+    },
 }
 
 impl PartialEq for Valor {
@@ -103,7 +113,12 @@ pub enum ErroRuntime {
     /// Operação solicitada para um tipo incompatível.
     TipoIncompativel(&'static str),
     /// Índice fora dos limites da lista.
-    IndiceForaDosLimites { indice: usize, tamanho: usize },
+    IndiceForaDosLimites {
+        /// Índice solicitado.
+        indice: usize,
+        /// Quantidade de elementos disponíveis.
+        tamanho: usize,
+    },
     /// Lock de uma estrutura compartilhada foi envenenado.
     MemoriaCorrompida,
     /// A operação inteira excedeu a faixa de i128.
