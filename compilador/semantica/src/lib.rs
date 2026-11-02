@@ -158,7 +158,12 @@ impl<'a> Analisador<'a> {
                     }
                     self.exigir_tipo(&inferido, &esperado, "inicialização da variável");
                     esperado
-                } else { inferido };
+                } else {
+                    if matches!(&inferido, Tipo::Lista(elemento) if **elemento == Tipo::Desconhecido) {
+                        self.erro("N3027", format!("Não foi possível inferir o tipo dos elementos da lista '{nome}'; anote seu tipo."));
+                    }
+                    inferido
+                };
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante });
             }
             NoAst::Funcao { nome, parametros, corpo, .. } => {
@@ -192,7 +197,12 @@ impl<'a> Analisador<'a> {
                     self.erro("N3026", "Módulos só podem ser incluídos no escopo do arquivo.");
                 }
             }
-            NoAst::Expressao(expressao) => { self.expressao(expressao); }
+            NoAst::Expressao(expressao) => {
+                let tipo = self.expressao(expressao);
+                if tipo == Tipo::Lista(Box::new(Tipo::Desconhecido)) {
+                    self.erro("N3027", "Lista vazia sem tipo esperado não permite inferência.");
+                }
+            }
             NoAst::Quando { condicao, entao, senao } => {
                 let tipo = self.expressao(condicao);
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'quando'");
@@ -474,8 +484,18 @@ impl<'a> Analisador<'a> {
     }
 
     fn exigir_tipo(&mut self, obtido: &Tipo, esperado: &Tipo, contexto: &str) {
-        if obtido != esperado && *obtido != Tipo::Desconhecido && *esperado != Tipo::Desconhecido {
+        if !Self::tipos_compativeis(obtido, esperado) {
             self.erro("N3020", format!("Tipo incompatível em {contexto}: esperado {}, recebido {}.", esperado.nome(), obtido.nome()));
+        }
+    }
+
+    fn tipos_compativeis(obtido: &Tipo, esperado: &Tipo) -> bool {
+        match (obtido, esperado) {
+            (Tipo::Desconhecido, _) | (_, Tipo::Desconhecido) => true,
+            (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b)) => {
+                Self::tipos_compativeis(a, b)
+            }
+            _ => obtido == esperado,
         }
     }
 
@@ -673,6 +693,19 @@ mod testes {
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3022"));
+    }
+
+
+    #[test]
+    fn aceita_lista_vazia_com_tipo_explicito() {
+        let r = analisar_codigo("variavel itens: [inteiro] = []");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn exige_tipo_para_lista_vazia_sem_contexto() {
+        let r = analisar_codigo("variavel itens = []");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3027"));
     }
 
 }
