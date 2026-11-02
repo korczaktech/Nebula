@@ -8,8 +8,8 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
-    arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, diretorio_existe,
-    escrever_arquivo, listar_diretorio,
+    arquivo_existe, caractere_texto, comprimento_texto, copiar_arquivo, criar_diretorio,
+    diretorio_existe, escrever_arquivo, listar_diretorio, mover_arquivo, remover_arquivo,
     calcular_matematica, dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro,
     subtexto, tempo_unix_milisegundos, texto_aparar, texto_comeca_com, texto_contem,
     texto_maiusculas, texto_minusculas, texto_substituir, texto_termina_com,
@@ -629,6 +629,30 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Logico(true));
                     }
                     return Err("'criar_diretorio' exige um caminho de texto.".into());
+                }
+                if nome == "remover_arquivo" {
+                    if let [ValorIr::Texto(caminho)] = valores.as_slice() {
+                        remover_arquivo(caminho)
+                            .map_err(|erro| format!("Falha ao remover arquivo: {erro:?}"))?;
+                        return Ok(ValorIr::Logico(true));
+                    }
+                    return Err("'remover_arquivo' exige um caminho de texto.".into());
+                }
+                if nome == "copiar_arquivo" {
+                    if let [ValorIr::Texto(origem), ValorIr::Texto(destino)] = valores.as_slice() {
+                        let bytes = copiar_arquivo(origem, destino)
+                            .map_err(|erro| format!("Falha ao copiar arquivo: {erro:?}"))?;
+                        return Ok(ValorIr::Inteiro(i128::from(bytes)));
+                    }
+                    return Err("'copiar_arquivo' exige origem e destino de texto.".into());
+                }
+                if nome == "mover_arquivo" {
+                    if let [ValorIr::Texto(origem), ValorIr::Texto(destino)] = valores.as_slice() {
+                        mover_arquivo(origem, destino)
+                            .map_err(|erro| format!("Falha ao mover arquivo: {erro:?}"))?;
+                        return Ok(ValorIr::Logico(true));
+                    }
+                    return Err("'mover_arquivo' exige origem e destino de texto.".into());
                 }
                 if nome == "diretorio_existe" {
                     if let [ValorIr::Texto(caminho)] = valores.as_slice() {
