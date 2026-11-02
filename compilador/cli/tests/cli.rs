@@ -1,3 +1,5 @@
+//! Testes de integração dos comandos informativos da CLI Nebula.
+
 use std::process::{Command, Output};
 
 fn executar(argumentos: &[&str]) -> Output {
