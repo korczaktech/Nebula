@@ -66,6 +66,9 @@ pub enum InstrucaoIr {
     Seguir,
 }
 
+/// Caso de enumeração convertido para IR.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CasoEscolhaIr { pub enumeracao: Option<String>, pub variante: Option<String>, pub vinculacoes: Vec<String>, pub corpo: Vec<InstrucaoIr> }
 /// Função independente da sintaxe de declaração.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncaoIr {
