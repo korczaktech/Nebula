@@ -1,5 +1,7 @@
 //! Testes de integração do backend ELF gerado integralmente em Rust.
 
+#![cfg(all(target_os = "linux", target_arch = "x86_64"))]
+
 use std::fs;
 use std::process::Command;
 
