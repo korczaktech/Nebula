@@ -19,7 +19,7 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Codificação | UTF-8 e NFC para identificadores | Comparação de nomes consistente |
 | Memória | Modelo híbrido planejado | Caminho seguro e controle de baixo nível |
 | Backends | Nativo e WebAssembly como alvos planejados | IR independente de plataforma |
-| LLVM | Não é dependência obrigatória | Backend pode usar outras estratégias |
+| LLVM | Não será dependência do compilador | O backend próprio gera código diretamente em Rust |
 | Toolchain da fundação | Rust 1.85.0 fixado e Cargo.lock versionado | Builds da fundação usam versão e resolução de dependências reproduzíveis |
 | Autocompilação | Meta de longo prazo | Implementação inicial permanece em Rust |
 
