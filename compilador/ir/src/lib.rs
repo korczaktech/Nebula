@@ -484,8 +484,8 @@ impl Lowerer {
                     Tipo::Intervalo(Box::new(a))
                 } else if a == Tipo::Texto && b == Tipo::Texto && *operador == TipoToken::Mais {
                     Tipo::Texto
-                } else if Self::numerico(&a) && Self::numerico(&b) {
-                    Self::promover_numerico(&a, &b)
+                } else if tipo_numerico(&a) && tipo_numerico(&b) {
+                    promover_tipo_numerico(&a, &b)
                 } else {
                     a
                 }
@@ -720,6 +720,60 @@ impl Lowerer {
                 None
             }
         }
+    }
+}
+
+fn tipo_numerico(tipo: &Tipo) -> bool {
+    matches!(
+        tipo,
+        Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+            | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8
+            | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64
+            | Tipo::InteiroU128 | Tipo::Decimal | Tipo::Decimal32
+            | Tipo::Decimal64 | Tipo::Byte
+    )
+}
+
+fn promover_tipo_numerico(a: &Tipo, b: &Tipo) -> Tipo {
+    if matches!(a, Tipo::Decimal | Tipo::Decimal64)
+        || matches!(b, Tipo::Decimal | Tipo::Decimal64)
+    {
+        return Tipo::Decimal64;
+    }
+    let largura = |tipo: &Tipo| match tipo {
+        Tipo::Inteiro8 | Tipo::InteiroU8 | Tipo::Byte => 8,
+        Tipo::Inteiro16 | Tipo::InteiroU16 => 16,
+        Tipo::Inteiro32 | Tipo::InteiroU32 => 32,
+        Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro => 64,
+        Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
+        _ => 64,
+    };
+    if a == &Tipo::Decimal32 || b == &Tipo::Decimal32 {
+        let outro = if a == &Tipo::Decimal32 { b } else { a };
+        return if largura(outro) > 16 { Tipo::Decimal64 } else { Tipo::Decimal32 };
+    }
+    let sem_sinal = |tipo: &Tipo| matches!(
+        tipo,
+        Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+            | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
+    );
+    let largura_maxima = largura(a).max(largura(b));
+    if sem_sinal(a) && sem_sinal(b) {
+        return match largura_maxima {
+            8 => Tipo::InteiroU8,
+            16 => Tipo::InteiroU16,
+            32 => Tipo::InteiroU32,
+            64 => Tipo::InteiroU64,
+            _ => Tipo::InteiroU128,
+        };
+    }
+    match largura_maxima {
+        8 => Tipo::Inteiro8,
+        16 => Tipo::Inteiro16,
+        32 => Tipo::Inteiro32,
+        128 => Tipo::Inteiro128,
+        64 if a == &Tipo::Inteiro64 || b == &Tipo::Inteiro64 => Tipo::Inteiro64,
+        _ => Tipo::Inteiro,
     }
 }
 

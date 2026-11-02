@@ -224,7 +224,7 @@ fn propagar_constantes_expressao(
         ExpressaoIr::Lista(itens) | ExpressaoIr::Tupla(itens) => {
             for item in itens { propagar_constantes_expressao(item, constantes, relatorio); }
         }
-        ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             propagar_constantes_expressao(esquerda, constantes, relatorio);
             propagar_constantes_expressao(direita, constantes, relatorio);
