@@ -429,7 +429,7 @@ impl Maquina<'_> {
                 }
                 let funcao = self.programa.funcoes.get(nome).cloned().ok_or_else(|| format!("Função '{nome}' não encontrada na IR."))?;
                 if funcao.parametros.len() != valores.len() { return Err(format!("Quantidade incorreta de argumentos para '{nome}'.")); }
-                if self.profundidade_chamada >= 256 {
+                if self.profundidade_chamada >= 32 {
                     return Err("Limite de profundidade de chamadas da IR excedido.".into());
                 }
                 self.profundidade_chamada += 1;
