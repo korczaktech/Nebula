@@ -1,6 +1,6 @@
 # Plataformas e alvos de compilação
 
-## Alvo inicial em implementação
+## Alvo inicial implementado (validação final pendente)
 
 - Linux x86-64.
 - Formato executável ELF64.
