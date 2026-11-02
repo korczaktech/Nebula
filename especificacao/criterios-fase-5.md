@@ -15,7 +15,7 @@
 | 7. Otimizador | Parcial implementado: O0/O1/O2/O3/Os com dobramento, fluxo constante, remoção de código inalcançável e blocos vazios; passes avançados pendentes |
 | 8. Backends | Parcial: Linux x86-64 ELF64; ARM64, Windows, macOS e WebAssembly pendentes |
 | 9. Ferramentas | Parcial: CLI com interpretar e seleção de níveis de otimização; formatador, dependências e cache incremental pendentes |
-| 10. Qualidade e segurança | Parcial: CI com fmt, Clippy, testes, geração de documentação e benchmark; fuzz smoke determinístico do Lexer/Parser; fuzzing contínuo, auditorias e matriz multiplataforma pendentes |
+| 10. Qualidade e segurança | Parcial: CI com fmt, Clippy, testes, geração de documentação e benchmark; fuzz smoke determinístico do Lexer/Parser; testes de travessia e symlink em imports; fuzzing contínuo, auditorias e matriz multiplataforma pendentes |
 | 11. Documentação e lançamento | Parcial: README e critérios atualizados; estabilidade 1.0, instaladores, assinaturas e distribuição pendentes |
 | 12. Autocompilação | Não implementada; permanece dependente de maturidade da linguagem |
 
