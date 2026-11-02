@@ -100,6 +100,7 @@ impl Emissor {
         if self.funcoes.contains_key(&funcao.nome) {
             return Err(format!("Função duplicada no backend: '{}'.", funcao.nome));
         }
+        validar_tipo(&funcao.retorno)?;
         self.funcoes.insert(funcao.nome.clone(), self.codigo.len());
         self.escopos.clear();
         self.escopos.push(HashMap::new());
@@ -412,8 +413,7 @@ impl Emissor {
 
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     match tipo {
-        Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
-        | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Byte => Ok(()),
+        Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64 => Ok(()),
         _ => Err(format!("Tipo '{}' ainda não é suportado pelo backend sem runtime.", tipo.nome())),
     }
 }
@@ -500,6 +500,9 @@ mod testes {
     fn rejeita_tipo_nao_suportado_sem_fingir_implementacao() {
         assert!(validar_tipo(&Tipo::Texto).is_err());
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
+        assert!(validar_tipo(&Tipo::Inteiro64).is_ok());
+        assert!(validar_tipo(&Tipo::Inteiro8).is_err());
+        assert!(validar_tipo(&Tipo::Byte).is_err());
     }
 }
 
