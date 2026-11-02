@@ -81,6 +81,23 @@ enumeracao Estado {
 
 Uma enumeração é uma união discriminada. Cada variante tem discriminante único e pode carregar zero ou mais valores tipados. A construção deve nomear uma variante existente e fornecer os argumentos exigidos. A inspeção de variantes deve ser exaustiva; qualquer padrão não coberto gera diagnóstico estático. O compilador não pode tratar uma enumeração como inteiro sem conversão explícita.
 
+#### 3.4.1 Correspondência de padrões
+
+A instrução `escolha` inspeciona uma enumeração e executa o corpo do primeiro caso correspondente:
+
+```nebula
+escolha resultado {
+    caso Resultado::Sucesso(valor) {
+        exibir(valor)
+    }
+    caso Resultado::Falha(mensagem) {
+        exibir(mensagem)
+    }
+}
+```
+
+Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todas as variantes restantes e, quando presente, deve ser o último caso. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência; o backend nativo só poderá aceitá-la após a implementação do layout/ABI de enumerações.
+
 ### 3.5 Opcionais e resultados
 
 - `Opcional<T>` representa presença ou ausência de um valor: `Algum(valor)` e `Nenhum`.
