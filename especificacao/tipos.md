@@ -20,6 +20,7 @@
 - texto
 - vazio
 - listas homogêneas anotadas como [tipo] ou inferidas a partir dos elementos.
+- construtores de tipo genéricos em assinaturas: `Opcional<T>`, `Resultado<T, E>` e `Tupla<T1, T2, ...>`; os argumentos são analisados recursivamente, inclusive quando aninhados.
 
 Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destinos desconhecidos são rejeitados.
 
@@ -35,9 +36,9 @@ Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destino
 - Literais inteiros e decimais são verificados contra os limites do tipo de destino; valores fora da faixa são rejeitados.
 - Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
 
-## Tipos compostos e decisões futuras
+## Limites atuais dos tipos compostos
 
-Vetores, tuplas, estruturas, enumerações, opcionais, resultados, referências, ponteiros, funções genéricas e tipos algébricos ainda não fazem parte do subconjunto semântico executável.
+Os construtores `Opcional<T>`, `Resultado<T, E>` e `Tupla<T...>` já são reconhecidos e validados em anotações e assinaturas. Isso ainda não significa suporte completo de valores: não há construtores, padrões de correspondência, acesso a campos, representação em IR/ABI ou lowering completo desses tipos. Estruturas, enumerações, referências, ponteiros, funções genéricas e tipos algébricos definidos pelo usuário ainda não fazem parte do subconjunto executável.
 
 Continuam abertas para alvos futuros e para estabilização geral da linguagem:
 
@@ -45,4 +46,5 @@ Continuam abertas para alvos futuros e para estabilização geral da linguagem:
 - Regras de overflow específicas de outros alvos e modos.
 - Semântica completa de ponto flutuante, NaN e conversões.
 - Layout e alinhamento de tipos na ABI.
-- Inferência genérica e tipos algébricos.
+- Inferência e instanciação de funções genéricas, construtores e padrões de tipos algébricos.
+- Representação executável e layout ABI de opcionais, resultados e tuplas.
