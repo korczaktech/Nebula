@@ -297,10 +297,10 @@ fn carregar_modulo_recursivo(
             ));
         }
         if sintaxe.programa.itens.iter().any(|item| {
-            !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Incluir { .. })
+            !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. })
         }) {
             return Err(format!(
-                "O módulo '{identificador}' contém inicializadores globais; módulos importados devem conter funções, aliases de tipo e imports."
+                "O módulo '{identificador}' contém inicializadores globais; módulos importados devem conter funções, aliases, estruturas, enumerações e imports."
             ));
         }
 
