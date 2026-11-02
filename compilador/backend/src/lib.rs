@@ -17,9 +17,6 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     if !programa.modulos.is_empty() {
         return Err("O backend x86-64 ainda não oferece ligação de módulos.".into());
     }
-    if !programa.instrucoes.is_empty() && programa.funcoes.contains_key("principal") {
-        // As instruções globais são executadas antes de principal, em uma função sintética.
-    }
 
     let mut emissor = Emissor::novo();
     emissor.iniciar_programa(programa)?;
@@ -33,6 +30,7 @@ struct Emissor {
     chamadas: Vec<(usize, String)>,
     escopos: Vec<HashMap<String, i32>>,
     proximo_slot: usize,
+    pilha: usize,
     lacos: Vec<Laco>,
 }
 
@@ -49,6 +47,7 @@ impl Emissor {
             chamadas: Vec::new(),
             escopos: Vec::new(),
             proximo_slot: 0,
+            pilha: 0,
             lacos: Vec::new(),
         }
     }
@@ -103,6 +102,7 @@ impl Emissor {
         self.escopos.clear();
         self.escopos.push(HashMap::new());
         self.proximo_slot = 0;
+        self.pilha = 0;
         self.lacos.clear();
 
         // Prólogo e quadro fixo: mantém alinhamento ABI e evita alocação dinâmica no compilador.
@@ -245,9 +245,10 @@ impl Emissor {
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
                 self.expressao(esquerda)?;
-                self.codigo.push(0x50); // push rax
+                self.push_rax(); // preserva o operando esquerdo
                 self.expressao(direita)?;
-                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x58]); // rcx=rhs; rax=lhs
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
+                self.pop_rax(); // rax=lhs
                 match operador {
                     OperadorIr::Mais => self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]),
                     OperadorIr::Menos => self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]),
@@ -285,21 +286,21 @@ impl Emissor {
                 if argumentos.len() > 6 {
                     return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
                 }
-                let alinhar = argumentos.len() % 2 == 1;
-                if alinhar { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
                 for argumento in argumentos {
                     self.expressao(argumento)?;
-                    self.codigo.push(0x50);
+                    self.push_rax();
                 }
                 let registradores = [7u8, 6, 2, 1, 8, 9];
                 for indice in (0..argumentos.len()).rev() {
-                    self.codigo.push(0x58); // pop rax
+                    self.pop_rax(); // recupera argumento
                     self.mover_rax_registrador(registradores[indice]);
                 }
-                let deslocamento = self.codigo.len() + 1;
-                self.codigo.extend_from_slice(&[0xE8, 0, 0, 0, 0]);
-                self.chamadas.push((deslocamento, nome.clone()));
-                if alinhar { self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); }
+                if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
+                self.codigo.push(0xE8);
+                let posicao = self.codigo.len();
+                self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+                self.chamadas.push((posicao, nome.clone()));
+                if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); }
             }
             ExpressaoIr::ChamadaQualificada { .. } => return Err("Chamadas de módulos ainda não são suportadas pelo backend nativo.".into()),
         }
@@ -319,6 +320,16 @@ impl Emissor {
     fn buscar(&self, nome: &str) -> Result<i32, String> {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
             .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))
+    }
+
+    fn push_rax(&mut self) {
+        self.codigo.push(0x50);
+        self.pilha += 1;
+    }
+
+    fn pop_rax(&mut self) {
+        self.codigo.push(0x58);
+        self.pilha = self.pilha.saturating_sub(1);
     }
 
     fn mov_rax(&mut self, valor: i64) {
