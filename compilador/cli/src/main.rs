@@ -150,9 +150,24 @@ fn ligar_modulos(programa: &mut ProgramaIr, programas_modulos: Vec<(String, Prog
 }
 
 fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, String> {
+    let componentes = caminho.split("::").collect::<Vec<_>>();
+    if componentes.is_empty()
+        || componentes.iter().any(|componente| {
+            componente.is_empty()
+                || !componente.chars().enumerate().all(|(indice, caractere)| {
+                    if indice == 0 {
+                        caractere == '_' || caractere.is_alphabetic()
+                    } else {
+                        caractere == '_' || caractere.is_alphanumeric()
+                    }
+                })
+        })
+    {
+        return Err(format!("Caminho de módulo inválido: '{caminho}'. Use identificadores separados por '::'."));
+    }
     let base = origem.parent().unwrap_or_else(|| Path::new("."));
     let mut relativo = PathBuf::new();
-    for componente in caminho.split("::") {
+    for componente in componentes {
         relativo.push(componente);
     }
     if relativo.extension().is_none() {
@@ -850,6 +865,14 @@ mod testes {
         let erro = interpretar_arquivo(&origem).unwrap_err();
         assert!(erro.contains("Ciclo de dependências"));
         std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn rejeita_caminhos_de_modulo_com_travessia_de_diretorio() {
+        assert!(resolver_arquivo_modulo(Path::new("."), "../segredo").is_err());
+        assert!(resolver_arquivo_modulo(Path::new("."), "modulo/subpasta").is_err());
+        assert!(resolver_arquivo_modulo(Path::new("."), "modulo::::interno").is_err());
     }
 
     #[test]
