@@ -64,6 +64,7 @@ pub struct FuncaoIr {
 pub struct ProgramaIr {
     pub instrucoes: Vec<InstrucaoIr>,
     pub funcoes: HashMap<String, FuncaoIr>,
+    pub modulos: HashMap<String, String>,
 }
 
 /// Resultado da conversão da AST para IR.
@@ -87,8 +88,14 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
     let aliases = programa.itens.iter().filter_map(|item| {
         if let NoAst::Tipo { nome, destino } = item { Some((nome.clone(), destino.clone())) } else { None }
     }).collect();
-    let mut lowerer = Lowerer { diagnosticos: Vec::new(), aliases };
-    let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new() };
+    let modulos_importados = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Incluir { caminho, apelido } = item {
+            let nome = apelido.clone().unwrap_or_else(|| caminho.split("::").last().unwrap_or(caminho).to_owned());
+            Some((nome, caminho.clone()))
+        } else { None }
+    }).collect::<HashMap<_, _>>();
+    let mut lowerer = Lowerer { diagnosticos: Vec::new(), aliases, modulos_importados: modulos_importados.clone() };
+    let mut ir = ProgramaIr { instrucoes: Vec::new(), funcoes: HashMap::new(), modulos: modulos_importados };
     for item in &programa.itens {
         match item {
             NoAst::Funcao { nome, parametros, retorno, corpo, .. } => {
@@ -110,7 +117,7 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
     }
 }
 
-struct Lowerer { diagnosticos: Vec<String>, aliases: HashMap<String, String> }
+struct Lowerer { diagnosticos: Vec<String>, aliases: HashMap<String, String>, modulos_importados: HashMap<String, String> }
 
 impl Lowerer {
     fn tipo(&self, nome: &str) -> Tipo {
@@ -196,7 +203,8 @@ impl Lowerer {
                     Expressao::Nome(nome) => Some(ExpressaoIr::Chamada { nome: nome.clone(), argumentos: args }),
                     Expressao::Membro { alvo, operador: TipoToken::Escopo, nome } => {
                         if let Expressao::Nome(modulo) = alvo.as_ref() {
-                            Some(ExpressaoIr::ChamadaQualificada { modulo: modulo.clone(), nome: nome.clone(), argumentos: args })
+                            let caminho = self.modulos_importados.get(modulo).cloned().unwrap_or_else(|| modulo.clone());
+                            Some(ExpressaoIr::ChamadaQualificada { modulo: caminho, nome: nome.clone(), argumentos: args })
                         } else {
                             self.diagnosticos.push("Alvo de módulo qualificado inválido na IR.".into());
                             None
@@ -618,6 +626,37 @@ mod testes {
         let ir = compilar("variavel x = 0\nenquanto x < 5 { x = x + 1\nquando x == 2 { seguir }\nquando x == 4 { parar }\nexibir(x) }");
         let r = executar(&ir, 200).expect("execução válida");
         assert_eq!(r.saida, vec!["1", "3"]);
+    }
+
+
+    #[test]
+    fn preserva_caminho_real_do_modulo_na_ir() {
+        let mut modulos = ModulosDisponiveis::new();
+        modulos.insert("Matematica".into(), HashMap::from([(
+            "somar".into(),
+            nebula_semantica::AssinaturaFuncao {
+                parametros: vec![Tipo::Inteiro, Tipo::Inteiro],
+                retorno: Tipo::Inteiro,
+            },
+        )]));
+        let fonte = ArquivoFonte::novo(
+            "teste.nbx",
+            "incluir Matematica como Mat\nvariavel total = Mat::somar(1, 2)",
+        );
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &modulos);
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let ir = resultado.programa.expect("IR válida");
+        assert_eq!(ir.modulos.get("Mat").map(String::as_str), Some("Matematica"));
+        let InstrucaoIr::Declarar { valor, .. } = &ir.instrucoes[0] else {
+            panic!("esperava declaração global");
+        };
+        assert!(matches!(
+            valor,
+            ExpressaoIr::ChamadaQualificada { modulo, nome, .. }
+                if modulo == "Matematica" && nome == "somar"
+        ));
     }
 
 }
