@@ -88,12 +88,12 @@ fn compilar_arquivo(caminho: &Path, saida: &Path, otimizacao: &str) -> Result<()
     }
     let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
     if !ir.diagnosticos.is_empty() { return Err(ir.diagnosticos.join("\n")); }
-    let c = nebula_backend::gerar_c(&ir.programa.expect("IR validada"))?;
-    let arquivo_c = std::env::temp_dir().join(format!("nebula-{}-{}.c", std::process::id(), saida.file_stem().and_then(|s| s.to_str()).unwrap_or("programa")));
+    let c = nebula_backend::gerar_cpp(&ir.programa.expect("IR validada"))?;
+    let arquivo_c = std::env::temp_dir().join(format!("nebula-{}-{}.cpp", std::process::id(), saida.file_stem().and_then(|s| s.to_str()).unwrap_or("programa")));
     std::fs::write(&arquivo_c, c).map_err(|e| format!("não foi possível gravar C temporário: {e}"))?;
-    let resultado = Command::new("cc").arg("-std=c11").arg(otimizacao).arg(&arquivo_c).arg("-o").arg(saida).output();
+    let resultado = Command::new("c++").arg("-std=c++17").arg(otimizacao).arg(&arquivo_c).arg("-o").arg(saida).output();
     let _ = std::fs::remove_file(&arquivo_c);
-    let resultado = resultado.map_err(|e| format!("compilador C 'cc' não encontrado ou indisponível: {e}"))?;
+    let resultado = resultado.map_err(|e| format!("compilador C++ 'c++' não encontrado ou indisponível: {e}"))?;
     if !resultado.status.success() {
         let _ = std::fs::remove_file(saida);
         return Err(String::from_utf8_lossy(&resultado.stderr).into_owned());
@@ -117,7 +117,7 @@ fn ajuda() {
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
-    println!("O backend nativo inicial gera C11 e utiliza um compilador C instalado (cc).");
+    println!("O backend nativo gera C++17 e utiliza um compilador C++ instalado (c++).");
 }
 
 fn mostrar_ir(caminho: &Path) {
