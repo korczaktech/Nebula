@@ -17,6 +17,11 @@ fn main() {
                 eprintln!("Uso: nebula verificar <arquivo.nbx>");
                 std::process::exit(2);
             };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: o comando 'verificar' aceita somente um arquivo.");
+                eprintln!("Uso: nebula verificar <arquivo.nbx>");
+                std::process::exit(2);
+            }
             verificar(Path::new(&caminho));
         }
         Some(comando) => {
