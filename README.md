@@ -294,6 +294,7 @@ nebula/
 ├── especificacao/
 │   ├── linguagem.md
 │   ├── decisoes.md
+│   ├── criterios-fase-3.md
 │   ├── gramatica.md
 │   ├── tokens.md
 │   ├── tipos.md
@@ -308,6 +309,12 @@ nebula/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
 │   ├── fonte/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
+│   ├── semantica/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
+│   ├── ir/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
 │   ├── diagnosticos/
@@ -526,6 +533,6 @@ Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de 
 **Nebula — uma linguagem própria, construída para fazer tudo.**
 
 
-## Estado atual da Fase 2
+## Estado atual da Fase 3
 
 O repositório contém o frontend sintático (`nebula-sintaxe`), a análise semântica (`nebula-semantica`) e a IR com interpretador de referência (`nebula-ir`). A CLI oferece `nebula verificar arquivo.nbx`, `nebula analisar arquivo.nbx` e `nebula ir arquivo.nbx`. A Fase 3 não gera executáveis nativos ou WebAssembly; isso pertence à Fase 4. Os limites e critérios estão em [critérios da Fase 3](especificacao/criterios-fase-3.md).
