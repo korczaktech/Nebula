@@ -228,17 +228,28 @@ impl<'a> Lexer<'a> {
         self.adicionar(TipoToken::Texto, self.inicio, self.atual);
     }
     fn literal_caractere(&mut self) {
-        let mut unidades = 0usize; let mut fechado = false;
+        let mut unidades = 0usize;
+        let mut fechado = false;
         while !self.fim() {
-            let b = self.avancar();
-            if b == b'\'' { fechado = true; break; }
-            if b == b'\n' || b == b'\r' { break; }
-            if b == b'\\' {
-                if !self.escape_valido() { self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual); }
+            if self.byte(0) == Some(b'\\'') {
+                self.atual += 1;
+                fechado = true;
+                break;
             }
+            if matches!(self.byte(0), Some(b'\\n' | b'\\r')) { break; }
+            if self.byte(0) == Some(b'\\\\') {
+                self.atual += 1;
+                if !self.escape_valido() {
+                    self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual);
+                }
+            } else if let Some(caractere) = self.caractere_atual() {
+                self.atual += caractere.len_utf8();
+            } else { break; }
             unidades += 1;
         }
-        if !fechado || unidades != 1 { self.erro("N1009", "Literal de caractere deve conter exatamente um caractere e ser terminado.", self.inicio, self.atual); }
+        if !fechado || unidades != 1 {
+            self.erro("N1009", "Literal de caractere deve conter exatamente um caractere e ser terminado.", self.inicio, self.atual);
+        }
         self.adicionar(TipoToken::Caractere, self.inicio, self.atual);
     }
     fn escape_valido(&mut self) -> bool {
@@ -247,8 +258,9 @@ impl<'a> Lexer<'a> {
             b'u' if self.corresponde(b'{') => {
                 let inicio = self.atual;
                 while self.byte(0).is_some_and(|b| b.is_ascii_hexdigit()) { self.atual += 1; }
-                let valido = self.atual > inicio && self.corresponde(b'}');
-                valido
+                let digitos = self.texto.get(inicio..self.atual).unwrap_or("");
+                let escalar = u32::from_str_radix(digitos, 16).ok().and_then(char::from_u32);
+                self.corresponde(b'}') && escalar.is_some()
             }
             _ => false,
         }
