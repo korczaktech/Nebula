@@ -46,7 +46,11 @@ fn verificar_aceita_programa_sintaticamente_valido() {
     std::fs::write(&caminho, "variavel total = 1 + 2").expect("grava fonte");
     let saida = executar(&["verificar", caminho.to_str().expect("caminho UTF-8")]);
     let _ = std::fs::remove_file(caminho);
-    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
     assert!(String::from_utf8_lossy(&saida.stdout).contains("válido sintaticamente"));
 }
 
