@@ -930,6 +930,21 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Membro { alvo, operador, nome } => {
+                if *operador == TipoToken::Escopo {
+                    if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
+                        if let Some(variantes) = self.variantes_enumeracoes.get(tipo_enum).cloned() {
+                            if let Some(payload) = variantes.get(nome) {
+                                if payload.is_empty() {
+                                    return Tipo::Enumeracao(tipo_enum.clone());
+                                }
+                                self.erro("N3055", format!("A variante '{tipo_enum}::{nome}' exige {} valor(es) de payload.", payload.len()));
+                                return Tipo::Desconhecido;
+                            }
+                            self.erro("N3045", format!("A variante '{nome}' não existe na enumeração '{tipo_enum}'."));
+                            return Tipo::Desconhecido;
+                        }
+                    }
+                }
                 if *operador == TipoToken::Ponto {
                     let tipo_alvo = self.expressao(alvo);
                     match tipo_alvo {
