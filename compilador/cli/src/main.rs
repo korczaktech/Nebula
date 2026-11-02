@@ -429,6 +429,14 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
+        InstrucaoIr::Escolha { valor, casos } => {
+            qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
+            for caso in casos {
+                for item in &mut caso.corpo {
+                    qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
+                }
+            }
+        }
         InstrucaoIr::Se {
             condicao,
             entao,
