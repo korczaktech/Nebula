@@ -525,6 +525,32 @@ impl<'a> Analisador<'a> {
                         self.exigir_tipo(&conteudo, &Tipo::Texto, "conteúdo de arquivo");
                         return Tipo::Logico;
                     }
+                    if nome == "diretorio_atual" || nome == "plataforma" {
+                        if !argumentos.is_empty() {
+                            self.erro("N3015", format!("'{nome}' não aceita argumentos."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        return Tipo::Texto;
+                    }
+                    if nome == "argumentos_processo" {
+                        if !argumentos.is_empty() {
+                            self.erro("N3015", "'argumentos_processo' não aceita argumentos.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        return Tipo::Lista(Box::new(Tipo::Texto));
+                    }
+                    if nome == "variavel_ambiente" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", "'variavel_ambiente' exige um nome de variável.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let nome_variavel = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&nome_variavel, &Tipo::Texto, "nome da variável de ambiente");
+                        return Tipo::Texto;
+                    }
                     if nome == "tempo" {
                         if !argumentos.is_empty() {
                             self.erro("N3015", "'tempo' não aceita argumentos.");
