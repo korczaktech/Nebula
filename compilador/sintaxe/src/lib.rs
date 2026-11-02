@@ -317,6 +317,7 @@ pub enum Expressao {
     Chamada { alvo: Box<Expressao>, argumentos: Vec<Expressao> },
     Indexacao { alvo: Box<Expressao>, indice: Box<Expressao> },
     Membro { alvo: Box<Expressao>, operador: TipoToken, nome: String },
+    ConstrucaoEstrutura { nome: String, campos: Vec<(String, Expressao)> },
 }
 /// Visibilidade declarada para uma função.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -643,7 +644,33 @@ impl Parser {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(9)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
-            TipoToken::Identificador => Expressao::Nome(self.avancar().lexema.nfc().collect()),
+            TipoToken::Identificador => {
+                let nome = self.avancar().lexema.nfc().collect::<String>();
+                if self.corresponde(TipoToken::AbreChave) {
+                    let mut campos = Vec::new();
+                    self.separadores();
+                    while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+                        let campo = self.consumir_nome("Esperado nome do campo na construção da estrutura.")?;
+                        self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
+                        let valor = self.expressao(0)?;
+                        if campos.iter().any(|(existente, _)| existente == &campo) {
+                            self.erro_atual("N2037", "Campo informado mais de uma vez na construção.");
+                        } else {
+                            campos.push((campo, valor));
+                        }
+                        if !self.corresponde(TipoToken::Virgula) && !self.separador_atual()
+                            && !self.verifica(TipoToken::FechaChave) {
+                            self.erro_atual("N2038", "Esperado ',' ou quebra de linha entre campos.");
+                            self.sincronizar();
+                        }
+                        self.separadores();
+                    }
+                    self.esperar(TipoToken::FechaChave, "Construção de estrutura não foi fechada com '}'.");
+                    Expressao::ConstrucaoEstrutura { nome, campos }
+                } else {
+                    Expressao::Nome(nome)
+                }
+            },
             TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo => Expressao::Literal(self.avancar().lexema),
             TipoToken::AbrePar => {
                 self.avancar();
