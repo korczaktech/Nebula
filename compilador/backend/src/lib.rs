@@ -265,7 +265,7 @@ impl Emissor {
                     return Err(format!("Variável '{nome}' não encontrada no backend."));
                 }
             }
-            ExpressaoIr::Lista(_) | ExpressaoIr::Indexacao { .. } => {
+            ExpressaoIr::Lista(_) | ExpressaoIr::Tupla(_) | ExpressaoIr::Indexacao { .. } => {
                 return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
