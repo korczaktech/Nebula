@@ -4,6 +4,7 @@
 
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::baixar;
+use nebula_ir::otimizador::NivelOtimizacao;
 use nebula_semantica::{ModulosDisponiveis, analisar_semantica};
 use nebula_sintaxe::analisar;
 use std::path::{Path, PathBuf};
@@ -21,16 +22,22 @@ fn main() {
         Some("compilar") => {
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
             let mut saida = PathBuf::from(&caminho).with_extension("out");
+            let mut nivel = NivelOtimizacao::O1;
             while let Some(arg) = argumentos.next() {
                 if arg == "-o" {
                     let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); };
                     saida = PathBuf::from(valor);
+                } else if arg == "--otimizacao" {
+                    let Some(valor) = argumentos.next() else { eprintln!("Erro: --otimizacao exige O0, O1, O2, O3 ou Os."); std::process::exit(2); };
+                    nivel = nivel_otimizacao(&valor).unwrap_or_else(|erro| { eprintln!("{erro}"); std::process::exit(2); });
+                } else if arg.starts_with("-O") {
+                    nivel = nivel_otimizacao(&arg[1..]).unwrap_or_else(|erro| { eprintln!("{erro}"); std::process::exit(2); });
                 } else {
                     eprintln!("Argumento desconhecido: {arg}");
                     std::process::exit(2);
                 }
             }
-            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &saida) {
+            if let Err(erro) = compilar_arquivo_com_nivel(Path::new(&caminho), &saida, nivel) {
                 eprintln!("Erro de compilação: {erro}");
                 std::process::exit(1);
             }
@@ -89,6 +96,15 @@ fn main() {
 
 #[rustfmt::skip]
 fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
+    compilar_arquivo_com_nivel(caminho, saida, NivelOtimizacao::O1)
+}
+
+#[rustfmt::skip]
+fn compilar_arquivo_com_nivel(
+    caminho: &Path,
+    saida: &Path,
+    nivel: NivelOtimizacao,
+) -> Result<(), String> {
     if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         return Err("O backend inicial gera executáveis somente para Linux x86-64.".into());
     }
@@ -109,12 +125,20 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
         return Err(ir.diagnosticos.join("\n"));
     }
     let mut programa = ir.programa.expect("IR validada");
-    nebula_ir::otimizador::otimizar(
-        &mut programa,
-        nebula_ir::otimizador::NivelOtimizacao::O1,
-    )?;
+    nebula_ir::otimizador::otimizar(&mut programa, nivel)?;
     let binario = nebula_backend::gerar_executavel(&programa)?;
     gravar_executavel_atomico(saida, &binario)
+}
+
+fn nivel_otimizacao(valor: &str) -> Result<NivelOtimizacao, String> {
+    match valor.to_ascii_lowercase().as_str() {
+        "o0" | "0" => Ok(NivelOtimizacao::O0),
+        "o1" | "1" => Ok(NivelOtimizacao::O1),
+        "o2" | "2" => Ok(NivelOtimizacao::O2),
+        "o3" | "3" => Ok(NivelOtimizacao::O3),
+        "os" | "s" => Ok(NivelOtimizacao::Os),
+        _ => Err(format!("Nível de otimização inválido: '{valor}'. Use O0, O1, O2, O3 ou Os.")),
+    }
 }
 
 fn validar_caminhos_compilacao(entrada: &Path, saida: &Path) -> Result<(), String> {
@@ -206,7 +230,7 @@ fn ajuda() {
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
-    println!("  compilar <arquivo>    Gera executável ELF nativo Linux x86-64");
+    println!("  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
