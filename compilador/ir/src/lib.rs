@@ -541,6 +541,33 @@ impl Maquina<'_> {
                     }
                     return Err("'contem' exige dois textos.".into());
                 }
+                if nome == "maiusculas" || nome == "minusculas" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        let resultado = if nome == "maiusculas" {
+                            texto_maiusculas(texto)
+                        } else {
+                            texto_minusculas(texto)
+                        };
+                        return Ok(ValorIr::Texto(resultado));
+                    }
+                    return Err(format!("'{nome}' exige um texto."));
+                }
+                if nome == "caractere" {
+                    if let [ValorIr::Texto(texto), ValorIr::Inteiro(indice)] = valores.as_slice() {
+                        let indice = usize::try_from(*indice)
+                            .map_err(|_| "Índice inválido para 'caractere'.")?;
+                        return caractere_texto(texto, indice)
+                            .map(ValorIr::Caractere)
+                            .map_err(|erro| format!("Falha em 'caractere': {erro:?}"));
+                    }
+                    return Err("'caractere' exige texto e índice inteiro.".into());
+                }
+                if nome == "texto" {
+                    if let [valor] = valores.as_slice() {
+                        return Ok(ValorIr::Texto(formatar(valor)));
+                    }
+                    return Err("'texto' exige exatamente um argumento.".into());
+                }
                 if nome == "inteiro" {
                     if let [ValorIr::Texto(texto)] = valores.as_slice() {
                         return texto_para_inteiro(texto)
