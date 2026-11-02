@@ -1513,6 +1513,26 @@ impl Maquina<'_> {
     }
 }
 
+fn valores_iguais(a: &ValorIr, b: &ValorIr) -> bool {
+    match (a, b) {
+        (ValorIr::Lista(a), ValorIr::Lista(b)) => {
+            a.len() == b.len() && a.iter().zip(b).all(|(a, b)| valores_iguais(a, b))
+        }
+        (
+            ValorIr::Estrutura { nome: nome_a, campos: campos_a },
+            ValorIr::Estrutura { nome: nome_b, campos: campos_b },
+        ) => {
+            nome_a == nome_b
+                && campos_a.len() == campos_b.len()
+                && campos_a.iter().all(|(nome, valor_a)| {
+                    campos_b.iter().find(|(outro_nome, _)| outro_nome == nome)
+                        .is_some_and(|(_, valor_b)| valores_iguais(valor_a, valor_b))
+                })
+        }
+        _ => a == b,
+    }
+}
+
 fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
     use OperadorIr::*;
     match (a, op, b) {
@@ -1583,8 +1603,8 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Texto(a), Mais, ValorIr::Texto(b)) => Ok(ValorIr::Texto(a + &b)),
         (ValorIr::Logico(a), E, ValorIr::Logico(b)) => Ok(ValorIr::Logico(a && b)),
         (ValorIr::Logico(a), Ou, ValorIr::Logico(b)) => Ok(ValorIr::Logico(a || b)),
-        (a, Igual, b) => Ok(ValorIr::Logico(a == b)),
-        (a, Diferente, b) => Ok(ValorIr::Logico(a != b)),
+        (a, Igual, b) => Ok(ValorIr::Logico(valores_iguais(&a, &b))),
+        (a, Diferente, b) => Ok(ValorIr::Logico(!valores_iguais(&a, &b))),
         (ValorIr::Inteiro(a), Menor, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a < b)),
         (ValorIr::Inteiro(a), MenorIgual, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a <= b)),
         (ValorIr::Inteiro(a), Maior, ValorIr::Inteiro(b)) => Ok(ValorIr::Logico(a > b)),
