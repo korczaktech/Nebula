@@ -111,6 +111,7 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     gravar_executavel_atomico(saida, &binario)
 }
 
+#[rustfmt::skip]
 fn gravar_executavel_atomico(saida: &Path, binario: &[u8]) -> Result<(), String> {
     use std::io::Write;
     let nome = saida.file_name().ok_or_else(|| {
