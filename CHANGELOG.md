@@ -1,6 +1,6 @@
 # Histórico de alterações
 
-## Não lançado — Reestruturação do backend nativo (Fase 4 em desenvolvimento)
+## Não lançado — Reestruturação do backend nativo (Fase 4 validada)
 
 - Remove a geração de código C++17 e a invocação do compilador `c++`.
 - Substitui o backend anterior por geração direta de instruções x86-64 e ELF64 em Rust.
@@ -14,7 +14,8 @@
 - Amplia testes unitários de codificação x86-64, limites de quadro local e testes nativos de overflow, ABI e controle de fluxo.
 - Adiciona regressões de retorno lógico, constantes booleanas e chamadas em operando direito para reforçar a cobertura de ABI e controle de fluxo.
 - Impede que a CLI sobrescreva o arquivo-fonte e testa a limpeza de temporários quando a publicação falha.
-- Atualiza README, alvos, tipos, critérios de aceite e decisões arquiteturais; a validação final da fase permanece pendente.
+- Atualiza README, alvos, tipos, critérios de aceite e decisões arquiteturais.
+- Valida a Fase 4 no GitHub Actions com Rust 1.85.0: formatação, Clippy, 169 testes e benchmark inicial aprovados no commit `e3a2ad338f96b832bd652876e220114f8bd53858`.
 
 ## Não lançado — Fase 3: semântica, tipos e IR
 
