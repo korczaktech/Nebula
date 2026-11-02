@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## Não lançado — Ferramentas, qualidade e preparação de lançamento
+
+- Adiciona o executável `nebula-formatar`, com validação sintática, normalização conservadora, modo `--check`, gravação temporária e testes automatizados.
+- Adiciona auditoria RustSec periódica com `cargo audit --locked` e atualizações semanais de dependências Cargo e GitHub Actions via Dependabot.
+- Agenda fuzz smoke determinístico do Lexer e Parser.
+- Documenta segurança, estabilidade, compatibilidade, processo de lançamento e situação ainda pendente da licença.
+- Adiciona workflow de preparação de release Linux x86-64 com validação, binários e checksums; a publicação é bloqueada enquanto não existir um arquivo LICENSE aprovado.
+- Cache incremental, integração do formatador como subcomando `nebula formatar`, campanhas contínuas de fuzzing, assinatura dos artefatos e instaladores multiplataforma continuam pendentes.
+
 ## Não lançado — Reestruturação do backend nativo (Fase 4 validada)
 
 - Remove a geração de código C++17 e a invocação do compilador `c++`.
