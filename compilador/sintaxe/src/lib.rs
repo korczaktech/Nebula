@@ -712,7 +712,7 @@ impl Parser {
     }
     #[test]
     fn permite_linhas_em_branco_antes_de_operador_de_continuacao() {
-        let r = analisar(&fonte("variavel soma = 1\\n\\n + 2"));
+        let r = analisar(&fonte("variavel soma = 1\n\n + 2"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
