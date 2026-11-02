@@ -723,7 +723,7 @@ mod testes {
             "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\npublico funcao dobro(valor: inteiro): inteiro { devolver somar(valor, valor) }",
         )
         .unwrap();
-        std::fs::write(&origem, "incluir Matematica\nexibir(Matematica::dobro(21))").unwrap();
+        std::fs::write(&origem, "incluir Matematica como Mat\nexibir(Mat::dobro(21))").unwrap();
 
         let saida = interpretar_arquivo(&origem).expect("módulo local válido");
         assert_eq!(saida, vec!["42"]);
