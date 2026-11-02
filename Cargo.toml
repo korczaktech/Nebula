@@ -10,6 +10,7 @@ members = [
     "compilador/cli",
     "compilador/runtime",
     "biblioteca",
+    "compilador/pacotes",
 ]
 
 [workspace.package]
