@@ -427,7 +427,7 @@ impl Parser {
         Some(NoAst::Tipo { nome, destino: self.caminho_tipo()? })
     }
     fn incluir(&mut self) -> Option<NoAst> {
-        self.avancar(); let caminho = self.caminho_tipo()?;
+        self.avancar(); let caminho = self.caminho_modulo()?;
         let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
         Some(NoAst::Incluir { caminho, apelido })
     }
@@ -492,7 +492,13 @@ impl Parser {
             self.esperar(TipoToken::FechaColchete, "Esperado ']' após tipo de lista.");
             return Some(format!("[{interno}]"));
         }
-        let mut nome = self.consumir_nome("Esperado nome de tipo ou módulo.")?;
+        self.caminho_qualificado("Esperado nome de tipo.")
+    }
+    fn caminho_modulo(&mut self) -> Option<String> {
+        self.caminho_qualificado("Esperado nome de módulo.")
+    }
+    fn caminho_qualificado(&mut self, mensagem: &str) -> Option<String> {
+        let mut nome = self.consumir_nome(mensagem)?;
         loop {
             if self.verifica(TipoToken::NovaLinha) {
                 let proximo = self.tokens.iter().skip(self.atual)
@@ -780,6 +786,16 @@ impl Parser {
         let r = analisar(&fonte("variavel =\nvariavel correto = 2"));
         assert!(!r.diagnosticos.is_empty());
         assert!(!r.programa.itens.is_empty());
+    }
+    #[test]
+    fn incluir_aceita_caminho_qualificado() {
+        let r = analisar(&fonte("incluir Biblioteca::Texto"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn incluir_rejeita_tipo_de_lista_como_caminho_de_modulo() {
+        let r = analisar(&fonte("incluir [inteiro]"));
+        assert!(!r.diagnosticos.is_empty());
     }
     #[test]
     fn analisa_laco_para_e_inclusao_de_modulo() {
