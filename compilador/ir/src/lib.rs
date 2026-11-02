@@ -133,6 +133,10 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             NoAst::Enumeracao { nome, .. } => Some((nome.clone(), Tipo::Enumeracao(nome.clone()))),
             _ => None,
         }).collect(),
+        campos_estruturas: programa.itens.iter().filter_map(|item| match item {
+            NoAst::Estrutura { nome, campos } => Some((nome.clone(), campos.iter().cloned().collect())),
+            _ => None,
+        }).collect(),
         assinaturas_funcoes,
         modulos_importados: modulos_importados.clone(),
         genericas,
@@ -203,6 +207,7 @@ struct Lowerer {
     diagnosticos: Vec<String>,
     aliases: HashMap<String, String>,
     tipos_agregados: HashMap<String, Tipo>,
+    campos_estruturas: HashMap<String, HashMap<String, String>>,
     assinaturas_funcoes: HashMap<String, (Vec<String>, Option<String>)>,
     modulos_importados: HashMap<String, String>,
     genericas: HashMap<String, FuncaoGenericaAst>,
@@ -380,6 +385,12 @@ impl Lowerer {
                 Tipo::Tupla(tipos)
             }
             Expressao::ConstrucaoEstrutura { nome, .. } => self.tipo(nome),
+            Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => {
+                let Tipo::Estrutura(nome_estrutura) = self.inferir_tipo_ast(alvo) else { return Tipo::Desconhecido; };
+                self.campos_estruturas.get(&nome_estrutura)
+                    .and_then(|campos| campos.get(nome))
+                    .map_or(Tipo::Desconhecido, |tipo| self.tipo(tipo))
+            }
             Expressao::Membro { .. } => Tipo::Desconhecido,
             Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
             Expressao::Binaria { esquerda, operador, .. } => {
