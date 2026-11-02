@@ -19,3 +19,7 @@ nebula-pacotes = { path = "../pacotes" }
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "nebula-formatar"
+path = "src/bin/formatar.rs"
