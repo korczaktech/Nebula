@@ -757,6 +757,18 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_basica_de_texto_numeros_e_listas() {
+        let ir = compilar(
+            "variavel itens = [1, 2]\nadicionar(itens, 3)\nexibir(comprimento(itens))\nexibir(remover(itens, 0))\nexibir(subtexto(\"ação\", 0, 2))\nexibir(contem(\"Nebula\", \"bul\"))\nexibir(inteiro(\"42\") + 1)\nexibir(decimal(\"1.5\") + 0.5)",
+        );
+        let resultado = executar(&ir, 1000).expect("runtime válido");
+        assert_eq!(
+            resultado.saida,
+            vec!["3", "1", "aç", "verdadeiro", "43", "2"]
+        );
+    }
+
+    #[test]
     fn executa_expressao_e_chamada_exibir() {
         let ir = compilar("variavel total = 1 + 2\nexibir(total)");
         let r = executar(&ir, 100).expect("execução válida");
