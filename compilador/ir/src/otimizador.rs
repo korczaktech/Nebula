@@ -419,6 +419,55 @@ mod testes {
     }
 
     #[test]
+    fn o2_preserva_escopo_do_ramo_escolhido() {
+        let mut ir = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Se {
+                    condicao: ExpressaoIr::Constante(ValorIr::Logico(true)),
+                    entao: vec![InstrucaoIr::Declarar {
+                        nome: "interno".into(),
+                        tipo: nebula_semantica::Tipo::Inteiro,
+                        valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                        constante: false,
+                    }],
+                    senao: vec![],
+                },
+                InstrucaoIr::Expressao(ExpressaoIr::Variavel("interno".into())),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+        };
+        let original = crate::executar(&ir, 100).unwrap_err();
+        otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        let otimizado = crate::executar(&ir, 100).unwrap_err();
+        assert_eq!(original, otimizado);
+    }
+
+    #[test]
+    fn o2_preserva_inicializador_de_para_com_condicao_falsa() {
+        let mut ir = ProgramaIr {
+            instrucoes: vec![InstrucaoIr::Para {
+                inicial: Some(Box::new(InstrucaoIr::Expressao(
+                    ExpressaoIr::Chamada {
+                        nome: "exibir".into(),
+                        argumentos: vec![ExpressaoIr::Constante(ValorIr::Inteiro(7))],
+                    },
+                ))),
+                condicao: Some(ExpressaoIr::Constante(ValorIr::Logico(false))),
+                atualizacao: None,
+                corpo: vec![],
+            }],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+        };
+        let original = crate::executar(&ir, 100).expect("IR original");
+        otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        let otimizado = crate::executar(&ir, 100).expect("IR otimizada");
+        assert_eq!(original.saida, vec!["7"]);
+        assert_eq!(otimizado.saida, original.saida);
+    }
+
+    #[test]
     fn os_remove_blocos_vazios() {
         let mut ir = programa(ExpressaoIr::Constante(ValorIr::Inteiro(1)));
         ir.instrucoes[0] = InstrucaoIr::Bloco(vec![]);
