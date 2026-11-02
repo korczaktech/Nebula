@@ -137,8 +137,78 @@ pub enum ValorTipado {
     Falha(Box<ValorTipado>),
 }
 
+/// Valida recursivamente a declaração de um tipo antes de usá-lo no runtime.
+///
+/// Além das larguras numéricas, verifica nomes e unicidade dos campos e
+/// variantes. A validação não depende de o tipo já possuir algum valor.
+pub fn validar_tipo(tipo: &TipoRuntime) -> Result<(), String> {
+    match tipo {
+        TipoRuntime::Inteiro { bits, .. } if !matches!(bits, 8 | 16 | 32 | 64 | 128) => {
+            Err(format!("Largura inteira inválida: {bits}."))
+        }
+        TipoRuntime::Decimal { bits } if !matches!(bits, 32 | 64) => {
+            Err(format!("Largura decimal inválida: {bits}."))
+        }
+        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => {
+            validar_tipo(elemento)
+        }
+        TipoRuntime::Tupla(tipos) => {
+            for tipo in tipos {
+                validar_tipo(tipo)?;
+            }
+            Ok(())
+        }
+        TipoRuntime::Estrutura { nome, campos } => {
+            if nome.trim().is_empty() {
+                return Err("Estrutura precisa ter um nome não vazio.".into());
+            }
+            let mut nomes = HashSet::new();
+            for (campo, tipo) in campos {
+                if campo.trim().is_empty() {
+                    return Err(format!("A estrutura '{nome}' possui campo sem nome."));
+                }
+                if !nomes.insert(campo) {
+                    return Err(format!("A estrutura '{nome}' possui campos duplicados: {campo}."));
+                }
+                validar_tipo(tipo)?;
+            }
+            Ok(())
+        }
+        TipoRuntime::Enumeracao { nome, variantes } => {
+            if nome.trim().is_empty() {
+                return Err("Enumeração precisa ter um nome não vazio.".into());
+            }
+            if variantes.is_empty() {
+                return Err(format!("Enumeração '{nome}' precisa ter variantes."));
+            }
+            let mut nomes = HashSet::new();
+            for variante in variantes {
+                if variante.nome.trim().is_empty() {
+                    return Err(format!("Enumeração '{nome}' possui variante sem nome."));
+                }
+                if !nomes.insert(&variante.nome) {
+                    return Err(format!(
+                        "Variante duplicada em '{nome}': {}.",
+                        variante.nome
+                    ));
+                }
+                for tipo in &variante.payload {
+                    validar_tipo(tipo)?;
+                }
+            }
+            Ok(())
+        }
+        TipoRuntime::Resultado(sucesso, falha) => {
+            validar_tipo(sucesso)?;
+            validar_tipo(falha)
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Calcula o layout de um tipo, rejeitando ciclos por valor e larguras inválidas.
 pub fn calcular_layout(tipo: &TipoRuntime) -> Result<LayoutRuntime, String> {
+    validar_tipo(tipo)?;
     calcular_layout_interno(tipo, &mut HashSet::new())
 }
 
@@ -334,6 +404,7 @@ fn calcular_layout_interno(
 
 /// Verifica se um valor satisfaz integralmente seu tipo estático.
 pub fn validar_valor(tipo: &TipoRuntime, valor: &ValorTipado) -> Result<(), String> {
+    validar_tipo(tipo)?;
     match (tipo, valor) {
         (TipoRuntime::Vazio, ValorTipado::Vazio)
         | (TipoRuntime::Logico, ValorTipado::Logico(_))
@@ -468,6 +539,74 @@ fn validar_inteiro_sem_sinal(bits: u16, valor: u128) -> Result<(), String> {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn valida_declaracoes_de_tipos_recursivamente() {
+        let tipo = TipoRuntime::Resultado(
+            Box::new(TipoRuntime::Opcional(Box::new(TipoRuntime::Inteiro {
+                bits: 64,
+                assinado: true,
+            }))),
+            Box::new(TipoRuntime::Lista(Box::new(TipoRuntime::Texto))),
+        );
+        assert!(validar_tipo(&tipo).is_ok());
+    }
+
+    #[test]
+    fn rejeita_larguras_invalidas_em_tipos_aninhados() {
+        let tipo = TipoRuntime::Lista(Box::new(TipoRuntime::Decimal { bits: 16 }));
+        assert!(validar_tipo(&tipo).unwrap_err().contains("Largura decimal inválida"));
+        assert!(calcular_layout(&tipo).is_err());
+    }
+
+    #[test]
+    fn rejeita_campos_e_variantes_sem_nome_ou_duplicados() {
+        let campos_duplicados = TipoRuntime::Estrutura {
+            nome: "Pessoa".into(),
+            campos: vec![
+                ("nome".into(), TipoRuntime::Texto),
+                ("nome".into(), TipoRuntime::Texto),
+            ],
+        };
+        assert!(validar_tipo(&campos_duplicados).is_err());
+
+        let campo_sem_nome = TipoRuntime::Estrutura {
+            nome: "Pessoa".into(),
+            campos: vec![(" ".into(), TipoRuntime::Texto)],
+        };
+        assert!(validar_tipo(&campo_sem_nome).is_err());
+
+        let variantes_duplicadas = TipoRuntime::Enumeracao {
+            nome: "Estado".into(),
+            variantes: vec![
+                VarianteRuntime { nome: "Ativo".into(), payload: vec![] },
+                VarianteRuntime { nome: "Ativo".into(), payload: vec![] },
+            ],
+        };
+        assert!(validar_tipo(&variantes_duplicadas).is_err());
+    }
+
+    #[test]
+    fn rejeita_enumeracao_vazia_e_nome_nominal_vazio() {
+        assert!(validar_tipo(&TipoRuntime::Enumeracao {
+            nome: "Estado".into(),
+            variantes: vec![],
+        }).is_err());
+        assert!(validar_tipo(&TipoRuntime::Estrutura {
+            nome: " ".into(),
+            campos: vec![],
+        }).is_err());
+    }
+
+    #[test]
+    fn rejeita_valor_quando_o_tipo_aninhado_e_invalido() {
+        let tipo = TipoRuntime::Opcional(Box::new(TipoRuntime::Inteiro {
+            bits: 7,
+            assinado: false,
+        }));
+        let valor = ValorTipado::Opcional(None);
+        assert!(validar_valor(&tipo, &valor).is_err());
+    }
 
     #[test]
     fn valida_limites_de_inteiros_assinados_e_sem_sinal() {
