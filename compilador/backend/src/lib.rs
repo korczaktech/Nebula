@@ -177,6 +177,7 @@ impl Emissor {
                 }
             }
             InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
+            InstrucaoIr::Bloco(instrucoes) => self.bloco(instrucoes)?,
             InstrucaoIr::Devolver(valor) => {
                 if let Some(valor) = valor { self.expressao(valor)?; }
                 else { self.codigo.extend_from_slice(&[0x31, 0xC0]); }
