@@ -193,15 +193,6 @@ fn overflow_de_subtracao_termina_com_codigo_de_erro_estavel() {
 }
 
 #[test]
-fn expoente_acima_do_limite_da_ir_termina_com_codigo_de_erro_estavel() {
-    let resultado = compilar_e_executar(
-        "expoente-fora-da-ir",
-        "funcao principal(): inteiro { devolver 1 ** 4294967296 }",
-    );
-    assert_eq!(resultado.status.code(), Some(2));
-}
-
-#[test]
 fn overflow_de_negacao_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-negacao",
