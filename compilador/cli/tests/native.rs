@@ -183,6 +183,15 @@ fn compila_laco_para_e_controle() {
 }
 
 #[test]
+fn variavel_local_sombreia_global_sem_altera_la() {
+    let resultado = compilar_e_executar(
+        "global-sombreada",
+        "variavel valor: inteiro = 10\nfuncao principal(): inteiro { variavel valor: inteiro = 42; devolver valor }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn inicializadores_globais_respeitam_ordem_de_declaracao() {
     let resultado = compilar_e_executar(
         "globais-ordem",
