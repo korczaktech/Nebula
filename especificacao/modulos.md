@@ -18,7 +18,7 @@ incluir Rede como Comunicacao
 
 ## Limites da Fase 3
 
-Não há carregador de módulos do sistema de arquivos, resolvedor de pacotes, versionamento, cache de módulos ou biblioteca padrão executável. A API recebe as assinaturas dos módulos já disponibilizados pelo chamador. Chamadas qualificadas são representadas na IR; o interpretador de referência ainda não carrega a implementação externa.
+Não há carregador de módulos do sistema de arquivos, resolvedor de pacotes, versionamento, cache de módulos ou biblioteca padrão executável. A API recebe as assinaturas dos módulos já disponibilizados pelo chamador. Chamadas qualificadas são representadas na IR com o caminho real do módulo resolvido a partir do alias de importação; o interpretador de referência ainda não carrega a implementação externa.
 
 ## Biblioteca padrão modular planejada
 
