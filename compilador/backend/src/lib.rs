@@ -42,7 +42,7 @@ fn tc(t:&Tipo)->Result<&'static str,String>{match t{
  Tipo::Byte=>Ok("uint8_t"),Tipo::Decimal|Tipo::Decimal64=>Ok("double"),Tipo::Decimal32=>Ok("float"),
  Tipo::Texto=>Ok("const char *"),Tipo::Caractere=>Ok("char"),
  _=>Err(format!("Tipo não suportado no backend nativo: {t:?}"))}}
-fn nc(n:&str)->String{let mut s="nb_".to_owned();for c in n.chars(){if c.is_ascii_alphanumeric()||c=='_'{s.push(c)}else{let _=write!(s,"_u{:x}_",c as u32);}}s}
+fn nc(n:&str)->String{let mut s="nb_".to_owned();for c in n.chars(){if c.is_ascii_alphanumeric(){s.push(c)}else{let _=write!(s,"_u{:x}_",c as u32);}}s}
 fn pc(p:&[(String,Tipo)])->Result<String,String>{if p.is_empty(){return Ok("void".into())}p.iter().map(|(n,t)|Ok(format!("{} {}",tc(t)?,nc(n)))).collect::<Result<Vec<_>,_>>().map(|v|v.join(", "))}
 struct Gerador{s:String,nivel:usize}
 impl Gerador{
