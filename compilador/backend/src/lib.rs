@@ -224,6 +224,7 @@ impl Gerador {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn tipo_valor(&self, valor: &ValorIr) -> Option<Tipo> {
         match valor {
             ValorIr::Inteiro(_) => Some(Tipo::Inteiro),
