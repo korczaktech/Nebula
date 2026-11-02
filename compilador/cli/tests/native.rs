@@ -377,7 +377,7 @@ fn compila_instrucoes_globais_sem_funcao_principal() {
 fn chamada_no_operando_direito_preserva_resultado_e_alinhamento() {
     let resultado = compilar_e_executar(
         "chamada-operando-direito",
-        "funcao identidade(valor: inteiro): inteiro { devolver valor }\\nfuncao principal(): inteiro { devolver 40 + identidade(2) }",
+        "funcao identidade(valor: inteiro): inteiro { devolver valor }\nfuncao principal(): inteiro { devolver 40 + identidade(2) }",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
