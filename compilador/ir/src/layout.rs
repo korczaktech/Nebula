@@ -179,6 +179,70 @@ fn converter_tipo_interno(
     })
 }
 
+fn dividir_tipo_funcao(nome: &str) -> Option<(Vec<&str>, &str)> {
+    let conteudo = nome.strip_prefix("funcao(")?;
+    let mut parenteses = 1usize;
+    let mut angulos = 0usize;
+    let mut colchetes = 0usize;
+    let mut fechamento = None;
+    for (indice, caractere) in conteudo.char_indices() {
+        match caractere {
+            '(' => parenteses += 1,
+            ')' => {
+                parenteses = parenteses.checked_sub(1)?;
+                if parenteses == 0 {
+                    fechamento = Some(indice);
+                    break;
+                }
+            }
+            '<' => angulos += 1,
+            '>' => angulos = angulos.checked_sub(1)?,
+            '[' => colchetes += 1,
+            ']' => colchetes = colchetes.checked_sub(1)?,
+            _ => {}
+        }
+    }
+    let fechamento = fechamento?;
+    let retorno = conteudo[fechamento + 1..].strip_prefix(':')?.trim();
+    if retorno.is_empty() {
+        return None;
+    }
+    let bruto = &conteudo[..fechamento];
+    if bruto.trim().is_empty() {
+        return Some((Vec::new(), retorno));
+    }
+    let mut parametros = Vec::new();
+    let mut inicio = 0usize;
+    let mut parenteses = 0usize;
+    let mut angulos = 0usize;
+    let mut colchetes = 0usize;
+    for (indice, caractere) in bruto.char_indices() {
+        match caractere {
+            '(' => parenteses += 1,
+            ')' => parenteses = parenteses.checked_sub(1)?,
+            '<' => angulos += 1,
+            '>' => angulos = angulos.checked_sub(1)?,
+            '[' => colchetes += 1,
+            ']' => colchetes = colchetes.checked_sub(1)?,
+            ',' if parenteses == 0 && angulos == 0 && colchetes == 0 => {
+                let parametro = bruto[inicio..indice].trim();
+                if parametro.is_empty() {
+                    return None;
+                }
+                parametros.push(parametro);
+                inicio = indice + 1;
+            }
+            _ => {}
+        }
+    }
+    let ultimo = bruto[inicio..].trim();
+    if ultimo.is_empty() {
+        return None;
+    }
+    parametros.push(ultimo);
+    Some((parametros, retorno))
+}
+
 fn resolver_tipo_declarado(
     programa: &Programa,
     nome: &str,
@@ -203,6 +267,15 @@ fn resolver_tipo_declarado(
         "texto" => Tipo::Texto,
         "caractere" => Tipo::Caractere,
         "byte" => Tipo::Byte,
+        _ if dividir_tipo_funcao(nome).is_some() => {
+            let (parametros, retorno) = dividir_tipo_funcao(nome)
+                .expect("tipo de função reconhecido");
+            let parametros = parametros.iter()
+                .map(|tipo| resolver_tipo_declarado(programa, tipo, ativos))
+                .collect::<Result<Vec<_>, _>>()?;
+            let retorno = resolver_tipo_declarado(programa, retorno, ativos)?;
+            return Ok(TipoRuntime::Funcao(parametros, Box::new(retorno)));
+        }
         _ if nome.starts_with('[') && nome.ends_with(']') => {
             let interno = resolver_tipo_declarado(programa, &nome[1..nome.len() - 1], ativos)?;
             return Ok(TipoRuntime::Lista(Box::new(interno)));
