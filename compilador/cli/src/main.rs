@@ -52,6 +52,20 @@ fn main() {
             let _ = std::fs::remove_file(&temporario);
             match status { Ok(s) if s.success() => {}, Ok(s) => std::process::exit(s.code().unwrap_or(1)), Err(e) => { eprintln!("Não foi possível executar o programa: {e}"); std::process::exit(1); } }
         }
+        Some("interpretar") => {
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula interpretar <arquivo.nbx>");
+                std::process::exit(2);
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: interpretar aceita somente um arquivo.");
+                std::process::exit(2);
+            }
+            match interpretar_arquivo(Path::new(&caminho)) {
+                Ok(linhas) => for linha in linhas { println!("{linha}"); },
+                Err(erro) => { eprintln!("Erro de execução: {erro}"); std::process::exit(1); }
+            }
+        }
         Some("ir") => {
             let Some(caminho) = argumentos.next() else {
                 eprintln!("Uso: nebula ir <arquivo.nbx>");
@@ -92,6 +106,27 @@ fn main() {
             std::process::exit(2);
         }
     }
+}
+
+fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
+    let bytes = std::fs::read(caminho)
+        .map_err(|erro| format!("não foi possível ler '{}': {erro}", caminho.display()))?;
+    let conteudo = String::from_utf8(bytes)
+        .map_err(|erro| format!("arquivo não contém UTF-8 válido no byte {}", erro.utf8_error().valid_up_to()))?;
+    let fonte = ArquivoFonte::novo(caminho, conteudo);
+    let sintaxe = analisar(&fonte);
+    if !sintaxe.diagnosticos.is_empty() {
+        return Err(sintaxe.diagnosticos.iter()
+            .map(|d| format!("{} — {}", d.codigo, d.mensagem))
+            .collect::<Vec<_>>().join("\n"));
+    }
+    let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    if !resultado.diagnosticos.is_empty() {
+        return Err(resultado.diagnosticos.join("\n"));
+    }
+    let programa = resultado.programa.expect("IR validada");
+    let execucao = nebula_ir::executar(&programa, 1_000_000)?;
+    Ok(execucao.saida)
 }
 
 #[rustfmt::skip]
@@ -235,11 +270,13 @@ fn ajuda() {
     println!(
         "  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)"
     );
+    println!("  interpretar <arquivo> Executa a IR pelo runtime Rust de referência");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
     println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");
+    println!("'interpretar' usa o runtime de referência; 'executar' usa o backend nativo.");
     println!("O alvo inicial ainda não inclui runtime, entrada/saída, strings ou coleções.");
 }
 
@@ -373,6 +410,15 @@ fn verificar(caminho: &Path) {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn interpreta_programa_com_texto_pelo_runtime() {
+        let caminho = std::env::temp_dir().join(format!("nebula-runtime-{}.nbx", std::process::id()));
+        std::fs::write(&caminho, "variavel nome = \"Nebula\"\nexibir(\"Olá, \" + nome)").unwrap();
+        let saida = interpretar_arquivo(&caminho).expect("interpretação válida");
+        assert_eq!(saida, vec!["Olá, Nebula"]);
+        let _ = std::fs::remove_file(caminho);
+    }
 
     #[test]
     fn reconhece_todos_os_niveis_de_otimizacao() {
