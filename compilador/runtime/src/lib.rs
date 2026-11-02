@@ -379,7 +379,9 @@ impl Memoria {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
         let Valor::Lista(lista) = &celula.valor else {
-            return Err(ErroRuntime::TipoIncompativel("a variável não contém uma lista"));
+            return Err(ErroRuntime::TipoIncompativel(
+                "a variável não contém uma lista",
+            ));
         };
         let mut itens = lista.write().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
         let tamanho = itens.len();
