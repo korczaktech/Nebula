@@ -12,7 +12,7 @@
 - Define aritmética signed de 64 bits com overflow checked e código de erro estável; trata corretamente o literal inteiro mínimo.
 - Valida alcance de saltos, chamadas e relocações RIP-relative, rejeitando deslocamentos inválidos.
 - Amplia testes unitários de codificação x86-64, limites de quadro local e testes nativos de overflow, ABI e controle de fluxo.
-- Corrige a conversão de constantes lógicas para registradores de 64 bits e adiciona regressão de retorno lógico, booleanos e chamada em operando direito.
+- Adiciona regressões de retorno lógico, constantes booleanas e chamadas em operando direito para reforçar a cobertura de ABI e controle de fluxo.
 - Impede que a CLI sobrescreva o arquivo-fonte e testa a limpeza de temporários quando a publicação falha.
 - Atualiza README, alvos, tipos, critérios de aceite e decisões arquiteturais; a validação final da fase permanece pendente.
 
