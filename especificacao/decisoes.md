@@ -32,7 +32,7 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Funções | Assinaturas pré-declaradas | Chamadas a funções declaradas adiante são resolvidas |
 | Aliases | Aliases de tipo no escopo do arquivo, resolvidos antes dos corpos | Ciclos e tipos desconhecidos são erros |
 | Módulos | Ambiente explícito de módulos e exports | Sem pesquisa arbitrária no disco ou resolvedor de pacotes nesta fase |
-| Tipos numéricos | Larguras inteiras explícitas são tipos distintos; literais podem ser contextualizados quando cabem no destino | Variáveis e expressões não literais não recebem conversão implícita geral |
+| Tipos numéricos | Larguras inteiras explícitas são tipos distintos; literais inteiros e decimais só são contextualizados dentro da mesma família numérica quando cabem no destino | Variáveis e expressões não literais não recebem conversão implícita geral |
 | Constantes | Imutáveis após inicialização | Reatribuição é erro semântico |
 | Valores | Semântica por valor no interpretador de referência | Não há referências compartilhadas expostas pela linguagem nesta fase |
 | IR | Operadores e instruções normalizados | Backends futuros não precisam interpretar a gramática |
