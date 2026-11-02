@@ -31,15 +31,15 @@ Identificador:
 
 ### Palavras reservadas da gramática inicial
 
-variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, seguir, e, ou, nao, publico, privado, tipo.
+variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, seguir, e, ou, nao, publico, privado, tipo, estrutura, enumeracao.
 
 Os nomes de tipos como inteiro, logico, texto, caractere, byte e vazio são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
 
 ### Palavras reservadas para estudo futuro
 
-cada, tentar, capturar, finalmente, assinc, aguardar, estrutura, enumeracao.
+cada, tentar, capturar, finalmente, assinc, aguardar.
 
-Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **não são construções válidas na gramática inicial**. O Lexer as classifica como tokens de palavra reservada futura e o Parser as rejeita com o diagnóstico N2011. Não se deve sugerir que seus recursos já existem.
+As palavras `estrutura` e `enumeracao` são reconhecidas como tokens próprios e iniciam declarações no Parser. Os demais termos continuam reservados para evitar incompatibilidades futuras, mas **não são construções válidas na gramática atual**. O Lexer os classifica como tokens de palavra reservada futura e o Parser os rejeita com o diagnóstico N2011.
 
 ## 4. Números
 
