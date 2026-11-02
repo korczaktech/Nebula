@@ -10,7 +10,7 @@ use std::fmt::Write;
 pub fn gerar_c(p: &ProgramaIr) -> Result<String, String> {
     if !p.modulos.is_empty() { return Err("O backend ainda não liga módulos externos.".into()); }
     let mut g = Gerador { s: String::new(), nivel: 0 };
-    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l("#define nb_exibir(v) _Generic((v), char*: printf(\\"%s\\\\n\\", (v)), const char*: printf(\\"%s\\\\n\\", (v)), float: printf(\\"%g\\\\n\\", (double)(v)), double: printf(\\"%g\\\\n\\", (double)(v)), char: printf(\\"%c\\\\n\\", (int)(v)), default: printf(\\"%lld\\\\n\\", (long long)(v)))"); g.l("");
+    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l(r#"#define nb_exibir(v) _Generic((v), char*: printf("%s\\n", (v)), const char*: printf("%s\\n", (v)), float: printf("%g\\n", (double)(v)), double: printf("%g\\n", (double)(v)), char: printf("%c\\n", (int)(v)), default: printf("%lld\\n", (long long)(v)))"#) g.l("");
     let mut nomes: Vec<_> = p.funcoes.keys().collect(); nomes.sort();
     for n in &nomes { let f=&p.funcoes[*n]; g.l(&format!("{} {}({});", tc(&f.retorno)?, nc(n), pc(&f.parametros)?)); }
     if !nomes.is_empty() { g.l(""); }
