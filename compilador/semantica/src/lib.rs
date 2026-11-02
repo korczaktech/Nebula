@@ -650,6 +650,31 @@ mod testes {
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3019"));
     }
 
+
+    #[test]
+    fn permite_sombreamento_em_escopo_interno() {
+        let r = analisar_codigo("variavel valor = 1\nquando verdadeiro { variavel valor = 2\nexibir(valor) }");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn impede_acesso_a_variavel_apos_fim_do_escopo() {
+        let r = analisar_codigo("quando verdadeiro { variavel interna = 1 }\nexibir(interna)");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3007"));
+    }
+
+    #[test]
+    fn rejeita_alias_de_modulo_duplicado() {
+        let mut modulos = ModulosDisponiveis::new();
+        modulos.insert("A".into(), HashMap::new());
+        modulos.insert("B".into(), HashMap::new());
+        let fonte = ArquivoFonte::novo("teste.nbx", "incluir A como M\nincluir B como M");
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let r = analisar_com_modulos(&sintaxe.programa, &modulos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3022"));
+    }
+
 }
 }
 
