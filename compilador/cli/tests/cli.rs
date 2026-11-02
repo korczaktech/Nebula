@@ -65,3 +65,13 @@ fn verificar_sem_caminho_retorna_codigo_dois() {
     let saida = executar(&["verificar"]);
     assert_eq!(saida.status.code(), Some(2));
 }
+
+#[test]
+fn verificar_rejeita_arquivo_sem_utf8_valido() {
+    let caminho = std::env::temp_dir().join(format!("nebula-bytes-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, vec![255_u8, 254_u8]).expect("grava bytes de teste");
+    let saida = executar(&["verificar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert_eq!(saida.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&saida.stderr).contains("UTF-8 válido"));
+}
