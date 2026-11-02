@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Obter código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Instalar Rust 1.85.0
         uses: dtolnay/rust-toolchain@1.85.0
