@@ -605,6 +605,21 @@ mod testes {
         assert_eq!(r.globais.get("saudacao"), Some(&ValorIr::Texto("Ola Nebula".into())));
     }
 
+
+    #[test]
+    fn executa_laco_para() {
+        let ir = compilar("variavel soma = 0\npara (variavel i = 0; i < 3; i = i + 1) { soma = soma + i }\nexibir(soma)");
+        let r = executar(&ir, 200).expect("execução válida");
+        assert_eq!(r.saida, vec!["3"]);
+    }
+
+    #[test]
+    fn executa_parar_e_seguir_em_lacos() {
+        let ir = compilar("variavel x = 0\nenquanto x < 5 { x = x + 1\nquando x == 2 { seguir }\nquando x == 4 { parar }\nexibir(x) }");
+        let r = executar(&ir, 200).expect("execução válida");
+        assert_eq!(r.saida, vec!["1", "3"]);
+    }
+
 }
 }
 
