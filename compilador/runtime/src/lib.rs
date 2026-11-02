@@ -7,7 +7,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
@@ -188,6 +188,8 @@ pub enum ErroRuntime {
     RelogioIndisponivel,
     /// O argumento está fora do domínio matemático da função.
     DominioMatematico,
+    /// A tarefa observou um pedido cooperativo de cancelamento.
+    TarefaCancelada,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -230,6 +232,40 @@ impl AtomoI64 {
     }
 }
 
+/// Sinal compartilhado de cancelamento cooperativo.
+#[derive(Clone, Debug, Default)]
+pub struct TokenCancelamento {
+    cancelado: Arc<AtomicBool>,
+}
+
+impl TokenCancelamento {
+    /// Cria um token ainda não cancelado.
+    #[must_use]
+    pub fn novo() -> Self {
+        Self::default()
+    }
+
+    /// Solicita cancelamento aos participantes que compartilham o token.
+    pub fn cancelar(&self) {
+        self.cancelado.store(true, Ordering::Release);
+    }
+
+    /// Informa se o cancelamento foi solicitado.
+    #[must_use]
+    pub fn cancelado(&self) -> bool {
+        self.cancelado.load(Ordering::Acquire)
+    }
+
+    /// Retorna erro se o cancelamento já tiver sido solicitado.
+    pub fn verificar(&self) -> Resultado<()> {
+        if self.cancelado() {
+            Err(ErroRuntime::TarefaCancelada)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 /// Tarefa executada em uma thread do sistema.
 pub struct Tarefa<T> {
     identificador: Option<JoinHandle<T>>,
@@ -247,6 +283,27 @@ impl<T: Send + 'static> Tarefa<T> {
         Ok(Self {
             identificador: Some(identificador),
         })
+    }
+
+    /// Inicia uma tarefa com cancelamento cooperativo.
+    ///
+    /// A tarefa deve consultar periodicamente o token recebido; o runtime
+    /// não interrompe threads à força.
+    pub fn iniciar_cancelavel<F>(funcao: F) -> Resultado<(Self, TokenCancelamento)>
+    where
+        F: FnOnce(TokenCancelamento) -> T + Send + 'static,
+    {
+        let token = TokenCancelamento::novo();
+        let token_tarefa = token.clone();
+        let identificador = std::thread::Builder::new()
+            .spawn(move || funcao(token_tarefa))
+            .map_err(|_| ErroRuntime::FalhaTarefa)?;
+        Ok((
+            Self {
+                identificador: Some(identificador),
+            },
+            token,
+        ))
     }
 
     /// Aguarda a tarefa e retorna seu resultado.
@@ -824,6 +881,20 @@ mod testes {
         });
         tarefa.join().unwrap();
         assert_eq!(memoria.elemento_lista("itens", 0), Ok(Valor::Inteiro(9)));
+    }
+
+    #[test]
+    fn cancelamento_cooperativo_e_compartilhado() {
+        let (tarefa, token) = Tarefa::iniciar_cancelavel(|token| {
+            while !token.cancelado() {
+                std::thread::yield_now();
+            }
+            token.verificar()
+        })
+        .unwrap();
+        token.cancelar();
+        assert!(token.cancelado());
+        assert_eq!(tarefa.aguardar(), Ok(Err(ErroRuntime::TarefaCancelada)));
     }
 
     #[test]
