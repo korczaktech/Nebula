@@ -16,7 +16,7 @@ use unicode_normalization::UnicodeNormalization;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
-    Variavel, Constante, Funcao, Quando, Senao, Para, Enquanto, Devolver,
+    Variavel, Constante, Funcao, Quando, Senao, Escolha, Caso, Para, Enquanto, Devolver,
     Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Seguir,
     E, Ou, Nao, Publico, Privado, Tipo, Estrutura, Enumeracao, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
@@ -178,7 +178,7 @@ impl<'a> Lexer<'a> {
         let palavra = palavra_original.nfc().collect::<String>();
         let tipo = match palavra.as_str() {
             "variavel" => TipoToken::Variavel, "constante" => TipoToken::Constante,
-            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
+            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,\n            "escolha" => TipoToken::Escolha, "caso" => TipoToken::Caso,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
             "enquanto" => TipoToken::Enquanto, "devolver" => TipoToken::Devolver,
             "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
@@ -331,7 +331,7 @@ pub enum NoAst {
     Estrutura { nome: String, campos: Vec<(String, String)> },
     Enumeracao { nome: String, variantes: Vec<(String, Vec<String>)> },
     Incluir { caminho: String, apelido: Option<String> },
-    Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
+    Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },\n    Escolha { valor: Expressao, casos: Vec<CasoEscolha> },
     Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
     Para { inicial: Option<Box<NoAst>>, condicao: Option<Expressao>, atualizacao: Option<Expressao>, corpo: Vec<NoAst> },
     Devolver(Option<Expressao>), Parar, Seguir,
@@ -403,7 +403,7 @@ impl Parser {
                 None
             }
             TipoToken::Incluir => self.incluir(),
-            TipoToken::Quando => self.quando(),
+            TipoToken::Quando => self.quando(),\n            TipoToken::Escolha => self.escolha(),
             TipoToken::Enquanto => self.enquanto(),
             TipoToken::Para => self.para(),
             TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
@@ -548,6 +548,59 @@ impl Parser {
             else { senao = self.bloco()?; }
         }
         Some(NoAst::Quando { condicao, entao, senao })
+    }
+    fn escolha(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let valor = self.expressao(0)?;
+        if !self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual("N2040", "Esperado '{' após expressão de escolha.");
+            return None;
+        }
+        self.separadores();
+        let mut casos = Vec::new();
+        let mut possui_curinga = false;
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+            if !self.corresponde(TipoToken::Caso) {
+                self.erro_atual("N2041", "Esperado 'caso' dentro de escolha.");
+                self.sincronizar();
+                self.separadores();
+                continue;
+            }
+            let (enumeracao, variante, vinculacoes) = if self.corresponde(TipoToken::Identificador) {
+                let primeiro = self.tokens[self.atual - 1].lexema.nfc().collect::<String>();
+                if self.corresponde(TipoToken::Escopo) {
+                    let variante = self.consumir_nome("Esperado variante após '::'.")?;
+                    let mut vinculacoes = Vec::new();
+                    if self.corresponde(TipoToken::AbrePar) {
+                        if !self.verifica(TipoToken::FechaPar) {
+                            loop {
+                                vinculacoes.push(self.consumir_nome("Esperado nome para payload.")?);
+                                if !self.corresponde(TipoToken::Virgula) { break; }
+                            }
+                        }
+                        self.esperar(TipoToken::FechaPar, "Esperado ')' após vínculos do caso.");
+                    }
+                    (Some(primeiro), Some(variante), vinculacoes)
+                } else {
+                    self.erro_atual("N2042", "Padrão deve ser uma variante Enum::Variante ou '_'.");
+                    (None, None, Vec::new())
+                }
+            } else if self.corresponde(TipoToken::Identificador) {
+                (None, None, Vec::new())
+            } else {
+                self.erro_atual("N2042", "Esperado padrão de enumeração ou '_'.");
+                (None, None, Vec::new())
+            };
+            let curinga = enumeracao.is_none() && variante.is_none();
+            if curinga && possui_curinga { self.erro_atual("N2043", "Caso curinga duplicado."); }
+            if curinga { possui_curinga = true; }
+            let corpo = self.bloco()?;
+            casos.push(CasoEscolha { enumeracao, variante, vinculacoes, corpo });
+            self.separadores();
+        }
+        self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
+        if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
+        Some(NoAst::Escolha { valor, casos })
     }
     fn enquanto(&mut self) -> Option<NoAst> {
         self.avancar(); let condicao = self.expressao(0)?; let corpo = self.bloco()?;
