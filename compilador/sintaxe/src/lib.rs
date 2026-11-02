@@ -175,7 +175,7 @@ impl<'a> Lexer<'a> {
     }
     fn numero(&mut self) {
         let mut tipo = TipoToken::Inteiro;
-        let base = match (self.bytes.get(self.inicio), self.byte(0)) {
+        let base = match (self.bytes.get(self.inicio).copied(), self.byte(0)) {
             (Some(b'0'), Some(b'x' | b'X')) => Some(16u32),
             (Some(b'0'), Some(b'b' | b'B')) => Some(2u32),
             (Some(b'0'), Some(b'o' | b'O')) => Some(8u32),
