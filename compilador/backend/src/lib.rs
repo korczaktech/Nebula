@@ -10,7 +10,9 @@ use std::fmt::Write;
 pub fn gerar_c(p: &ProgramaIr) -> Result<String, String> {
     if !p.modulos.is_empty() { return Err("O backend ainda não liga módulos externos.".into()); }
     let mut g = Gerador { s: String::new(), nivel: 0 };
-    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l(r#"static inline int nb_exibir_texto(const char *valor) { return printf("%s\n", valor); }"#);
+    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l("#include <string.h>"); g.l("static char nb_entrada_buffer[4096];");
+    g.l(r#"static inline const char *nb_ler_texto(void) { if (fgets(nb_entrada_buffer, sizeof nb_entrada_buffer, stdin) == NULL) return ""; nb_entrada_buffer[strcspn(nb_entrada_buffer, "\\n")] = '\\0'; return nb_entrada_buffer; }"#);
+    g.l(r#"static inline int nb_exibir_texto(const char *valor) { return printf("%s\n", valor); }"#);
     g.l(r#"static inline int nb_exibir_decimal(double valor) { return printf("%g\n", valor); }"#);
     g.l(r#"static inline int nb_exibir_caractere(int valor) { return printf("%c\n", valor); }"#);
     g.l(r#"static inline int nb_exibir_inteiro(long long valor) { return printf("%lld\n", valor); }"#);
