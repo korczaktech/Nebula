@@ -544,6 +544,30 @@ pub fn texto_contem(texto: &str, trecho: &str) -> bool {
     texto.contains(trecho)
 }
 
+/// Remove espaços em branco Unicode do início e do fim do texto.
+#[must_use]
+pub fn texto_aparar(texto: &str) -> String {
+    texto.trim().to_owned()
+}
+
+/// Verifica se o texto começa com o prefixo informado.
+#[must_use]
+pub fn texto_comeca_com(texto: &str, prefixo: &str) -> bool {
+    texto.starts_with(prefixo)
+}
+
+/// Verifica se o texto termina com o sufixo informado.
+#[must_use]
+pub fn texto_termina_com(texto: &str, sufixo: &str) -> bool {
+    texto.ends_with(sufixo)
+}
+
+/// Substitui todas as ocorrências literais de um trecho.
+#[must_use]
+pub fn texto_substituir(texto: &str, alvo: &str, substituto: &str) -> String {
+    texto.replace(alvo, substituto)
+}
+
 /// Converte texto para maiúsculas segundo as regras Unicode.
 #[must_use]
 pub fn texto_maiusculas(texto: &str) -> String {
@@ -874,6 +898,15 @@ mod testes {
         assert_eq!(ler_arquivo(&caminho), Ok("Nebula".into()));
         std::fs::remove_file(&caminho).unwrap();
         assert!(!arquivo_existe(&caminho));
+    }
+
+    #[test]
+    fn operacoes_de_texto_unicode_sao_deterministicas() {
+        assert_eq!(texto_aparar("  olá 🌌  "), "olá 🌌");
+        assert!(texto_comeca_com("Nebula", "Neb"));
+        assert!(texto_termina_com("Nebula", "ula"));
+        assert_eq!(texto_substituir("a-b-a", "a", "x"), "x-b-x");
+        assert!(!texto_comeca_com("Nebula", "neb"));
     }
 
     #[test]
