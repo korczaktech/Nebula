@@ -1050,6 +1050,14 @@ impl<'a> Analisador<'a> {
             }
             Igual | Diferente => {
                 self.exigir_tipo(b, a, "comparação de igualdade");
+                if *a != Tipo::Desconhecido
+                    && !self.tipo_implementa_igualdade(a, 0, &mut HashSet::new())
+                {
+                    self.erro(
+                        "N3056",
+                        format!("O tipo '{}' não implementa igualdade.", a.nome()),
+                    );
+                }
                 Tipo::Logico
             }
             E | Ou => {
@@ -1216,6 +1224,64 @@ impl<'a> Analisador<'a> {
 
     fn buscar_mutavel(&mut self, nome: &str) -> Option<&mut Simbolo> {
         self.escopos.iter_mut().rev().find_map(|escopo| escopo.get_mut(nome))
+    }
+
+    fn tipo_implementa_igualdade(
+        &self,
+        tipo: &Tipo,
+        profundidade: usize,
+        ativos: &mut HashSet<String>,
+    ) -> bool {
+        if profundidade >= 256 {
+            return false;
+        }
+        let proxima = profundidade + 1;
+        match tipo {
+            Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+            | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128
+            | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+            | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Decimal
+            | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Texto
+            | Tipo::Caractere | Tipo::Byte => true,
+            Tipo::Lista(elemento) | Tipo::Intervalo(elemento)
+            | Tipo::Opcional(elemento) => {
+                self.tipo_implementa_igualdade(elemento, proxima, ativos)
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                self.tipo_implementa_igualdade(sucesso, proxima, ativos)
+                    && self.tipo_implementa_igualdade(falha, proxima, ativos)
+            }
+            Tipo::Tupla(tipos) => tipos.iter().all(|tipo| {
+                self.tipo_implementa_igualdade(tipo, proxima, ativos)
+            }),
+            Tipo::Estrutura(nome) => {
+                let chave = format!("estrutura:{nome}");
+                if !ativos.insert(chave.clone()) {
+                    return false;
+                }
+                let valido = self.campos_estruturas.get(nome).is_some_and(|campos| {
+                    campos.values().all(|tipo| {
+                        self.tipo_implementa_igualdade(tipo, proxima, ativos)
+                    })
+                });
+                ativos.remove(&chave);
+                valido
+            }
+            Tipo::Enumeracao(nome) => {
+                let chave = format!("enumeracao:{nome}");
+                if !ativos.insert(chave.clone()) {
+                    return false;
+                }
+                let valido = self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
+                    variantes.values().flatten().all(|tipo| {
+                        self.tipo_implementa_igualdade(tipo, proxima, ativos)
+                    })
+                });
+                ativos.remove(&chave);
+                valido
+            }
+            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Parametro(_) | Tipo::Desconhecido => false,
+        }
     }
 
     fn tipo_copiavel(tipo: &Tipo) -> bool {
@@ -1473,6 +1539,22 @@ mod testes {
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         analisar_semantica(&sintaxe.programa)
+    }
+
+    #[test]
+    fn permite_igualdade_estrutural_de_tipos_compostos() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel iguais = a == b\nvariavel estado = Estado::Falha(\"erro\")\nvariavel estados_iguais = estado == Estado::Falha(\"erro\")\nvariavel tupla_igual = (1, \"x\") == (1, \"x\")\nvariavel lista_igual = [1, 2] == [1, 2]\nvariavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_igualdade_de_tipos_sem_implementacao() {
+        let r = analisar_codigo(
+            "funcao nada(): vazio {}\nvariavel comparacao = nada() == nada()",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3056"), "{:?}", r.diagnosticos);
     }
 
     #[test]
