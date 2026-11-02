@@ -1005,7 +1005,10 @@ mod testes {
     #[test]
     fn layout_de_funcao_e_ponteiro_de_codigo() {
         let tipo = TipoRuntime::Funcao(
-            vec![TipoRuntime::Inteiro { bits: 64, assinado: true }],
+            vec![TipoRuntime::Inteiro {
+                bits: 64,
+                assinado: true,
+            }],
             Box::new(TipoRuntime::Logico),
         );
         let layout = calcular_layout(&tipo).unwrap();

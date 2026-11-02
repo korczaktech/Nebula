@@ -301,7 +301,8 @@ mod testes {
     fn rejeita_tipo_nominal_sem_declaracao_na_ast() {
         let ast = programa("");
         assert!(calcular_layout_tipo(&ast, &Tipo::Estrutura("Ausente".into())).is_err());
-    } 
+    }
+
     #[test]
     fn calcula_layout_de_tipo_de_funcao() {
         let ast = programa("");
