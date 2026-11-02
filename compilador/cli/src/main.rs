@@ -1,7 +1,6 @@
 //! Interface de linha de comando da Nebula.
 
 #![forbid(unsafe_code)]
-#![rustfmt::skip]
 
 use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
@@ -10,7 +9,10 @@ use std::path::Path;
 fn main() {
     let mut argumentos = std::env::args().skip(1);
     match argumentos.next().as_deref() {
-        Some("versao" | "--version" | "-V") => println!("Nebula {} — frontend em desenvolvimento", env!("CARGO_PKG_VERSION")),
+        Some("versao" | "--version" | "-V") => println!(
+            "Nebula {} — frontend em desenvolvimento",
+            env!("CARGO_PKG_VERSION")
+        ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
         Some("verificar" | "check") => {
             let Some(caminho) = argumentos.next() else {
@@ -31,6 +33,7 @@ fn main() {
         }
     }
 }
+
 fn ajuda() {
     println!("Nebula — linguagem de programação");
     println!();
@@ -43,18 +46,26 @@ fn ajuda() {
     println!();
     println!("A verificação não realiza análise semântica nem gera executáveis.");
 }
+
 fn verificar(caminho: &Path) {
     let bytes = match std::fs::read(caminho) {
         Ok(bytes) => bytes,
         Err(erro) => {
-            eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display());
+            eprintln!(
+                "Erro N0001: não foi possível ler '{}': {erro}",
+                caminho.display()
+            );
             std::process::exit(1);
         }
     };
     let conteudo = match String::from_utf8(bytes) {
         Ok(conteudo) => conteudo,
         Err(erro) => {
-            eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
+            eprintln!(
+                "Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.",
+                caminho.display(),
+                erro.utf8_error().valid_up_to()
+            );
             std::process::exit(1);
         }
     };
@@ -63,7 +74,14 @@ fn verificar(caminho: &Path) {
     for diagnostico in &resultado.diagnosticos {
         let local = diagnostico.intervalo.and_then(|i| fonte.linha_coluna(i.inicio));
         if let Some((linha, coluna)) = local {
-            eprintln!("{} {}:{}:{} — {}", diagnostico.codigo, caminho.display(), linha, coluna, diagnostico.mensagem);
+            eprintln!(
+                "{} {}:{}:{} — {}",
+                diagnostico.codigo,
+                caminho.display(),
+                linha,
+                coluna,
+                diagnostico.mensagem
+            );
         } else {
             eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
         }
@@ -74,9 +92,11 @@ fn verificar(caminho: &Path) {
         std::process::exit(1);
     }
 }
+
 #[cfg(test)]
 mod testes {
     use super::*;
+
     #[test]
     fn verifica_arquivo_nebula_valido() {
         let caminho = std::env::temp_dir().join(format!("nebula-{}.nbx", std::process::id()));
