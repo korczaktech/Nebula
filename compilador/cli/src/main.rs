@@ -3,10 +3,11 @@
 #![forbid(unsafe_code)]
 
 use nebula_fonte::ArquivoFonte;
-use nebula_ir::baixar;
+use nebula_ir::{baixar, ExpressaoIr, InstrucaoIr, ProgramaIr};
 use nebula_ir::otimizador::NivelOtimizacao;
-use nebula_semantica::{ModulosDisponiveis, analisar_semantica};
-use nebula_sintaxe::analisar;
+use nebula_semantica::{AssinaturaFuncao, ModulosDisponiveis, Tipo, analisar_semantica};
+use nebula_sintaxe::{analisar, NoAst, Programa, Visibilidade};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -127,13 +128,250 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
             .collect::<Vec<_>>()
             .join("\n"));
     }
-    let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    let (modulos, programas_modulos) = carregar_modulos(caminho, &sintaxe.programa)?;
+    let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
         return Err(resultado.diagnosticos.join("\n"));
     }
-    let programa = resultado.programa.expect("IR validada");
+    let mut programa = resultado.programa.expect("IR validada");
+    for (caminho_modulo, modulo) in programas_modulos {
+        for (nome, funcao) in modulo.funcoes {
+            programa.funcoes.insert(format!("{caminho_modulo}::{nome}"), funcao);
+        }
+    }
     let execucao = nebula_ir::executar(&programa, 1_000_000)?;
     Ok(execucao.saida)
+}
+
+fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, String> {
+    let base = origem.parent().unwrap_or_else(|| Path::new("."));
+    let mut relativo = PathBuf::new();
+    for componente in caminho.split("::") {
+        relativo.push(componente);
+    }
+    if relativo.extension().is_none() {
+        relativo.set_extension("nbx");
+    }
+    let candidato = base.join(relativo);
+    if candidato.is_file() {
+        return Ok(candidato);
+    }
+    Err(format!(
+        "Módulo '{caminho}' não encontrado. Esperado arquivo relativo a '{}'.",
+        base.display()
+    ))
+}
+
+fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
+    Some(match nome {
+        "vazio" => Tipo::Vazio,
+        "logico" => Tipo::Logico,
+        "inteiro" => Tipo::Inteiro,
+        "inteiro8" => Tipo::Inteiro8,
+        "inteiro16" => Tipo::Inteiro16,
+        "inteiro32" => Tipo::Inteiro32,
+        "inteiro64" => Tipo::Inteiro64,
+        "inteiro128" => Tipo::Inteiro128,
+        "decimal" => Tipo::Decimal,
+        "decimal32" => Tipo::Decimal32,
+        "decimal64" => Tipo::Decimal64,
+        "texto" => Tipo::Texto,
+        "caractere" => Tipo::Caractere,
+        "byte" => Tipo::Byte,
+        lista if lista.starts_with('[') && lista.ends_with(']') => {
+            Tipo::Lista(Box::new(tipo_assinatura_modulo(&lista[1..lista.len() - 1])?))
+        }
+        _ => return None,
+    })
+}
+
+fn carregar_modulos(
+    origem: &Path,
+    programa: &Programa,
+) -> Result<(ModulosDisponiveis, Vec<(String, ProgramaIr)>), String> {
+    let mut assinaturas = ModulosDisponiveis::new();
+    let mut programas = Vec::new();
+    for item in &programa.itens {
+        let NoAst::Incluir { caminho, .. } = item else {
+            continue;
+        };
+        if assinaturas.contains_key(caminho) {
+            continue;
+        }
+        let arquivo = resolver_arquivo_modulo(origem, caminho)?;
+        let bytes = std::fs::read(&arquivo)
+            .map_err(|erro| format!("Não foi possível ler módulo '{}': {erro}", arquivo.display()))?;
+        let codigo = String::from_utf8(bytes)
+            .map_err(|erro| format!("Módulo '{}' não é UTF-8 válido: {erro}", arquivo.display()))?;
+        let fonte = ArquivoFonte::novo(&arquivo, codigo);
+        let sintaxe = analisar(&fonte);
+        if !sintaxe.diagnosticos.is_empty() {
+            return Err(format!(
+                "Erro de sintaxe no módulo '{}': {}",
+                caminho,
+                sintaxe.diagnosticos.iter()
+                    .map(|d| format!("{} — {}", d.codigo, d.mensagem))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ));
+        }
+        if sintaxe.programa.itens.iter().any(|item| matches!(item, NoAst::Incluir { .. })) {
+            return Err(format!(
+                "O módulo '{caminho}' inclui outros módulos; dependências aninhadas ainda não estão ligadas pelo interpretador."
+            ));
+        }
+        if sintaxe.programa.itens.iter().any(|item| !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. })) {
+            return Err(format!(
+                "O módulo '{caminho}' contém inicializadores globais; módulos carregados pelo interpretador devem conter funções e aliases de tipo."
+            ));
+        }
+
+        let mut exportadas = std::collections::HashMap::new();
+        for item in &sintaxe.programa.itens {
+            if let NoAst::Funcao {
+                visibilidade: Some(Visibilidade::Publico),
+                nome,
+                parametros,
+                retorno,
+                ..
+            } = item
+            {
+                let parametros = parametros
+                    .iter()
+                    .map(|(_, tipo)| tipo_assinatura_modulo(tipo)
+                        .ok_or_else(|| format!("Tipo '{tipo}' não suportado na assinatura pública '{caminho}::{nome}'.")))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let retorno = retorno.as_deref().unwrap_or("vazio");
+                let retorno = tipo_assinatura_modulo(retorno)
+                    .ok_or_else(|| format!("Tipo de retorno '{retorno}' não suportado em '{caminho}::{nome}'."))?;
+                exportadas.insert(nome.clone(), AssinaturaFuncao { parametros, retorno });
+            }
+        }
+        if exportadas.is_empty() {
+            return Err(format!("O módulo '{caminho}' não exporta nenhuma função pública."));
+        }
+
+        let resultado_ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        if !resultado_ir.diagnosticos.is_empty() {
+            return Err(format!(
+                "Erro semântico no módulo '{caminho}': {}",
+                resultado_ir.diagnosticos.join("\n")
+            ));
+        }
+        let mut modulo_ir = resultado_ir.programa.expect("módulo validado");
+        let nomes = modulo_ir.funcoes.keys().cloned().collect::<HashSet<_>>();
+        for funcao in modulo_ir.funcoes.values_mut() {
+            for instrucao in &mut funcao.corpo {
+                qualificar_chamadas_modulo(instrucao, caminho, &nomes);
+            }
+        }
+        assinaturas.insert(caminho.clone(), exportadas);
+        programas.push((caminho.clone(), modulo_ir));
+    }
+    Ok((assinaturas, programas))
+}
+
+fn qualificar_chamadas_modulo(
+    instrucao: &mut InstrucaoIr,
+    caminho: &str,
+    funcoes: &HashSet<String>,
+) {
+    match instrucao {
+        InstrucaoIr::Declarar { valor, .. } | InstrucaoIr::Expressao(valor) => {
+            qualificar_expressao_modulo(valor, caminho, funcoes);
+        }
+        InstrucaoIr::Bloco(itens) => {
+            for item in itens {
+                qualificar_chamadas_modulo(item, caminho, funcoes);
+            }
+        }
+        InstrucaoIr::Se { condicao, entao, senao } => {
+            qualificar_expressao_modulo(condicao, caminho, funcoes);
+            for item in entao.iter_mut().chain(senao.iter_mut()) {
+                qualificar_chamadas_modulo(item, caminho, funcoes);
+            }
+        }
+        InstrucaoIr::Enquanto { condicao, corpo } => {
+            qualificar_expressao_modulo(condicao, caminho, funcoes);
+            for item in corpo {
+                qualificar_chamadas_modulo(item, caminho, funcoes);
+            }
+        }
+        InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+            if let Some(inicial) = inicial {
+                qualificar_chamadas_modulo(inicial, caminho, funcoes);
+            }
+            if let Some(condicao) = condicao {
+                qualificar_expressao_modulo(condicao, caminho, funcoes);
+            }
+            if let Some(atualizacao) = atualizacao {
+                qualificar_expressao_modulo(atualizacao, caminho, funcoes);
+            }
+            for item in corpo {
+                qualificar_chamadas_modulo(item, caminho, funcoes);
+            }
+        }
+        InstrucaoIr::Devolver(valor) => {
+            if let Some(valor) = valor {
+                qualificar_expressao_modulo(valor, caminho, funcoes);
+            }
+        }
+        InstrucaoIr::Parar | InstrucaoIr::Seguir => {}
+    }
+}
+
+fn qualificar_expressao_modulo(
+    expressao: &mut ExpressaoIr,
+    caminho: &str,
+    funcoes: &HashSet<String>,
+) {
+    let mut chamada_local = None;
+    match expressao {
+        ExpressaoIr::Lista(itens) => {
+            for item in itens {
+                qualificar_expressao_modulo(item, caminho, funcoes);
+            }
+        }
+        ExpressaoIr::Unaria { valor, .. } => {
+            qualificar_expressao_modulo(valor, caminho, funcoes);
+        }
+        ExpressaoIr::Binaria { esquerda, direita, .. } => {
+            qualificar_expressao_modulo(esquerda, caminho, funcoes);
+            qualificar_expressao_modulo(direita, caminho, funcoes);
+        }
+        ExpressaoIr::Atribuicao { valor, .. } => {
+            qualificar_expressao_modulo(valor, caminho, funcoes);
+        }
+        ExpressaoIr::Chamada { nome, argumentos } => {
+            for argumento in argumentos.iter_mut() {
+                qualificar_expressao_modulo(argumento, caminho, funcoes);
+            }
+            if funcoes.contains(nome) {
+                chamada_local = Some(nome.clone());
+            }
+        }
+        ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
+            for argumento in argumentos {
+                qualificar_expressao_modulo(argumento, caminho, funcoes);
+            }
+        }
+        ExpressaoIr::Indexacao { alvo, indice } => {
+            qualificar_expressao_modulo(alvo, caminho, funcoes);
+            qualificar_expressao_modulo(indice, caminho, funcoes);
+        }
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
+    }
+    if let Some(nome) = chamada_local {
+        let ExpressaoIr::Chamada { argumentos, .. } = expressao else {
+            unreachable!("expressão identificada como chamada local");
+        };
+        let argumentos = std::mem::take(argumentos);
+        *expressao = ExpressaoIr::ChamadaQualificada {
+            modulo: caminho.to_owned(),
+            nome,
+            argumentos,
+        };
+    }
 }
 
 #[rustfmt::skip]
