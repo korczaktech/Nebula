@@ -44,6 +44,7 @@ pub enum ExpressaoIr {
 pub enum InstrucaoIr {
     Declarar { nome: String, tipo: Tipo, valor: ExpressaoIr, constante: bool },
     Expressao(ExpressaoIr),
+    Bloco(Vec<InstrucaoIr>),
     Se { condicao: ExpressaoIr, entao: Vec<InstrucaoIr>, senao: Vec<InstrucaoIr> },
     Enquanto { condicao: ExpressaoIr, corpo: Vec<InstrucaoIr> },
     Para { inicial: Option<Box<InstrucaoIr>>, condicao: Option<ExpressaoIr>, atualizacao: Option<ExpressaoIr>, corpo: Vec<InstrucaoIr> },
@@ -413,6 +414,7 @@ impl Maquina<'_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Expressao(e) => { self.expressao(e)?; Ok(Fluxo::Normal) }
+            InstrucaoIr::Bloco(itens) => self.bloco(itens),
             InstrucaoIr::Se { condicao, entao, senao } => {
                 let condicao = self.expressao(condicao)?;
                 if self.logico(condicao)? { self.bloco(entao) } else { self.bloco(senao) }
