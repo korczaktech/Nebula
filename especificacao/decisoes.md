@@ -23,6 +23,22 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Toolchain da fundação | Rust 1.85.0 fixado e Cargo.lock versionado | Builds da fundação usam versão e resolução de dependências reproduzíveis |
 | Autocompilação | Meta de longo prazo | Implementação inicial permanece em Rust |
 
+## Decisões adotadas na Fase 3
+
+| Tema | Decisão | Consequência |
+|---|---|---|
+| Análise semântica | Executada sobre AST já válida | A CLI interrompe a etapa se Lexer ou Parser falharem |
+| Escopos | Escopos léxicos com símbolos locais e globais | Sombreamento interno permitido; duplicidade no mesmo escopo rejeitada |
+| Funções | Assinaturas pré-declaradas | Chamadas a funções declaradas adiante são resolvidas |
+| Aliases | Aliases de tipo no escopo do arquivo, resolvidos antes dos corpos | Ciclos e tipos desconhecidos são erros |
+| Módulos | Ambiente explícito de módulos e exports | Sem pesquisa arbitrária no disco ou resolvedor de pacotes nesta fase |
+| Tipos numéricos | Larguras inteiras explícitas são tipos distintos | Não há conversão implícita geral em atribuições e argumentos |
+| Constantes | Imutáveis após inicialização | Reatribuição é erro semântico |
+| Valores | Semântica por valor no interpretador de referência | Não há referências compartilhadas expostas pela linguagem nesta fase |
+| IR | Operadores e instruções normalizados | Backends futuros não precisam interpretar a gramática |
+| Interpretador de referência | Limites de passos e profundidade de chamadas | Testes não podem executar laços/recursões sem limite |
+| CLI | Comandos verificar, analisar e ir têm responsabilidades separadas | Sintaxe, semântica e inspeção de IR são observáveis separadamente |
+
 ## Metas, não garantias
 
 - Investigar desempenho que possa superar C++ em cargas específicas.
