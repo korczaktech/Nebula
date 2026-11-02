@@ -29,7 +29,7 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 | Funções, chamadas aninhadas, seis parâmetros e recursão | Implementados em Rust; testes de integração de ABI adicionados |
 | Condicionais e laços | Implementados; testes de integração para `quando`, `enquanto`, `para`, `parar` e `seguir` |
 | CLI sem invocar compilador C/C++ | Implementada; bloqueia sobrescrita do fonte e publica a saída atomicamente |
-| Testes Rust do backend | 20 testes unitários no backend, 5 testes unitários da CLI e 36 testes de integração nativa; execução ainda depende da CI |
+| Testes Rust do backend | 20 testes unitários no backend, 5 testes unitários da CLI e 37 testes de integração nativa; execução ainda depende da CI |
 | Runtime e biblioteca padrão | Adiados; não implementados |
 | Otimizador e níveis de otimização | Adiados; não implementados |
 | Benchmark sem otimizações | Script e duas cargas presentes; execução de CI ainda precisa ser confirmada |
