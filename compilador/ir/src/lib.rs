@@ -2024,3 +2024,6 @@ pub use implementacao::*;
 /// Passes de otimização conservadores sobre a IR tipada.
 #[rustfmt::skip]
 pub mod otimizador;
+
+/// Conversão dos tipos semânticos para o layout físico do runtime.
+pub mod layout;
