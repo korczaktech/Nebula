@@ -183,6 +183,15 @@ fn compila_laco_para_e_controle() {
 }
 
 #[test]
+fn variaveis_globais_sao_compartilhadas_entre_funcoes() {
+    let resultado = compilar_e_executar(
+        "globais-compartilhadas",
+        "variavel total: inteiro = 40\nfuncao incrementar(): inteiro { devolver total + 2 }\nfuncao principal(): inteiro { total = incrementar(); devolver total }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_seis_parametros_pelo_abi_system_v() {
     let resultado = compilar_e_executar(
         "seis-parametros",
