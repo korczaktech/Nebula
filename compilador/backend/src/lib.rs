@@ -793,6 +793,20 @@ mod testes {
     }
 
     #[test]
+    fn aceita_exatamente_512_posicoes_locais() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().corpo = (0..LIMITE_VARIAVEIS)
+            .map(|indice| InstrucaoIr::Declarar {
+                nome: format!("v{indice}"),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Constante(ValorIr::Inteiro(0)),
+                constante: false,
+            })
+            .collect();
+        assert!(gerar_executavel(&programa).is_ok());
+    }
+
+    #[test]
     fn parametros_e_corpo_compartilham_escopo_da_funcao() {
         let mut programa = programa_com_retorno(0);
         programa.funcoes.get_mut("principal").unwrap().parametros = vec![("valor".into(), Tipo::Inteiro)];
