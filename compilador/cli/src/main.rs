@@ -6,7 +6,8 @@ use nebula_fonte::ArquivoFonte;
 use nebula_ir::baixar;
 use nebula_semantica::{ModulosDisponiveis, analisar_semantica};
 use nebula_sintaxe::analisar;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn main() {
     let mut argumentos = std::env::args().skip(1);
@@ -16,6 +17,22 @@ fn main() {
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
+        Some("compilar") => {
+            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
+            let mut saida = PathBuf::from(&caminho).with_extension(if cfg!(windows) { "exe" } else { "out" });
+            while let Some(arg) = argumentos.next() { if arg == "-o" { let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); }; saida = PathBuf::from(valor); } else { eprintln!("Argumento desconhecido: {arg}"); std::process::exit(2); } }
+            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &saida) { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
+            println!("Executável gerado: {}", saida.display());
+        }
+        Some("executar") => {
+            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula executar <arquivo.nbx>"); std::process::exit(2); };
+            if argumentos.next().is_some() { eprintln!("Erro: executar aceita somente um arquivo."); std::process::exit(2); }
+            let temporario = std::env::temp_dir().join(format!("nebula-{}{}", std::process::id(), if cfg!(windows) { ".exe" } else { "" }));
+            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &temporario) { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
+            let status = Command::new(&temporario).status();
+            let _ = std::fs::remove_file(&temporario);
+            match status { Ok(s) if s.success() => {}, Ok(s) => std::process::exit(s.code().unwrap_or(1)), Err(e) => { eprintln!("Não foi possível executar o programa: {e}"); std::process::exit(1); } }
+        }
         Some("ir") => {
             let Some(caminho) = argumentos.next() else {
                 eprintln!("Uso: nebula ir <arquivo.nbx>");
@@ -58,6 +75,30 @@ fn main() {
     }
 }
 
+
+fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
+    let bytes = std::fs::read(caminho).map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
+    let conteudo = String::from_utf8(bytes).map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
+    let fonte = ArquivoFonte::novo(caminho, conteudo);
+    let sintaxe = analisar(&fonte);
+    if !sintaxe.diagnosticos.is_empty() {
+        return Err(sintaxe.diagnosticos.iter().map(|d| format!("{} — {}", d.codigo, d.mensagem)).collect::<Vec<_>>().join("\n"));
+    }
+    let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    if !ir.diagnosticos.is_empty() { return Err(ir.diagnosticos.join("\n")); }
+    let c = nebula_backend::gerar_c(&ir.programa.expect("IR validada"))?;
+    let arquivo_c = std::env::temp_dir().join(format!("nebula-{}-{}.c", std::process::id(), saida.file_stem().and_then(|s| s.to_str()).unwrap_or("programa")));
+    std::fs::write(&arquivo_c, c).map_err(|e| format!("não foi possível gravar C temporário: {e}"))?;
+    let resultado = Command::new("cc").arg("-std=c11").arg("-O0").arg(&arquivo_c).arg("-o").arg(saida).output();
+    let _ = std::fs::remove_file(&arquivo_c);
+    let resultado = resultado.map_err(|e| format!("compilador C 'cc' não encontrado ou indisponível: {e}"))?;
+    if !resultado.status.success() {
+        let _ = std::fs::remove_file(saida);
+        return Err(String::from_utf8_lossy(&resultado.stderr).into_owned());
+    }
+    Ok(())
+}
+
 fn ajuda() {
     println!("Nebula — linguagem de programação");
     println!();
@@ -69,8 +110,10 @@ fn ajuda() {
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
+    println!("  compilar <arquivo>    Gera um executável nativo (requer cc compatível com C11)");
+    println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!();
-    println!("A verificação não realiza análise semântica nem gera executáveis.");
+    println!("O backend nativo inicial gera C11 e utiliza um compilador C instalado (cc).");
 }
 
 fn mostrar_ir(caminho: &Path) {
