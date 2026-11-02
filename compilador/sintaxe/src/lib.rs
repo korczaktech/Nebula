@@ -477,6 +477,16 @@ impl Parser {
                 }
                 self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista."); Expressao::Lista(valores)
             }
+            TipoToken::ReservadaFutura => {
+                let token = self.avancar();
+                self.diagnosticos.push(Diagnostico::novo(
+                    "N2011",
+                    Severidade::Erro,
+                    format!("A palavra '{}' está reservada para uma versão futura e ainda não é uma construção válida.", token.lexema),
+                    Some(token.intervalo),
+                ));
+                return None;
+            }
             _ => { self.erro_atual("N2008", "Esperada uma expressão."); return None; }
         };
         loop {
