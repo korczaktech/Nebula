@@ -187,7 +187,7 @@ fn calcular_layout_interno(
                     return Err(format!("Variante duplicada em '{nome}': {}.", variante.nome));
                 }
                 let layout = combinar_campos(
-                    variante.payload.iter().enumerate().map(|(i, t)| (if i == usize::MAX { "" } else { "" }, t)),
+                    variante.payload.iter().map(|t| ("", t)),
                     pilha,
                 )?;
                 payload_maximo = payload_maximo.max(layout.tamanho);
