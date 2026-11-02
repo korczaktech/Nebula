@@ -5,6 +5,10 @@ version = 4
 [[package]]
 name = "nebula-cli"
 version = "0.1.0"
+dependencies = [
+ "nebula-fonte",
+ "nebula-sintaxe",
+]
 
 [[package]]
 name = "nebula-diagnosticos"
@@ -16,3 +20,11 @@ dependencies = [
 [[package]]
 name = "nebula-fonte"
 version = "0.1.0"
+
+[[package]]
+name = "nebula-sintaxe"
+version = "0.1.0"
+dependencies = [
+ "nebula-diagnosticos",
+ "nebula-fonte",
+]
