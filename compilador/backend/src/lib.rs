@@ -481,6 +481,13 @@ mod testes {
     }
 
     #[test]
+    fn executavel_nao_declara_interpretador_ou_bibliotecas_dinamicas() {
+        let binario = gerar_executavel(&programa_com_retorno(0)).unwrap();
+        assert_eq!(u16::from_le_bytes([binario[56], binario[57]]), 1);
+        assert_eq!(u32::from_le_bytes(binario[64..68].try_into().unwrap()), 1);
+    }
+
+    #[test]
     fn rejeita_recurso_que_exige_runtime_ainda_nao_implementado() {
         let mut programa = programa_com_retorno(0);
         programa.funcoes.get_mut("principal").unwrap().corpo = vec![
