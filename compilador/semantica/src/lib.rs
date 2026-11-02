@@ -54,7 +54,7 @@ pub fn analisar_com_modulos(programa: &Programa, modulos: &ModulosDisponiveis) -
 }
 
 #[derive(Debug, Clone)]
-struct Simbolo { tipo: Tipo, mutavel: bool }
+struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool }
 
 #[derive(Debug, Clone, Copy)]
 enum LiteralNumerico { Inteiro(i128), Decimal(f64) }
@@ -154,6 +154,7 @@ impl<'a> Analisador<'a> {
         match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
                 let inferido = self.expressao(valor);
+                self.mover_valor(valor);
                 let final_tipo = if let Some(tipo) = tipo {
                     let esperado = self.resolver_tipo(tipo);
                     if esperado == Tipo::Desconhecido {
@@ -167,7 +168,7 @@ impl<'a> Analisador<'a> {
                     }
                     inferido
                 };
-                self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante });
+                self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false });
             }
             NoAst::Funcao { nome, parametros, corpo, .. } => {
                 if !self.funcoes_vistas.insert(nome.clone()) { return; }
@@ -177,7 +178,7 @@ impl<'a> Analisador<'a> {
                 };
                 self.abrir_escopo();
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
-                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true });
+                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false });
                 }
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
@@ -240,6 +241,7 @@ impl<'a> Analisador<'a> {
                 let obtido = valor.as_ref().map_or(Tipo::Vazio, |e| self.expressao(e));
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
+                        self.mover_valor(valor);
                         self.exigir_expressao_tipo(valor, &obtido, &esperado, "retorno da função");
                     } else {
                         self.exigir_tipo(&obtido, &esperado, "retorno da função");
@@ -274,7 +276,12 @@ impl<'a> Analisador<'a> {
 
     fn expressao(&mut self, expressao: &Expressao) -> Tipo {
         match expressao {
-            Expressao::Nome(nome) => self.buscar(nome).map(|s| s.tipo.clone()).unwrap_or_else(|| {
+            Expressao::Nome(nome) => self.buscar(nome).map(|s| {
+                if s.movido {
+                    self.erro("N3030", format!("O valor '{nome}' foi movido e não pode ser utilizado novamente."));
+                }
+                s.tipo.clone()
+            }).unwrap_or_else(|| {
                 if let Some(f) = self.funcoes.get(nome) {
                     Tipo::Funcao(f.parametros.clone(), Box::new(f.retorno.clone()))
                 } else {
@@ -334,6 +341,8 @@ impl<'a> Analisador<'a> {
                                 self.erro("N3009", format!("Não é permitido alterar a constante '{nome}'."));
                             }
                             self.exigir_expressao_tipo(valor, &tipo_valor, &simbolo.tipo, "atribuição");
+                            if let Some(simbolo) = self.buscar_mutavel(nome) { simbolo.movido = false; }
+                            self.mover_valor(valor);
                             simbolo.tipo
                         } else {
                             self.erro("N3007", format!("Nome '{nome}' não foi declarado."));
@@ -673,6 +682,7 @@ impl<'a> Analisador<'a> {
             let obtido = self.expressao(argumento);
             if let Some(esperado) = esperados.get(indice) {
                 self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
+                if !Self::tipo_copiavel(&obtido) { self.mover_valor(argumento); }
             }
         }
     }
@@ -754,6 +764,32 @@ impl<'a> Analisador<'a> {
                 }
                 if atual != nome { self.resolver_tipo(atual) } else { Tipo::Desconhecido }
             }
+        }
+    }
+
+    fn buscar_mutavel(&mut self, nome: &str) -> Option<&mut Simbolo> {
+        self.escopos.iter_mut().rev().find_map(|escopo| escopo.get_mut(nome))
+    }
+
+    fn tipo_copiavel(tipo: &Tipo) -> bool {
+        matches!(tipo,
+            Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 |
+            Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 |
+            Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte
+        )
+    }
+
+    fn mover_valor(&mut self, expressao: &Expressao) {
+        match expressao {
+            Expressao::Nome(nome) => {
+                if let Some(simbolo) = self.buscar_mutavel(nome) {
+                    if !Self::tipo_copiavel(&simbolo.tipo) { simbolo.movido = true; }
+                }
+            }
+            Expressao::Lista(itens) => {
+                for item in itens { self.mover_valor(item); }
+            }
+            _ => {}
         }
     }
 
