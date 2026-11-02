@@ -14,6 +14,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nebula-biblioteca"
+version = "0.1.0"
+dependencies = [
+ "nebula-runtime",
+]
+
+[[package]]
 name = "nebula-backend"
 version = "0.1.0"
 dependencies = [
