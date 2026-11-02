@@ -10,7 +10,11 @@ use std::fmt::Write;
 pub fn gerar_c(p: &ProgramaIr) -> Result<String, String> {
     if !p.modulos.is_empty() { return Err("O backend ainda não liga módulos externos.".into()); }
     let mut g = Gerador { s: String::new(), nivel: 0 };
-    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l(r#"#define nb_exibir(v) _Generic((v), char*: printf("%s\n", (v)), const char*: printf("%s\n", (v)), float: printf("%g\n", (double)(v)), double: printf("%g\n", (double)(v)), char: printf("%c\n", (int)(v)), default: printf("%lld\n", (long long)(v)))"#); g.l("");
+    g.l("#include <stdbool.h>"); g.l("#include <stdint.h>"); g.l("#include <stdio.h>"); g.l(r#"static inline int nb_exibir_texto(const char *valor) { return printf("%s\\n", valor); }"#);
+    g.l(r#"static inline int nb_exibir_decimal(double valor) { return printf("%g\\n", valor); }"#);
+    g.l(r#"static inline int nb_exibir_caractere(int valor) { return printf("%c\\n", valor); }"#);
+    g.l(r#"static inline int nb_exibir_inteiro(long long valor) { return printf("%lld\\n", valor); }"#);
+    g.l(r#"#define nb_exibir(v) _Generic((v), char*: nb_exibir_texto, const char*: nb_exibir_texto, float: nb_exibir_decimal, double: nb_exibir_decimal, char: nb_exibir_caractere, default: nb_exibir_inteiro)(v)"#); g.l("");
     let mut nomes: Vec<_> = p.funcoes.keys().collect(); nomes.sort();
     for n in &nomes { let f=&p.funcoes[*n]; g.l(&format!("{} {}({});", tc(&f.retorno)?, nc(n), pc(&f.parametros)?)); }
     if !nomes.is_empty() { g.l(""); }
