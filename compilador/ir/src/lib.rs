@@ -1479,7 +1479,7 @@ mod testes {
     #[test]
     fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
         let ir = compilar(
-            "funcao extrair<T,U>(ponto: Tupla<T,U>): T { devolver ponto[0] }\\nfuncao identidade<T>(valor: T): T { devolver valor }\\nvariavel ponto = (42, \"Nebula\")\\nvariavel numero = identidade(extrair(ponto))",
+            "funcao extrair<T,U>(ponto: Tupla<T,U>): T { devolver ponto[0] }\nfuncao identidade<T>(valor: T): T { devolver valor }\nvariavel ponto = (42, \"Nebula\")\\nvariavel numero = identidade(extrair(ponto))",
         );
         assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
