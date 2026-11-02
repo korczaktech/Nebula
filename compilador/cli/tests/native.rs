@@ -170,7 +170,7 @@ fn concatena_texto_no_backend_nativo() {
 #[rustfmt::skip]
 fn compila_laco_para_e_controle_de_fluxo() {
     let origem = arquivo_temporario("para");
-    fs::write(&origem, "funcao principal(): vazio {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 5; i = i + 1) {\n        total = total + i\n    }\n    exibir(total)\n}\n").unwrap();
+    fs::write(&origem, "funcao principal(): vazio {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 5; i = i + 1) {\n        quando i == 2 { seguir }\n        quando i == 4 { parar }\n        total = total + i\n    }\n    exibir(total)\n}\n").unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("executar").arg(&origem).output().unwrap();
     assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
