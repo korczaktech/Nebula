@@ -590,6 +590,21 @@ mod testes {
         assert_eq!(r.globais.get("faixa"), Some(&ValorIr::IntervaloDecimal(1.5, 3.5)));
     }
 
+
+    #[test]
+    fn executa_lista_e_indexacao() {
+        let ir = compilar("variavel itens = [4, 5, 6]\nvariavel primeiro = itens[0]");
+        let r = executar(&ir, 100).expect("execução válida");
+        assert_eq!(r.globais.get("primeiro"), Some(&ValorIr::Inteiro(4)));
+    }
+
+    #[test]
+    fn concatena_texto() {
+        let ir = compilar("variavel saudacao = \"Ola\" + \" Nebula\"");
+        let r = executar(&ir, 100).expect("execução válida");
+        assert_eq!(r.globais.get("saudacao"), Some(&ValorIr::Texto("Ola Nebula".into())));
+    }
+
 }
 }
 
