@@ -11,7 +11,7 @@
 | 3. Runtime | Parcial implementado: crate Rust e integração ao interpretador de referência; integração nativa e ciclo de vida completo pendentes |
 | 4. Concorrência | Parcial: threads, tarefas, canais e inteiros atômicos no runtime; async/await e modelo formal de memória pendentes |
 | 5. Biblioteca padrão | Parcial: texto, coleções, números, matemática, arquivos e tempo no runtime; módulos completos pendentes |
-| 6. Módulos e pacotes | Parcial: interpretador resolve módulos locais recursivamente, liga chamadas qualificadas e rejeita ciclos; inicializadores globais e gerenciador de pacotes/lockfile pendentes |
+| 6. Módulos e pacotes | Parcial: interpretador resolve módulos locais recursivamente, liga chamadas qualificadas, rejeita ciclos e bloqueia caminhos de import inválidos/travessia; inicializadores globais e gerenciador de pacotes/lockfile pendentes |
 | 7. Otimizador | Parcial implementado: O0/O1/O2/O3/Os com dobramento, fluxo constante, remoção de código inalcançável e blocos vazios; passes avançados pendentes |
 | 8. Backends | Parcial: Linux x86-64 ELF64; ARM64, Windows, macOS e WebAssembly pendentes |
 | 9. Ferramentas | Parcial: CLI com interpretar e seleção de níveis de otimização; formatador, dependências e cache incremental pendentes |
@@ -19,7 +19,7 @@
 | 11. Documentação e lançamento | Parcial: README e critérios atualizados; estabilidade 1.0, instaladores, assinaturas e distribuição pendentes |
 | 12. Autocompilação | Não implementada; permanece dependente de maturidade da linguagem |
 
-A validação automatizada de runtime, builtins, interpretador, CLI, otimizador, concorrência e carregamento recursivo de módulos passou em [CI no commit a23ac06](https://github.com/korczaktech/Nebula/actions/runs/41473238029). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
+A validação automatizada de runtime, builtins, interpretador, CLI, otimizador, concorrência e carregamento recursivo de módulos passou em [CI no commit 18b728a](https://github.com/korczaktech/Nebula/actions/runs/41473574595). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
 
 ## Objetivo
 
