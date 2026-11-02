@@ -25,7 +25,8 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     for instrucao in &programa.instrucoes {
         if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
             validar_tipo(tipo)?;
-            let deslocamento = globais.len() * 8;
+            let deslocamento = globais.len().checked_mul(8)
+                .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
             if globais.insert(nome.clone(), deslocamento).is_some() {
                 return Err(format!("Variável global '{nome}' declarada mais de uma vez."));
             }
@@ -522,7 +523,9 @@ impl Emissor {
                 .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
-        Ok((self.codigo, self.globais.len() * 8))
+        let tamanho_dados = self.globais.len().checked_mul(8)
+            .ok_or("Tamanho dos dados globais excedeu o limite do alvo.")?;
+        Ok((self.codigo, tamanho_dados))
     }
 }
 
