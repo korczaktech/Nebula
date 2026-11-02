@@ -6,7 +6,7 @@
 - Inferência local e determinística em declarações sem anotação.
 - Tipos explícitos nas interfaces de funções e variáveis anotadas.
 - Não há coerção implícita geral entre texto, números e lógicos.
-- Tipos numéricos de larguras diferentes são distintos; a compatibilidade exige igualdade de tipo, exceto operações aritméticas numéricas com promoção definida pela análise.
+- Tipos numéricos de larguras diferentes são distintos; variáveis e expressões não literais exigem tipos compatíveis. Literais numéricos podem receber o tipo anotado quando o valor cabe nele. Operações aritméticas numéricas usam promoção definida pela análise.
 
 ## Tipos reconhecidos pela análise semântica
 
@@ -32,6 +32,7 @@ Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destino
 - Listas devem ser homogêneas; uma lista vazia exige tipo esperado explícito para permitir inferência.
 - Índices de listas devem ser inteiros.
 - Chamadas validam existência da função, aridade, tipos dos argumentos e tipo de retorno.
+- Literais inteiros e decimais são verificados contra os limites do tipo de destino; valores fora da faixa são rejeitados.
 - Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
 
 ## Tipos compostos e decisões futuras
