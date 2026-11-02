@@ -1228,6 +1228,14 @@ mod testes {
     }
 
     #[test]
+    fn resolve_tipos_nominais_em_assinaturas_de_funcoes() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa { devolver pessoa }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn infere_tuplas_heterogeneas_e_acesso_estatico() {
         let r = analisar_codigo(
             "variavel ponto = (10, \"norte\", verdadeiro)\nvariavel x = ponto[0]\nvariavel direcao = ponto[1]\nvariavel ativo = ponto[2]",
