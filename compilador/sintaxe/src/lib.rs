@@ -1,0 +1,499 @@
+//! Lexer, AST e Parser do subconjunto inicial da linguagem Nebula.
+
+#![forbid(unsafe_code)]
+
+use nebula_diagnosticos::{Diagnostico, Severidade};
+use nebula_fonte::{ArquivoFonte, IntervaloFonte};
+
+/// Categorias de tokens produzidas pelo Lexer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TipoToken {
+    Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
+    Variavel, Constante, Funcao, Quando, Senao, Para, Enquanto, Devolver,
+    Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Seguir,
+    E, Ou, Nao, Publico, Privado, Tipo,
+    AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
+    Virgula, PontoVirgula, DoisPontos, Ponto,
+    Atribui, Mais, Menos, Vezes, Divide, Resto, Potencia,
+    Igual, Diferente, Menor, MenorIgual, Maior, MaiorIgual,
+    Negacao, Intervalo, Escopo,
+}
+
+/// Token com texto original e intervalo de bytes na fonte.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token {
+    pub tipo: TipoToken,
+    pub lexema: String,
+    pub intervalo: IntervaloFonte,
+}
+
+/// Resultado léxico: tokens e diagnósticos; erros não interrompem a varredura.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResultadoLexico {
+    pub tokens: Vec<Token>,
+    pub diagnosticos: Vec<Diagnostico>,
+}
+
+/// Analisa lexicalmente uma fonte Nebula.
+#[must_use]
+pub fn analisar_lexico(fonte: &ArquivoFonte) -> ResultadoLexico {
+    Lexer::novo(fonte.conteudo()).executar()
+}
+
+struct Lexer<'a> {
+    texto: &'a str,
+    bytes: &'a [u8],
+    inicio: usize,
+    atual: usize,
+    tokens: Vec<Token>,
+    diagnosticos: Vec<Diagnostico>,
+}
+
+impl<'a> Lexer<'a> {
+    fn novo(texto: &'a str) -> Self {
+        Self { texto, bytes: texto.as_bytes(), inicio: 0, atual: 0, tokens: Vec::new(), diagnosticos: Vec::new() }
+    }
+
+    fn executar(mut self) -> ResultadoLexico {
+        while !self.fim() {
+            self.inicio = self.atual;
+            self.escanear();
+        }
+        self.adicionar(TipoToken::Fim, self.atual, self.atual);
+        ResultadoLexico { tokens: self.tokens, diagnosticos: self.diagnosticos }
+    }
+
+    fn fim(&self) -> bool { self.atual >= self.bytes.len() }
+    fn byte(&self, deslocamento: usize) -> Option<u8> { self.bytes.get(self.atual + deslocamento).copied() }
+    fn avancar(&mut self) -> u8 { let b = self.bytes[self.atual]; self.atual += 1; b }
+    fn corresponde(&mut self, esperado: u8) -> bool {
+        if self.byte(0) == Some(esperado) { self.atual += 1; true } else { false }
+    }
+    fn adicionar(&mut self, tipo: TipoToken, inicio: usize, fim: usize) {
+        self.tokens.push(Token { tipo, lexema: self.texto.get(inicio..fim).unwrap_or("").to_owned(), intervalo: IntervaloFonte { inicio, fim } });
+    }
+    fn erro(&mut self, codigo: &'static str, mensagem: &str, inicio: usize, fim: usize) {
+        self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, Some(IntervaloFonte { inicio, fim })));
+    }
+    fn caractere_atual(&self) -> Option<char> { self.texto.get(self.atual..)?.chars().next() }
+    fn escanear(&mut self) {
+        let b = self.avancar();
+        match b {
+            b' ' | b'\t' => {},
+            b'\n' => self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual),
+            b'\r' => {
+                if self.corresponde(b'\n') { self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual); }
+                else { self.erro("N1001", "Quebra CR isolada; use LF ou CRLF.", self.inicio, self.atual); }
+            }
+            b'/' if self.corresponde(b'/') => { while self.byte(0).is_some_and(|x| x != b'\n') { self.atual += 1; } }
+            b'/' if self.corresponde(b'*') => {
+                let mut fechado = false;
+                while !self.fim() {
+                    if self.corresponde(b'*') && self.corresponde(b'/') { fechado = true; break; }
+                    self.atual += 1;
+                }
+                if !fechado { self.erro("N1002", "Comentário de bloco não terminado.", self.inicio, self.atual); }
+            }
+            b'"' => self.literal_texto(),
+            b'\'' => self.literal_caractere(),
+            b'0'..=b'9' => self.numero(),
+            b'(' => self.simples(TipoToken::AbrePar), b')' => self.simples(TipoToken::FechaPar),
+            b'{' => self.simples(TipoToken::AbreChave), b'}' => self.simples(TipoToken::FechaChave),
+            b'[' => self.simples(TipoToken::AbreColchete), b']' => self.simples(TipoToken::FechaColchete),
+            b',' => self.simples(TipoToken::Virgula), b';' => self.simples(TipoToken::PontoVirgula),
+            b':' if self.corresponde(b':') => self.simples(TipoToken::Escopo),
+            b':' => self.simples(TipoToken::DoisPontos),
+            b'.' if self.corresponde(b'.') => self.simples(TipoToken::Intervalo),
+            b'.' => self.simples(TipoToken::Ponto),
+            b'+' => self.simples(TipoToken::Mais), b'-' => self.simples(TipoToken::Menos),
+            b'*' if self.corresponde(b'*') => self.simples(TipoToken::Potencia),
+            b'*' => self.simples(TipoToken::Vezes), b'%' => self.simples(TipoToken::Resto),
+            b'/' => self.simples(TipoToken::Divide),
+            b'=' if self.corresponde(b'=') => self.simples(TipoToken::Igual),
+            b'=' => self.simples(TipoToken::Atribui),
+            b'!' if self.corresponde(b'=') => self.simples(TipoToken::Diferente),
+            b'!' => self.simples(TipoToken::Negacao),
+            b'<' if self.corresponde(b'=') => self.simples(TipoToken::MenorIgual),
+            b'<' => self.simples(TipoToken::Menor),
+            b'>' if self.corresponde(b'=') => self.simples(TipoToken::MaiorIgual),
+            b'>' => self.simples(TipoToken::Maior),
+            _ => {
+                self.atual -= 1;
+                if let Some(c) = self.caractere_atual() {
+                    if c == '_' || c.is_alphabetic() { self.identificador(); }
+                    else { self.atual += c.len_utf8(); self.erro("N1003", &format!("Caractere inesperado: {c}."), self.inicio, self.atual); }
+                }
+            }
+        }
+    }
+    fn simples(&mut self, tipo: TipoToken) { self.adicionar(tipo, self.inicio, self.atual); }
+    fn identificador(&mut self) {
+        while let Some(c) = self.caractere_atual() {
+            if c == '_' || c.is_alphanumeric() || ('\u{0300}'..='\u{036f}').contains(&c) { self.atual += c.len_utf8(); } else { break; }
+        }
+        let palavra = &self.texto[self.inicio..self.atual];
+        let tipo = match palavra {
+            "variavel" => TipoToken::Variavel, "constante" => TipoToken::Constante,
+            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
+            "senao" => TipoToken::Senao, "para" => TipoToken::Para,
+            "enquanto" => TipoToken::Enquanto, "devolver" => TipoToken::Devolver,
+            "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
+            "verdadeiro" => TipoToken::Verdadeiro, "falso" => TipoToken::Falso,
+            "nulo" => TipoToken::Nulo, "fim" => TipoToken::FimBloco,
+            "parar" => TipoToken::Parar, "seguir" => TipoToken::Seguir,
+            "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" => TipoToken::Nao,
+            "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
+            "tipo" => TipoToken::Tipo, _ => TipoToken::Identificador,
+        };
+        self.adicionar(tipo, self.inicio, self.atual);
+    }
+    fn numero(&mut self) {
+        while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
+        let mut tipo = TipoToken::Inteiro;
+        if self.byte(0) == Some(b'.') && self.byte(1).is_some_and(|b| b.is_ascii_digit()) {
+            tipo = TipoToken::Decimal; self.atual += 1;
+            while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
+        }
+        if matches!(self.byte(0), Some(b'e' | b'E')) {
+            tipo = TipoToken::Decimal; self.atual += 1;
+            if matches!(self.byte(0), Some(b'+' | b'-')) { self.atual += 1; }
+            let antes = self.atual;
+            while self.byte(0).is_some_and(|b| b.is_ascii_digit() || b == b'_') { self.atual += 1; }
+            if antes == self.atual { self.erro("N1004", "Expoente numérico sem dígitos.", self.inicio, self.atual); }
+        }
+        let bruto = &self.texto[self.inicio..self.atual];
+        if bruto.starts_with('_') || bruto.ends_with('_') || bruto.contains("__") || bruto.contains("._") || bruto.contains("_e") || bruto.contains("_E") {
+            self.erro("N1005", "Separador numérico '_' em posição inválida.", self.inicio, self.atual);
+        }
+        self.adicionar(tipo, self.inicio, self.atual);
+    }
+    fn literal_texto(&mut self) {
+        let mut fechado = false;
+        while !self.fim() {
+            match self.avancar() {
+                b'"' => { fechado = true; break; }
+                b'\n' | b'\r' => { self.erro("N1006", "Texto não pode atravessar uma quebra de linha.", self.inicio, self.atual); break; }
+                b'\\' => { if !self.escape_valido() { self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual); } }
+                _ => {}
+            }
+        }
+        if !fechado && !self.diagnosticos.iter().any(|d| d.codigo == "N1006" && d.intervalo.is_some_and(|i| i.inicio == self.inicio)) {
+            self.erro("N1008", "Literal de texto não terminado.", self.inicio, self.atual);
+        }
+        self.adicionar(TipoToken::Texto, self.inicio, self.atual);
+    }
+    fn literal_caractere(&mut self) {
+        let mut unidades = 0usize; let mut fechado = false;
+        while !self.fim() {
+            let b = self.avancar();
+            if b == b'\'' { fechado = true; break; }
+            if b == b'\n' || b == b'\r' { break; }
+            if b == b'\\' {
+                if !self.escape_valido() { self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual); }
+            }
+            unidades += 1;
+        }
+        if !fechado || unidades != 1 { self.erro("N1009", "Literal de caractere deve conter exatamente um caractere e ser terminado.", self.inicio, self.atual); }
+        self.adicionar(TipoToken::Caractere, self.inicio, self.atual);
+    }
+    fn escape_valido(&mut self) -> bool {
+        match self.avancar() {
+            b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' | b'0' => true,
+            b'u' if self.corresponde(b'{') => {
+                let inicio = self.atual;
+                while self.byte(0).is_some_and(|b| b.is_ascii_hexdigit()) { self.atual += 1; }
+                let valido = self.atual > inicio && self.corresponde(b'}');
+                valido
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Tipos de nós da AST, independentes de detalhes de formatação.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expressao {
+    Nome(String), Literal(String), Lista(Vec<Expressao>),
+    Unaria { operador: TipoToken, valor: Box<Expressao> },
+    Binaria { esquerda: Box<Expressao>, operador: TipoToken, direita: Box<Expressao> },
+    Atribuicao { destino: Box<Expressao>, valor: Box<Expressao> },
+    Chamada { alvo: Box<Expressao>, argumentos: Vec<Expressao> },
+    Indexacao { alvo: Box<Expressao>, indice: Box<Expressao> },
+    Membro { alvo: Box<Expressao>, nome: String },
+}
+/// Declarações e instruções representadas na AST.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoAst {
+    Variavel { nome: String, tipo: Option<String>, valor: Expressao, constante: bool },
+    Funcao { nome: String, parametros: Vec<(String, String)>, retorno: Option<String>, corpo: Vec<NoAst> },
+    Tipo { nome: String, destino: String },
+    Incluir { caminho: String, apelido: Option<String> },
+    Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
+    Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
+    Para { inicial: Option<Box<NoAst>>, condicao: Option<Expressao>, atualizacao: Option<Expressao>, corpo: Vec<NoAst> },
+    Devolver(Option<Expressao>), Parar, Seguir,
+}
+/// Programa analisado.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Programa { pub itens: Vec<NoAst> }
+/// Resultado sintático com AST parcial e todos os diagnósticos coletados.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResultadoSintatico { pub programa: Programa, pub diagnosticos: Vec<Diagnostico> }
+
+/// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
+#[must_use]
+pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
+    let lexico = analisar_lexico(fonte);
+    let mut parser = Parser::novo(lexico.tokens);
+    let mut programa = parser.programa();
+    let mut diagnosticos = lexico.diagnosticos;
+    diagnosticos.extend(parser.diagnosticos);
+    // Evita descartar o programa parcial: erros léxicos e sintáticos coexistem.
+    programa.itens.shrink_to_fit();
+    ResultadoSintatico { programa, diagnosticos }
+}
+
+struct Parser { tokens: Vec<Token>, atual: usize, diagnosticos: Vec<Diagnostico> }
+impl Parser {
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, diagnosticos: Vec::new() } }
+    fn programa(&mut self) -> Programa {
+        let mut itens = Vec::new(); self.separadores();
+        while !self.verifica(TipoToken::Fim) {
+            let antes = self.atual;
+            if let Some(no) = self.item() { itens.push(no); }
+            if self.atual == antes { self.avancar(); }
+            if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao) && !self.separador_atual() {
+                self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções.");
+                self.sincronizar();
+            }
+            self.separadores();
+        }
+        Programa { itens }
+    }
+    fn item(&mut self) -> Option<NoAst> {
+        match self.tipo() {
+            TipoToken::Variavel => self.declaracao_variavel(false),
+            TipoToken::Constante => self.declaracao_variavel(true),
+            TipoToken::Funcao => self.funcao(),
+            TipoToken::Publico | TipoToken::Privado => { self.avancar(); if self.corresponde(TipoToken::Funcao) { self.funcao_corpo() } else { self.erro_atual("N2002", "Esperado 'funcao' após modificador de visibilidade."); None } }
+            TipoToken::Tipo => self.tipo_alias(),
+            TipoToken::Incluir => self.incluir(),
+            TipoToken::Quando => self.quando(),
+            TipoToken::Enquanto => self.enquanto(),
+            TipoToken::Para => self.para(),
+            TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
+            TipoToken::Parar => { self.avancar(); Some(NoAst::Parar) }
+            TipoToken::Seguir => { self.avancar(); Some(NoAst::Seguir) }
+            _ => self.expressao(0).map(NoAst::Expressao),
+        }
+    }
+    fn declaracao_variavel(&mut self, constante: bool) -> Option<NoAst> {
+        self.avancar(); let nome = self.consumir_nome("Esperado nome após declaração.")?;
+        let tipo = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
+        if !self.corresponde(TipoToken::Atribui) { self.erro_atual("N2003", "Esperado '=' na declaração."); return None; }
+        let valor = self.expressao(0)?;
+        Some(NoAst::Variavel { nome, tipo, valor, constante })
+    }
+    fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo() }
+    fn funcao_corpo(&mut self) -> Option<NoAst> {
+        let nome = self.consumir_nome("Esperado nome da função.")?;
+        if !self.corresponde(TipoToken::AbrePar) { self.erro_atual("N2004", "Esperado '(' após nome da função."); return None; }
+        let mut parametros = Vec::new();
+        if !self.verifica(TipoToken::FechaPar) {
+            loop {
+                let n = self.consumir_nome("Esperado nome do parâmetro.")?;
+                if !self.corresponde(TipoToken::DoisPontos) { self.erro_atual("N2005", "Esperado ':' no parâmetro."); return None; }
+                let t = self.caminho_tipo()?; parametros.push((n,t));
+                if !self.corresponde(TipoToken::Virgula) { break; }
+            }
+        }
+        self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
+        let retorno = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
+        let corpo = self.bloco()?;
+        Some(NoAst::Funcao { nome, parametros, retorno, corpo })
+    }
+    fn tipo_alias(&mut self) -> Option<NoAst> {
+        self.avancar(); let nome = self.consumir_nome("Esperado nome após 'tipo'.")?;
+        if !self.corresponde(TipoToken::Atribui) { self.erro_atual("N2006", "Esperado '=' na declaração de tipo."); return None; }
+        Some(NoAst::Tipo { nome, destino: self.caminho_tipo()? })
+    }
+    fn incluir(&mut self) -> Option<NoAst> {
+        self.avancar(); let caminho = self.caminho_tipo()?;
+        let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
+        Some(NoAst::Incluir { caminho, apelido })
+    }
+    fn quando(&mut self) -> Option<NoAst> {
+        self.avancar(); let condicao = self.expressao(0)?; let entao = self.bloco()?;
+        let mut senao = Vec::new();
+        self.pular_novas_linhas();
+        if self.corresponde(TipoToken::Senao) {
+            if self.verifica(TipoToken::Quando) { senao.push(self.quando()?); }
+            else { senao = self.bloco()?; }
+        }
+        Some(NoAst::Quando { condicao, entao, senao })
+    }
+    fn enquanto(&mut self) -> Option<NoAst> {
+        self.avancar(); let condicao = self.expressao(0)?; let corpo = self.bloco()?;
+        Some(NoAst::Enquanto { condicao, corpo })
+    }
+    fn para(&mut self) -> Option<NoAst> {
+        self.avancar(); self.esperar(TipoToken::AbrePar, "Esperado '(' após 'para'.");
+        let inicial = if self.verifica(TipoToken::PontoVirgula) { None } else { self.item().map(Box::new) };
+        self.esperar(TipoToken::PontoVirgula, "Esperado ';' após inicialização do laço.");
+        let condicao = if self.verifica(TipoToken::PontoVirgula) { None } else { self.expressao(0) };
+        self.esperar(TipoToken::PontoVirgula, "Esperado ';' após condição do laço.");
+        let atualizacao = if self.verifica(TipoToken::FechaPar) { None } else { self.expressao(0) };
+        self.esperar(TipoToken::FechaPar, "Esperado ')' após cabeçalho do laço.");
+        let corpo = self.bloco()?;
+        Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
+    }
+    fn bloco(&mut self) -> Option<Vec<NoAst>> {
+        if self.corresponde(TipoToken::AbreChave) {
+            self.separadores(); let mut itens = Vec::new();
+            while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+                let antes = self.atual; if let Some(n) = self.item() { itens.push(n); }
+                if self.atual == antes { self.avancar(); }
+                if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() {
+                    self.erro_atual("N2001", "Esperado separador dentro do bloco."); self.sincronizar();
+                }
+                self.separadores();
+            }
+            self.esperar(TipoToken::FechaChave, "Bloco aberto com '{' não foi fechado com '}'.");
+            Some(itens)
+        } else if self.corresponde(TipoToken::NovaLinha) {
+            self.separadores(); let mut itens = Vec::new();
+            while !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::Senao) {
+                let antes = self.atual; if let Some(n) = self.item() { itens.push(n); }
+                if self.atual == antes { self.avancar(); }
+                if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) { self.erro_atual("N2001", "Esperado separador dentro do bloco."); self.sincronizar(); }
+                self.separadores();
+            }
+            self.esperar(TipoToken::FimBloco, "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
+            Some(itens)
+        } else { self.erro_atual("N2007", "Esperado bloco com '{' ou quebra de linha seguida de 'fim'."); None }
+    }
+    fn caminho_tipo(&mut self) -> Option<String> {
+        let mut nome = self.consumir_nome("Esperado nome de tipo ou módulo.")?;
+        while self.corresponde(TipoToken::Escopo) { nome.push_str("::"); nome.push_str(&self.consumir_nome("Esperado nome após '::'.")?); }
+        Some(nome)
+    }
+    fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
+        let mut esquerda = match self.tipo() {
+            TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos | TipoToken::Mais => {
+                let op = self.avancar().tipo; let valor = self.expressao(12)?;
+                Expressao::Unaria { operador: op, valor: Box::new(valor) }
+            }
+            TipoToken::Identificador => Expressao::Nome(self.avancar().lexema),
+            TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo => Expressao::Literal(self.avancar().lexema),
+            TipoToken::AbrePar => { self.avancar(); let e = self.expressao(0)?; self.esperar(TipoToken::FechaPar, "Esperado ')' após expressão."); e }
+            TipoToken::AbreColchete => {
+                self.avancar(); let mut valores = Vec::new();
+                if !self.verifica(TipoToken::FechaColchete) {
+                    loop { valores.push(self.expressao(0)?); if !self.corresponde(TipoToken::Virgula) { break; } }
+                }
+                self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista."); Expressao::Lista(valores)
+            }
+            _ => { self.erro_atual("N2008", "Esperada uma expressão."); return None; }
+        };
+        loop {
+            let tipo = self.tipo();
+            if tipo == TipoToken::AbrePar && 14 >= minimo {
+                self.avancar(); let mut args = Vec::new();
+                if !self.verifica(TipoToken::FechaPar) { loop { args.push(self.expressao(0)?); if !self.corresponde(TipoToken::Virgula) { break; } } }
+                self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
+                esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args }; continue;
+            }
+            if tipo == TipoToken::AbreColchete && 14 >= minimo {
+                self.avancar(); let indice = self.expressao(0)?; self.esperar(TipoToken::FechaColchete, "Esperado ']' após índice.");
+                esquerda = Expressao::Indexacao { alvo: Box::new(esquerda), indice: Box::new(indice) }; continue;
+            }
+            if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo) && 14 >= minimo {
+                self.avancar(); let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
+                esquerda = Expressao::Membro { alvo: Box::new(esquerda), nome }; continue;
+            }
+            let (precedencia, direita) = match tipo {
+                TipoToken::Atribui => (1,true), TipoToken::Ou => (2,false), TipoToken::E => (3,false),
+                TipoToken::Igual | TipoToken::Diferente => (4,false),
+                TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual => (5,false),
+                TipoToken::Intervalo => (6,false), TipoToken::Mais | TipoToken::Menos => (7,false),
+                TipoToken::Vezes | TipoToken::Divide | TipoToken::Resto => (8,false),
+                TipoToken::Potencia => (10,true), _ => break,
+            };
+            if precedencia < minimo { break; }
+            let op = self.avancar().tipo;
+            let proximo = if direita { precedencia } else { precedencia + 1 };
+            let valor = self.expressao(proximo)?;
+            esquerda = if op == TipoToken::Atribui {
+                Expressao::Atribuicao { destino: Box::new(esquerda), valor: Box::new(valor) }
+            } else { Expressao::Binaria { esquerda: Box::new(esquerda), operador: op, direita: Box::new(valor) } };
+        }
+        Some(esquerda)
+    }
+    fn tipo(&self) -> TipoToken { self.tokens.get(self.atual).map_or(TipoToken::Fim, |t| t.tipo) }
+    fn verifica(&self, t: TipoToken) -> bool { self.tipo() == t }
+    fn avancar(&mut self) -> Token { let t = self.tokens[self.atual].clone(); if t.tipo != TipoToken::Fim { self.atual += 1; } t }
+    fn corresponde(&mut self, t: TipoToken) -> bool { if self.verifica(t) { self.avancar(); true } else { false } }
+    fn esperar(&mut self, t: TipoToken, mensagem: &str) { if !self.corresponde(t) { self.erro_atual("N2009", mensagem); } }
+    fn erro_atual(&mut self, codigo: &'static str, mensagem: &str) {
+        let intervalo = self.tokens.get(self.atual).map(|t| t.intervalo);
+        self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, intervalo));
+    }
+    fn consumir_nome(&mut self, mensagem: &str) -> Option<String> {
+        if self.verifica(TipoToken::Identificador) { Some(self.avancar().lexema) }
+        else { self.erro_atual("N2010", mensagem); None }
+    }
+    fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
+    fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
+    fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
+    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao) }
+    fn sincronizar(&mut self) {
+        while !self.verifica(TipoToken::Fim) && !self.separador_atual() && !matches!(self.tipo(), TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Senao) { self.avancar(); }
+    }
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
+
+    #[test]
+    fn reconhece_palavras_identificadores_e_operadores_maiores() {
+        let r = analisar_lexico(&fonte("variavel ação = 2 >= 1 // comentário\n"));
+        assert!(r.diagnosticos.is_empty());
+        assert_eq!(r.tokens[0].tipo, TipoToken::Variavel);
+        assert_eq!(r.tokens[1].lexema, "ação");
+        assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::MaiorIgual));
+    }
+    #[test]
+    fn comenta_bloco_e_preserva_nova_linha() {
+        let r = analisar_lexico(&fonte("/* x */\nvariavel a = 1"));
+        assert_eq!(r.tokens[0].tipo, TipoToken::NovaLinha);
+    }
+    #[test]
+    fn diagnostica_texto_nao_terminado() {
+        let r = analisar_lexico(&fonte("\"abc"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1008"));
+    }
+    #[test]
+    fn analisa_funcao_condicional_e_precedencia() {
+        let r = analisar(&fonte("funcao principal(): vazio {\n variavel x: inteiro = 1 + 2 * 3\n quando x > 2 { devolver x } senao { devolver 0 }\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.programa.itens.len(), 1);
+    }
+    #[test]
+    fn analisa_bloco_com_fim() {
+        let r = analisar(&fonte("funcao executar()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn recupera_e_emite_diagnostico_de_sintaxe() {
+        let r = analisar(&fonte("variavel =\nvariavel correto = 2"));
+        assert!(!r.diagnosticos.is_empty());
+        assert!(!r.programa.itens.is_empty());
+    }
+    #[test]
+    fn reconhece_lista_chamada_indexacao_e_membro() {
+        let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+}
