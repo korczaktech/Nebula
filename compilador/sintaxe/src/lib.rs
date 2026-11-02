@@ -529,15 +529,19 @@ impl Parser {
             _ => { self.erro_atual("N2008", "Esperada uma expressão."); return None; }
         };
         loop {
-            if self.verifica(TipoToken::NovaLinha)
-                && self.tokens.get(self.atual + 1).is_some_and(|t| matches!(t.tipo,
-                    TipoToken::Atribui | TipoToken::Ou | TipoToken::E | TipoToken::Igual
+            if self.verifica(TipoToken::NovaLinha) {
+                let proximo_significativo = self.tokens.iter().skip(self.atual)
+                    .find(|token| token.tipo != TipoToken::NovaLinha)
+                    .map(|token| token.tipo);
+                if matches!(proximo_significativo,
+                    Some(TipoToken::Atribui | TipoToken::Ou | TipoToken::E | TipoToken::Igual
                     | TipoToken::Diferente | TipoToken::Menor | TipoToken::MenorIgual
                     | TipoToken::Maior | TipoToken::MaiorIgual | TipoToken::Intervalo
                     | TipoToken::Mais | TipoToken::Menos | TipoToken::Vezes
                     | TipoToken::Divide | TipoToken::Resto | TipoToken::Potencia
                     | TipoToken::Ponto | TipoToken::Escopo | TipoToken::AbrePar | TipoToken::AbreColchete)) {
-                self.avancar();
+                    self.pular_novas_linhas();
+                }
             }
             let tipo = self.tipo();
             if tipo == TipoToken::AbrePar && 14 >= minimo {
@@ -704,6 +708,11 @@ impl Parser {
     #[test]
     fn permite_quebra_apos_operador_unario() {
         let r = analisar(&fonte("variavel negativo = -\n 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+    #[test]
+    fn permite_linhas_em_branco_antes_de_operador_de_continuacao() {
+        let r = analisar(&fonte("variavel soma = 1\\n\\n + 2"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
