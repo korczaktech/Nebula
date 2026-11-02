@@ -477,35 +477,30 @@ Critérios de conclusão:
 
 ## Fase 4 — Compilação nativa própria (meta acumulada: mínimo de 75%)
 
-**Estado: em reestruturação arquitetural; ainda não concluída.**
+**Estado: implementação do backend ampliada; validação final automatizada pendente.**
 
 **Objetivo:** transformar a IR em executáveis nativos sem gerar outra linguagem e sem depender de compilador, assembler ou linker externo.
 
-Direção arquitetural aprovada:
-- Compilador e backend implementados em Rust.
-- Geração direta de instruções de máquina e estrutura de executável pelo backend.
-- Primeiro alvo: Linux x86-64, formato ELF64.
-- CLI grava o executável produzido pelo backend e pode executá-lo.
-- Testes do backend escritos em Rust e testes de integração executam os binários gerados.
-- Nenhuma dependência obrigatória de C, C++, LLVM, Cranelift, assembler ou linker externo.
-- O otimizador próprio será implementado somente depois que os recursos-base do compilador estiverem prontos.
-- O runtime e a biblioteca padrão não serão antecipados; serão implementados apenas na etapa definida pelo plano.
+Entregas implementadas no alvo inicial:
+- Backend Rust que gera diretamente instruções x86-64 e executáveis ELF64 para Linux.
+- Segmento de código RX, segmento de dados globais RW separado e pilha NX.
+- Funções, parâmetros System V AMD64 (até seis argumentos), chamadas aninhadas e recursão.
+- Variáveis locais e globais, escopos, sombreamento, condicionais e laços.
+- Aritmética signed de 64 bits, comparações, lógica de curto-circuito e potência por quadratura.
+- Detecção de overflow em soma, subtração, multiplicação, negação, divisão, resto e potência; falhas aritméticas em tempo de execução encerram com código 2.
+- Validação de alcance de saltos relativos e relocação RIP-relative para dados globais.
+- CLI que grava executáveis atomicamente e não invoca compiladores, assemblers ou linkers externos.
+- Testes Rust unitários e de integração que executam os binários gerados.
 
-Implementação inicial em andamento:
-- Backend Rust que escreve ELF64 e código x86-64 diretamente.
-- Suporte inicial a inteiros de 64 bits e lógicos, variáveis locais, funções, parâmetros, chamadas, recursão, expressões aritméticas, comparações, condicionais e laços.
-- Entrada de processo e encerramento pelo syscall Linux, sem runtime Nebula externo.
-- CLI sem chamada a `c++` e sem opções de otimização delegadas.
+Limites explícitos desta etapa:
+- O único alvo nativo implementado é Linux x86-64 / ELF64.
+- Inteiros de 8, 16, 32 e 128 bits, byte, strings, decimais, listas, indexação, caracteres Unicode e entrada/saída aguardam suas etapas próprias.
+- Módulos e chamadas qualificadas ainda não são ligados pelo backend.
+- Runtime Nebula, biblioteca padrão e otimizador permanecem adiados.
+- O benchmark é uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
 
-Limites atuais e explícitos:
-- O alvo inicial é exclusivamente Linux x86-64.
-- Larguras inteiras menores que 64 bits, byte, strings, decimais, listas, indexação, caracteres, entrada/saída e biblioteca padrão aguardam suas etapas próprias; o backend rejeita esses recursos em vez de gerar código fictício.
-- Ainda é necessário ampliar e validar o conjunto de instruções, ABI, escopos, chamadas, tratamento de erros e limites de código/stack.
-- Não há otimizador nem níveis `-O0` a `-Os`.
-- O runtime Nebula não foi implementado nesta alteração.
-- O benchmark é apenas uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
+A conclusão depende da aprovação real de formatação, Clippy, testes e benchmark no GitHub Actions do commit final. Consulte [critérios da Fase 4](especificacao/criterios-fase-4.md).
 
-Critérios detalhados e estado verificável: [critérios da Fase 4](especificacao/criterios-fase-4.md).
 
 ## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
 
