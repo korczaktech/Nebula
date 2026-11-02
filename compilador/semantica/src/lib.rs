@@ -1479,6 +1479,14 @@ mod testes {
     }
 
     #[test]
+    fn exige_caso_curinga_ao_final() {
+        let r = analisar_codigo(
+            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso _ { exibir(0) } caso Estado::Ativo { exibir(1) } }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn rejeita_escolha_nao_exaustiva_e_payload_incorreto() {
         let r = analisar_codigo(
             "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso() { exibir(1) } }",
