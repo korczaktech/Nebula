@@ -620,22 +620,35 @@ impl Parser {
     }
     #[test]
     fn trata_crlf_como_uma_quebra_logica() {
-        let r = analisar_lexico(&fonte("variavel a = 1\\r\\nvariavel b = 2"));
-        assert!(r.diagnosticos.is_empty());
+        let r = analisar_lexico(&fonte("variavel a = 1\r\nvariavel b = 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 1);
     }
     #[test]
     fn rejeita_cr_isolado() {
-        let r = analisar_lexico(&fonte("variavel a = 1\\rvariavel b = 2"));
+        let r = analisar_lexico(&fonte("variavel a = 1\rvariavel b = 2"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1001"));
     }
     #[test]
-    fn rejeita_escape_unicode_fora_do_intervalo_escalar() {
     fn rejeita_escape_unicode_fora_do_intervalo_escalar() {
         let barra = char::from(92);
         let codigo = format!("\"{barra}u{{110000}}\"");
         let r = analisar_lexico(&fonte(&codigo));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1007"));
+    }
+    #[test]
+    fn rejeita_cr_isolado_em_comentario_de_linha() {
+        let codigo = format!("// comentario{}variavel x = 1", char::from(13));
+        let r = analisar_lexico(&fonte(&codigo));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1001"));
+    }
+    #[test]
+    fn rejeita_separador_invalido_em_decimal() {
+        let r = analisar_lexico(&fonte("1.2_"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1005"));
+    }
+    #[test]
+    fn rejeita_comentario_de_bloco_nao_terminado() {
         let r = analisar_lexico(&fonte("variavel a = 1 /* sem fim"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N1002"));
     }
