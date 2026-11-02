@@ -190,7 +190,7 @@ impl Gerador {
             }
             InstrucaoIr::Devolver(valor) => {
                 let retorno_esperado = self.retorno.clone();
-                let valor_cpp = valor.as_ref().map(|e| self.expr(e, retorno_esperado.as_ref())).transpose()?.unwrap_or_default();
+                let valor_cpp = valor.as_ref().map(|e| self.expr(e, retorno_esperado.as_ref()).map(|v| format!(" {v}"))).transpose()?.unwrap_or_default();
                 self.l(&format!("return{valor_cpp};"));
             }
             InstrucaoIr::Parar => self.l("break;"),
