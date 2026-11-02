@@ -803,6 +803,31 @@ mod testes {
         let _ = std::fs::remove_file(saida);
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[rustfmt::skip]
+    #[test]
+    fn compila_e_executa_chamada_de_modulo_no_backend_nativo() {
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-elf-{}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        std::fs::write(
+            diretorio.join("Base.nbx"),
+            "publico funcao valor(): inteiro { devolver 40 }",
+        )
+        .unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            "incluir Base\nfuncao principal(): inteiro { devolver Base::valor() + 2 }",
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação com módulo local");
+        let status = Command::new(&saida).status().expect("executável gerado");
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn interpreta_modulo_local_com_funcao_publica_e_auxiliar_privada() {
         let diretorio = std::env::temp_dir().join(format!("nebula-modulo-{}", std::process::id()));
