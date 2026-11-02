@@ -9,81 +9,131 @@ use std::collections::{BTreeMap, HashSet};
 /// Tipo estático usado para validar valores e calcular sua representação.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TipoRuntime {
+    /// Ausência de retorno.
     Vazio,
+    /// Valor lógico de um byte.
     Logico,
+    /// Inteiro com largura e sinal definidos.
     Inteiro {
+        /// Largura em bits: 8, 16, 32, 64 ou 128.
         bits: u16,
+        /// Indica representação com sinal.
         assinado: bool,
     },
+    /// Ponto flutuante IEEE-754.
     Decimal {
+        /// Largura em bits: 32 ou 64.
         bits: u16,
     },
+    /// Inteiro sem sinal de oito bits.
     Byte,
+    /// Escalar Unicode.
     Caractere,
+    /// Texto UTF-8 gerenciado.
     Texto,
+    /// Sequência homogênea gerenciada.
     Lista(Box<TipoRuntime>),
+    /// Agregado posicional de tipos possivelmente diferentes.
     Tupla(Vec<TipoRuntime>),
+    /// Agregado nomeado com campos em ordem declarada.
     Estrutura {
+        /// Nome nominal da estrutura.
         nome: String,
+        /// Campos declarados e seus tipos.
         campos: Vec<(String, TipoRuntime)>,
     },
+    /// Tipo algébrico com variantes e payloads posicionais.
     Enumeracao {
+        /// Nome nominal da enumeração.
         nome: String,
+        /// Variantes declaradas.
         variantes: Vec<VarianteRuntime>,
     },
+    /// Valor que pode estar presente ou ausente.
     Opcional(Box<TipoRuntime>),
+    /// Resultado de sucesso ou falha com tipos independentes.
     Resultado(Box<TipoRuntime>, Box<TipoRuntime>),
 }
 
 /// Variante de uma enumeração e os tipos de seu payload posicional.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct VarianteRuntime {
+    /// Identificador da variante.
     pub nome: String,
+    /// Tipos dos valores carregados pela variante.
     pub payload: Vec<TipoRuntime>,
 }
 
 /// Layout físico calculado para um tipo no ABI inicial de 64 bits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LayoutRuntime {
+    /// Tamanho total em bytes, incluindo padding final.
     pub tamanho: u64,
+    /// Alinhamento requerido em bytes.
     pub alinhamento: u64,
+    /// Layout dos campos, na ordem física.
     pub campos: Vec<CampoLayoutRuntime>,
+    /// Tamanho da tag discriminante em bytes.
     pub tamanho_tag: u64,
 }
 
 /// Deslocamento e layout de um campo de estrutura ou tupla.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CampoLayoutRuntime {
+    /// Nome do campo ou índice textual de posição.
     pub nome: String,
+    /// Deslocamento do início do campo em relação ao agregado.
     pub deslocamento: u64,
+    /// Tamanho do campo em bytes.
     pub tamanho: u64,
+    /// Alinhamento do campo em bytes.
     pub alinhamento: u64,
 }
 
 /// Valor validável contra um tipo estático da Nebula.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValorTipado {
+    /// Valor sem conteúdo.
     Vazio,
+    /// Valor lógico.
     Logico(bool),
+    /// Inteiro com sinal.
     Inteiro(i128),
+    /// Inteiro sem sinal.
     InteiroSemSinal(u128),
+    /// Número decimal.
     Decimal(f64),
+    /// Byte.
     Byte(u8),
+    /// Caractere Unicode.
     Caractere(char),
+    /// Texto UTF-8.
     Texto(String),
+    /// Elementos de uma lista.
     Lista(Vec<ValorTipado>),
+    /// Elementos de uma tupla.
     Tupla(Vec<ValorTipado>),
+    /// Campos nomeados de uma estrutura.
     Estrutura {
+        /// Nome nominal da estrutura.
         nome: String,
+        /// Valores indexados pelos nomes dos campos.
         campos: BTreeMap<String, ValorTipado>,
     },
+    /// Variante ativa de uma enumeração.
     Enumeracao {
+        /// Nome nominal da enumeração.
         nome: String,
+        /// Nome da variante ativa.
         variante: String,
+        /// Valores carregados pela variante.
         payload: Vec<ValorTipado>,
     },
+    /// Valor opcional presente ou ausente.
     Opcional(Option<Box<ValorTipado>>),
+    /// Resultado bem-sucedido.
     Sucesso(Box<ValorTipado>),
+    /// Resultado com falha.
     Falha(Box<ValorTipado>),
 }
 
