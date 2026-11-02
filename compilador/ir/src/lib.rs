@@ -284,7 +284,6 @@ pub struct ResultadoExecucao {
 }
 
 /// Executa a IR com limite de passos para impedir laços infinitos em testes.
-#[must_use]
 pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
@@ -476,7 +475,7 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Decimal(a), Mais, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a+b)),
         (ValorIr::Decimal(a), Menos, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a-b)),
         (ValorIr::Decimal(a), Vezes, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a*b)),
-        (ValorIr::Decimal(_), Divide, ValorIr::Decimal(b)) if b == 0.0 => Err("Divisão por zero na IR.".into()),
+        (ValorIr::Decimal(_), Divide, ValorIr::Decimal(0.0)) => Err("Divisão por zero na IR.".into()),
         (ValorIr::Decimal(a), Divide, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a/b)),
         (ValorIr::Decimal(a), Resto, ValorIr::Decimal(b)) if b != 0.0 => Ok(ValorIr::Decimal(a % b)),
         (ValorIr::Decimal(a), Potencia, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a.powf(b))),
@@ -559,7 +558,6 @@ mod testes {
         let ir = compilar("enquanto verdadeiro { exibir(1) }");
         assert!(executar(&ir, 5).is_err());
     }
-}
 
     #[test]
     fn executa_operacoes_decimais_e_mistas() {
@@ -580,7 +578,7 @@ mod testes {
         let ir = compilar("funcao recursiva(n: inteiro): inteiro { devolver recursiva(n + 1) }\nvariavel x = recursiva(0)");
         assert!(executar(&ir, 10_000).is_err());
     }
-
+}
 }
 
 pub use implementacao::*;
