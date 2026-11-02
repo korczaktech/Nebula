@@ -770,6 +770,33 @@ pub fn listar_diretorio(caminho: &str) -> Resultado<Vec<String>> {
     Ok(nomes)
 }
 
+/// Retorna o diretório de trabalho atual.
+pub fn diretorio_atual() -> Resultado<String> {
+    std::env::current_dir()
+        .map(|caminho| caminho.to_string_lossy().into_owned())
+        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+}
+
+/// Lê uma variável de ambiente, preservando ausência como None.
+#[must_use]
+pub fn variavel_ambiente(nome: &str) -> Option<String> {
+    std::env::var_os(nome).map(|valor| valor.to_string_lossy().into_owned())
+}
+
+/// Retorna os argumentos do processo como texto UTF-8 com substituição segura.
+#[must_use]
+pub fn argumentos_processo() -> Vec<String> {
+    std::env::args_os()
+        .map(|argumento| argumento.to_string_lossy().into_owned())
+        .collect()
+}
+
+/// Identifica o sistema operacional e a arquitetura da execução atual.
+#[must_use]
+pub fn plataforma() -> String {
+    format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
+}
+
 /// Retorna o tempo Unix atual em milissegundos.
 pub fn tempo_unix_milisegundos() -> Resultado<u128> {
     std::time::SystemTime::now()
