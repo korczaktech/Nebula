@@ -211,15 +211,14 @@ impl<'a> Lexer<'a> {
                     16 => b.is_ascii_hexdigit(),
                     _ => false,
                 };
-                if b == b'_' || digito_valido { self.atual += 1; }
-                else if b.is_ascii_alphanumeric() { self.atual += 1; }
+                if b == b'_' || digito_valido || b.is_ascii_alphanumeric() { self.atual += 1; }
                 else { break; }
             }
             let trecho = &self.texto[inicio_digitos..self.atual];
             let valido = !trecho.is_empty()
                 && !trecho.starts_with('_') && !trecho.ends_with('_')
                 && !trecho.contains("__")
-                && trecho.chars().filter(|c| *c != '_').all(|c| c.to_digit(radix).is_some());
+                && trecho.chars().filter(|c| *c != '_').all(|c| c.is_digit(radix));
             if !valido { self.erro("N1005", "Literal inteiro em base não decimal malformado.", self.inicio, self.atual); }
             self.adicionar(TipoToken::Inteiro, self.inicio, self.atual);
             return;
@@ -238,7 +237,7 @@ impl<'a> Lexer<'a> {
         }
         let bruto = &self.texto[self.inicio..self.atual];
         let grupos_validos = bruto
-            .split(|c| matches!(c, '.' | 'e' | 'E' | '+' | '-'))
+            .split(['.', 'e', 'E', '+', '-'])
             .filter(|grupo| !grupo.is_empty())
             .all(|grupo| {
                 !grupo.starts_with('_')
