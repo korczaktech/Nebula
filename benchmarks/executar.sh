@@ -19,7 +19,6 @@ for nivel in -O0 -O1 -O2 -O3 -Os; do
     "$nebula" compilar benchmarks/loop.nbx -o "$executavel" "$nivel"
     printf '\n%s\n' "$nivel"
     for repeticao in 1 2 3 4 5; do
-        printf '  execução %s: ' "$repeticao"
-        /usr/bin/time -f '%e s' "$executavel" >/dev/null
+        /usr/bin/time -f "  execução $repeticao: %e s" "$executavel" >/dev/null
     done
 done
