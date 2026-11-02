@@ -543,8 +543,21 @@ impl Parser {
         self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, intervalo));
     }
     fn consumir_nome(&mut self, mensagem: &str) -> Option<String> {
-        if self.verifica(TipoToken::Identificador) { Some(self.avancar().lexema.nfc().collect()) }
-        else { self.erro_atual("N2010", mensagem); None }
+        if self.verifica(TipoToken::Identificador) {
+            Some(self.avancar().lexema.nfc().collect())
+        } else if self.verifica(TipoToken::ReservadaFutura) {
+            let token = self.avancar();
+            self.diagnosticos.push(Diagnostico::novo(
+                "N2011",
+                Severidade::Erro,
+                format!("A palavra '{}' está reservada para uma versão futura e ainda não pode ser usada aqui.", token.lexema),
+                Some(token.intervalo),
+            ));
+            None
+        } else {
+            self.erro_atual("N2010", mensagem);
+            None
+        }
     }
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
