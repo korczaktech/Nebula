@@ -19,18 +19,28 @@ fn main() {
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
         Some("compilar") => {
-            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>] [-O0|-O1|-O2|-O3|-Os]"); std::process::exit(2); };
-            let mut saida = PathBuf::from(&caminho).with_extension(if cfg!(windows) { "exe" } else { "out" });
-            let mut otimizacao = "-O0".to_owned();
-            while let Some(arg) = argumentos.next() { if arg == "-o" { let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); }; saida = PathBuf::from(valor); } else if matches!(arg.as_str(), "-O0" | "-O1" | "-O2" | "-O3" | "-Os") { otimizacao = arg; } else { eprintln!("Argumento desconhecido: {arg}"); std::process::exit(2); } }
-            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &saida, &otimizacao) { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
+            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
+            let mut saida = PathBuf::from(&caminho).with_extension("out");
+            while let Some(arg) = argumentos.next() {
+                if arg == "-o" {
+                    let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); };
+                    saida = PathBuf::from(valor);
+                } else {
+                    eprintln!("Argumento desconhecido: {arg}");
+                    std::process::exit(2);
+                }
+            }
+            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &saida) {
+                eprintln!("Erro de compilação: {erro}");
+                std::process::exit(1);
+            }
             println!("Executável gerado: {}", saida.display());
         }
         Some("executar" | "testar") => {
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula executar|testar <arquivo.nbx>"); std::process::exit(2); };
             if argumentos.next().is_some() { eprintln!("Erro: executar aceita somente um arquivo."); std::process::exit(2); }
             let temporario = std::env::temp_dir().join(format!("nebula-{}{}", std::process::id(), if cfg!(windows) { ".exe" } else { "" }));
-            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &temporario, "-O0") { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
+            if let Err(erro) = compilar_arquivo(Path::new(&caminho), &temporario) { eprintln!("Erro de compilação: {erro}"); std::process::exit(1); }
             let status = Command::new(&temporario).status();
             let _ = std::fs::remove_file(&temporario);
             match status { Ok(s) if s.success() => {}, Ok(s) => std::process::exit(s.code().unwrap_or(1)), Err(e) => { eprintln!("Não foi possível executar o programa: {e}"); std::process::exit(1); } }
@@ -78,25 +88,31 @@ fn main() {
 }
 
 #[rustfmt::skip]
-fn compilar_arquivo(caminho: &Path, saida: &Path, otimizacao: &str) -> Result<(), String> {
-    let bytes = std::fs::read(caminho).map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
-    let conteudo = String::from_utf8(bytes).map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
+fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
+    let bytes = std::fs::read(caminho)
+        .map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
+    let conteudo = String::from_utf8(bytes)
+        .map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
-        return Err(sintaxe.diagnosticos.iter().map(|d| format!("{} — {}", d.codigo, d.mensagem)).collect::<Vec<_>>().join("\n"));
+        return Err(sintaxe.diagnosticos.iter()
+            .map(|d| format!("{} — {}", d.codigo, d.mensagem))
+            .collect::<Vec<_>>().join("\n"));
     }
     let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
-    if !ir.diagnosticos.is_empty() { return Err(ir.diagnosticos.join("\n")); }
-    let c = nebula_backend::gerar_cpp(&ir.programa.expect("IR validada"))?;
-    let arquivo_c = std::env::temp_dir().join(format!("nebula-{}-{}.cpp", std::process::id(), saida.file_stem().and_then(|s| s.to_str()).unwrap_or("programa")));
-    std::fs::write(&arquivo_c, c).map_err(|e| format!("não foi possível gravar C temporário: {e}"))?;
-    let resultado = Command::new("c++").arg("-std=c++17").arg(otimizacao).arg(&arquivo_c).arg("-o").arg(saida).output();
-    let _ = std::fs::remove_file(&arquivo_c);
-    let resultado = resultado.map_err(|e| format!("compilador C++ 'c++' não encontrado ou indisponível: {e}"))?;
-    if !resultado.status.success() {
-        let _ = std::fs::remove_file(saida);
-        return Err(String::from_utf8_lossy(&resultado.stderr).into_owned());
+    if !ir.diagnosticos.is_empty() {
+        return Err(ir.diagnosticos.join("\n"));
+    }
+    let binario = nebula_backend::gerar_executavel(&ir.programa.expect("IR validada"))?;
+    std::fs::write(saida, binario)
+        .map_err(|e| format!("não foi possível gravar executável '{}': {e}", saida.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissoes = std::fs::Permissions::from_mode(0o755);
+        std::fs::set_permissions(saida, permissoes)
+            .map_err(|e| format!("não foi possível marcar o executável: {e}"))?;
     }
     Ok(())
 }
@@ -112,12 +128,12 @@ fn ajuda() {
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
-    println!("  compilar <arquivo>    Gera executável nativo; -O0, -O1, -O2, -O3 ou -Os");
+    println!("  compilar <arquivo>    Gera executável ELF nativo Linux x86-64");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
-    println!("O backend nativo gera C++17 e utiliza um compilador C++ instalado (c++).");
+    println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");\n    println!("O alvo inicial não inclui ainda a biblioteca padrão/runtime, strings ou coleções.");
 }
 
 fn mostrar_ir(caminho: &Path) {
