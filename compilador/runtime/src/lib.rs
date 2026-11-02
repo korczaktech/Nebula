@@ -493,6 +493,41 @@ impl Memoria {
         Err(ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
     }
 
+    /// Atualiza um campo de uma estrutura vinculada a uma variável mutável.
+    pub fn definir_campo_estrutura(
+        &mut self,
+        nome: &str,
+        caminho: &[String],
+        valor: Valor,
+    ) -> Resultado<()> {
+        if caminho.is_empty() {
+            return Err(ErroRuntime::TipoIncompativel("caminho de campo vazio"));
+        }
+        let celula = self.escopos.iter_mut().rev()
+            .find_map(|escopo| escopo.get_mut(nome))
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
+        if !celula.mutavel {
+            return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        let mut atual = celula.valor.clone();
+        for campo in &caminho[..caminho.len() - 1] {
+            let Valor::Estrutura { campos, .. } = atual else {
+                return Err(ErroRuntime::TipoIncompativel("campo intermediário não é estrutura"));
+            };
+            atual = campos.read().map_err(|_| ErroRuntime::MemoriaCorrompida)?
+                .get(campo).cloned()
+                .ok_or(ErroRuntime::TipoIncompativel("campo intermediário inexistente"))?;
+        }
+        let Valor::Estrutura { campos, .. } = atual else {
+            return Err(ErroRuntime::TipoIncompativel("destino não é estrutura"));
+        };
+        let mut campos = campos.write().map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+        let destino = campos.get_mut(caminho.last().expect("caminho validado"))
+            .ok_or(ErroRuntime::TipoIncompativel("campo inexistente"))?;
+        *destino = valor;
+        Ok(())
+    }
+
     /// Atualiza um elemento de uma lista vinculada a uma variável mutável.
     pub fn definir_elemento_lista(
         &mut self,
