@@ -6,6 +6,8 @@
 
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
+use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_normalization::UnicodeNormalization;
 
 /// Categorias de tokens produzidas pelo Lexer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -122,7 +124,7 @@ impl<'a> Lexer<'a> {
             _ => {
                 self.atual -= 1;
                 if let Some(c) = self.caractere_atual() {
-                    if c == '_' || c.is_alphabetic() { self.identificador(); }
+                    if c == '_' || is_xid_start(c) { self.identificador(); }
                     else { self.atual += c.len_utf8(); self.erro("N1003", &format!("Caractere inesperado: {c}."), self.inicio, self.atual); }
                 }
             }
@@ -131,10 +133,11 @@ impl<'a> Lexer<'a> {
     fn simples(&mut self, tipo: TipoToken) { self.adicionar(tipo, self.inicio, self.atual); }
     fn identificador(&mut self) {
         while let Some(c) = self.caractere_atual() {
-            if c == '_' || c.is_alphanumeric() || ('\u{0300}'..='\u{036f}').contains(&c) { self.atual += c.len_utf8(); } else { break; }
+            if c == '_' || is_xid_continue(c) { self.atual += c.len_utf8(); } else { break; }
         }
-        let palavra = &self.texto[self.inicio..self.atual];
-        let tipo = match palavra {
+        let palavra_original = &self.texto[self.inicio..self.atual];
+        let palavra = palavra_original.nfc().collect::<String>();
+        let tipo = match palavra.as_str() {
             "variavel" => TipoToken::Variavel, "constante" => TipoToken::Constante,
             "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
@@ -441,7 +444,7 @@ impl Parser {
         self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, intervalo));
     }
     fn consumir_nome(&mut self, mensagem: &str) -> Option<String> {
-        if self.verifica(TipoToken::Identificador) { Some(self.avancar().lexema) }
+        if self.verifica(TipoToken::Identificador) { Some(self.avancar().lexema.nfc().collect()) }
         else { self.erro_atual("N2010", mensagem); None }
     }
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
