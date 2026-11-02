@@ -357,7 +357,9 @@ mod testes {
     fn redimensionamento_para_menor_preserva_prefixo_e_libera_capacidade() {
         let mut alocador = Alocador::novo(10);
         let antigo = alocador.alocar(8).unwrap();
-        alocador.escrever(antigo, 0, &[1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+        alocador
+            .escrever(antigo, 0, &[1, 2, 3, 4, 5, 6, 7, 8])
+            .unwrap();
 
         let novo = alocador.redimensionar(antigo, 3).unwrap();
         assert_eq!(alocador.ler(novo, 0, 3), Ok(&[1, 2, 3][..]));
