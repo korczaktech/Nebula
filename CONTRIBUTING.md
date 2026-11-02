@@ -12,12 +12,12 @@
 
 ## Verificações locais
 
-Com Rust estável instalado:
+Com Rust 1.85.0 instalado (versão fixada em rust-toolchain.toml):
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace --all-targets
 ```
 
 ## Escopo atual
