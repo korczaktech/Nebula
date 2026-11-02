@@ -2011,6 +2011,29 @@ mod testes {
 
 
     #[test]
+    fn baixa_layouts_nominais_para_a_ir() {
+        let ir = compilar(
+            "estrutura Pessoa { idade: inteiro8, ativo: logico, saldo: decimal64 }\nenumeracao Estado { Inativo, Ativo, Falha(texto) }",
+        );
+        let pessoa = ir.layouts_tipos.get("Pessoa").expect("layout da estrutura");
+        assert_eq!(pessoa.tamanho, 16);
+        assert_eq!(pessoa.alinhamento, 8);
+        let estado = ir.layouts_tipos.get("Estado").expect("layout da enumeração");
+        assert_eq!(estado.tamanho_tag, 1);
+        assert_eq!(estado.tamanho, 24);
+    }
+
+    #[test]
+    fn rejeita_layout_nominal_recursivo_ao_baixar_ir() {
+        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No { proximo: No }");
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.programa.is_none());
+        assert!(resultado.diagnosticos.iter().any(|d| d.contains("recursivo por valor")));
+    }
+
+    #[test]
     fn preserva_caminho_real_do_modulo_na_ir() {
         let mut modulos = ModulosDisponiveis::new();
         modulos.insert("Matematica".into(), HashMap::from([(
