@@ -10,6 +10,7 @@ use std::collections::HashMap;
 const TAMANHO_CABECALHO: usize = 4096;
 const TAMANHO_QUADRO: u32 = 4096;
 const LIMITE_VARIAVEIS: usize = 512;
+const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 
 /// Compila a IR em um executável ELF64 estático para Linux x86-64.
 ///
@@ -83,7 +84,7 @@ impl Emissor {
         let mut chamadas_inicio = Vec::new();
         if !programa.instrucoes.is_empty() {
             self.codigo.push(0xE8);
-            chamadas_inicio.push((self.codigo.len(), "__nebula_inicio".to_owned()));
+            chamadas_inicio.push((self.codigo.len(), NOME_INICIO_INTERNO.to_owned()));
             self.codigo.extend_from_slice(&[0, 0, 0, 0]);
         }
         if let Some(funcao) = principal {
@@ -95,7 +96,7 @@ impl Emissor {
 
         if !programa.instrucoes.is_empty() {
             let inicio = FuncaoIr {
-                nome: "__nebula_inicio".into(),
+                nome: NOME_INICIO_INTERNO.into(),
                 parametros: Vec::new(),
                 retorno: Tipo::Vazio,
                 corpo: programa.instrucoes.clone(),
@@ -162,7 +163,7 @@ impl Emissor {
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
                 validar_tipo(tipo)?;
                 self.expressao(valor)?;
-                if self.funcao_atual == "__nebula_inicio"
+                if self.funcao_atual == NOME_INICIO_INTERNO
                     && self.escopos.len() == 1
                     && self.globais.contains_key(nome)
                 {
