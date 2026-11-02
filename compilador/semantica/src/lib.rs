@@ -1470,6 +1470,23 @@ mod testes {
     }
 
     #[test]
+    fn valida_escolha_exaustiva_e_vinculos_de_payload() {
+        let r = analisar_codigo(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_escolha_nao_exaustiva_e_payload_incorreto() {
+        let r = analisar_codigo(
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso() { exibir(1) } }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3050"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3053"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn rejeita_tipo_desconhecido_em_estrutura_e_enumeracao() {
         let r = analisar_codigo(
             "estrutura Pessoa { nome: TipoAusente }\nenumeracao Estado { Falha(TipoAusente) }",
