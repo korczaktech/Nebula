@@ -26,6 +26,7 @@ fn compila_e_executa_programa_nativo() {
         .arg(&origem)
         .arg("-o")
         .arg(&exe)
+        .arg("-O2")
         .output()
         .unwrap();
     assert!(
@@ -36,6 +37,13 @@ fn compila_e_executa_programa_nativo() {
     let execucao = Command::new(&exe).output().unwrap();
     assert!(execucao.status.success());
     assert_eq!(String::from_utf8_lossy(&execucao.stdout).trim(), "42");
+    let execucao_cli = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("executar")
+        .arg(&origem)
+        .output()
+        .unwrap();
+    assert!(execucao_cli.status.success());
+    assert_eq!(String::from_utf8_lossy(&execucao_cli.stdout).trim(), "42");
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(exe);
 }
