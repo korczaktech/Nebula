@@ -371,7 +371,8 @@ impl Maquina<'_> {
                 loop {
                     self.passo()?;
                     if let Some(condicao) = condicao {
-                        if !self.logico(self.expressao(condicao)?)? { break; }
+                        let condicao = self.expressao(condicao)?;
+                        if !self.logico(condicao)? { break; }
                     }
                     match self.bloco(corpo)? {
                         Fluxo::Normal | Fluxo::Seguir => {}
