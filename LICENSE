@@ -1,0 +1,160 @@
+LICENÇA DE USO RESTRITO KORCZAK — NEBULA
+Versão 1.0 — 2 de novembro de 2026
+
+Copyright (c) 2026 Korczak Technologies. Todos os direitos reservados.
+
+ESTA LICENÇA NÃO É UMA LICENÇA OPEN SOURCE APROVADA PELA OPEN SOURCE
+INITIATIVE (OSI). O CÓDIGO-FONTE É DISPONIBILIZADO PUBLICAMENTE PARA
+INSPEÇÃO E USO SOB AS CONDIÇÕES ABAIXO, MAS NÃO É CONCEDIDA PERMISSÃO
+GERAL PARA MODIFICÁ-LO OU CRIAR OBRAS DERIVADAS.
+
+1. DEFINIÇÕES
+
+“Software” significa a linguagem de programação Nebula e os componentes
+disponibilizados neste repositório como parte dela, incluindo compilador,
+runtime, bibliotecas oficiais, ferramentas, documentação técnica e arquivos
+de implementação, exceto componentes de terceiros identificados por seus
+próprios avisos de licença.
+
+“Programa do Usuário” significa um software independente criado por uma
+pessoa ou organização utilizando a Nebula, sem incorporar partes protegidas
+da implementação da Nebula além do necessário para executar o Programa do
+Usuário conforme a interface pública da linguagem.
+
+“Titular” significa Korczak Technologies ou a pessoa ou entidade que detenha
+os direitos autorais aplicáveis sobre o componente em questão.
+
+2. CONCESSÃO DE USO
+
+Sujeito ao cumprimento desta licença, o Titular concede a você uma licença
+mundial, não exclusiva, gratuita, revogável em caso de violação e
+intransferível para:
+
+a) instalar, executar e utilizar cópias oficiais e não modificadas do
+Software;
+b) manter cópias do Software em dispositivos e ambientes sob seu controle,
+exclusivamente para uso autorizado;
+c) escrever, compilar, executar, testar e manter Programas do Usuário;
+d) utilizar a Nebula em atividades pessoais, acadêmicas, profissionais e
+comerciais; e
+e) vender, licenciar, distribuir e oferecer comercialmente seus Programas
+do Usuário, inclusive como serviço, produto ou aplicação proprietária.
+
+Não há cobrança de royalties ao Titular pelo simples uso da Nebula ou pela
+comercialização de Programas do Usuário criados com ela.
+
+3. PROIBIÇÕES
+
+Sem autorização prévia e expressa, por escrito, do Titular, você não pode:
+
+a) modificar, adaptar, traduzir ou alterar o código-fonte ou o código
+distribuível do Software;
+b) criar, publicar ou distribuir forks, versões modificadas, variantes ou
+obras derivadas do Software;
+c) incorporar partes substanciais do código, da implementação ou dos
+materiais protegidos do Software em outro produto ou projeto;
+d) redistribuir, republicar, espelhar, sublicenciar, vender ou disponibilizar
+cópias do próprio Software, integral ou parcialmente, inclusive em
+repositórios, registros de pacotes ou canais de distribuição de terceiros;
+e) remover, ocultar ou alterar avisos de direitos autorais, titularidade ou
+licença;
+f) usar as marcas, logotipos ou identidade visual da Nebula ou da Korczak
+Technologies de modo que sugira patrocínio, certificação ou vínculo oficial
+inexistente; ou
+g) apresentar o Software, suas versões ou seus componentes oficiais como
+criação de outra pessoa ou organização.
+
+A disponibilização pública do código-fonte não constitui autorização para
+alterá-lo, republicá-lo ou redistribuí-lo.
+
+4. PROGRAMAS CRIADOS COM A NEBULA
+
+Os direitos sobre os Programas do Usuário pertencem aos respectivos autores
+ou titulares, observadas as licenças de quaisquer dependências utilizadas.
+
+Esta licença não reivindica a titularidade dos códigos independentes
+escritos pelos usuários. A distribuição de um Programa do Usuário, inclusive
+comercial, é permitida.
+
+Esta autorização não permite incluir uma cópia redistribuível do compilador,
+runtime, bibliotecas ou demais componentes da Nebula no Programa do Usuário.
+Quando a execução exigir componentes da Nebula, o usuário final deverá
+obtê-los por um canal oficial ou por outro meio expressamente autorizado
+pelo Titular.
+
+5. DIREITOS RESERVADOS E PROPRIEDADE INTELECTUAL
+
+Todos os direitos não concedidos expressamente nesta licença permanecem
+reservados aos respectivos titulares.
+
+Esta licença não transfere propriedade, titularidade ou direitos sobre o
+nome Nebula, marcas, logotipos, identidade visual, documentação ou
+implementação do Software.
+
+A licença não pretende impedir o desenvolvimento independente de soluções
+sem cópia de código ou de outros materiais protegidos. Ideias, conceitos,
+métodos, funcionalidades gerais e conhecimento técnico não são concedidos
+em exclusividade por este texto.
+
+6. COMPONENTES DE TERCEIROS
+
+Componentes de terceiros permanecem sujeitos às respectivas licenças.
+Quando uma licença de terceiro conceder direitos que não possam ser
+limitados por este documento, prevalecerão os termos dessa licença para
+aquele componente. Os avisos aplicáveis devem ser preservados.
+
+7. TÉRMINO
+
+A autorização concedida termina automaticamente se você violar esta
+licença. Após o término, você deverá cessar o uso não autorizado e eliminar
+as cópias do Software que não possa manter legalmente.
+
+O Titular poderá restabelecer a autorização por escrito. O término não
+retira direitos que a legislação aplicável determine que sobrevivam.
+
+8. AUSÊNCIA DE GARANTIA E LIMITAÇÃO
+
+Na máxima extensão permitida pela legislação aplicável, o Software é
+fornecido “NO ESTADO EM QUE SE ENCONTRA”, sem garantias expressas ou
+implícitas, incluindo garantias de adequação a uma finalidade específica,
+comerciabilidade, disponibilidade, segurança ou ausência de erros.
+
+Na máxima extensão permitida por lei, os titulares não serão responsáveis
+por danos indiretos, incidentais, especiais, punitivos ou consequenciais,
+perda de dados, lucros ou interrupção de atividade decorrentes do uso ou
+da impossibilidade de uso do Software.
+
+Nada nesta seção exclui responsabilidade que não possa ser excluída pela
+legislação aplicável.
+
+9. LEGISLAÇÃO E INTERPRETAÇÃO
+
+Esta licença deverá ser interpretada conforme a legislação aplicável,
+respeitadas as normas obrigatórias de proteção de direitos autorais,
+software, contratos e consumidor. Se uma disposição for considerada
+inválida, as demais permanecerão em vigor na medida permitida por lei.
+
+10. CONTATO E AUTORIZAÇÕES ESPECIAIS
+
+Pedidos de autorização para modificar, redistribuir, sublicenciar ou criar
+versões derivadas devem ser encaminhados ao titular dos direitos da Nebula
+por um canal oficial da Korczak Technologies. Uma autorização somente será
+válida se concedida expressamente por escrito.
+
+RESUMO DAS PERMISSÕES
+
+PODE:
+- Usar a Nebula gratuitamente.
+- Usar a Nebula em empresas e atividades comerciais.
+- Criar, vender e distribuir programas próprios feitos com Nebula.
+- Manter cópias locais e internas não modificadas para uso autorizado.
+
+NÃO PODE, SEM AUTORIZAÇÃO ESCRITA:
+- Modificar o código da Nebula.
+- Criar ou distribuir forks e versões derivadas.
+- Republicar ou redistribuir o próprio compilador, runtime ou bibliotecas.
+- Reutilizar partes substanciais da implementação em outro projeto.
+- Usar indevidamente as marcas e a identidade da Nebula.
+
+Este resumo é informativo. Em caso de divergência, prevalece o texto
+completo das cláusulas anteriores.
