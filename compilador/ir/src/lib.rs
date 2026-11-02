@@ -1633,7 +1633,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nexibir(Resultado::Falha(\"x\") != Resultado::Sucesso(1))",
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
