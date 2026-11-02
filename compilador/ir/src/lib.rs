@@ -307,20 +307,28 @@ pub struct ResultadoExecucao {
 pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
-        memoria: Memoria::nova(),
+        contexto: ContextoRuntime::novo(),
         saida: Vec::new(),
         passos: 0,
         limite: limite_passos.max(1),
         profundidade_chamada: 0,
     };
-    let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
-    if matches!(&fluxo, Fluxo::Parar | Fluxo::Seguir) {
-        return Err("Controle de laço escapou do seu contexto.".into());
+    let resultado = (|| {
+        let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
+        if matches!(&fluxo, Fluxo::Parar | Fluxo::Seguir) {
+            return Err("Controle de laço escapou do seu contexto.".into());
+        }
+        let globais = vm.contexto.memoria().globais().into_iter()
+            .map(|(nome, valor)| Ok((nome, converter_para_ir(valor)?)))
+            .collect::<Result<HashMap<_, _>, String>>()?;
+        Ok(ResultadoExecucao { saida: vm.saida.clone(), globais })
+    })();
+    let finalizacao = vm.contexto.finalizar().map_err(formatar_erro_runtime);
+    match (resultado, finalizacao) {
+        (Err(erro), _) => Err(erro),
+        (Ok(_), Err(erro)) => Err(erro),
+        (Ok(resultado), Ok(())) => Ok(resultado),
     }
-    let globais = vm.memoria.globais().into_iter()
-        .map(|(nome, valor)| Ok((nome, converter_para_ir(valor)?)))
-        .collect::<Result<HashMap<_, _>, String>>()?;
-    Ok(ResultadoExecucao { saida: vm.saida, globais })
 }
 
 enum Fluxo { Normal, Retorno(ValorIr), Parar, Seguir }
@@ -370,7 +378,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
 
 struct Maquina<'a> {
     programa: &'a ProgramaIr,
-    memoria: Memoria,
+    contexto: ContextoRuntime,
     saida: Vec<String>,
     passos: usize,
     limite: usize,
@@ -378,6 +386,10 @@ struct Maquina<'a> {
 }
 
 impl Maquina<'_> {
+    fn memoria_mutavel(&mut self) -> Result<&mut Memoria, String> {
+        self.contexto.memoria_mutavel().map_err(formatar_erro_runtime)
+    }
+
     fn passo(&mut self) -> Result<(), String> {
         self.passos += 1;
         if self.passos > self.limite { Err("Limite de passos da IR excedido.".into()) } else { Ok(()) }
@@ -394,7 +406,7 @@ impl Maquina<'_> {
     }
 
     fn bloco(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
-        self.memoria.abrir_escopo();
+        self.memoria_mutavel()?.abrir_escopo();
         let resultado = (|| {
             let mut fluxo = Fluxo::Normal;
             for item in itens {
@@ -404,7 +416,7 @@ impl Maquina<'_> {
             }
             Ok(fluxo)
         })();
-        let fechamento = self.memoria.fechar_escopo().map_err(formatar_erro_runtime);
+        let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
         match (resultado, fechamento) {
             (Err(erro), _) => Err(erro),
             (Ok(_), Err(erro)) => Err(erro),
@@ -416,7 +428,7 @@ impl Maquina<'_> {
         match item {
             InstrucaoIr::Declarar { nome, valor, constante, .. } => {
                 let valor = self.expressao(valor)?;
-                self.memoria
+                self.memoria_mutavel()?
                     .declarar(nome.clone(), converter_para_runtime(valor), !constante)
                     .map_err(formatar_erro_runtime)?;
                 Ok(Fluxo::Normal)
@@ -503,7 +515,7 @@ impl Maquina<'_> {
             }
             ExpressaoIr::Atribuicao { nome, valor } => {
                 let valor = self.expressao(valor)?;
-                self.memoria
+                self.memoria_mutavel()?
                     .atribuir(nome, converter_para_runtime(valor.clone()))
                     .map_err(formatar_erro_runtime)?;
                 Ok(valor)
@@ -740,7 +752,7 @@ impl Maquina<'_> {
                         return Err("'adicionar' exige uma variável de lista modificável.".into());
                     };
                     let valor = self.expressao(&argumentos[1])?;
-                    self.memoria
+                    self.memoria_mutavel()?
                         .adicionar_elemento_lista(variavel, converter_para_runtime(valor))
                         .map_err(formatar_erro_runtime)?;
                     return Ok(ValorIr::Vazio);
@@ -757,7 +769,7 @@ impl Maquina<'_> {
                         return Err("O índice de 'remover' deve ser inteiro.".into());
                     };
                     let indice = usize::try_from(indice).map_err(|_| "Índice inválido para 'remover'.")?;
-                    let valor = self.memoria
+                    let valor = self.memoria_mutavel()?
                         .remover_elemento_lista(variavel, indice)
                         .map_err(formatar_erro_runtime)?;
                     return converter_para_ir(valor);
@@ -813,7 +825,7 @@ impl Maquina<'_> {
         self.memoria.abrir_escopo();
         let fluxo = (|| {
             for ((parametro, _), valor) in funcao.parametros.iter().zip(valores) {
-                self.memoria
+                self.memoria_mutavel()?
                     .declarar(parametro.clone(), converter_para_runtime(valor), true)
                     .map_err(formatar_erro_runtime)?;
             }
@@ -833,7 +845,7 @@ impl Maquina<'_> {
     }
 
     fn buscar(&self, nome: &str) -> Option<ValorIr> {
-        self.memoria.obter(nome).ok().and_then(|valor| converter_para_ir(valor).ok())
+        self.contexto.memoria().obter(nome).ok().and_then(|valor| converter_para_ir(valor).ok())
     }
 
     fn logico(&self, valor: ValorIr) -> Result<bool, String> {
