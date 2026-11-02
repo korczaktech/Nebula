@@ -39,7 +39,7 @@ Os nomes de tipos como inteiro, logico, texto, caractere, byte e vazio são iden
 
 cada, tentar, capturar, finalmente, assinc, aguardar, estrutura, enumeracao.
 
-Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **não são construções válidas na gramática inicial**. O Lexer pode classificá-las como palavras reservadas futuras; o Parser deve rejeitá-las como construções não suportadas, com diagnóstico claro. Não se deve sugerir que seus recursos já existem.
+Essas palavras ficam reservadas para evitar incompatibilidades futuras, mas **não são construções válidas na gramática inicial**. O Lexer as classifica como tokens de palavra reservada futura e o Parser as rejeita com o diagnóstico N2011. Não se deve sugerir que seus recursos já existem.
 
 ## 4. Números
 
