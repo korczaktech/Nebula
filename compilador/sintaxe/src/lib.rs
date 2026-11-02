@@ -178,7 +178,8 @@ impl<'a> Lexer<'a> {
         let palavra = palavra_original.nfc().collect::<String>();
         let tipo = match palavra.as_str() {
             "variavel" => TipoToken::Variavel, "constante" => TipoToken::Constante,
-            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,\n            "escolha" => TipoToken::Escolha, "caso" => TipoToken::Caso,
+            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
+            "escolha" => TipoToken::Escolha, "caso" => TipoToken::Caso,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
             "enquanto" => TipoToken::Enquanto, "devolver" => TipoToken::Devolver,
             "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
@@ -331,7 +332,8 @@ pub enum NoAst {
     Estrutura { nome: String, campos: Vec<(String, String)> },
     Enumeracao { nome: String, variantes: Vec<(String, Vec<String>)> },
     Incluir { caminho: String, apelido: Option<String> },
-    Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },\n    Escolha { valor: Expressao, casos: Vec<CasoEscolha> },
+    Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
+    Escolha { valor: Expressao, casos: Vec<CasoEscolha> },
     Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
     Para { inicial: Option<Box<NoAst>>, condicao: Option<Expressao>, atualizacao: Option<Expressao>, corpo: Vec<NoAst> },
     Devolver(Option<Expressao>), Parar, Seguir,
@@ -403,7 +405,8 @@ impl Parser {
                 None
             }
             TipoToken::Incluir => self.incluir(),
-            TipoToken::Quando => self.quando(),\n            TipoToken::Escolha => self.escolha(),
+            TipoToken::Quando => self.quando(),
+            TipoToken::Escolha => self.escolha(),
             TipoToken::Enquanto => self.enquanto(),
             TipoToken::Para => self.para(),
             TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
