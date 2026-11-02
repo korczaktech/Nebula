@@ -33,3 +33,6 @@ jobs:
 
       - name: Executar testes
         run: cargo test --locked --workspace --all-targets
+
+      - name: Validar script de benchmark
+        run: bash -n benchmarks/executar.sh
