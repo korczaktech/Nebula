@@ -427,10 +427,12 @@ pub fn validar_valor(tipo: &TipoRuntime, valor: &ValorTipado) -> Result<(), Stri
             },
             ValorTipado::InteiroSemSinal(v),
         ) => validar_inteiro_sem_sinal(*bits, *v),
-        (TipoRuntime::Decimal { bits: 32 }, ValorTipado::Decimal(v)) if (*v as f32).is_finite() => {
+        (TipoRuntime::Decimal { bits: 32 }, ValorTipado::Decimal(v))
+            if !v.is_finite() || (*v as f32).is_finite() =>
+        {
             Ok(())
         }
-        (TipoRuntime::Decimal { bits: 64 }, ValorTipado::Decimal(v)) if v.is_finite() => Ok(()),
+        (TipoRuntime::Decimal { bits: 64 }, ValorTipado::Decimal(_)) => Ok(()),
         (TipoRuntime::Lista(elemento), ValorTipado::Lista(itens)) => {
             for item in itens {
                 validar_valor(elemento, item)?;
@@ -777,6 +779,37 @@ mod testes {
                 &ValorTipado::Falha(Box::new(ValorTipado::Inteiro(7)))
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn decimais_preservam_valores_especiais_ieee754() {
+        for valor in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                validar_valor(
+                    &TipoRuntime::Decimal { bits: 32 },
+                    &ValorTipado::Decimal(valor)
+                )
+                .is_ok()
+            );
+            assert!(
+                validar_valor(
+                    &TipoRuntime::Decimal { bits: 64 },
+                    &ValorTipado::Decimal(valor)
+                )
+                .is_ok()
+            );
+        }
+    }
+
+    #[test]
+    fn decimal32_rejeita_valor_finito_fora_da_faixa() {
+        assert!(
+            validar_valor(
+                &TipoRuntime::Decimal { bits: 32 },
+                &ValorTipado::Decimal(f64::MAX)
+            )
+            .is_err()
         );
     }
 
