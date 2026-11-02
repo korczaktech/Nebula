@@ -217,7 +217,7 @@ impl<'a> Lexer<'a> {
         while !self.fim() {
             match self.avancar() {
                 b'"' => { fechado = true; break; }
-                b'\n' | b'\r' => { self.erro("N1006", "Texto não pode atravessar uma quebra de linha.", self.inicio, self.atual); break; }
+                b'\n' | b'\r' => { self.atual -= 1; self.erro("N1006", "Texto não pode atravessar uma quebra de linha.", self.inicio, self.atual + 1); break; }
                 b'\\' => { if !self.escape_valido() { self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual); } }
                 _ => {}
             }
