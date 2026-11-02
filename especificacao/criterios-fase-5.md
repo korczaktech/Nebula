@@ -19,7 +19,7 @@
 | 11. Documentação e lançamento | Parcial: README e critérios atualizados; estabilidade 1.0, instaladores, assinaturas e distribuição pendentes |
 | 12. Autocompilação | Não implementada; permanece dependente de maturidade da linguagem |
 
-A validação automatizada de runtime, builtins, interpretador, CLI, otimizador, concorrência, imports recursivos e chamadas de módulos no backend ELF passou em [CI no commit dc8ccb9](https://github.com/korczaktech/Nebula/actions/runs/41474055155). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
+A validação automatizada de runtime, builtins, interpretador, CLI, otimizador, concorrência, imports recursivos e chamadas de módulos no backend ELF passou em [CI no commit 6a7bc86](https://github.com/korczaktech/Nebula/actions/runs/41475056421). Essa aprovação comprova somente os testes executados nesse workflow, não a conclusão da Fase 5.
 
 ## Objetivo
 
