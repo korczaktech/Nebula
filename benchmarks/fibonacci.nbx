@@ -1,0 +1,10 @@
+funcao fibonacci(n: inteiro): inteiro {
+    quando n <= 1 {
+        devolver n
+    }
+    devolver fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+funcao principal(): vazio {
+    exibir(fibonacci(37))
+}
