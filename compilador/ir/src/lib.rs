@@ -1449,7 +1449,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_chamada_generica_aninhada() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T { devolver valor }\\nvariavel numero = identidade(identidade(42))",
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(identidade(42))",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamadas genéricas aninhadas válidas");
@@ -1459,7 +1459,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_funcao_nao_generica() {
         let ir = compilar(
-            "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\\nvariavel total = somar(20, 22)",
+            "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = somar(20, 22)",
         );
         let declaracao = ir.instrucoes.iter().find_map(|instrucao| match instrucao {
             InstrucaoIr::Declarar { nome, tipo, .. } if nome == "total" => Some(tipo),
