@@ -1009,9 +1009,15 @@ pub fn validar_alvo(alvo: &str) -> Result<(), String> {
     match alvo {
         "linux-x86_64" => Ok(()),
         "linux-aarch64" | "windows-x86_64" | "macos-x86_64" | "macos-aarch64" | "wasm32" => {
-            Err(format!("O alvo '{alvo}' ainda não possui backend implementado. Alvos disponíveis: {}.", alvos_suportados().join(", ")))
+            Err(format!(
+                "O alvo '{alvo}' ainda não possui backend implementado. Alvos disponíveis: {}.",
+                alvos_suportados().join(", ")
+            ))
         }
-        _ => Err(format!("Alvo desconhecido: '{alvo}'. Alvos disponíveis: {}.", alvos_suportados().join(", "))),
+        _ => Err(format!(
+            "Alvo desconhecido: '{alvo}'. Alvos disponíveis: {}.",
+            alvos_suportados().join(", ")
+        )),
     }
 }
 
@@ -1027,7 +1033,13 @@ mod testes_alvos {
 
     #[test]
     fn informa_backends_ainda_indisponiveis() {
-        for alvo in ["linux-aarch64", "windows-x86_64", "macos-x86_64", "macos-aarch64", "wasm32"] {
+        for alvo in [
+            "linux-aarch64",
+            "windows-x86_64",
+            "macos-x86_64",
+            "macos-aarch64",
+            "wasm32",
+        ] {
             let erro = validar_alvo(alvo).expect_err("alvo não implementado");
             assert!(erro.contains("ainda não possui backend implementado"));
         }
@@ -1035,7 +1047,10 @@ mod testes_alvos {
 
     #[test]
     fn rejeita_identificador_de_alvo_desconhecido() {
-        assert!(validar_alvo("dos-16").unwrap_err().contains("Alvo desconhecido"));
+        assert!(
+            validar_alvo("dos-16")
+                .unwrap_err()
+                .contains("Alvo desconhecido")
+        );
     }
 }
-

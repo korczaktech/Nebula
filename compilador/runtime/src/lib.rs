@@ -8,7 +8,10 @@
 mod alocador;
 mod tipos;
 pub use alocador::{Alocador, ErroAlocador, IdentificadorAlocacao};
-pub use tipos::{calcular_layout, validar_valor, CampoLayoutRuntime, LayoutRuntime, TipoRuntime, ValorTipado, VarianteRuntime};
+pub use tipos::{
+    CampoLayoutRuntime, LayoutRuntime, TipoRuntime, ValorTipado, VarianteRuntime, calcular_layout,
+    validar_valor,
+};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
