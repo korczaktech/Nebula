@@ -734,6 +734,27 @@ pub fn criar_diretorio(caminho: &str) -> Resultado<()> {
     std::fs::create_dir_all(caminho).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
 }
 
+/// Verifica se o caminho aponta para um diretório existente.
+#[must_use]
+pub fn diretorio_existe(caminho: &str) -> bool {
+    std::path::Path::new(caminho).is_dir()
+}
+
+/// Lista os nomes das entradas de um diretório em ordem determinística.
+pub fn listar_diretorio(caminho: &str) -> Resultado<Vec<String>> {
+    let entradas = std::fs::read_dir(caminho)
+        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))?;
+    let mut nomes = entradas
+        .map(|entrada| {
+            entrada
+                .map(|item| item.file_name().to_string_lossy().into_owned())
+                .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))
+        })
+        .collect::<Resultado<Vec<_>>>()?;
+    nomes.sort();
+    Ok(nomes)
+}
+
 /// Retorna o tempo Unix atual em milissegundos.
 pub fn tempo_unix_milisegundos() -> Resultado<u128> {
     std::time::SystemTime::now()
@@ -846,6 +867,19 @@ mod testes {
             Ok(Valor::Inteiro(1))
         );
         assert_eq!(memoria.comprimento_lista("itens"), Ok(1));
+    }
+
+    #[test]
+    fn lista_diretorio_em_ordem_deterministica() {
+        let raiz = std::env::temp_dir().join(format!("nebula-listar-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&raiz);
+        std::fs::create_dir_all(&raiz).unwrap();
+        std::fs::write(raiz.join("zeta.txt"), "").unwrap();
+        std::fs::write(raiz.join("alfa.txt"), "").unwrap();
+        let itens = listar_diretorio(raiz.to_str().unwrap()).unwrap();
+        assert_eq!(itens, vec!["alfa.txt", "zeta.txt"]);
+        assert!(diretorio_existe(raiz.to_str().unwrap()));
+        std::fs::remove_dir_all(raiz).unwrap();
     }
 
     #[test]
