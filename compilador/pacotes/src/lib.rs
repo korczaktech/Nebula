@@ -110,10 +110,9 @@ pub fn resolver(diretorio: &Path) -> Result<Resolucao, String> {
     let mut lockfile = format!("nebula-lock-v1\nraiz\t{}\t{}\n", raiz.nome, raiz.versao);
     for pacote in &pacotes {
         lockfile.push_str(&format!(
-            "pacote\t{}\t{}\t{}\t{:016x}\n",
+            "pacote\t{}\t{}\t{:016x}\n",
             pacote.nome,
             pacote.versao,
-            pacote.manifesto.display(),
             pacote.impressao
         ));
     }
