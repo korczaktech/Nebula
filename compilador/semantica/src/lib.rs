@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 pub enum Tipo {
     Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128,
     Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
-    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
+    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Estrutura(String), Enumeracao(String), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
 }
 
 /// Assinatura pública de função disponibilizada por um módulo importado.
@@ -66,6 +66,8 @@ struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
     funcoes: HashMap<String, Funcao>,
     aliases: HashMap<String, String>,
+    estruturas: HashSet<String>,
+    enumeracoes: HashSet<String>,
     modulos: &'a ModulosDisponiveis,
     modulos_importados: HashMap<String, String>,
     diagnosticos: Vec<Diagnostico>,
@@ -81,6 +83,8 @@ impl<'a> Analisador<'a> {
             escopos: vec![HashMap::new()],
             funcoes: HashMap::new(),
             aliases: HashMap::new(),
+            estruturas: HashSet::new(),
+            enumeracoes: HashSet::new(),
             modulos,
             modulos_importados: HashMap::new(),
             diagnosticos: Vec::new(),
@@ -112,6 +116,16 @@ impl<'a> Analisador<'a> {
             if let NoAst::Tipo { nome, destino } = item {
                 if self.aliases.insert(nome.clone(), destino.clone()).is_some() {
                     self.erro("N3002", format!("O tipo '{nome}' foi declarado mais de uma vez."));
+                }
+            }
+            if let NoAst::Estrutura { nome, .. } = item {
+                if !self.estruturas.insert(nome.clone()) {
+                    self.erro("N3038", format!("A estrutura '{nome}' foi declarada mais de uma vez."));
+                }
+            }
+            if let NoAst::Enumeracao { nome, .. } = item {
+                if !self.enumeracoes.insert(nome.clone()) {
+                    self.erro("N3039", format!("A enumeração '{nome}' foi declarada mais de uma vez."));
                 }
             }
         }
@@ -911,6 +925,8 @@ impl<'a> Analisador<'a> {
                     }
                 }
             }
+            _ if self.estruturas.contains(nome) => Tipo::Estrutura(nome.to_owned()),
+            _ if self.enumeracoes.contains(nome) => Tipo::Enumeracao(nome.to_owned()),
             _ => {
                 let mut atual = nome;
                 let mut vistos = HashSet::new();
@@ -1173,6 +1189,7 @@ impl Tipo {
             Self::Opcional(t) => format!("Opcional<{}>", t.nome()),
             Self::Resultado(sucesso, falha) => format!("Resultado<{},{}>", sucesso.nome(), falha.nome()),
             Self::Tupla(itens) => format!("Tupla<{}>", itens.iter().map(Tipo::nome).collect::<Vec<_>>().join(",")),
+            Self::Estrutura(nome) => nome.clone(), Self::Enumeracao(nome) => nome.clone(),
             Self::Funcao(_, _) => "função".into(),
             Self::Parametro(nome) => nome.clone(),
             Self::Desconhecido => "desconhecido".into(),
