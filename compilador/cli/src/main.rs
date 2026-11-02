@@ -455,7 +455,7 @@ fn qualificar_expressao_modulo(
 ) {
     let mut chamada_local = None;
     match expressao {
-        ExpressaoIr::Lista(itens) => {
+        ExpressaoIr::Lista(itens) | ExpressaoIr::Tupla(itens) => {
             for item in itens {
                 qualificar_expressao_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
