@@ -814,7 +814,13 @@ impl<'a> Analisador<'a> {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Mais | Menos | Vezes | Divide | Resto | Potencia => {
                 if Self::numerico(a) && Self::numerico(b) {
-                    Self::promover_numerico(a, b)
+                    if Self::inteiro(a) && Self::inteiro(b)
+                        && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                        self.erro("N3038", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        Tipo::Desconhecido
+                    } else {
+                        Self::promover_numerico(a, b)
+                    }
                 } else {
                     self.erro("N3016", "Operação aritmética exige operandos numéricos compatíveis.");
                     Tipo::Desconhecido
@@ -853,6 +859,8 @@ impl<'a> Analisador<'a> {
             _ if literal.starts_with('"') => Tipo::Texto,
             _ if literal.starts_with('\'') => Tipo::Caractere,
             _ if literal.contains('.') || literal.contains('e') || literal.contains('E') => Tipo::Decimal64,
+            _ if literal.replace('_', "").parse::<u128>().is_ok()
+                && literal.replace('_', "").parse::<i128>().is_err() => Tipo::InteiroU128,
             _ => Tipo::Inteiro,
         }
     }
@@ -1127,7 +1135,11 @@ impl<'a> Analisador<'a> {
     }
 
     fn numerico(tipo: &Tipo) -> bool {
-        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Byte)
+        matches!(tipo, Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Byte)
+    }
+
+    fn inteiro_sem_sinal(tipo: &Tipo) -> bool {
+        matches!(tipo, Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte)
     }
 
     fn promover_numerico(a: &Tipo, b: &Tipo) -> Tipo {
@@ -1242,6 +1254,25 @@ mod testes {
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         analisar_semantica(&sintaxe.programa)
+    }
+
+    #[test]
+    fn valida_inteiros_sem_sinal_e_seus_limites() {
+        let valido = analisar_codigo(
+            "variavel maximo: inteiro_u64 = 18446744073709551615\nvariavel total: inteiro_u128 = 340282366920938463463374607431768211455",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+
+        let invalido = analisar_codigo("variavel limite: inteiro_u8 = 256");
+        assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+    #[test]
+    fn rejeita_operacao_implicita_entre_inteiros_com_sinais_diferentes() {
+        let r = analisar_codigo(
+            "variavel a: inteiro = 1\nvariavel b: inteiro_u32 = 2\nvariavel c = a + b",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3038"));
     }
 
     #[test]
