@@ -112,12 +112,6 @@ impl<'a> Analisador<'a> {
                 }
             }
         }
-        let aliases: Vec<String> = self.aliases.keys().cloned().collect();
-        for nome in aliases {
-            if self.resolver_tipo(&nome) == Tipo::Desconhecido {
-                self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
-            }
-        }
     }
 
     fn item(&mut self, item: &NoAst) {
@@ -220,7 +214,7 @@ impl<'a> Analisador<'a> {
                     Tipo::Desconhecido
                 }
             }),
-            Expressao::Literal(valor) => self.tipo_literal(valor),
+            Expressao::Literal(valor) => Self::tipo_literal(valor),
             Expressao::Lista(valores) => {
                 if valores.is_empty() { return Tipo::Lista(Box::new(Tipo::Desconhecido)); }
                 let primeiro = self.expressao(&valores[0]);
@@ -238,7 +232,7 @@ impl<'a> Analisador<'a> {
                         Tipo::Logico
                     }
                     TipoToken::Mais | TipoToken::Menos => {
-                        if !self.numerico(&tipo) && tipo != Tipo::Desconhecido {
+                        if !Self::numerico(&tipo) && tipo != Tipo::Desconhecido {
                             self.erro("N3008", "Operador unário exige um valor numérico.");
                         }
                         tipo
@@ -335,7 +329,7 @@ impl<'a> Analisador<'a> {
         match op {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Mais | Menos | Vezes | Divide | Resto | Potencia => {
-                if self.numerico(a) && self.numerico(b) {
+                if Self::numerico(a) && Self::numerico(b) {
                     if a == &Tipo::Decimal || b == &Tipo::Decimal { Tipo::Decimal } else { Tipo::Inteiro }
                 } else {
                     self.erro("N3016", "Operação aritmética exige operandos numéricos compatíveis.");
@@ -359,7 +353,7 @@ impl<'a> Analisador<'a> {
             }
             Intervalo => {
                 self.exigir_tipo(b, a, "limites do intervalo");
-                if self.numerico(a) { Tipo::Intervalo(Box::new(a.clone())) } else {
+                if Self::numerico(a) { Tipo::Intervalo(Box::new(a.clone())) } else {
                     self.erro("N3018", "Intervalo exige limites numéricos.");
                     Tipo::Desconhecido
                 }
@@ -368,7 +362,7 @@ impl<'a> Analisador<'a> {
         }
     }
 
-    fn tipo_literal(&self, literal: &str) -> Tipo {
+    fn tipo_literal(literal: &str) -> Tipo {
         match literal {
             "verdadeiro" | "falso" => Tipo::Logico,
             "nulo" => Tipo::Desconhecido,
@@ -423,7 +417,7 @@ impl<'a> Analisador<'a> {
         }
     }
 
-    fn numerico(&self, tipo: &Tipo) -> bool {
+    fn numerico(tipo: &Tipo) -> bool {
         matches!(tipo, Tipo::Inteiro | Tipo::Decimal | Tipo::Byte)
     }
 
