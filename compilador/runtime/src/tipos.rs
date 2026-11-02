@@ -239,7 +239,14 @@ fn calcular_layout_interno(
                         variante.nome
                     ));
                 }
-                let layout = combinar_campos(variante.payload.iter().enumerate().map(|(i, t)| (i.to_string(), t)), pilha)?;
+                let layout = combinar_campos(
+                    variante
+                        .payload
+                        .iter()
+                        .enumerate()
+                        .map(|(i, t)| (i.to_string(), t)),
+                    pilha,
+                )?;
                 payload_maximo = payload_maximo.max(layout.tamanho);
                 alinhamento_payload = alinhamento_payload.max(layout.alinhamento);
             }
