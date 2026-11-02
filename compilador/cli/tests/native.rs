@@ -96,7 +96,7 @@ fn compila_e_executa_laco_do_benchmark() {
         .output()
         .unwrap();
     assert!(resultado.status.success(), "{}", String::from_utf8_lossy(&resultado.stderr));
-    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "499999500000");
+    assert_eq!(String::from_utf8_lossy(&resultado.stdout).trim(), "1249999975000000");
     let _ = fs::remove_file(origem);
 }
 
