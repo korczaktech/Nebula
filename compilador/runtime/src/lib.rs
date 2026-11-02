@@ -742,8 +742,8 @@ pub fn diretorio_existe(caminho: &str) -> bool {
 
 /// Lista os nomes das entradas de um diretório em ordem determinística.
 pub fn listar_diretorio(caminho: &str) -> Resultado<Vec<String>> {
-    let entradas = std::fs::read_dir(caminho)
-        .map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))?;
+    let entradas =
+        std::fs::read_dir(caminho).map_err(|erro| ErroRuntime::FalhaIo(erro.to_string()))?;
     let mut nomes = entradas
         .map(|entrada| {
             entrada
