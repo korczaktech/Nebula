@@ -16,23 +16,23 @@ Entregar um compilador que transforme a IR em executáveis nativos sem gerar C, 
 - O otimizador próprio só será desenvolvido depois que os recursos-base estiverem implementados e validados.
 - Não oferecer flags de otimização que apenas encaminhem opções a ferramentas externas.
 
-## Implementação iniciada
+## Estado da implementação
 
 | Critério | Estado atual |
 |---|---|
 | Pipeline Lexer/Parser → semântica → IR → backend | Implementado em código; validação completa pendente |
-| Escrita de cabeçalho ELF64 em Rust | Implementação inicial presente |
+| Escrita de cabeçalho ELF64 em Rust | Implementada para ELF64 estático Linux x86-64 |
 | Emissão de instruções x86-64 em Rust | Subconjunto implementado para os recursos declarados; testes unitários de bytes ampliados |
-| Entrada ELF e encerramento do processo | Implementados para o alvo Linux x86-64 |
+| Entrada ELF e encerramento do processo | Implementados para o alvo Linux x86-64, com syscall `exit` |
 | Variáveis locais, globais, sombreamento e parâmetros (até seis registradores do ABI) | Implementados com segmento ELF RW separado; testes de integração adicionados |
 | Expressões inteiras e lógicas, incluindo potência inteira por quadratura | Implementadas para o subconjunto de 64 bits; overflow checked e expoentes no intervalo u32 |
-| Funções, chamadas aninhadas, seis parâmetros e recursão | Implementação em Rust; testes de ABI adicionados |
-| Condicionais e laços | Implementação inicial |
-| CLI sem invocar compilador C/C++ | Implementada; validação contínua |
-| Testes Rust do backend | Testes unitários e integração substituíram os testes C++ |
+| Funções, chamadas aninhadas, seis parâmetros e recursão | Implementados em Rust; testes de integração de ABI adicionados |
+| Condicionais e laços | Implementados; testes de integração para `quando`, `enquanto`, `para`, `parar` e `seguir` |
+| CLI sem invocar compilador C/C++ | Implementada; bloqueia sobrescrita do fonte e publica a saída atomicamente |
+| Testes Rust do backend | 19 testes unitários no backend e 33 testes de integração nativa; execução ainda depende da CI |
 | Runtime e biblioteca padrão | Adiados; não implementados |
 | Otimizador e níveis de otimização | Adiados; não implementados |
-| Benchmark sem otimizações | Script e cargas presentes; execução de CI ainda precisa ser confirmada |
+| Benchmark sem otimizações | Script e duas cargas presentes; execução de CI ainda precisa ser confirmada |
 
 ## Critérios de conclusão
 
