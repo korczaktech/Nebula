@@ -1,4 +1,6 @@
-//! Testes ponta a ponta do backend nativo pela CLI.\n\nuse std::fs;
+//! Testes ponta a ponta do backend nativo pela CLI.
+
+use std::fs;
 use std::process::Command;
 
 fn arquivo_temporario() -> std::path::PathBuf {
