@@ -298,7 +298,7 @@ impl Emissor {
                     self.normalizar_logico();
                     let fim = self.emitir_jmp();
                     self.aplicar_salto(salto_curto, self.codigo.len());
-                    self.mov_rax(i64::from(*operador == OperadorIr::Ou));
+                    self.mov_rax(if *operador == OperadorIr::Ou { 1 } else { 0 });
                     self.aplicar_salto(fim, self.codigo.len());
                     return Ok(());
                 }
