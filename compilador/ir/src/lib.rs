@@ -9,9 +9,10 @@ use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
     arquivo_existe, caractere_texto, comprimento_texto, criar_diretorio, escrever_arquivo,
-    ler_arquivo, operar_decimal, operar_inteiro, subtexto, texto_contem, texto_maiusculas,
-    texto_minusculas, texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria,
-    OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
+    dormir_milisegundos, ler_arquivo, operar_decimal, operar_inteiro, subtexto,
+    tempo_unix_milisegundos, texto_contem, texto_maiusculas, texto_minusculas,
+    texto_para_decimal, texto_para_inteiro, ErroRuntime, Memoria, OperacaoDecimal,
+    OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -598,6 +599,25 @@ impl Maquina<'_> {
                         return Ok(ValorIr::Logico(true));
                     }
                     return Err("'criar_diretorio' exige um caminho de texto.".into());
+                }
+                if nome == "tempo" {
+                    if !valores.is_empty() {
+                        return Err("'tempo' não aceita argumentos.".into());
+                    }
+                    let milissegundos = tempo_unix_milisegundos()
+                        .map_err(|erro| format!("Falha ao consultar relógio: {erro:?}"))?;
+                    return i128::try_from(milissegundos)
+                        .map(ValorIr::Inteiro)
+                        .map_err(|_| "Relógio excedeu a faixa inteira da Nebula.".into());
+                }
+                if nome == "dormir" {
+                    if let [ValorIr::Inteiro(milisegundos)] = valores.as_slice() {
+                        let milissegundos = u64::try_from(*milissegundos)
+                            .map_err(|_| "Duração inválida para 'dormir'.")?;
+                        dormir_milisegundos(milissegundos);
+                        return Ok(ValorIr::Vazio);
+                    }
+                    return Err("'dormir' exige um inteiro não negativo.".into());
                 }
                 if nome == "inteiro" {
                     if let [ValorIr::Texto(texto)] = valores.as_slice() {
