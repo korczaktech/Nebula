@@ -116,6 +116,12 @@ impl<'a> Analisador<'a> {
                 self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
             }
         }
+        let aliases_modulos: Vec<String> = self.modulos_importados.keys().cloned().collect();
+        for alias in aliases_modulos {
+            if self.funcoes.contains_key(&alias) {
+                self.erro("N3019", format!("O nome '{alias}' já identifica uma função e um módulo."));
+            }
+        }
         for item in &programa.itens {
             if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
                 let tipos: Vec<Tipo> = parametros.iter().map(|(parametro, nome_tipo)| {
@@ -635,6 +641,13 @@ mod testes {
     fn detecta_alias_de_tipo_ciclico() {
         let r = analisar_codigo("tipo A = B\ntipo B = A");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3003"));
+    }
+
+
+    #[test]
+    fn rejeita_variavel_com_nome_de_funcao() {
+        let r = analisar_codigo("funcao calcular(): inteiro { devolver 1 }\nvariavel calcular = 2");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3019"));
     }
 
 }
