@@ -135,9 +135,6 @@ impl Alocador {
             return Err(ErroAlocador::LimiteExcedido);
         }
 
-        let total_temporario = self.bytes_ativos
-            .checked_add(novo_tamanho)
-            .ok_or(ErroAlocador::Overflow)?;
         let dados_atuais = self.ler(identificador, 0, tamanho_antigo)?.to_vec();
         let mut dados_novos = vec![0; novo_tamanho];
         let copiar = tamanho_antigo.min(novo_tamanho);
@@ -152,8 +149,8 @@ impl Alocador {
             self.blocos.push(Bloco { geracao: 1, dados: Some(dados_novos) });
             IdentificadorAlocacao { indice, geracao: 1 }
         };
-        self.bytes_ativos = total_temporario;
         self.liberar(identificador)?;
+        self.bytes_ativos = novo_total;
         Ok(novo)
     }
 
