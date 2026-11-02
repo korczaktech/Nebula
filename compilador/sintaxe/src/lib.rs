@@ -462,6 +462,14 @@ impl Parser {
         Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
     }
     fn bloco(&mut self) -> Option<Vec<NoAst>> {
+        if self.verifica(TipoToken::NovaLinha) {
+            let proximo = self.tokens.iter().skip(self.atual)
+                .find(|token| token.tipo != TipoToken::NovaLinha)
+                .map(|token| token.tipo);
+            if proximo == Some(TipoToken::AbreChave) {
+                self.pular_novas_linhas();
+            }
+        }
         if self.corresponde(TipoToken::AbreChave) {
             self.separadores(); let mut itens = Vec::new();
             while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
@@ -780,6 +788,11 @@ mod testes {
         let r = analisar(&fonte("publico funcao abrir() { devolver }"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { visibilidade: Some(Visibilidade::Publico), .. }));
+    }
+    #[test]
+    fn aceita_chave_de_abertura_na_linha_seguinte() {
+        let r = analisar(&fonte("funcao principal()\\n{\\n variavel ativo = verdadeiro\\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
     fn analisa_bloco_com_fim() {
