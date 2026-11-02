@@ -42,7 +42,9 @@ pub enum Valor {
     Lista(Arc<RwLock<Vec<Valor>>>),
     /// Instância de estrutura com campos nomeados e acesso sincronizado.
     Estrutura {
+        /// Nome declarado da estrutura.
         nome: String,
+        /// Valores dos campos indexados pelo nome.
         campos: Arc<RwLock<HashMap<String, Valor>>>,
     },
     /// Intervalo inteiro inclusivo.
