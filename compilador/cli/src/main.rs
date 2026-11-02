@@ -7,7 +7,7 @@ use nebula_ir::otimizador::NivelOtimizacao;
 use nebula_ir::{ExpressaoIr, InstrucaoIr, ProgramaIr, baixar};
 use nebula_semantica::{AssinaturaFuncao, ModulosDisponiveis, Tipo, analisar_com_modulos};
 use nebula_sintaxe::{NoAst, Programa, Visibilidade, analisar};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
