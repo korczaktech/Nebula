@@ -40,8 +40,10 @@ declaracao_constante = "constante", IDENTIFICADOR,
                        [ ":", tipo ], "=", expressao ;
 
 declaracao_funcao    = [ "publico" | "privado" ], "funcao",
-                       IDENTIFICADOR, "(", [ lista_parametros ], ")",
+                       IDENTIFICADOR, [ "<", lista_genericos, ">" ],
+                       "(", [ lista_parametros ], ")",
                        [ ":", tipo ], bloco ;
+lista_genericos      = IDENTIFICADOR, { ",", IDENTIFICADOR } ;
 lista_parametros     = parametro, { ",", parametro } ;
 parametro            = IDENTIFICADOR, ":", tipo ;
 
@@ -114,8 +116,9 @@ chamada             = "(", [ lista_argumentos ], ")" ;
 lista_argumentos    = expressao, { ",", expressao } ;
 indexacao           = "[", expressao, "]" ;
 acesso_membro       = ( "." | "::" ), IDENTIFICADOR ;
-primaria             = IDENTIFICADOR | literal | "(", expressao, ")"
-                     | lista_literal ;
+primaria             = IDENTIFICADOR | literal | tupla_literal
+                     | "(", expressao, ")" | lista_literal ;
+tupla_literal        = "(", expressao, ",", [ lista_argumentos ], ")" ;
 lista_literal       = "[", [ lista_argumentos ], "]" ;
 ~~~
 
@@ -136,7 +139,7 @@ As formas numéricas, escapes e restrições de texto/caractere estão definidas
 
 Fazem parte do subconjunto sintático inicial: variáveis, constantes, funções, parâmetros tipados, aliases de tipo, inclusão de módulos, blocos, condicionais, laços enquanto e para, retorno, controle de laço, chamadas, listas, indexação, acesso a membros, operadores e literais descritos acima.
 
-As palavras reservadas futuras listadas em tokens.md não possuem produções nesta gramática. Estruturas, enumerações, tratamento de exceções, funções assíncronas, interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita ficam fora do subconjunto inicial.
+As palavras reservadas futuras listadas em tokens.md não possuem produções nesta gramática. Estruturas, enumerações, tratamento de exceções, funções assíncronas, interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita permanecem fora do subconjunto atual.
 
 ## 8. Casos de referência
 
