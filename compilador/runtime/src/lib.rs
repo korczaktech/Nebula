@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
@@ -191,6 +192,47 @@ pub enum ErroRuntime {
 
 /// Resultado padrão das operações do runtime.
 pub type Resultado<T> = Result<T, ErroRuntime>;
+
+/// Inteiro atômico com operações seguras para compartilhamento entre threads.
+pub struct AtomoI64 {
+    valor: AtomicI64,
+}
+
+impl AtomoI64 {
+    /// Cria um átomo com valor inicial.
+    #[must_use]
+    pub const fn novo(valor: i64) -> Self {
+        Self {
+            valor: AtomicI64::new(valor),
+        }
+    }
+
+    /// Carrega o valor com ordenação Acquire.
+    #[must_use]
+    pub fn carregar(&self) -> i64 {
+        self.valor.load(Ordering::Acquire)
+    }
+
+    /// Armazena um valor com ordenação Release.
+    pub fn armazenar(&self, valor: i64) {
+        self.valor.store(valor, Ordering::Release);
+    }
+
+    /// Soma um valor e retorna o valor anterior, com ordenação AcqRel.
+    pub fn adicionar(&self, valor: i64) -> i64 {
+        self.valor.fetch_add(valor, Ordering::AcqRel)
+    }
+
+    /// Substitui o valor somente se ele corresponder ao esperado.
+    pub fn comparar_trocar(&self, esperado: i64, novo: i64) -> Result<i64, i64> {
+        self.valor.compare_exchange(
+            esperado,
+            novo,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        )
+    }
+}
 
 /// Tarefa executada em uma thread do sistema.
 pub struct Tarefa<T> {
@@ -727,6 +769,26 @@ mod testes {
             Ok(Valor::Inteiro(1))
         );
         assert_eq!(memoria.comprimento_lista("itens"), Ok(1));
+    }
+
+    #[test]
+    fn atomo_sincroniza_incrementos_concorrentes() {
+        let atomo = Arc::new(AtomoI64::novo(0));
+        let mut threads = Vec::new();
+        for _ in 0..4 {
+            let compartilhado = Arc::clone(&atomo);
+            threads.push(std::thread::spawn(move || {
+                for _ in 0..1000 {
+                    compartilhado.adicionar(1);
+                }
+            }));
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(atomo.carregar(), 4000);
+        assert_eq!(atomo.comparar_trocar(4000, 1), Ok(4000));
+        assert_eq!(atomo.carregar(), 1);
     }
 
     #[test]
