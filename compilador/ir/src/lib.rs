@@ -7,7 +7,10 @@
 mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
-use nebula_runtime::{ErroRuntime, Memoria, Valor as ValorRuntime};
+use nebula_runtime::{
+    operar_decimal, operar_inteiro, ErroRuntime, Memoria, OperacaoDecimal, OperacaoInteira,
+    Valor as ValorRuntime,
+};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -553,20 +556,50 @@ impl Maquina<'_> {
 fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
     use OperadorIr::*;
     match (a, op, b) {
-        (ValorIr::Inteiro(a), Mais, ValorIr::Inteiro(b)) => a.checked_add(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em soma inteira.".into()),
-        (ValorIr::Inteiro(a), Menos, ValorIr::Inteiro(b)) => a.checked_sub(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em subtração inteira.".into()),
-        (ValorIr::Inteiro(a), Vezes, ValorIr::Inteiro(b)) => a.checked_mul(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em multiplicação inteira.".into()),
+        (ValorIr::Inteiro(a), Mais, ValorIr::Inteiro(b)) => operar_inteiro(OperacaoInteira::Soma, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em soma inteira.".into()),
+        (ValorIr::Inteiro(a), Menos, ValorIr::Inteiro(b)) => operar_inteiro(OperacaoInteira::Subtracao, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em subtração inteira.".into()),
+        (ValorIr::Inteiro(a), Vezes, ValorIr::Inteiro(b)) => operar_inteiro(OperacaoInteira::Multiplicacao, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em multiplicação inteira.".into()),
         (ValorIr::Inteiro(_), Divide, ValorIr::Inteiro(0)) | (ValorIr::Inteiro(_), Resto, ValorIr::Inteiro(0)) => Err("Divisão por zero na IR.".into()),
-        (ValorIr::Inteiro(a), Divide, ValorIr::Inteiro(b)) => a.checked_div(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em divisão inteira.".into()),
-        (ValorIr::Inteiro(a), Resto, ValorIr::Inteiro(b)) => a.checked_rem(b).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em resto inteiro.".into()),
-        (ValorIr::Inteiro(a), Potencia, ValorIr::Inteiro(b)) if (0..=u32::MAX as i128).contains(&b) => a.checked_pow(b as u32).map(ValorIr::Inteiro).ok_or_else(|| "Overflow em potência inteira.".into()),
-        (ValorIr::Decimal(a), Mais, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a+b)),
-        (ValorIr::Decimal(a), Menos, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a-b)),
-        (ValorIr::Decimal(a), Vezes, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a*b)),
+        (ValorIr::Inteiro(a), Divide, ValorIr::Inteiro(b)) => operar_inteiro(OperacaoInteira::Divisao, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em divisão inteira.".into()),
+        (ValorIr::Inteiro(a), Resto, ValorIr::Inteiro(b)) => operar_inteiro(OperacaoInteira::Resto, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em resto inteiro.".into()),
+        (ValorIr::Inteiro(a), Potencia, ValorIr::Inteiro(b)) if (0..=u32::MAX as i128).contains(&b) => operar_inteiro(OperacaoInteira::Potencia, a, b)
+            .map(ValorIr::Inteiro)
+            .map_err(|_| "Overflow em potência inteira.".into()),
+        (ValorIr::Decimal(a), Mais, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Soma, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|_| "Resultado decimal não finito na IR.".into()),
+        (ValorIr::Decimal(a), Menos, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Subtracao, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|_| "Resultado decimal não finito na IR.".into()),
+        (ValorIr::Decimal(a), Vezes, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Multiplicacao, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|_| "Resultado decimal não finito na IR.".into()),
         (ValorIr::Decimal(_), Divide, ValorIr::Decimal(0.0)) => Err("Divisão por zero na IR.".into()),
-        (ValorIr::Decimal(a), Divide, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a/b)),
-        (ValorIr::Decimal(a), Resto, ValorIr::Decimal(b)) if b != 0.0 => Ok(ValorIr::Decimal(a % b)),
-        (ValorIr::Decimal(a), Potencia, ValorIr::Decimal(b)) => Ok(ValorIr::Decimal(a.powf(b))),
+        (ValorIr::Decimal(a), Divide, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Divisao, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|erro| match erro {
+                ErroRuntime::DivisaoPorZero => "Divisão por zero na IR.".into(),
+                _ => "Resultado decimal não finito na IR.".into(),
+            }),
+        (ValorIr::Decimal(a), Resto, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Resto, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|erro| match erro {
+                ErroRuntime::DivisaoPorZero => "Divisão por zero na IR.".into(),
+                _ => "Resultado decimal não finito na IR.".into(),
+            }),
+        (ValorIr::Decimal(a), Potencia, ValorIr::Decimal(b)) => operar_decimal(OperacaoDecimal::Potencia, a, b)
+            .map(ValorIr::Decimal)
+            .map_err(|_| "Resultado decimal não finito na IR.".into()),
         (ValorIr::Decimal(a), Intervalo, ValorIr::Decimal(b)) => Ok(ValorIr::IntervaloDecimal(a,b)),
         (ValorIr::Inteiro(a), op, ValorIr::Decimal(b)) => binaria(ValorIr::Decimal(a as f64), op, ValorIr::Decimal(b)),
         (ValorIr::Decimal(a), op, ValorIr::Inteiro(b)) => binaria(ValorIr::Decimal(a), op, ValorIr::Decimal(b as f64)),
