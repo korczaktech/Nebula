@@ -1,6 +1,7 @@
 # Documentação técnica
 
 - [Ferramentas e formatador](FERRAMENTAS.md)
+- [Estado dos itens 9 a 11](STATUS-ITENS-9-11.md)
 - [Segurança e auditoria](SEGURANCA.md)
 - [Estabilidade e compatibilidade](../especificacao/estabilidade-e-compatibilidade.md)
 - [Processo de lançamento](LANCAMENTO.md)
