@@ -1118,6 +1118,7 @@ mod testes {
 }
 
 
+
 /// Estado do ciclo de vida de uma instância do runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EstadoRuntime {
@@ -1221,10 +1222,12 @@ mod testes_ciclo_vida {
         let mut contexto = ContextoRuntime::novo();
         for valor in 1..=3 {
             let ordem = Arc::clone(&ordem);
-            contexto.registrar_finalizador(move || {
-                ordem.lock().unwrap().push(valor);
-                Ok(())
-            }).unwrap();
+            contexto
+                .registrar_finalizador(move || {
+                    ordem.lock().unwrap().push(valor);
+                    Ok(())
+                })
+                .unwrap();
         }
         contexto.finalizar().unwrap();
         contexto.finalizar().unwrap();
@@ -1237,20 +1240,26 @@ mod testes_ciclo_vida {
         let ordem = Arc::new(Mutex::new(Vec::new()));
         let mut contexto = ContextoRuntime::novo();
         let ordem_mais_antiga = Arc::clone(&ordem);
-        contexto.registrar_finalizador(move || {
-            ordem_mais_antiga.lock().unwrap().push(1);
-            Ok(())
-        }).unwrap();
+        contexto
+            .registrar_finalizador(move || {
+                ordem_mais_antiga.lock().unwrap().push(1);
+                Ok(())
+            })
+            .unwrap();
         let ordem_com_falha = Arc::clone(&ordem);
-        contexto.registrar_finalizador(move || {
-            ordem_com_falha.lock().unwrap().push(2);
-            Err(ErroRuntime::FalhaTarefa)
-        }).unwrap();
+        contexto
+            .registrar_finalizador(move || {
+                ordem_com_falha.lock().unwrap().push(2);
+                Err(ErroRuntime::FalhaTarefa)
+            })
+            .unwrap();
         let ordem_mais_nova = Arc::clone(&ordem);
-        contexto.registrar_finalizador(move || {
-            ordem_mais_nova.lock().unwrap().push(3);
-            Ok(())
-        }).unwrap();
+        contexto
+            .registrar_finalizador(move || {
+                ordem_mais_nova.lock().unwrap().push(3);
+                Ok(())
+            })
+            .unwrap();
 
         assert_eq!(contexto.finalizar(), Err(ErroRuntime::FalhaTarefa));
         assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
