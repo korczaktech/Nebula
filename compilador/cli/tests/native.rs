@@ -183,6 +183,15 @@ fn compila_laco_para_e_controle() {
 }
 
 #[test]
+fn inicializadores_globais_respeitam_ordem_de_declaracao() {
+    let resultado = compilar_e_executar(
+        "globais-ordem",
+        "variavel base: inteiro = 10\nvariavel total: inteiro = base + 5\nfuncao principal(): inteiro { devolver total }",
+    );
+    assert_eq!(resultado.status.code(), Some(15));
+}
+
+#[test]
 fn variaveis_globais_sao_compartilhadas_entre_funcoes() {
     let resultado = compilar_e_executar(
         "globais-compartilhadas",
