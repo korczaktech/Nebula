@@ -339,6 +339,11 @@ impl Emissor {
                         let expoente_nao_negativo = self.emitir_jcc(0x89); // JNS
                         self.encerrar_com_erro(2);
                         self.aplicar_salto(expoente_nao_negativo, self.codigo.len());
+                        // A IR de referência define expoentes inteiros no intervalo u32.
+                        self.codigo.extend_from_slice(&[0x41, 0xB8, 0xFF, 0xFF, 0xFF, 0xFF, 0x4C, 0x39, 0xC1]); // r8d = u32::MAX; cmp rcx, r8
+                        let expoente_no_intervalo = self.emitir_jcc(0x86); // JBE
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(expoente_no_intervalo, self.codigo.len());
                         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // rdx = base
                         self.mov_rax(1); // acumulador
                         let inicio = self.codigo.len();
