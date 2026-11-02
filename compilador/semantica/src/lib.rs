@@ -1325,7 +1325,6 @@ mod testes {
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
 
-}
     #[test]
     fn movimento_em_um_ramo_e_propagado_apos_a_juncao() {
         let r = analisar_codigo(
@@ -1349,6 +1348,8 @@ mod testes {
         );
         assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
+
+}
 
 }
 
