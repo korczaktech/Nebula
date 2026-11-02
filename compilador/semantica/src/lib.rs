@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 pub enum Tipo {
     Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128,
     Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
-    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Desconhecido,
+    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
 }
 
 /// Assinatura pública de função disponibilizada por um módulo importado.
@@ -60,7 +60,7 @@ struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool }
 enum LiteralNumerico { Inteiro(i128), Decimal(f64) }
 
 #[derive(Debug, Clone)]
-struct Funcao { parametros: Vec<Tipo>, retorno: Tipo }
+struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, retorno: Tipo }
 
 struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
@@ -72,6 +72,7 @@ struct Analisador<'a> {
     retorno_atual: Option<Tipo>,
     profundidade_laco: usize,
     funcoes_vistas: HashSet<String>,
+    parametros_genericos: HashSet<String>,
 }
 
 impl<'a> Analisador<'a> {
@@ -86,6 +87,7 @@ impl<'a> Analisador<'a> {
             retorno_atual: None,
             profundidade_laco: 0,
             funcoes_vistas: HashSet::new(),
+            parametros_genericos: HashSet::new(),
         }
     }
 
@@ -120,7 +122,15 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
-            if let NoAst::Funcao { nome, parametros, retorno, .. } = item {
+            if let NoAst::Funcao { nome, genericos, parametros, retorno, .. } = item {
+                let mut vistos = HashSet::new();
+                for parametro in genericos {
+                    if !vistos.insert(parametro.clone()) {
+                        self.erro("N3031", format!("Parâmetro genérico '{parametro}' duplicado na função '{nome}'."));
+                    }
+                }
+                let anteriores = self.parametros_genericos.clone();
+                self.parametros_genericos.extend(genericos.iter().cloned());
                 let tipos: Vec<Tipo> = parametros.iter().map(|(parametro, nome_tipo)| {
                     let tipo = self.resolver_tipo(nome_tipo);
                     if tipo == Tipo::Desconhecido {
@@ -135,10 +145,15 @@ impl<'a> Analisador<'a> {
                     }
                     tipo
                 });
+                self.parametros_genericos = anteriores;
                 if self.funcoes.contains_key(nome) {
                     self.erro("N3001", format!("A função '{nome}' foi declarada mais de uma vez."));
                 } else {
-                    self.funcoes.insert(nome.clone(), Funcao { parametros: tipos, retorno });
+                    self.funcoes.insert(nome.clone(), Funcao {
+                        genericos: genericos.clone(),
+                        parametros: tipos,
+                        retorno,
+                    });
                 }
             }
         }
@@ -170,12 +185,14 @@ impl<'a> Analisador<'a> {
                 };
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false });
             }
-            NoAst::Funcao { nome, parametros, corpo, .. } => {
+            NoAst::Funcao { nome, genericos, parametros, corpo, .. } => {
                 if !self.funcoes_vistas.insert(nome.clone()) { return; }
                 let Some(funcao) = self.funcoes.get(nome).cloned() else {
                     self.erro("N3023", format!("Função aninhada '{nome}' não é permitida no escopo inicial."));
                     return;
                 };
+                let genericos_anteriores = self.parametros_genericos.clone();
+                self.parametros_genericos.extend(genericos.iter().cloned());
                 self.abrir_escopo();
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
                     self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false });
@@ -190,6 +207,7 @@ impl<'a> Analisador<'a> {
                 self.profundidade_laco = laco_anterior;
                 self.retorno_atual = retorno_anterior;
                 self.fechar_escopo();
+                self.parametros_genericos = genericos_anteriores;
             }
             NoAst::Tipo { .. } => {
                 if self.escopos.len() > 1 {
@@ -649,8 +667,32 @@ impl<'a> Analisador<'a> {
                         return *elemento;
                     }
                     if let Some(funcao) = self.funcoes.get(nome).cloned() {
-                        self.validar_argumentos(argumentos, &funcao.parametros, nome);
-                        return funcao.retorno;
+                        if funcao.genericos.is_empty() {
+                            self.validar_argumentos(argumentos, &funcao.parametros, nome);
+                            return funcao.retorno;
+                        }
+                        if argumentos.len() != funcao.parametros.len() {
+                            self.erro("N3013", format!("A função genérica '{nome}' espera {} argumentos, mas recebeu {}.", funcao.parametros.len(), argumentos.len()));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let tipos_obtidos: Vec<Tipo> = argumentos.iter().map(|argumento| self.expressao(argumento)).collect();
+                        let mut inferidos = HashMap::new();
+                        for (esperado, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+                            if !Self::inferir_genericos(esperado, obtido, &funcao.genericos, &mut inferidos) {
+                                self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
+                            }
+                        }
+                        for parametro in &funcao.genericos {
+                            if !inferidos.contains_key(parametro) {
+                                self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
+                            }
+                        }
+                        for (esperado, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+                            let esperado = Self::substituir_genericos(esperado, &inferidos);
+                            self.exigir_tipo(obtido, &esperado, "argumento de função genérica");
+                        }
+                        return Self::substituir_genericos(&funcao.retorno, &inferidos);
                     }
                 }
                 if let Expressao::Membro { alvo: modulo_expr, operador: TipoToken::Escopo, nome } = alvo.as_ref() {
@@ -785,6 +827,9 @@ impl<'a> Analisador<'a> {
     }
 
     fn resolver_tipo(&self, nome: &str) -> Tipo {
+        if self.parametros_genericos.contains(nome) {
+            return Tipo::Parametro(nome.to_owned());
+        }
         match nome {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
@@ -826,6 +871,52 @@ impl<'a> Analisador<'a> {
                 }
                 if atual != nome { self.resolver_tipo(atual) } else { Tipo::Desconhecido }
             }
+        }
+    }
+
+    fn inferir_genericos(
+        esperado: &Tipo,
+        obtido: &Tipo,
+        genericos: &[String],
+        inferidos: &mut HashMap<String, Tipo>,
+    ) -> bool {
+        match esperado {
+            Tipo::Parametro(nome) if genericos.contains(nome) => {
+                if let Some(anterior) = inferidos.get(nome) {
+                    Self::tipos_compativeis(obtido, anterior)
+                } else {
+                    inferidos.insert(nome.clone(), obtido.clone());
+                    true
+                }
+            }
+            Tipo::Lista(a) => matches!(obtido, Tipo::Lista(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
+            Tipo::Intervalo(a) => matches!(obtido, Tipo::Intervalo(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
+            Tipo::Opcional(a) => matches!(obtido, Tipo::Opcional(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
+            Tipo::Resultado(a, b) => matches!(obtido, Tipo::Resultado(c, d)
+                if Self::inferir_genericos(a, c, genericos, inferidos)
+                    && Self::inferir_genericos(b, d, genericos, inferidos)),
+            Tipo::Tupla(a) => matches!(obtido, Tipo::Tupla(b) if a.len() == b.len()
+                && a.iter().zip(b).all(|(a, b)| Self::inferir_genericos(a, b, genericos, inferidos))),
+            _ => Self::tipos_compativeis(obtido, esperado),
+        }
+    }
+
+    fn substituir_genericos(tipo: &Tipo, inferidos: &HashMap<String, Tipo>) -> Tipo {
+        match tipo {
+            Tipo::Parametro(nome) => inferidos.get(nome).cloned().unwrap_or(Tipo::Desconhecido),
+            Tipo::Lista(t) => Tipo::Lista(Box::new(Self::substituir_genericos(t, inferidos))),
+            Tipo::Intervalo(t) => Tipo::Intervalo(Box::new(Self::substituir_genericos(t, inferidos))),
+            Tipo::Opcional(t) => Tipo::Opcional(Box::new(Self::substituir_genericos(t, inferidos))),
+            Tipo::Resultado(a, b) => Tipo::Resultado(
+                Box::new(Self::substituir_genericos(a, inferidos)),
+                Box::new(Self::substituir_genericos(b, inferidos)),
+            ),
+            Tipo::Tupla(itens) => Tipo::Tupla(itens.iter().map(|t| Self::substituir_genericos(t, inferidos)).collect()),
+            Tipo::Funcao(parametros, retorno) => Tipo::Funcao(
+                parametros.iter().map(|t| Self::substituir_genericos(t, inferidos)).collect(),
+                Box::new(Self::substituir_genericos(retorno, inferidos)),
+            ),
+            outro => outro.clone(),
         }
     }
 
@@ -937,6 +1028,7 @@ impl<'a> Analisador<'a> {
     fn tipos_compativeis(obtido: &Tipo, esperado: &Tipo) -> bool {
         match (obtido, esperado) {
             (Tipo::Desconhecido, _) | (_, Tipo::Desconhecido) => true,
+            (Tipo::Parametro(a), Tipo::Parametro(b)) => a == b,
             (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b))
             | (Tipo::Opcional(a), Tipo::Opcional(b)) => Self::tipos_compativeis(a, b),
             (Tipo::Resultado(a1, a2), Tipo::Resultado(b1, b2)) =>
@@ -1032,7 +1124,9 @@ impl Tipo {
             Self::Opcional(t) => format!("Opcional<{}>", t.nome()),
             Self::Resultado(sucesso, falha) => format!("Resultado<{},{}>", sucesso.nome(), falha.nome()),
             Self::Tupla(itens) => format!("Tupla<{}>", itens.iter().map(Tipo::nome).collect::<Vec<_>>().join(",")),
-            Self::Funcao(_, _) => "função".into(), Self::Desconhecido => "desconhecido".into(),
+            Self::Funcao(_, _) => "função".into(),
+            Self::Parametro(nome) => nome.clone(),
+            Self::Desconhecido => "desconhecido".into(),
         }
     }
 }
