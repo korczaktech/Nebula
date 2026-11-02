@@ -226,6 +226,10 @@ fn propagar_constantes_expressao(
             propagar_constantes_expressao(valor, constantes, relatorio);
             constantes.remove(nome);
         }
+        ExpressaoIr::AtribuicaoCampo { raiz, valor, .. } => {
+            propagar_constantes_expressao(valor, constantes, relatorio);
+            constantes.remove(raiz);
+        }
         ExpressaoIr::Chamada { argumentos, .. } | ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
             for argumento in argumentos { propagar_constantes_expressao(argumento, constantes, relatorio); }
         }
@@ -310,7 +314,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
             otimizar_expressao(esquerda, relatorio);
             otimizar_expressao(direita, relatorio);
         }
-        ExpressaoIr::Atribuicao { valor, .. } => otimizar_expressao(valor, relatorio),
+        ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => otimizar_expressao(valor, relatorio),
         ExpressaoIr::Chamada { argumentos, .. }
         | ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
             for argumento in argumentos {
