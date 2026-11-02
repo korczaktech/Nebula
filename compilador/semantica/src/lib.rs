@@ -987,9 +987,9 @@ impl<'a> Analisador<'a> {
 
     fn snapshot_movidos(&self) -> HashSet<(usize, String)> {
         self.escopos.iter().enumerate().flat_map(|(indice, escopo)| {
-            escopo.iter().filter_map(move |(nome, simbolo)| {
-                simbolo.movido.then(|| (indice, nome.clone()))
-            })
+            escopo.iter()
+                .filter(|(_, simbolo)| simbolo.movido)
+                .map(move |(nome, _)| (indice, nome.clone()))
         }).collect()
     }
 
