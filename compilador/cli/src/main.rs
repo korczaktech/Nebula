@@ -197,20 +197,39 @@ fn carregar_modulos(
 ) -> Result<(ModulosDisponiveis, Vec<(String, ProgramaIr)>), String> {
     let mut assinaturas = ModulosDisponiveis::new();
     let mut programas = Vec::new();
+    let mut cache = std::collections::HashMap::new();
+    let mut ativos = HashSet::new();
     for item in &programa.itens {
-        let NoAst::Incluir { caminho, .. } = item else {
-            continue;
-        };
-        if assinaturas.contains_key(caminho) {
-            continue;
-        }
-        let arquivo = resolver_arquivo_modulo(origem, caminho)?;
-        let bytes = std::fs::read(&arquivo).map_err(|erro| {
-            format!(
-                "Não foi possível ler módulo '{}': {erro}",
-                arquivo.display()
-            )
-        })?;
+        let NoAst::Incluir { caminho, .. } = item else { continue; };
+        let exportadas = carregar_modulo_recursivo(
+            origem, caminho, caminho, &mut cache, &mut ativos, &mut programas,
+        )?;
+        assinaturas.insert(caminho.clone(), exportadas);
+    }
+    Ok((assinaturas, programas))
+}
+
+fn carregar_modulo_recursivo(
+    origem: &Path,
+    caminho: &str,
+    identificador: &str,
+    cache: &mut HashMap<String, std::collections::HashMap<String, AssinaturaFuncao>>,
+    ativos: &mut HashSet<PathBuf>,
+    programas: &mut Vec<(String, ProgramaIr)>,
+) -> Result<std::collections::HashMap<String, AssinaturaFuncao>, String> {
+    if let Some(assinaturas) = cache.get(identificador) {
+        return Ok(assinaturas.clone());
+    }
+    let arquivo = resolver_arquivo_modulo(origem, caminho)?;
+    let arquivo_canonico = std::fs::canonicalize(&arquivo)
+        .map_err(|erro| format!("Não foi possível resolver '{}': {erro}", arquivo.display()))?;
+    if !ativos.insert(arquivo_canonico.clone()) {
+        return Err(format!("Ciclo de dependências detectado ao carregar o módulo '{identificador}'."));
+    }
+
+    let resultado = (|| {
+        let bytes = std::fs::read(&arquivo)
+            .map_err(|erro| format!("Não foi possível ler módulo '{}': {erro}", arquivo.display()))?;
         let codigo = String::from_utf8(bytes)
             .map_err(|erro| format!("Módulo '{}' não é UTF-8 válido: {erro}", arquivo.display()))?;
         let fonte = ArquivoFonte::novo(&arquivo, codigo);
@@ -218,74 +237,57 @@ fn carregar_modulos(
         if !sintaxe.diagnosticos.is_empty() {
             return Err(format!(
                 "Erro de sintaxe no módulo '{}': {}",
-                caminho,
-                sintaxe
-                    .diagnosticos
-                    .iter()
+                identificador,
+                sintaxe.diagnosticos.iter()
                     .map(|d| format!("{} — {}", d.codigo, d.mensagem))
-                    .collect::<Vec<_>>()
-                    .join("\n")
+                    .collect::<Vec<_>>().join("\n")
             ));
         }
-        if sintaxe
-            .programa
-            .itens
-            .iter()
-            .any(|item| matches!(item, NoAst::Incluir { .. }))
-        {
+        if sintaxe.programa.itens.iter().any(|item| {
+            !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Incluir { .. })
+        }) {
             return Err(format!(
-                "O módulo '{caminho}' inclui outros módulos; dependências aninhadas ainda não estão ligadas pelo interpretador."
-            ));
-        }
-        if sintaxe
-            .programa
-            .itens
-            .iter()
-            .any(|item| !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. }))
-        {
-            return Err(format!(
-                "O módulo '{caminho}' contém inicializadores globais; módulos carregados pelo interpretador devem conter funções e aliases de tipo."
+                "O módulo '{identificador}' contém inicializadores globais; módulos importados devem conter funções, aliases de tipo e imports."
             ));
         }
 
-        let mut exportadas = std::collections::HashMap::new();
+        let mut modulos_disponiveis = ModulosDisponiveis::new();
+        let mut caminhos_canonicos = HashMap::new();
+        for item in &sintaxe.programa.itens {
+            let NoAst::Incluir { caminho: caminho_filho, .. } = item else { continue; };
+            let id_filho = format!("{identificador}::{caminho_filho}");
+            let exportadas = carregar_modulo_recursivo(
+                &arquivo, caminho_filho, &id_filho, cache, ativos, programas,
+            )?;
+            modulos_disponiveis.insert(caminho_filho.clone(), exportadas);
+            caminhos_canonicos.insert(caminho_filho.clone(), id_filho);
+        }
+
+        let mut exportadas = HashMap::new();
         for item in &sintaxe.programa.itens {
             if let NoAst::Funcao {
-                visibilidade: Some(Visibilidade::Publico),
-                nome,
-                parametros,
-                retorno,
-                ..
-            } = item
-            {
-                let parametros = parametros
-                    .iter()
-                    .map(|(_, tipo)| tipo_assinatura_modulo(tipo)
-                        .ok_or_else(|| format!("Tipo '{tipo}' não suportado na assinatura pública '{caminho}::{nome}'.")))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let retorno = retorno.as_deref().unwrap_or("vazio");
-                let retorno = tipo_assinatura_modulo(retorno).ok_or_else(|| {
-                    format!("Tipo de retorno '{retorno}' não suportado em '{caminho}::{nome}'.")
+                visibilidade: Some(Visibilidade::Publico), nome, parametros, retorno, ..
+            } = item {
+                let parametros = parametros.iter().map(|(_, tipo)| {
+                    tipo_assinatura_modulo(tipo).ok_or_else(|| {
+                        format!("Tipo '{tipo}' não suportado na assinatura pública '{identificador}::{nome}'.")
+                    })
+                }).collect::<Result<Vec<_>, _>>()?;
+                let retorno_nome = retorno.as_deref().unwrap_or("vazio");
+                let retorno = tipo_assinatura_modulo(retorno_nome).ok_or_else(|| {
+                    format!("Tipo de retorno '{retorno_nome}' não suportado em '{identificador}::{nome}'.")
                 })?;
-                exportadas.insert(
-                    nome.clone(),
-                    AssinaturaFuncao {
-                        parametros,
-                        retorno,
-                    },
-                );
+                exportadas.insert(nome.clone(), AssinaturaFuncao { parametros, retorno });
             }
         }
         if exportadas.is_empty() {
-            return Err(format!(
-                "O módulo '{caminho}' não exporta nenhuma função pública."
-            ));
+            return Err(format!("O módulo '{identificador}' não exporta nenhuma função pública."));
         }
 
-        let resultado_ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        let resultado_ir = baixar(&sintaxe.programa, &modulos_disponiveis);
         if !resultado_ir.diagnosticos.is_empty() {
             return Err(format!(
-                "Erro semântico no módulo '{caminho}': {}",
+                "Erro semântico no módulo '{identificador}': {}",
                 resultado_ir.diagnosticos.join("\n")
             ));
         }
@@ -293,67 +295,61 @@ fn carregar_modulos(
         let nomes = modulo_ir.funcoes.keys().cloned().collect::<HashSet<_>>();
         for funcao in modulo_ir.funcoes.values_mut() {
             for instrucao in &mut funcao.corpo {
-                qualificar_chamadas_modulo(instrucao, caminho, &nomes);
+                qualificar_chamadas_modulo(instrucao, identificador, &nomes, &caminhos_canonicos);
             }
         }
-        assinaturas.insert(caminho.clone(), exportadas);
-        programas.push((caminho.clone(), modulo_ir));
-    }
-    Ok((assinaturas, programas))
+        programas.push((identificador.to_owned(), modulo_ir));
+        cache.insert(identificador.to_owned(), exportadas.clone());
+        Ok(exportadas)
+    })();
+    ativos.remove(&arquivo_canonico);
+    resultado
 }
 
 fn qualificar_chamadas_modulo(
     instrucao: &mut InstrucaoIr,
     caminho: &str,
     funcoes: &HashSet<String>,
+    caminhos_canonicos: &HashMap<String, String>,
 ) {
     match instrucao {
         InstrucaoIr::Declarar { valor, .. } | InstrucaoIr::Expressao(valor) => {
-            qualificar_expressao_modulo(valor, caminho, funcoes);
+            qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
         InstrucaoIr::Bloco(itens) => {
             for item in itens {
-                qualificar_chamadas_modulo(item, caminho, funcoes);
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        InstrucaoIr::Se {
-            condicao,
-            entao,
-            senao,
-        } => {
-            qualificar_expressao_modulo(condicao, caminho, funcoes);
+        InstrucaoIr::Se { condicao, entao, senao } => {
+            qualificar_expressao_modulo(condicao, caminho, funcoes, caminhos_canonicos);
             for item in entao.iter_mut().chain(senao.iter_mut()) {
-                qualificar_chamadas_modulo(item, caminho, funcoes);
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
         InstrucaoIr::Enquanto { condicao, corpo } => {
-            qualificar_expressao_modulo(condicao, caminho, funcoes);
+            qualificar_expressao_modulo(condicao, caminho, funcoes, caminhos_canonicos);
             for item in corpo {
-                qualificar_chamadas_modulo(item, caminho, funcoes);
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        InstrucaoIr::Para {
-            inicial,
-            condicao,
-            atualizacao,
-            corpo,
-        } => {
+        InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
             if let Some(inicial) = inicial {
-                qualificar_chamadas_modulo(inicial, caminho, funcoes);
+                qualificar_chamadas_modulo(inicial, caminho, funcoes, caminhos_canonicos);
             }
             if let Some(condicao) = condicao {
-                qualificar_expressao_modulo(condicao, caminho, funcoes);
+                qualificar_expressao_modulo(condicao, caminho, funcoes, caminhos_canonicos);
             }
             if let Some(atualizacao) = atualizacao {
-                qualificar_expressao_modulo(atualizacao, caminho, funcoes);
+                qualificar_expressao_modulo(atualizacao, caminho, funcoes, caminhos_canonicos);
             }
             for item in corpo {
-                qualificar_chamadas_modulo(item, caminho, funcoes);
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
         InstrucaoIr::Devolver(valor) => {
             if let Some(valor) = valor {
-                qualificar_expressao_modulo(valor, caminho, funcoes);
+                qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
             }
         }
         InstrucaoIr::Parar | InstrucaoIr::Seguir => {}
@@ -364,42 +360,44 @@ fn qualificar_expressao_modulo(
     expressao: &mut ExpressaoIr,
     caminho: &str,
     funcoes: &HashSet<String>,
+    caminhos_canonicos: &HashMap<String, String>,
 ) {
     let mut chamada_local = None;
     match expressao {
         ExpressaoIr::Lista(itens) => {
             for item in itens {
-                qualificar_expressao_modulo(item, caminho, funcoes);
+                qualificar_expressao_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
         ExpressaoIr::Unaria { valor, .. } => {
-            qualificar_expressao_modulo(valor, caminho, funcoes);
+            qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
-        ExpressaoIr::Binaria {
-            esquerda, direita, ..
-        } => {
-            qualificar_expressao_modulo(esquerda, caminho, funcoes);
-            qualificar_expressao_modulo(direita, caminho, funcoes);
+        ExpressaoIr::Binaria { esquerda, direita, .. } => {
+            qualificar_expressao_modulo(esquerda, caminho, funcoes, caminhos_canonicos);
+            qualificar_expressao_modulo(direita, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::Atribuicao { valor, .. } => {
-            qualificar_expressao_modulo(valor, caminho, funcoes);
+            qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::Chamada { nome, argumentos } => {
             for argumento in argumentos.iter_mut() {
-                qualificar_expressao_modulo(argumento, caminho, funcoes);
+                qualificar_expressao_modulo(argumento, caminho, funcoes, caminhos_canonicos);
             }
             if funcoes.contains(nome) {
                 chamada_local = Some(nome.clone());
             }
         }
-        ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
+        ExpressaoIr::ChamadaQualificada { modulo, argumentos, .. } => {
+            if let Some(canonico) = caminhos_canonicos.get(modulo) {
+                *modulo = canonico.clone();
+            }
             for argumento in argumentos {
-                qualificar_expressao_modulo(argumento, caminho, funcoes);
+                qualificar_expressao_modulo(argumento, caminho, funcoes, caminhos_canonicos);
             }
         }
         ExpressaoIr::Indexacao { alvo, indice } => {
-            qualificar_expressao_modulo(alvo, caminho, funcoes);
-            qualificar_expressao_modulo(indice, caminho, funcoes);
+            qualificar_expressao_modulo(alvo, caminho, funcoes, caminhos_canonicos);
+            qualificar_expressao_modulo(indice, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
     }
@@ -416,7 +414,6 @@ fn qualificar_expressao_modulo(
     }
 }
 
-#[rustfmt::skip]
 fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     compilar_arquivo_com_nivel(caminho, saida, NivelOtimizacao::O1)
 }
