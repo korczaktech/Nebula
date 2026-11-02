@@ -57,7 +57,7 @@ fn verificar_rejeita_programa_com_sintaxe_invalida() {
     let saida = executar(&["verificar", caminho.to_str().expect("caminho UTF-8")]);
     let _ = std::fs::remove_file(caminho);
     assert_eq!(saida.status.code(), Some(1));
-    assert!(String::from_utf8_lossy(&saida.stderr).contains("N"));
+    assert!(String::from_utf8_lossy(&saida.stderr).contains("N2010"));
 }
 
 #[test]
@@ -81,4 +81,15 @@ fn verificar_rejeita_argumento_extra() {
     let saida = executar(&["verificar", "programa.nbx", "argumento-extra"]);
     assert_eq!(saida.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&saida.stderr).contains("somente um arquivo"));
+}
+
+#[test]
+fn verificar_mostra_localizacao_do_erro() {
+    let caminho = std::env::temp_dir().join(format!("nebula-local-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel =").expect("grava fonte");
+    let saida = executar(&["verificar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    let stderr = String::from_utf8_lossy(&saida.stderr);
+    assert!(stderr.contains(":1:"), "{stderr}");
+    assert!(stderr.contains("N2010"), "{stderr}");
 }
