@@ -138,6 +138,15 @@ fn overflow_de_divisao_signed_termina_com_codigo_de_erro_estavel() {
 }
 
 #[test]
+fn expoente_acima_de_u32_termina_com_codigo_de_erro_estavel() {
+    let resultado = compilar_e_executar(
+        "expoente-acima-u32",
+        "funcao principal(): inteiro { devolver 1 ** 4294967296 }",
+    );
+    assert_eq!(resultado.status.code(), Some(2));
+}
+
+#[test]
 fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "expoente-negativo",
