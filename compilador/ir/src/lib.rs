@@ -459,6 +459,22 @@ impl Lowerer {
             },
             Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
                 Expressao::Nome(nome) => self.inferir_tipo_chamada(nome, argumentos),
+                Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
+                    let Expressao::Nome(tipo_base) = alvo.as_ref() else { return Tipo::Desconhecido; };
+                    match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
+                        ("Opcional" | "opcional", "Algum" | "Nenhum", 1) => Tipo::Opcional(Box::new(
+                            if variante == "Algum" { self.inferir_tipo_ast(&argumentos[0]) } else { Tipo::Desconhecido }
+                        )),
+                        ("Opcional" | "opcional", "Nenhum", 0) => Tipo::Opcional(Box::new(Tipo::Desconhecido)),
+                        ("Resultado" | "resultado", "Sucesso", 1) => Tipo::Resultado(
+                            Box::new(self.inferir_tipo_ast(&argumentos[0])), Box::new(Tipo::Desconhecido)
+                        ),
+                        ("Resultado" | "resultado", "Falha", 1) => Tipo::Resultado(
+                            Box::new(Tipo::Desconhecido), Box::new(self.inferir_tipo_ast(&argumentos[0]))
+                        ),
+                        _ => Tipo::Desconhecido,
+                    }
+                }
                 _ => Tipo::Desconhecido,
             },
             _ => Tipo::Desconhecido,
@@ -571,6 +587,20 @@ impl Lowerer {
                         }
                     },
                     Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
+                        if let Expressao::Nome(tipo_base) = alvo.as_ref() {
+                            let construtor = match (tipo_base.as_str(), variante.as_str(), args.len()) {
+                                ("Opcional" | "opcional", "Algum", 1) => Some(("Opcional", "Algum")),
+                                ("Opcional" | "opcional", "Nenhum", 0) => Some(("Opcional", "Nenhum")),
+                                ("Resultado" | "resultado", "Sucesso", 1) => Some(("Resultado", "Sucesso")),
+                                ("Resultado" | "resultado", "Falha", 1) => Some(("Resultado", "Falha")),
+                                _ => None,
+                            };
+                            if let Some((nome, variante)) = construtor {
+                                return Some(ExpressaoIr::ConstrucaoEnumeracao {
+                                    nome: nome.into(), variante: variante.into(), valores: args,
+                                });
+                            }
+                        }
                         if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
                             if self.variantes_enumeracoes.get(tipo_enum).is_some_and(|variantes| variantes.contains_key(variante)) {
                                 Some(ExpressaoIr::ConstrucaoEnumeracao { nome: tipo_enum.clone(), variante: variante.clone(), valores: args })
@@ -1597,6 +1627,23 @@ mod testes {
         );
         let resultado = executar(&ir, 100).expect("payload de enumeração válido");
         assert_eq!(resultado.saida, vec!["Resultado::Sucesso { 0: 42 }"]);
+    }
+
+    #[test]
+    fn executa_construtores_opcional_e_resultado() {
+        let ir = compilar(
+            "variavel numero: Opcional<inteiro> = Opcional::Algum(42)\nvariavel ausente: Opcional<texto> = Opcional::Nenhum()\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(7)\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"erro\")\nexibir(numero)\nexibir(ausente)\nexibir(sucesso)\nexibir(falha)",
+        );
+        let resultado = executar(&ir, 200).expect("construtores algébricos válidos");
+        assert_eq!(
+            resultado.saida,
+            vec![
+                "Opcional::Algum { 0: 42 }",
+                "Opcional::Nenhum {  }",
+                "Resultado::Sucesso { 0: 7 }",
+                "Resultado::Falha { 0: erro }",
+            ]
+        );
     }
 
     #[test]

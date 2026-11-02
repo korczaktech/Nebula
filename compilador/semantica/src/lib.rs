@@ -559,6 +559,36 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Chamada { alvo, argumentos } => {
                 if let Expressao::Membro { alvo: tipo_expr, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
+                    if let Expressao::Nome(tipo_base) = tipo_expr.as_ref() {
+                        let tipo_construtor = match (tipo_base.as_str(), variante.as_str(), argumentos.len()) {
+                            ("Opcional" | "opcional", "Algum", 1) => {
+                                let interno = self.expressao(&argumentos[0]);
+                                return Tipo::Opcional(Box::new(interno));
+                            }
+                            ("Opcional" | "opcional", "Nenhum", 0) => {
+                                return Tipo::Opcional(Box::new(Tipo::Desconhecido));
+                            }
+                            ("Resultado" | "resultado", "Sucesso", 1) => {
+                                let sucesso = self.expressao(&argumentos[0]);
+                                return Tipo::Resultado(Box::new(sucesso), Box::new(Tipo::Desconhecido));
+                            }
+                            ("Resultado" | "resultado", "Falha", 1) => {
+                                let falha = self.expressao(&argumentos[0]);
+                                return Tipo::Resultado(Box::new(Tipo::Desconhecido), Box::new(falha));
+                            }
+                            _ => None,
+                        };
+                        if tipo_construtor.is_some() {
+                            return tipo_construtor.unwrap();
+                        }
+                        if matches!(tipo_base.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado") {
+                            self.erro("N3054", format!("Construtor inválido: '{tipo_base}::{variante}' com {} argumento(s).", argumentos.len()));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                    }
+                }
+                if let Expressao::Membro { alvo: tipo_expr, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
                     if let Expressao::Nome(tipo_enum) = tipo_expr.as_ref() {
                         if let Some(variantes) = self.variantes_enumeracoes.get(tipo_enum).cloned() {
                             if let Some(esperados) = variantes.get(variante) {
@@ -1858,6 +1888,24 @@ mod testes {
             "funcao recebe<T>(valor: Opcional<[T]>) { exibir(\"ok\") }",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn valida_construtores_opcional_e_resultado() {
+        let r = analisar_codigo(
+            "variavel numero: Opcional<inteiro> = Opcional::Algum(42)\nvariavel ausente: Opcional<texto> = Opcional::Nenhum()\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(7)\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"erro\")",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("numero"), Some(&Tipo::Opcional(Box::new(Tipo::Inteiro))));
+        assert_eq!(r.tipos_globais.get("ausente"), Some(&Tipo::Opcional(Box::new(Tipo::Texto))));
+        assert_eq!(r.tipos_globais.get("sucesso"), Some(&Tipo::Resultado(Box::new(Tipo::Inteiro), Box::new(Tipo::Texto))));
+        assert_eq!(r.tipos_globais.get("falha"), Some(&Tipo::Resultado(Box::new(Tipo::Inteiro), Box::new(Tipo::Texto))));
+    }
+
+    #[test]
+    fn rejeita_construtor_opcional_com_aridade_incorreta() {
+        let r = analisar_codigo("variavel valor = Opcional::Algum()");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
     }
 
     #[test]
