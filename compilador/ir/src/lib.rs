@@ -300,8 +300,9 @@ impl Lowerer {
                         if let Some(tipos) = self.variantes_enumeracoes.get(enumeracao)
                             .and_then(|variantes| variantes.get(variante)).cloned() {
                             for (nome, tipo) in caso.vinculacoes.iter().zip(tipos) {
+                                let tipo = self.tipo(&tipo);
                                 if let Some(escopo) = self.escopos_tipos.last_mut() {
-                                    escopo.insert(nome.clone(), self.tipo(&tipo));
+                                    escopo.insert(nome.clone(), tipo);
                                 }
                             }
                         }
