@@ -321,7 +321,9 @@ A estrutura inicial já criada na Fase 1 é:
 nebula/
 ├── README.md
 ├── CONTRIBUTING.md
+├── CHANGELOG.md
 ├── Cargo.toml
+├── Cargo.lock
 ├── rust-toolchain.toml
 ├── .gitignore
 ├── .github/
@@ -340,15 +342,21 @@ nebula/
 │   └── alvos.md
 ├── compilador/
 │   ├── fonte/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
 │   ├── diagnosticos/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs
 │   └── cli/
+│       ├── Cargo.toml
+│       └── src/main.rs
 ├── exemplos/
 │   └── ola_mundo.nbx
 ├── testes/
 │   └── conformidade/
 │       ├── README.md
 │       └── sintaxe_visual.nbx
-└── testes/conformidade/sintaxe_visual.nbx
+└── .gitignore
 ```
 
 Os diretórios de Lexer, Parser, AST, semântica, IR e backends serão adicionados nas fases correspondentes. Não existem pastas vazias declaradas como componentes implementados.
