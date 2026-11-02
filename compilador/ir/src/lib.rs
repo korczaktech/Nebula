@@ -862,6 +862,13 @@ mod testes {
     }
 
     #[test]
+    fn executa_biblioteca_basica_de_tempo() {
+        let ir = compilar("variavel inicio = tempo()\ndormir(0)\nexibir(inicio > 0)");
+        let resultado = executar(&ir, 100).expect("runtime de tempo válido");
+        assert_eq!(resultado.saida, vec!["verdadeiro"]);
+    }
+
+    #[test]
     fn executa_expressao_e_chamada_exibir() {
         let ir = compilar("variavel total = 1 + 2\nexibir(total)");
         let r = executar(&ir, 100).expect("execução válida");
