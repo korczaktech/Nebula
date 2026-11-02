@@ -809,16 +809,25 @@ mod testes {
     #[test]
     fn parametros_e_corpo_compartilham_escopo_da_funcao() {
         let mut programa = programa_com_retorno(0);
-        programa.funcoes.get_mut("principal").unwrap().parametros = vec![("valor".into(), Tipo::Inteiro)];
-        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
-            InstrucaoIr::Declarar {
-                nome: "valor".into(),
-                tipo: Tipo::Inteiro,
-                valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
-                constante: false,
-            }
-        ];
-        assert!(gerar_executavel(&programa).unwrap_err().contains("mesmo escopo"));
+        programa.funcoes.insert(
+            "auxiliar".into(),
+            FuncaoIr {
+                nome: "auxiliar".into(),
+                parametros: vec![("valor".into(), Tipo::Inteiro)],
+                retorno: Tipo::Inteiro,
+                corpo: vec![InstrucaoIr::Declarar {
+                    nome: "valor".into(),
+                    tipo: Tipo::Inteiro,
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                    constante: false,
+                }],
+            },
+        );
+        assert!(
+            gerar_executavel(&programa)
+                .unwrap_err()
+                .contains("mesmo escopo")
+        );
     }
 
     #[test]
