@@ -1679,6 +1679,30 @@ mod testes {
     }
 
     #[test]
+    fn resolve_tipo_de_campo_de_estrutura() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nfuncao obter_nome(pessoa: Pessoa): texto { devolver pessoa.nome }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_campo_inexistente_em_estrutura() {
+        let r = analisar_codigo(
+            "estrutura Pessoa { nome: texto }\nfuncao obter_id(pessoa: Pessoa): inteiro { devolver pessoa.id }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3040"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_acesso_a_campo_em_tipo_primitivo() {
+        let r = analisar_codigo(
+            "funcao obter_campo(valor: inteiro): texto { devolver valor.nome }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3041"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn reinicializacao_em_todos_os_ramos_remove_estado_de_movido() {
         let r = analisar_codigo(
             "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" } senao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
