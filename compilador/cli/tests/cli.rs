@@ -97,3 +97,34 @@ fn verificar_mostra_localizacao_do_erro() {
     assert!(stderr.contains(":1:"), "{stderr}");
     assert!(stderr.contains("N2010"), "{stderr}");
 }
+
+
+#[test]
+fn analisar_aceita_programa_com_tipos_validos() {
+    let caminho = std::env::temp_dir().join(format!("nebula-semantica-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = soma(2, 3)").expect("grava arquivo");
+    let saida = executar(&["analisar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert!(String::from_utf8_lossy(&saida.stdout).contains("válido semanticamente"));
+}
+
+#[test]
+fn analisar_rejeita_nome_nao_declarado() {
+    let caminho = std::env::temp_dir().join(format!("nebula-semantica-erro-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel total = ausente").expect("grava arquivo");
+    let saida = executar(&["analisar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert_eq!(saida.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&saida.stderr).contains("N3007"));
+}
+
+#[test]
+fn comando_ir_exibe_representacao_intermediaria() {
+    let caminho = std::env::temp_dir().join(format!("nebula-ir-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel total = 1 + 2").expect("grava arquivo");
+    let saida = executar(&["ir", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert!(String::from_utf8_lossy(&saida.stdout).contains("ProgramaIr"));
+}
