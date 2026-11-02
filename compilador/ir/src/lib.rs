@@ -1474,7 +1474,7 @@ mod testes {
     #[test]
     fn infere_chamada_generica_em_variavel_local() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T { devolver valor }\\nfuncao repassar<T>(valor: T): T { variavel copia = identidade(valor)\\n devolver copia }\\nvariavel numero = repassar(42)",
+            "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao repassar<T>(valor: T): T { variavel copia = identidade(valor)\n devolver copia }\nvariavel numero = repassar(42)",
         );
         assert!(ir.funcoes.contains_key("repassar__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
