@@ -388,7 +388,7 @@ impl Emissor {
             ExpressaoIr::AtribuicaoCampo { .. } => {
                 return Err("Atribuição de campos exige layout e ABI de estruturas no backend nativo.".into());
             }
-            ExpressaoIr::Atribuicao { nome, valor } => {
+            ExpressaoIr::Atribuicao { nome, valor, .. } => {
                 self.expressao(valor)?;
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.armazenar_rax(deslocamento);

@@ -42,8 +42,8 @@ pub enum ExpressaoIr {
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
     Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
-    Atribuicao { nome: String, valor: Box<ExpressaoIr> },
-    AtribuicaoCampo { raiz: String, caminho: Vec<String>, valor: Box<ExpressaoIr> },
+    Atribuicao { nome: String, valor: Box<ExpressaoIr>, tipo: Tipo },
+    AtribuicaoCampo { raiz: String, caminho: Vec<String>, valor: Box<ExpressaoIr>, tipo: Tipo },
     Chamada { nome: String, argumentos: Vec<ExpressaoIr> },
     ChamadaQualificada { modulo: String, nome: String, argumentos: Vec<ExpressaoIr> },
     Indexacao { alvo: Box<ExpressaoIr>, indice: Box<ExpressaoIr> },
@@ -604,11 +604,12 @@ impl Lowerer {
                 direita: Box::new(self.expressao(direita)?),
             }),
             Expressao::Atribuicao { destino, valor } => {
+                let tipo = self.inferir_tipo_ast(destino);
                 let valor = Box::new(self.expressao(valor)?);
                 if let Expressao::Nome(nome) = destino.as_ref() {
-                    Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor })
+                    Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor, tipo })
                 } else if let Some((raiz, caminho)) = caminho_campos(destino) {
-                    Some(ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor })
+                    Some(ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo })
                 } else {
                     self.diagnosticos.push("O destino da atribuição precisa ser uma variável ou campo de estrutura.".into());
                     None
@@ -1171,15 +1172,15 @@ impl Maquina<'_> {
                 let b = self.expressao(direita)?;
                 binaria(a, *operador, b)
             }
-            ExpressaoIr::Atribuicao { nome, valor } => {
-                let valor = self.expressao(valor)?;
+            ExpressaoIr::Atribuicao { nome, valor, tipo } => {
+                let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
                     .atribuir(nome, converter_para_runtime(valor.clone()))
                     .map_err(formatar_erro_runtime)?;
                 Ok(valor)
             }
-            ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor } => {
-                let valor = self.expressao(valor)?;
+            ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo } => {
+                let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
                     .definir_campo_estrutura(raiz, caminho, converter_para_runtime(valor.clone()))
                     .map_err(formatar_erro_runtime)?;

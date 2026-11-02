@@ -229,7 +229,7 @@ fn propagar_constantes_expressao(
             propagar_constantes_expressao(esquerda, constantes, relatorio);
             propagar_constantes_expressao(direita, constantes, relatorio);
         }
-        ExpressaoIr::Atribuicao { nome, valor } => {
+        ExpressaoIr::Atribuicao { nome, valor, .. } => {
             propagar_constantes_expressao(valor, constantes, relatorio);
             constantes.remove(nome);
         }
