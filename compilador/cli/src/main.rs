@@ -5,7 +5,7 @@
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::otimizador::NivelOtimizacao;
 use nebula_ir::{ExpressaoIr, InstrucaoIr, ProgramaIr, baixar};
-use nebula_semantica::{AssinaturaFuncao, ModulosDisponiveis, Tipo, analisar_semantica};
+use nebula_semantica::{AssinaturaFuncao, ModulosDisponiveis, Tipo, analisar_com_modulos};
 use nebula_sintaxe::{NoAst, Programa, Visibilidade, analisar};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -134,6 +134,12 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
         return Err(resultado.diagnosticos.join("\n"));
     }
     let mut programa = resultado.programa.expect("IR validada");
+    ligar_modulos(&mut programa, programas_modulos);
+    let execucao = nebula_ir::executar(&programa, 1_000_000)?;
+    Ok(execucao.saida)
+}
+
+fn ligar_modulos(programa: &mut ProgramaIr, programas_modulos: Vec<(String, ProgramaIr)>) {
     for (caminho_modulo, modulo) in programas_modulos {
         for (nome, funcao) in modulo.funcoes {
             programa
@@ -141,8 +147,6 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
                 .insert(format!("{caminho_modulo}::{nome}"), funcao);
         }
     }
-    let execucao = nebula_ir::executar(&programa, 1_000_000)?;
-    Ok(execucao.saida)
 }
 
 fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, String> {
@@ -587,14 +591,21 @@ fn mostrar_ir(caminho: &Path) {
         }
         std::process::exit(1);
     }
-    let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+    let (modulos, programas_modulos) =
+        carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
+            eprintln!("{erro}");
+            std::process::exit(1);
+        });
+    let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
         for diagnostico in &resultado.diagnosticos {
             eprintln!("{diagnostico}");
         }
         std::process::exit(1);
     }
-    println!("{:#?}", resultado.programa.expect("baixamento validado"));
+    let mut programa = resultado.programa.expect("baixamento validado");
+    ligar_modulos(&mut programa, programas_modulos);
+    println!("{programa:#?}");
 }
 
 fn analisar_arquivo(caminho: &Path) {
@@ -631,7 +642,11 @@ fn analisar_arquivo(caminho: &Path) {
         }
         std::process::exit(1);
     }
-    let resultado = analisar_semantica(&sintaxe.programa);
+    let (modulos, _) = carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
+        eprintln!("{erro}");
+        std::process::exit(1);
+    });
+    let resultado = analisar_com_modulos(&sintaxe.programa, &modulos);
     for diagnostico in &resultado.diagnosticos {
         eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
     }
