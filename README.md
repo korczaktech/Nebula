@@ -362,7 +362,7 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
 **Criada na Fase 4:**
-- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais, controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 permanece aberta enquanto a suíte completa e a CI não forem validadas.
+- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. A Fase 4 permanece aberta enquanto a suíte completa e a CI não forem validadas.
 
 O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O runtime, a biblioteca padrão e o otimizador continuam adiados conforme o plano.
 
