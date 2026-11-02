@@ -904,6 +904,24 @@ mod testes {
         assert!(resolver_arquivo_modulo(Path::new("."), "modulo::::interno").is_err());
     }
 
+    #[rustfmt::skip]
+    #[test]
+    fn impede_chamada_externa_a_funcao_privada_de_modulo() {
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-privado-{}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        std::fs::write(
+            diretorio.join("Interno.nbx"),
+            "funcao segredo(): inteiro { devolver 42 }\npublico funcao visivel(): inteiro { devolver segredo() }",
+        )
+        .unwrap();
+        let origem = diretorio.join("principal.nbx");
+        std::fs::write(&origem, "incluir Interno\nexibir(Interno::segredo())").unwrap();
+
+        let erro = interpretar_arquivo(&origem).unwrap_err();
+        assert!(erro.contains("não é pública") || erro.contains("não foi declarada"));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn interpreta_programa_com_texto_pelo_runtime() {
         let caminho =
