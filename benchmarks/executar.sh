@@ -14,18 +14,18 @@ nebula="$raiz/target/release/nebula"
 temporario="$(mktemp -d)"
 trap 'rm -rf "$temporario"' EXIT
 
-for nivel in -O0 -O1 -O2 -O3 -Os; do
-    printf '\n%s — laço\n' "$nivel"
-    executavel="$temporario/nebula-laco-${nivel#-}"
-    "$nebula" compilar benchmarks/loop.nbx -o "$executavel" "$nivel"
+for carga in loop fibonacci; do
+    printf '\n%s — compilação nativa sem passes de otimização\n' "$carga"
+    executavel="$temporario/nebula-$carga"
+    "$nebula" compilar "benchmarks/$carga.nbx" -o "$executavel"
     for repeticao in 1 2 3 4 5; do
-        /usr/bin/time -f "  execução $repeticao: %e s" "$executavel" >/dev/null
-    done
-
-    printf '\n%s — recursão\n' "$nivel"
-    executavel="$temporario/nebula-recursao-${nivel#-}"
-    "$nebula" compilar benchmarks/fibonacci.nbx -o "$executavel" "$nivel"
-    for repeticao in 1 2 3 4 5; do
-        /usr/bin/time -f "  execução $repeticao: %e s" "$executavel" >/dev/null
+        /usr/bin/time -f "  execução $repeticao: %e s" "$executavel" >/dev/null || {
+            codigo=$?
+            if [[ "$carga" == "fibonacci" && "$codigo" -eq 121 ]]; then
+                continue
+            fi
+            echo "Programa terminou com código inesperado: $codigo" >&2
+            exit 1
+        }
     done
 done
