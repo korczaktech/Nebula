@@ -228,8 +228,8 @@ fn verificar_emite_diagnosticos_json_para_fonte_valida() {
     let _ = std::fs::remove_file(caminho);
     assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
     let json = String::from_utf8_lossy(&saida.stdout);
-    assert!(json.contains("\\"valido\\":true"), "{json}");
-    assert!(json.contains("\\"diagnosticos\\":[]"), "{json}");
+    assert!(json.contains(r#""valido":true"#), "{json}");
+    assert!(json.contains(r#""diagnosticos":[] "#), "{json}");
 }
 
 #[test]
@@ -240,8 +240,8 @@ fn verificar_emite_diagnosticos_json_para_fonte_invalida() {
     let _ = std::fs::remove_file(caminho);
     assert_eq!(saida.status.code(), Some(1));
     let json = String::from_utf8_lossy(&saida.stdout);
-    assert!(json.contains("\\"valido\\":false"), "{json}");
-    assert!(json.contains("\\"codigo\\":\\"N2010\\""), "{json}");
+    assert!(json.contains(r#""valido":false"#), "{json}");
+    assert!(json.contains(r#""codigo":"N2010""#), "{json}");
 }
 
 #[test]
@@ -253,7 +253,7 @@ fn analisar_emite_diagnosticos_json_semanticos() {
     assert_eq!(saida.status.code(), Some(1));
     let json = String::from_utf8_lossy(&saida.stdout);
     assert!(json.contains("\\"valido\\":false"), "{json}");
-    assert!(json.contains("\\"codigo\\":\\"N3007\\""), "{json}");
+    assert!(json.contains(r#""codigo":"N3007""#), "{json}");
 }
 
 #[test]
