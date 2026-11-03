@@ -22,7 +22,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Instalar Rust
-        uses: dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@1.120.0
       - name: Instalar cargo-audit
         uses: taiki-e/install-action@cargo-audit
       - name: Auditar dependências do lockfile
