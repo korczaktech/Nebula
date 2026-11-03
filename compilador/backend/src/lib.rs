@@ -618,7 +618,7 @@ impl Emissor {
                 return self.normalizar_tipo(destino);
             }
             if matches!(tipo_origem, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
-                return Err("Conversão decimal para inteiro ainda requer validação de faixa IEEE-754 no backend.".into());
+                return self.converter_decimal_para_inteiro(destino);
             }
         }
 
@@ -647,6 +647,62 @@ impl Emissor {
             tipo_origem.nome(),
             destino.nome()
         ))
+    }
+
+    fn converter_decimal_para_inteiro(&mut self, destino: &Tipo) -> Result<(), String> {
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC0]); // ucomisd xmm0, xmm0
+        let finito = self.emitir_jcc(0x8B); // JNP: rejeita NaN
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(finito, self.codigo.len());
+
+        let Some((_, assinado)) = tipo_inteiro_abi(destino) else {
+            return Err(format!("Tipo '{}' não possui conversão inteira nativa.", destino.nome()));
+        };
+        if assinado {
+            // -2^63 <= x < 2^63; o limite inferior é inclusivo e o superior exclusivo.
+            self.mov_rax(0xC3E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
+            let acima_minimo = self.emitir_jcc(0x83); // JAE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(acima_minimo, self.codigo.len());
+
+            self.mov_rax(0x43E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_maximo = self.emitir_jcc(0x82); // JB
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(abaixo_maximo, self.codigo.len());
+        } else {
+            // 0 <= x < 2^64.
+            self.mov_rax(0);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let nao_negativo = self.emitir_jcc(0x83); // JAE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(nao_negativo, self.codigo.len());
+
+            self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_limite = self.emitir_jcc(0x82); // JB
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(abaixo_limite, self.codigo.len());
+
+            self.mov_rax(0x43E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_metade = self.emitir_jcc(0x82);
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5C, 0xC1]); // subsd xmm0, xmm1
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
+            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xBA, 0xE8, 0x3F]); // bts rax, 63
+            let convertido = self.emitir_jmp();
+            self.aplicar_salto(abaixo_metade, self.codigo.len());
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
+            self.aplicar_salto(convertido, self.codigo.len());
+        }
+        self.normalizar_tipo(destino)
     }
 
     fn carregar_decimais_sse(&mut self, tipo: &Tipo) {
@@ -1237,6 +1293,23 @@ mod testes {
             assert!(emissor.codigo.windows(3).any(|janela| janela == [0x48, 0x85, 0xC0]));
             assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x89]));
             assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x05]));
+        }
+    }
+
+    #[test]
+    fn converte_decimal_para_inteiro_com_validacao_de_faixa() {
+        for destino in [Tipo::Inteiro8, Tipo::Inteiro64, Tipo::InteiroU32, Tipo::InteiroU64] {
+            let expressao = ExpressaoIr::Conversao {
+                tipo: destino,
+                valor: Box::new(ExpressaoIr::Normalizar {
+                    tipo: Tipo::Decimal64,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(42.75))),
+                }),
+            };
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.expressao(&expressao).unwrap();
+            assert!(emissor.codigo.windows(5).any(|janela| janela == [0xF2, 0x48, 0x0F, 0x2C, 0xC0]));
+            assert!(emissor.codigo.windows(4).any(|janela| janela == [0x66, 0x0F, 0x2E, 0xC0]));
         }
     }
 
