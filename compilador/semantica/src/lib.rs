@@ -2580,7 +2580,7 @@ mod testes {
     #[test]
     fn mover_elemento_literal_de_lista_preserva_irmaos() {
         let r = analisar_codigo(
-            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nexibir(nomes[1])",
+            "variavel nomes = [\"Lia\", \"Bia\"]\nvariavel nome = nomes[0]\nexibir(nomes[1])",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2588,7 +2588,7 @@ mod testes {
     #[test]
     fn rejeita_reuso_de_elemento_literal_movido_de_lista() {
         let r = analisar_codigo(
-            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nexibir(nomes[0])",
+            "variavel nomes = [\"Lia\", \"Bia\"]\nvariavel nome = nomes[0]\nexibir(nomes[0])",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -2596,7 +2596,7 @@ mod testes {
     #[test]
     fn reatribuir_elemento_literal_reinicializa_movimento_de_lista() {
         let r = analisar_codigo(
-            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nnomes[0] = \"Ana\"\\nexibir(nomes[0])\\nexibir(nomes[1])",
+            "variavel nomes = [\"Lia\", \"Bia\"]\nvariavel nome = nomes[0]\nnomes[0] = \"Ana\"\nexibir(nomes[0])\nexibir(nomes[1])",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
