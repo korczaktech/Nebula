@@ -1301,6 +1301,7 @@ mod testes {
         for destino in [Tipo::Inteiro8, Tipo::Inteiro64, Tipo::InteiroU32, Tipo::InteiroU64] {
             let expressao = ExpressaoIr::Conversao {
                 tipo: destino,
+                origem: Tipo::Decimal64,
                 valor: Box::new(ExpressaoIr::Normalizar {
                     tipo: Tipo::Decimal64,
                     valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(42.75))),
