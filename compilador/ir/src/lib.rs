@@ -600,6 +600,15 @@ impl Lowerer {
             return matches!(obtido, Tipo::Lista(interno)
                 if self.inferir_substituicao(&esperado[1..esperado.len()-1], interno, genericos, substituicoes));
         }
+        if let Some((parametros_esperados, retorno_esperado)) = dividir_tipo_funcao(esperado) {
+            let Tipo::Funcao(parametros_obtidos, retorno_obtido) = obtido else {
+                return false;
+            };
+            return parametros_esperados.len() == parametros_obtidos.len()
+                && parametros_esperados.iter().zip(parametros_obtidos).all(|(esperado, obtido)|
+                    self.inferir_substituicao(esperado, obtido, genericos, substituicoes))
+                && self.inferir_substituicao(retorno_esperado, retorno_obtido, genericos, substituicoes);
+        }
         if let Some((base, argumentos)) = dividir_tipo_generico(esperado) {
             return match (base, obtido) {
                 ("Opcional" | "opcional", Tipo::Opcional(interno)) if argumentos.len() == 1 =>
@@ -2480,6 +2489,16 @@ mod testes {
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamada genérica local válida");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(42)));
+    }
+
+    #[test]
+    fn infere_genericos_em_parametros_e_retorno_de_tipo_funcao() {
+        let ir = compilar(
+            "funcao identidade(valor: inteiro): inteiro { devolver valor }\\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T { devolver operacao(valor) }\\nvariavel resultado = aplicar(identidade, 42)",
+        );
+        assert!(ir.funcoes.contains_key("aplicar__inteiro"));
+        let resultado = executar(&ir, 100).expect("inferência em tipo de função válida");
+        assert_eq!(resultado.globais.get("resultado"), Some(&ValorIr::Inteiro(42)));
     }
 
     #[test]
