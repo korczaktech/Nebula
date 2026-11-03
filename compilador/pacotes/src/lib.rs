@@ -480,7 +480,7 @@ fn comparar_semver(a: &str, b: &str) -> Option<std::cmp::Ordering> {
     use std::cmp::Ordering;
     let core_a = versao_core(a)?;
     let core_b = versao_core(b)?;
-    let ordem_core = core_a.cmp(&core_b);
+    let ordem_core = comparar_core(&core_a, &core_b);
     if ordem_core != Ordering::Equal {
         return Some(ordem_core);
     }
@@ -509,13 +509,13 @@ fn comparar_identificadores_prerelease(a: &str, b: &str) -> std::cmp::Ordering {
             (None, Some(_)) => return Ordering::Less,
             (Some(_), None) => return Ordering::Greater,
             (Some(a), Some(b)) => {
-                let a_num = a.parse::<u64>();
-                let b_num = b.parse::<u64>();
-                let ordem = match (a_num, b_num) {
-                    (Ok(a), Ok(b)) => a.cmp(&b),
-                    (Ok(_), Err(_)) => Ordering::Less,
-                    (Err(_), Ok(_)) => Ordering::Greater,
-                    (Err(_), Err(_)) => a.cmp(b),
+                let a_numerico = a.bytes().all(|byte| byte.is_ascii_digit());
+                let b_numerico = b.bytes().all(|byte| byte.is_ascii_digit());
+                let ordem = match (a_numerico, b_numerico) {
+                    (true, true) => comparar_identificador_numerico(a, b),
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
+                    (false, false) => a.cmp(b),
                 };
                 if ordem != Ordering::Equal {
                     return ordem;
@@ -622,6 +622,22 @@ mod testes {
             "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[restricoes]\ntexto = \"^1.0.0\"",
         );
         assert!(manifesto.is_err());
+    }
+
+    #[test]
+    fn compara_identificadores_semver_maiores_que_u64() {
+        assert_eq!(
+            comparar_semver("184467440737095516160.0.0", "184467440737095516159.9.9"),
+            Some(std::cmp::Ordering::Greater)
+        );
+        assert_eq!(
+            comparar_semver("1.0.0-alpha.184467440737095516160", "1.0.0-alpha.9"),
+            Some(std::cmp::Ordering::Greater)
+        );
+        assert!(versao_satisfaz(
+            "184467440737095516160.0.0",
+            "^184467440737095516159.0.0"
+        ));
     }
 
     #[test]
