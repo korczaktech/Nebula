@@ -376,6 +376,56 @@ fn resolver_dependencias(
     Ok(())
 }
 
+fn coletar_arquivos_pacote(diretorio: &Path, arquivos: &mut Vec<PathBuf>) -> Result<(), String> {
+    let entradas = fs::read_dir(diretorio)
+        .map_err(|erro| format!("não foi possível listar '{}': {erro}", diretorio.display()))?;
+    for entrada in entradas {
+        let entrada = entrada.map_err(|erro| format!("falha ao ler entrada do pacote: {erro}"))?;
+        let caminho = entrada.path();
+        let nome = entrada.file_name();
+        if matches!(nome.to_str(), Some(".git" | "target" | ".nebula")) {
+            continue;
+        }
+        let metadados = fs::symlink_metadata(&caminho)
+            .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", caminho.display()))?;
+        if metadados.file_type().is_symlink() {
+            return Err(format!("pacote contém link simbólico não permitido: {}", caminho.display()));
+        }
+        if metadados.is_dir() {
+            coletar_arquivos_pacote(&caminho, arquivos)?;
+        } else if metadados.is_file() {
+            arquivos.push(caminho);
+        } else {
+            return Err(format!("pacote contém arquivo especial não permitido: {}", caminho.display()));
+        }
+    }
+    Ok(())
+}
+
+fn impressao_pacote(diretorio: &Path) -> Result<String, String> {
+    let raiz = fs::canonicalize(diretorio)
+        .map_err(|erro| format!("diretório do pacote indisponível: {erro}"))?;
+    let mut arquivos = Vec::new();
+    coletar_arquivos_pacote(&raiz, &mut arquivos)?;
+    arquivos.sort();
+    let mut conteudo = Vec::new();
+    for arquivo in arquivos {
+        let relativo = arquivo
+            .strip_prefix(&raiz)
+            .map_err(|_| "arquivo de pacote escapou da raiz".to_owned())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let caminho = relativo.as_bytes();
+        let bytes = fs::read(&arquivo)
+            .map_err(|erro| format!("não foi possível ler '{}': {erro}", arquivo.display()))?;
+        conteudo.extend_from_slice(&(caminho.len() as u64).to_be_bytes());
+        conteudo.extend_from_slice(caminho);
+        conteudo.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
+        conteudo.extend_from_slice(&bytes);
+    }
+    Ok(sha256_hex(&conteudo))
+}
+
 fn nome_valido(nome: &str) -> bool {
     !nome.is_empty()
         && nome
