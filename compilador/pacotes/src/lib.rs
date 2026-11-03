@@ -210,16 +210,51 @@ fn nome_valido(nome: &str) -> bool {
 }
 
 fn versao_semantica_valida(versao: &str) -> bool {
-    let nucleo = versao.split(['-', '+']).next().unwrap_or("");
+    let mut partes_build = versao.split('+');
+    let versao_pre_build = partes_build.next().unwrap_or("");
+    let build = partes_build.next();
+    if partes_build.next().is_some() {
+        return false;
+    }
+
+    let (nucleo, prerelease) = versao_pre_build
+        .split_once('-')
+        .map_or((versao_pre_build, None), |(nucleo, prerelease)| {
+            (nucleo, Some(prerelease))
+        });
     let partes = nucleo.split('.').collect::<Vec<_>>();
-    partes.len() == 3
-        && partes.iter().all(|p| {
-            !p.is_empty()
-                && (*p == "0" || (!p.starts_with('0') && p.bytes().all(|b| b.is_ascii_digit())))
+    if partes.len() != 3
+        || !partes.iter().all(|parte| {
+            !parte.is_empty()
+                && (parte == &"0"
+                    || (!parte.starts_with('0')
+                        && parte.bytes().all(|byte| byte.is_ascii_digit())))
         })
-        && versao
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+'))
+    {
+        return false;
+    }
+
+    if prerelease.is_some_and(|valor| !identificadores_semver_validos(valor, true)) {
+        return false;
+    }
+    if build.is_some_and(|valor| !identificadores_semver_validos(valor, false)) {
+        return false;
+    }
+    true
+}
+
+fn identificadores_semver_validos(valor: &str, prerelease: bool) -> bool {
+    !valor.is_empty()
+        && valor.split('.').all(|identificador| {
+            !identificador.is_empty()
+                && identificador
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+                && (!prerelease
+                    || !identificador.bytes().all(|byte| byte.is_ascii_digit())
+                    || identificador == "0"
+                    || !identificador.starts_with('0'))
+        })
 }
 
 fn fingerprint(bytes: &[u8]) -> u64 {
@@ -253,6 +288,23 @@ mod testes {
             Manifesto::analisar("[pacote]\nnome = \"app\"\nnome = \"outro\"\nversao = \"1.0.0\"")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn valida_identificadores_semver_de_pre_lancamento_e_build() {
+        for versao in ["1.2.3-alpha.1", "1.2.3+build.7", "1.2.3-rc.1+build.7"] {
+            assert!(versao_semantica_valida(versao), "{versao}");
+        }
+        for versao in [
+            "1.2.3-alpha.01",
+            "1.2.3+",
+            "1.2.3-alpha..1",
+            "1.2.3+build+outro",
+            "1.2.3-",
+            "1.2",
+        ] {
+            assert!(!versao_semantica_valida(versao), "{versao}");
+        }
     }
 
     #[test]
