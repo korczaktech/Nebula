@@ -1031,6 +1031,58 @@ funcao principal(): inteiro {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn compila_opcionais_e_resultados_no_abi() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-abi-opcional-resultado-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao extrair(valor: Opcional<inteiro64>): inteiro {
+    escolha valor {
+        caso Opcional::Algum(conteudo) { devolver conteudo }
+        caso Opcional::Nenhum { devolver 0 }
+    }
+}
+funcao ler(valor: Resultado<inteiro64,inteiro64>): inteiro {
+    escolha valor {
+        caso Resultado::Sucesso(conteudo) { devolver conteudo }
+        caso Resultado::Falha(erro) { devolver erro }
+    }
+}
+funcao principal(): inteiro {
+    variavel opcional: Opcional<inteiro64> = Opcional::Algum(40)
+    variavel resultado: Resultado<inteiro64,inteiro64> = Resultado::Sucesso(2)
+    devolver extrair(opcional) + ler(resultado)
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de opcionais e resultados");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável opcional/resultado não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn compila_enum_com_payload_e_pattern_matching() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
