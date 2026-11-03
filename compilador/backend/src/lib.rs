@@ -1239,7 +1239,7 @@ impl Emissor {
                 self.armazenar_rdx(deslocamento - 8);
             }
             self.bloco(&caso.corpo)?;
-            self.escopos.pop();
+            let _ = self.escopos.pop();
             saltos_fim.push(self.emitir_jmp());
             if let Some(salto) = proximo_caso {
                 self.aplicar_salto(salto, self.codigo.len());
