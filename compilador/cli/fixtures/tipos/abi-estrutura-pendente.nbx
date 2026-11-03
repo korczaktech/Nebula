@@ -1,2 +1,4 @@
-estrutura Ponto { x: inteiro, y: inteiro }
-funcao principal(): Ponto { devolver Ponto { x: 1, y: 2 } }
+estrutura VetorGrande { a: inteiro64, b: inteiro64, c: inteiro64 }
+funcao principal(): VetorGrande {
+    devolver VetorGrande { a: 1, b: 2, c: 3 }
+}
