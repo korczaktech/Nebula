@@ -247,7 +247,10 @@ impl Emissor {
 
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
-            ExpressaoIr::Normalizar { valor, .. } => self.expressao(valor)?,
+            ExpressaoIr::Normalizar { tipo, valor } => {
+                self.expressao(valor)?;
+                self.normalizar_tipo(tipo)?;
+            },
             ExpressaoIr::ReferenciaFuncao { nome, .. } => self.emitir_referencia_funcao(nome),
             ExpressaoIr::ReferenciaFuncaoQualificada { modulo, nome, .. } => {
                 self.emitir_referencia_funcao(&format!("{modulo}::{nome}"));
@@ -278,10 +281,17 @@ impl Emissor {
                     self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
                 }
             }
-            ExpressaoIr::Conversao { .. } => return Err("Conversão numérica explícita ainda não suportada pelo backend nativo.".into()),
+            ExpressaoIr::Conversao { tipo, valor } => {
+                self.expressao(valor)?;
+                self.normalizar_tipo(tipo)?;
+            },
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
                 self.mov_rax(valor);
+            }
+            ExpressaoIr::Constante(ValorIr::InteiroSemSinal(valor)) => {
+                let valor = u64::try_from(*valor).map_err(|_| "Literal inteiro sem sinal fora do intervalo de 64 bits.")?;
+                self.mov_rax(valor as i64);
             }
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
@@ -492,6 +502,58 @@ impl Emissor {
         self.referencias_funcoes.push((posicao, nome.to_owned()));
     }
 
+    fn normalizar_tipo(&mut self, tipo: &Tipo) -> Result<(), String> {
+        let bits_assinados = match tipo {
+            Tipo::Inteiro8 => Some(8),
+            Tipo::Inteiro16 => Some(16),
+            Tipo::Inteiro32 => Some(32),
+            _ => None,
+        };
+        if let Some(bits) = bits_assinados {
+            let deslocamento = 64 - bits;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = valor original
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xE0, deslocamento]); // shl rax
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xF8, deslocamento]); // sar rax
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+            let valido = self.emitir_jcc(0x84);
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(valido, self.codigo.len());
+            return Ok(());
+        }
+
+        let bits_sem_sinal = match tipo {
+            Tipo::InteiroU8 | Tipo::Byte => Some(8),
+            Tipo::InteiroU16 => Some(16),
+            Tipo::InteiroU32 => Some(32),
+            _ => None,
+        };
+        if let Some(bits) = bits_sem_sinal {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = valor original
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xE8, bits]); // shr rax
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+            let valido = self.emitir_jcc(0x84);
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(valido, self.codigo.len());
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = rcx
+            return Ok(());
+        }
+
+        match tipo {
+            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 => Ok(()),
+            Tipo::Logico => {
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                Ok(())
+            }
+            Tipo::Inteiro128 | Tipo::InteiroU128 => Err(
+                "Inteiros de 128 bits exigem ABI de dois registradores, ainda não implementada no backend x86-64.".into()
+            ),
+            Tipo::Decimal32 | Tipo::Decimal | Tipo::Decimal64 => Err(
+                "A normalização decimal exige operações IEEE-754 SSE, ainda não implementadas no backend nativo.".into()
+            ),
+            _ => Err(format!("Normalização de '{}' não é suportada pelo backend nativo.", tipo.nome())),
+        }
+    }
+
     fn declarar(&mut self, nome: &str) -> Result<i32, String> {
         if self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome)) {
             return Err(format!("Identificador '{nome}' declarado mais de uma vez no mesmo escopo."));
@@ -684,7 +746,9 @@ fn calcular_relativo32(origem_apos_campo: i128, destino: i128) -> Result<i32, St
 
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     match tipo {
-        Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64 => Ok(()),
+        Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64
+        | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+        | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte => Ok(()),
         Tipo::Funcao(parametros, retorno) => {
             for parametro in parametros {
                 if *parametro == Tipo::Vazio {
@@ -949,8 +1013,46 @@ mod testes {
         assert!(validar_tipo(&Tipo::Texto).is_err());
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro64).is_ok());
-        assert!(validar_tipo(&Tipo::Inteiro8).is_err());
-        assert!(validar_tipo(&Tipo::Byte).is_err());
+        assert!(validar_tipo(&Tipo::Inteiro8).is_ok());
+        assert!(validar_tipo(&Tipo::InteiroU32).is_ok());
+        assert!(validar_tipo(&Tipo::Byte).is_ok());
+        assert!(validar_tipo(&Tipo::Inteiro128).is_err());
+        assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+    }
+
+    #[test]
+    fn normaliza_inteiros_de_largura_reduzida_com_verificacao() {
+        for (tipo, sequencia) in [
+            (Tipo::Inteiro8, vec![0x48, 0xC1, 0xE0, 56, 0x48, 0xC1, 0xF8, 56]),
+            (Tipo::Inteiro16, vec![0x48, 0xC1, 0xE0, 48, 0x48, 0xC1, 0xF8, 48]),
+            (Tipo::Inteiro32, vec![0x48, 0xC1, 0xE0, 32, 0x48, 0xC1, 0xF8, 32]),
+            (Tipo::InteiroU8, vec![0x48, 0xC1, 0xE8, 8]),
+            (Tipo::InteiroU16, vec![0x48, 0xC1, 0xE8, 16]),
+            (Tipo::InteiroU32, vec![0x48, 0xC1, 0xE8, 32]),
+        ] {
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.normalizar_tipo(&tipo).unwrap();
+            assert!(emissor.codigo.windows(sequencia.len()).any(|janela| janela == sequencia));
+            assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x84]));
+            assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x05]));
+        }
+    }
+
+    #[test]
+    fn aceita_literal_inteiro_u64_em_representacao_de_registro() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128))).unwrap();
+        assert_eq!(&emissor.codigo[..2], &[0x48, 0xB8]);
+        assert_eq!(u64::from_le_bytes(emissor.codigo[2..10].try_into().unwrap()), u64::MAX);
+        assert!(emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128 + 1))).is_err());
+    }
+
+    #[test]
+    fn rejeita_normalizacao_de_128_bits_e_decimais_na_abi_atual() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        assert!(emissor.normalizar_tipo(&Tipo::Inteiro128).is_err());
+        assert!(emissor.normalizar_tipo(&Tipo::InteiroU128).is_err());
+        assert!(emissor.normalizar_tipo(&Tipo::Decimal32).is_err());
     }
 
     #[test]
