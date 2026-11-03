@@ -435,10 +435,10 @@ fn impressao_pacote(diretorio: &Path) -> Result<String, String> {
         let caminho = relativo.as_bytes();
         let bytes = fs::read(&arquivo)
             .map_err(|erro| format!("não foi possível ler '{}': {erro}", arquivo.display()))?;
+        let impressao_arquivo = sha256_hex(&bytes);
         conteudo.extend_from_slice(&(caminho.len() as u64).to_be_bytes());
         conteudo.extend_from_slice(caminho);
-        conteudo.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
-        conteudo.extend_from_slice(&bytes);
+        conteudo.extend_from_slice(impressao_arquivo.as_bytes());
     }
     Ok(sha256_hex(&conteudo))
 }
