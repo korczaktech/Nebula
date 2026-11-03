@@ -927,14 +927,14 @@ mod testes {
     #[test]
     fn analisa_tipos_de_funcao_aninhados() {
         let resultado = analisar(&fonte(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, padrao: funcao(): vazio }",
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, padrao: funcao(funcao(inteiro): logico): vazio }",
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
             panic!("estrutura deveria ser analisada");
         };
         assert_eq!(campos[0].1, "funcao(inteiro,texto):logico");
-        assert_eq!(campos[1].1, "funcao():vazio");
+        assert_eq!(campos[1].1, "funcao(funcao(inteiro):logico):vazio");
     }
 
     #[test]

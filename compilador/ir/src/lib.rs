@@ -1902,7 +1902,7 @@ mod testes {
     #[test]
     fn calcula_layout_de_campo_com_tipo_de_funcao() {
         let ir = compilar(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(): vazio }",
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(funcao(inteiro): logico): vazio }",
         );
         let layout = ir.layouts_tipos.get("Registro").expect("layout nominal");
         assert_eq!(layout.tamanho, 16);

@@ -1213,10 +1213,18 @@ impl<'a> Analisador<'a> {
             _ if Self::dividir_tipo_funcao(nome).is_some() => {
                 let (parametros, retorno) = Self::dividir_tipo_funcao(nome)
                     .expect("tipo de função reconhecido");
-                Tipo::Funcao(
-                    parametros.iter().map(|tipo| self.resolver_tipo(tipo)).collect(),
-                    Box::new(self.resolver_tipo(retorno)),
-                )
+                let parametros: Vec<_> = parametros
+                    .iter()
+                    .map(|tipo| self.resolver_tipo(tipo))
+                    .collect();
+                let retorno = self.resolver_tipo(retorno);
+                if parametros.iter().any(|tipo| matches!(tipo, Tipo::Vazio | Tipo::Desconhecido))
+                    || retorno == Tipo::Desconhecido
+                {
+                    Tipo::Desconhecido
+                } else {
+                    Tipo::Funcao(parametros, Box::new(retorno))
+                }
             }
             _ if nome.starts_with('[') && nome.ends_with(']') => {
                 Tipo::Lista(Box::new(self.resolver_tipo(&nome[1..nome.len()-1])))
@@ -1687,6 +1695,14 @@ mod testes {
     }
 
     #[test]
+    fn rejeita_parametro_vazio_em_tipo_de_funcao() {
+        let r = analisar_codigo(
+            "estrutura Registro { callback: funcao(vazio): logico }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn compara_e_infere_assinaturas_de_funcao_recursivamente() {
         let esperado = Tipo::Funcao(
             vec![Tipo::Lista(Box::new(Tipo::Parametro("T".into())))],
@@ -1717,7 +1733,7 @@ mod testes {
     #[test]
     fn resolve_tipos_de_funcao_em_campos_nominais() {
         let r = analisar_codigo(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(): vazio }",
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(funcao(inteiro): logico): vazio }",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
