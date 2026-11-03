@@ -606,7 +606,8 @@ impl Emissor {
                 };
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
-                let (deslocamento, _) = layout.campos.get(campo)
+                let deslocamento = layout.campos.get(campo)
+                    .map(|(deslocamento, _)| *deslocamento)
                     .ok_or_else(|| format!("Campo '{campo}' não encontrado no layout de '{nome}'."))?;
                 self.expressao(alvo)?;
                 match deslocamento {
