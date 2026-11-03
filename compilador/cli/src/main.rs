@@ -498,6 +498,21 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => {
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
+        ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+            qualificar_expressao_modulo(alvo, caminho, funcoes, caminhos_canonicos);
+            for argumento in argumentos {
+                qualificar_expressao_modulo(argumento, caminho, funcoes, caminhos_canonicos);
+            }
+        }
+        ExpressaoIr::ReferenciaFuncao { nome, tipo } => {
+            if funcoes.contains(nome) {
+                *expressao = ExpressaoIr::ReferenciaFuncaoQualificada {
+                    modulo: caminho.to_owned(),
+                    nome: nome.clone(),
+                    tipo: tipo.clone(),
+                };
+            }
+        }
         ExpressaoIr::Binaria {
             esquerda, direita, ..
         } => {
