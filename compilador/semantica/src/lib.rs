@@ -2100,6 +2100,18 @@ mod testes {
     }
 
     #[test]
+    fn infere_generico_a_partir_do_tipo_esperado_do_retorno() {
+        let r = analisar_codigo(
+            "funcao vazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\\nvariavel valor: Opcional<inteiro> = vazio()",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(
+            r.tipos_globais.get("valor"),
+            Some(&Tipo::Opcional(Box::new(Tipo::Inteiro))),
+        );
+    }
+
+    #[test]
     fn compara_e_infere_assinaturas_de_funcao_recursivamente() {
         let esperado = Tipo::Funcao(
             vec![Tipo::Lista(Box::new(Tipo::Parametro("T".into())))],
