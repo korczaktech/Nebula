@@ -326,26 +326,44 @@ fn versao_core(versao: &str) -> Option<(u64, u64, u64)> {
 
 /// Valida restrições simples de SemVer: exata, ^, ~, comparadores e conjunção.
 fn restricao_semver_valida(restricao: &str) -> bool {
-    if restricao == "*" {
-        return true;
-    }
     !restricao.is_empty()
-        && restricao.split(',').all(|parte| {
-            let parte = parte.trim();
-            let versao = parte
-                .strip_prefix(">=")
-                .or_else(|| parte.strip_prefix("<="))
-                .or_else(|| parte.strip_prefix('>'))
-                .or_else(|| parte.strip_prefix('<'))
-                .or_else(|| parte.strip_prefix('^'))
-                .or_else(|| parte.strip_prefix('~'))
-                .or_else(|| parte.strip_prefix('='))
-                .unwrap_or(parte);
-            !versao.is_empty() && versao_semantica_valida(versao)
+        && restricao.split("||").all(|grupo| {
+            let grupo = grupo.trim();
+            if grupo.is_empty() {
+                return false;
+            }
+            if grupo == "*" {
+                return true;
+            }
+            if let Some((inicio, fim)) = grupo.split_once(" - ") {
+                return versao_semantica_valida(inicio.trim())
+                    && versao_semantica_valida(fim.trim())
+                    && versao_core(inicio.trim()) <= versao_core(fim.trim());
+            }
+            grupo.split(',').all(|parte| {
+                let parte = parte.trim();
+                let versao = parte
+                    .strip_prefix(">=")
+                    .or_else(|| parte.strip_prefix("<="))
+                    .or_else(|| parte.strip_prefix('>'))
+                    .or_else(|| parte.strip_prefix('<'))
+                    .or_else(|| parte.strip_prefix('^'))
+                    .or_else(|| parte.strip_prefix('~'))
+                    .or_else(|| parte.strip_prefix('='))
+                    .unwrap_or(parte);
+                !versao.is_empty() && versao_semantica_valida(versao)
+            })
         })
 }
 
 fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
+    if !versao_semantica_valida(versao) || !restricao_semver_valida(restricao) {
+        return false;
+    }
+    restricao.split("||").any(|grupo| versao_satisfaz_conjuncao(versao, grupo.trim()))
+}
+
+fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
     if !versao_semantica_valida(versao) || !restricao_semver_valida(restricao) {
         return false;
     }
@@ -580,6 +598,17 @@ mod testes {
             "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[restricoes]\ntexto = \"^1.0.0\"",
         );
         assert!(manifesto.is_err());
+    }
+
+    #[test]
+    fn aceita_alternativas_e_intervalos_semver() {
+        assert!(restricao_semver_valida("^1.0.0 || ^2.0.0"));
+        assert!(versao_satisfaz("2.4.0", "^1.0.0 || ^2.0.0"));
+        assert!(!versao_satisfaz("3.0.0", "^1.0.0 || ^2.0.0"));
+        assert!(restricao_semver_valida("1.2.0 - 2.3.4"));
+        assert!(versao_satisfaz("1.9.0", "1.2.0 - 2.3.4"));
+        assert!(!versao_satisfaz("2.4.0", "1.2.0 - 2.3.4"));
+        assert!(!restricao_semver_valida("^1.0.0 ||"));
     }
 
     #[test]
