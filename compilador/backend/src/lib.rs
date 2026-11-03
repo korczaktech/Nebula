@@ -285,7 +285,7 @@ impl Emissor {
             }
             ExpressaoIr::Conversao { tipo, valor } => {
                 self.expressao(valor)?;
-                self.normalizar_tipo(tipo)?;
+                self.converter_tipo_explicito(tipo, valor)?;
             },
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
@@ -594,6 +594,52 @@ impl Emissor {
         }
     }
 
+    fn converter_tipo_explicito(
+        &mut self,
+        destino: &Tipo,
+        origem: &ExpressaoIr,
+    ) -> Result<(), String> {
+        let tipo_origem = tipo_valor_expressao(origem)
+            .ok_or("Não foi possível determinar o tipo de origem da conversão explícita.")?;
+        let origem_inteira = tipo_inteiro_abi(&tipo_origem);
+        let destino_inteiro = tipo_inteiro_abi(destino);
+
+        if destino_inteiro.is_some() {
+            if origem_inteira.is_some() {
+                return self.normalizar_tipo(destino);
+            }
+            if matches!(tipo_origem, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return Err("Conversão decimal para inteiro ainda requer validação de faixa IEEE-754 no backend.".into());
+            }
+        }
+
+        if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+            if matches!(tipo_origem, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return self.normalizar_tipo(destino);
+            }
+            if let Some((_, assinado)) = origem_inteira {
+                if assinado {
+                    self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+                } else {
+                    // Conversão u64 -> f64 sem reinterpretar valores acima de i64::MAX.
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+                    self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC0]); // addsd xmm0, xmm0
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC9]); // cvtsi2sd xmm1, rcx
+                    self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC1]); // addsd xmm0, xmm1
+                }
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+                return self.normalizar_tipo(destino);
+            }
+        }
+        Err(format!(
+            "Conversão explícita de '{}' para '{}' não é suportada pelo backend nativo.",
+            tipo_origem.nome(),
+            destino.nome()
+        ))
+    }
+
     fn carregar_decimais_sse(&mut self, tipo: &Tipo) {
         self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
         self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC9]); // movq xmm1, rcx
@@ -859,6 +905,31 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
             matches!(tipo, Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte),
         ExpressaoIr::Unaria { valor, .. } => eh_inteiro_sem_sinal(valor),
         _ => false,
+    }
+}
+
+fn tipo_inteiro_abi(tipo: &Tipo) -> Option<(u8, bool)> {
+    match tipo {
+        Tipo::Inteiro | Tipo::Inteiro64 => Some((64, true)),
+        Tipo::Inteiro8 => Some((8, true)),
+        Tipo::Inteiro16 => Some((16, true)),
+        Tipo::Inteiro32 => Some((32, true)),
+        Tipo::InteiroU8 | Tipo::Byte => Some((8, false)),
+        Tipo::InteiroU16 => Some((16, false)),
+        Tipo::InteiroU32 => Some((32, false)),
+        Tipo::InteiroU64 => Some((64, false)),
+        _ => None,
+    }
+}
+
+fn tipo_valor_expressao(expressao: &ExpressaoIr) -> Option<Tipo> {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => Some(tipo.clone()),
+        ExpressaoIr::Unaria { valor, .. } => tipo_valor_expressao(valor),
+        ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
+        ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
+        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
+        _ => None,
     }
 }
 
@@ -1147,6 +1218,34 @@ mod testes {
         assert!(validar_tipo(&Tipo::Byte).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro128).is_err());
         assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+    }
+
+    #[test]
+    fn converte_inteiros_assinados_e_sem_sinal_no_backend() {
+        let origem = ExpressaoIr::Normalizar {
+            tipo: Tipo::Inteiro64,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(300))),
+        };
+        let conversao = ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro16,
+            valor: Box::new(origem),
+        };
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&conversao).unwrap();
+        assert!(emissor.codigo.windows(4).any(|janela| janela == [0x48, 0xC1, 0xE0, 48]));
+
+        let origem = ExpressaoIr::Normalizar {
+            tipo: Tipo::InteiroU64,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::InteiroSemSinal(300))),
+        };
+        let conversao = ExpressaoIr::Conversao {
+            tipo: Tipo::Decimal64,
+            valor: Box::new(origem),
+        };
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&conversao).unwrap();
+        assert!(emissor.codigo.windows(5).any(|janela| janela == [0xF2, 0x48, 0x0F, 0x2A, 0xC0]));
+        assert!(emissor.codigo.windows(5).any(|janela| janela == [0xF2, 0x48, 0x0F, 0x2A, 0xC9]));
     }
 
     #[test]
