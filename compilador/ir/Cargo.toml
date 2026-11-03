@@ -9,6 +9,7 @@ license.workspace = true
 nebula-sintaxe = { path = "../sintaxe" }
 nebula-semantica = { path = "../semantica" }
 nebula-runtime = { path = "../runtime" }
+nebula-biblioteca = { path = "../../biblioteca" }
 
 [dev-dependencies]
 nebula-fonte = { path = "../fonte" }
