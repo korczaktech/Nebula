@@ -1391,6 +1391,15 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
     }
 }
 
+fn indice_literal_ir(expressao: &ExpressaoIr) -> Option<usize> {
+    match expressao {
+        ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => usize::try_from(*valor).ok(),
+        ExpressaoIr::Constante(ValorIr::InteiroSemSinal(valor)) => usize::try_from(*valor).ok(),
+        ExpressaoIr::Normalizar { valor, .. } => indice_literal_ir(valor),
+        _ => None,
+    }
+}
+
 fn tipo_expressao_ir(expressao: &ExpressaoIr) -> Option<&Tipo> {
     match expressao {
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => Some(tipo),
