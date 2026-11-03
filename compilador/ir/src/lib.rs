@@ -1067,7 +1067,7 @@ fn literal(bruto: &str) -> Option<ValorIr> {
 
 fn desescapar(texto: &str) -> String {
     texto.replace("\\\\", "\u{0}")
-        .replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
+        .replace("\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
         .replace("\\0", "\0").replace("\\\"", "\"").replace("\\'", "'")
         .replace("\u{0}", "\\")
 }
@@ -1986,6 +1986,40 @@ mod testes {
         assert_eq!(
             resultado.saida,
             vec!["verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro"]
+        );
+    }
+
+    #[test]
+    fn rejeita_inferencia_generica_com_tipo_aninhado_desconhecido() {
+        let fonte = ArquivoFonte::novo(
+            "teste.nbx",
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel ausente = identidade(Opcional::Nenhum())",
+        );
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.programa.is_none());
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.contains("N3032")),
+            "{:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_unificacao_generica_inconsistente() {
+        let fonte = ArquivoFonte::novo(
+            "teste.nbx",
+            "funcao par<T>(a: T, b: T): T { devolver a }\nvariavel resultado = par([1], [verdadeiro])",
+        );
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.programa.is_none());
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.contains("N3032")),
+            "{:?}",
+            resultado.diagnosticos
         );
     }
 
