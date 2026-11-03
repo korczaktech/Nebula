@@ -996,7 +996,10 @@ mod testes {
     variavel um: decimal32 = 1.0
     variavel esperado: decimal32 = 16777216.0
     variavel soma = convertido + um
-    quando soma == esperado {
+    variavel dois: decimal64 = 2.0
+    variavel soma_mista = convertido + dois
+    variavel esperado_misto: decimal64 = 16777218.0
+    quando soma == esperado e soma_mista == esperado_misto {
         devolver 42
     } senao {
         devolver 0
