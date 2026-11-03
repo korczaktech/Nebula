@@ -297,7 +297,7 @@ impl Emissor {
             }
             ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
-            ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
+            ExpressaoIr::Constante(ValorIr::Caractere(valor)) => self.mov_rax(*valor as i64),
             ExpressaoIr::Constante(ValorIr::Texto(_)
                 | ValorIr::Lista(_)
                 | ValorIr::Estrutura { .. }
@@ -306,7 +306,6 @@ impl Emissor {
                 | ValorIr::Nulo
                 | ValorIr::Funcao(_)
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
-            ExpressaoIr::Constante(ValorIr::Caractere(_)) => return Err("Caractere não ASCII ainda não é suportado pelo alvo inicial.".into()),
             ExpressaoIr::Variavel(nome) => {
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.carregar_rax(deslocamento);
@@ -570,6 +569,28 @@ impl Emissor {
             self.encerrar_com_erro(2);
             self.aplicar_salto(valido, self.codigo.len());
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = rcx
+            return Ok(());
+        }
+
+        if *tipo == Tipo::Caractere {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = escalar original
+            self.mov_rax(0x10FFFF);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]); // cmp rcx, rax
+            let dentro_do_unicode = self.emitir_jcc(0x86); // JBE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(dentro_do_unicode, self.codigo.len());
+
+            self.mov_rax(0xD800);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]);
+            let abaixo_dos_surrogates = self.emitir_jcc(0x82); // JB
+            self.mov_rax(0xDFFF);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]);
+            let acima_dos_surrogates = self.emitir_jcc(0x87); // JA
+            self.encerrar_com_erro(2);
+            let fim = self.codigo.len();
+            self.aplicar_salto(abaixo_dos_surrogates, fim);
+            self.aplicar_salto(acima_dos_surrogates, fim);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = escalar original
             return Ok(());
         }
 
@@ -1003,7 +1024,7 @@ fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
         Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64
         | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
         | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte
-        | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 => Ok(()),
+        | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere => Ok(()),
         Tipo::Funcao(parametros, retorno) => {
             for parametro in parametros {
                 if *parametro == Tipo::Vazio {
