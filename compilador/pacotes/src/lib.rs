@@ -305,9 +305,7 @@ mod testes {
             let tamanho = semente_inicial as usize % 128 + 1;
             let mut entrada = String::with_capacity(tamanho);
             for _ in 0..tamanho {
-                estado = estado
-                    .wrapping_mul(1_103_515_245)
-                    .wrapping_add(12_345);
+                estado = estado.wrapping_mul(1_103_515_245).wrapping_add(12_345);
                 let byte = b' ' + ((estado >> 24) % 95);
                 entrada.push(char::from(byte));
             }

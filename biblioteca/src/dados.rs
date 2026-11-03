@@ -431,16 +431,15 @@ mod testes {
             let mut bytes = Vec::with_capacity((semente_inicial as usize % 97) + 1);
             let tamanho = semente_inicial as usize % 97 + 1;
             for _ in 0..tamanho {
-                estado = estado
-                    .wrapping_mul(1_664_525)
-                    .wrapping_add(1_013_904_223);
+                estado = estado.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
                 bytes.push((estado >> 24) as u8);
             }
             let entrada = String::from_utf8_lossy(&bytes);
             if let Ok(valor) = analisar_json(&entrada) {
-                let serializado = serializar_json(&valor).expect("valor analisado deve ser serializável");
-                let novamente = analisar_json(&serializado)
-                    .expect("serialização válida deve ser analisável");
+                let serializado =
+                    serializar_json(&valor).expect("valor analisado deve ser serializável");
+                let novamente =
+                    analisar_json(&serializado).expect("serialização válida deve ser analisável");
                 assert_eq!(valor, novamente);
             }
         }
