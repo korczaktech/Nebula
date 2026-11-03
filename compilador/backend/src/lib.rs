@@ -620,9 +620,7 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                 Ok(())
             }
-            Tipo::Inteiro128 | Tipo::InteiroU128 => Err(
-                "Inteiros de 128 bits exigem ABI de dois registradores, ainda não implementada no backend x86-64.".into()
-            ),
+            Tipo::Inteiro128 | Tipo::InteiroU128 => Ok(()),
             Tipo::Decimal32 => {
                 self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
                 self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
