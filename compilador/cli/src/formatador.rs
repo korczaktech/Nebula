@@ -256,6 +256,22 @@ mod tests {
     }
 
     #[test]
+    fn grava_substituicao_atomica_e_preserva_conteudo_formatado() {
+        let path = std::env::temp_dir().join(format!(
+            "nebula-format-write-{}.nbx",
+            std::process::id()
+        ));
+        std::fs::write(&path, "variavel x = 1   ").unwrap();
+        assert!(format_file(&path, false).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "variavel x = 1\n");
+        assert!(!std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|entrada| entrada.file_name().to_string_lossy().contains("nebula-format-tmp")));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
     fn rejeita_sintaxe_invalida_sem_escrever() {
         let path =
             std::env::temp_dir().join(format!("nebula-format-invalid-{}.nbx", std::process::id()));
