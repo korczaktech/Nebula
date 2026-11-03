@@ -983,6 +983,54 @@ mod testes {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn compila_estrutura_de_dois_campos_no_abi() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-abi-estrutura-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"estrutura Ponto { x: inteiro64, y: inteiro64 }
+funcao deslocar(ponto: Ponto): Ponto {
+    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
+}
+funcao principal(): inteiro {
+    variavel original = Ponto { x: 40, y: 0 }
+    variavel resultado = deslocar(original)
+    quando resultado.x == 41 e resultado.y == 2 {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de ABI de estrutura");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável de estrutura não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn compila_chamadas_e_retorno_com_inteiros128() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
