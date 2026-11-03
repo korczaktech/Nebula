@@ -553,6 +553,10 @@ impl Emissor {
                 let primeiro = campos.iter().find(|(campo, _)| {
                     layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 0)
                 }).ok_or_else(|| format!("Estrutura '{nome}' não possui campo inicializável no primeiro registrador."))?;
+                let tamanho_primeiro = layout.campos.get(&primeiro.0).map(|(_, tamanho)| *tamanho).unwrap_or(0);
+                if tamanho_primeiro == 16 {
+                    return self.expressao(&primeiro.1);
+                }
                 let segundo = campos.iter().find(|(campo, _)| {
                     layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 8)
                 });
