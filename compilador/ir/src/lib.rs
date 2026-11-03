@@ -762,10 +762,10 @@ impl Lowerer {
                             None
                         }
                     }
-                    _ => {
-                        self.diagnosticos.push("A IR inicial exige chamada por nome de função.".into());
-                        None
-                    }
+                    _ => Some(ExpressaoIr::ChamadaIndireta {
+                        alvo: Box::new(self.expressao(alvo)?),
+                        argumentos: args,
+                    })
                 }
             }
             Expressao::Indexacao { alvo, indice } => Some(ExpressaoIr::Indexacao {
@@ -1067,7 +1067,7 @@ fn literal(bruto: &str) -> Option<ValorIr> {
 
 fn desescapar(texto: &str) -> String {
     texto.replace("\\\\", "\u{0}")
-        .replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
+        .replace("\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
         .replace("\\0", "\0").replace("\\\"", "\"").replace("\\'", "'")
         .replace("\u{0}", "\\")
 }
@@ -1987,6 +1987,24 @@ mod testes {
             resultado.saida,
             vec!["verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro", "verdadeiro"]
         );
+    }
+
+    #[test]
+    fn executa_chamada_indireta_de_campo_de_estrutura() {
+        let ir = compilar(
+            "estrutura Operacoes { callback: funcao(inteiro): inteiro }\nfuncao somar(valor: inteiro): inteiro { devolver valor + 2 }\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
+        );
+        let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
+        assert_eq!(resultado.saida, vec!["42"]);
+    }
+
+    #[test]
+    fn executa_chamada_indireta_de_retorno_de_funcao() {
+        let ir = compilar(
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao obter(): funcao(inteiro): inteiro { devolver somar }\nexibir(obter()(41))",
+        );
+        let resultado = executar(&ir, 200).expect("chamada de função retornada válida");
+        assert_eq!(resultado.saida, vec!["42"]);
     }
 
     #[test]
