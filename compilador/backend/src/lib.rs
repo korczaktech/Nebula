@@ -51,10 +51,12 @@ struct Emissor {
     chamadas: Vec<(usize, String)>,
     referencias_funcoes: Vec<(usize, String)>,
     escopos: Vec<HashMap<String, i32>>,
+    tipos_escopos: Vec<HashMap<String, Tipo>>,
     proximo_slot: usize,
     pilha: usize,
     lacos: Vec<Laco>,
     globais: HashMap<String, usize>,
+    tipos_globais: HashMap<String, Tipo>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
     referencias_globais: Vec<(usize, String, i32)>,
     funcao_atual: String,
@@ -74,10 +76,12 @@ impl Emissor {
             chamadas: Vec::new(),
             referencias_funcoes: Vec::new(),
             escopos: Vec::new(),
+            tipos_escopos: Vec::new(),
             proximo_slot: 0,
             pilha: 0,
             lacos: Vec::new(),
             globais,
+            tipos_globais: HashMap::new(),
             layouts_tipos: HashMap::new(),
             referencias_globais: Vec::new(),
             funcao_atual: String::new(),
@@ -86,6 +90,13 @@ impl Emissor {
     }
 
     fn carregar_layouts(&mut self, programa: &ProgramaIr) {
+        self.tipos_globais = programa.instrucoes.iter().filter_map(|instrucao| {
+            if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+                Some((nome.clone(), tipo.clone()))
+            } else {
+                None
+            }
+        }).collect();
         self.layouts_tipos = programa.layouts_tipos.iter().map(|(nome, layout)| {
             let campos = layout.campos.iter().map(|campo| {
                 (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
@@ -307,6 +318,8 @@ impl Emissor {
         self.funcao_atual = funcao.nome.clone();
         self.escopos.clear();
         self.escopos.push(HashMap::new());
+        self.tipos_escopos.clear();
+        self.tipos_escopos.push(HashMap::new());
         self.proximo_slot = 0;
         self.pilha = 0;
         self.lacos.clear();
@@ -326,7 +339,7 @@ impl Emissor {
             if indice_registrador + largura > registradores.len() {
                 return Err(format!("A função '{}' excede os seis registradores inteiros do ABI x86-64.", funcao.nome));
             }
-            let deslocamento = self.declarar(nome)?;
+            let deslocamento = self.declarar_tipado(nome, tipo)?;
             self.mover_registrador_rax(registradores[indice_registrador]);
             if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                 self.normalizar_tipo(tipo)?;
@@ -353,10 +366,12 @@ impl Emissor {
 
     fn bloco(&mut self, instrucoes: &[InstrucaoIr]) -> Result<(), String> {
         self.escopos.push(HashMap::new());
+        self.tipos_escopos.push(HashMap::new());
         for instrucao in instrucoes {
             self.instrucao(instrucao)?;
         }
-        self.escopos.pop();
+        let _ = self.escopos.pop();
+        let _ = self.tipos_escopos.pop();
         Ok(())
     }
 
@@ -371,7 +386,7 @@ impl Emissor {
                 {
                     self.armazenar_global(nome);
                 } else {
-                    let deslocamento = self.declarar(nome)?;
+                    let deslocamento = self.declarar_tipado(nome, tipo)?;
                     self.armazenar_rax(deslocamento);
                     self.armazenar_rdx(deslocamento - 8);
                 }
@@ -1197,6 +1212,10 @@ impl Emissor {
     }
 
     fn declarar(&mut self, nome: &str) -> Result<i32, String> {
+        self.declarar_tipado(nome, &Tipo::Vazio)
+    }
+
+    fn declarar_tipado(&mut self, nome: &str, tipo: &Tipo) -> Result<i32, String> {
         if self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome)) {
             return Err(format!("Identificador '{nome}' declarado mais de uma vez no mesmo escopo."));
         }
@@ -1206,7 +1225,12 @@ impl Emissor {
         self.proximo_slot += 1;
         let deslocamento = -((self.proximo_slot * 16 - 8) as i32);
         self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
+        self.tipos_escopos.last_mut().expect("escopo tipado ativo").insert(nome.to_owned(), tipo.clone());
         Ok(deslocamento)
+    }
+
+    fn buscar_tipo_local(&self, nome: &str) -> Option<&Tipo> {
+        self.tipos_escopos.iter().rev().find_map(|escopo| escopo.get(nome))
     }
 
     fn buscar_local(&self, nome: &str) -> Option<i32> {
@@ -1291,6 +1315,7 @@ impl Emissor {
                 return Err("A ABI inicial de enumerações suporta um único vínculo de payload por caso.".into());
             }
             self.escopos.push(HashMap::new());
+            self.tipos_escopos.push(HashMap::new());
             if let Some(vinculo) = caso.vinculacoes.first() {
                 let deslocamento = self.declarar(vinculo)?;
                 self.carregar_rax(slot_payload);
@@ -1300,6 +1325,7 @@ impl Emissor {
             }
             self.bloco(&caso.corpo)?;
             let _ = self.escopos.pop();
+            let _ = self.tipos_escopos.pop();
             saltos_fim.push(self.emitir_jmp());
             if let Some(salto) = proximo_caso {
                 self.aplicar_salto(salto, self.codigo.len());
