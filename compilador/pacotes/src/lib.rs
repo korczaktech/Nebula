@@ -407,14 +407,21 @@ fn impressao_pacote(diretorio: &Path) -> Result<String, String> {
         .map_err(|erro| format!("diretório do pacote indisponível: {erro}"))?;
     let mut arquivos = Vec::new();
     coletar_arquivos_pacote(&raiz, &mut arquivos)?;
-    arquivos.sort();
+    let mut arquivos = arquivos
+        .into_iter()
+        .map(|arquivo| {
+            let relativo = arquivo
+                .strip_prefix(&raiz)
+                .map_err(|_| "arquivo de pacote escapou da raiz".to_owned())?
+                .to_str()
+                .ok_or_else(|| "nome de arquivo de pacote não é UTF-8 válido".to_owned())?
+                .replace('\\', "/");
+            Ok((relativo, arquivo))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    arquivos.sort_by(|a, b| a.0.cmp(&b.0));
     let mut conteudo = Vec::new();
-    for arquivo in arquivos {
-        let relativo = arquivo
-            .strip_prefix(&raiz)
-            .map_err(|_| "arquivo de pacote escapou da raiz".to_owned())?
-            .to_string_lossy()
-            .replace('\\', "/");
+    for (relativo, arquivo) in arquivos {
         let caminho = relativo.as_bytes();
         let bytes = fs::read(&arquivo)
             .map_err(|erro| format!("não foi possível ler '{}': {erro}", arquivo.display()))?;
