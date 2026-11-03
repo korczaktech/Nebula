@@ -245,9 +245,15 @@ fn criar_diretorio_seguro(caminho: &Path) -> Result<(), String> {
                     ))
                 }
             }
-            Err(erro) => Err(format!("não foi possível criar '{}': {erro}", caminho.display())),
+            Err(erro) => Err(format!(
+                "não foi possível criar '{}': {erro}",
+                caminho.display()
+            )),
         },
-        Err(erro) => Err(format!("não foi possível inspecionar '{}': {erro}", caminho.display())),
+        Err(erro) => Err(format!(
+            "não foi possível inspecionar '{}': {erro}",
+            caminho.display()
+        )),
     }
 }
 
