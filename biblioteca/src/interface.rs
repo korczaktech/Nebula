@@ -24,14 +24,24 @@ pub struct TelaTexto {
 impl TelaTexto {
     /// Cria uma tela com limite de um milhão de células.
     pub fn nova(largura: usize, altura: usize) -> Result<Self, String> {
-        let total = largura.checked_mul(altura).ok_or("Dimensões da tela excedem o limite.")?;
+        let total = largura
+            .checked_mul(altura)
+            .ok_or("Dimensões da tela excedem o limite.")?;
         if largura == 0 || altura == 0 || total > 1_000_000 {
-            return Err("A tela deve ter dimensões positivas e até um milhão de células.".to_owned());
+            return Err(
+                "A tela deve ter dimensões positivas e até um milhão de células.".to_owned(),
+            );
         }
         let mut celulas = Vec::new();
-        celulas.try_reserve_exact(total).map_err(|_| "Memória insuficiente para criar a tela.")?;
+        celulas
+            .try_reserve_exact(total)
+            .map_err(|_| "Memória insuficiente para criar a tela.")?;
         celulas.resize(total, ' ');
-        Ok(Self { largura, altura, celulas })
+        Ok(Self {
+            largura,
+            altura,
+            celulas,
+        })
     }
 
     /// Retorna largura e altura em células.
@@ -42,7 +52,11 @@ impl TelaTexto {
 
     /// Limpa todas as células com o caractere informado.
     pub fn limpar(&mut self, caractere: char) {
-        let caractere = if caractere.is_control() { ' ' } else { caractere };
+        let caractere = if caractere.is_control() {
+            ' '
+        } else {
+            caractere
+        };
         self.celulas.fill(caractere);
     }
 
@@ -63,7 +77,11 @@ impl TelaTexto {
             }
             if coluna < self.largura {
                 let indice = linha * self.largura + coluna;
-                self.celulas[indice] = if caractere.is_control() { ' ' } else { caractere };
+                self.celulas[indice] = if caractere.is_control() {
+                    ' '
+                } else {
+                    caractere
+                };
                 desenhados += 1;
             }
             coluna = coluna.saturating_add(1);
@@ -76,8 +94,13 @@ impl TelaTexto {
         if retangulo.largura == 0 || retangulo.altura == 0 || borda.is_control() {
             return;
         }
-        let ultimo_x = retangulo.x.saturating_add(retangulo.largura - 1);
-        let ultimo_y = retangulo.y.saturating_add(retangulo.altura - 1);
+        let largura = self.largura;
+        let altura = self.altura;
+        if retangulo.x >= largura || retangulo.y >= altura {
+            return;
+        }
+        let ultimo_x = retangulo.x.saturating_add(retangulo.largura - 1).min(largura - 1);
+        let ultimo_y = retangulo.y.saturating_add(retangulo.altura - 1).min(altura - 1);
         for x in retangulo.x..=ultimo_x {
             self.definir(x, retangulo.y, borda);
             if retangulo.altura > 1 {
@@ -146,7 +169,15 @@ mod testes {
     #[test]
     fn desenha_borda_sem_escrever_fora_da_tela() {
         let mut tela = TelaTexto::nova(4, 3).unwrap();
-        tela.desenhar_caixa(RetanguloTela { x: 2, y: 1, largura: 8, altura: 4 }, '#');
+        tela.desenhar_caixa(
+            RetanguloTela {
+                x: 2,
+                y: 1,
+                largura: 8,
+                altura: 4,
+            },
+            '#',
+        );
         assert_eq!(tela.obter(2, 1), Some('#'));
         assert_eq!(tela.obter(3, 2), Some('#'));
         assert_eq!(tela.obter(0, 0), Some(' '));

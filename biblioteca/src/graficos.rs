@@ -17,13 +17,23 @@ impl CorRgba {
     /// Cria uma cor opaca a partir dos canais RGB.
     #[must_use]
     pub const fn opaca(vermelho: u8, verde: u8, azul: u8) -> Self {
-        Self { vermelho, verde, azul, alfa: 255 }
+        Self {
+            vermelho,
+            verde,
+            azul,
+            alfa: 255,
+        }
     }
 
     /// Cria uma cor com todos os quatro canais.
     #[must_use]
     pub const fn rgba(vermelho: u8, verde: u8, azul: u8, alfa: u8) -> Self {
-        Self { vermelho, verde, azul, alfa }
+        Self {
+            vermelho,
+            verde,
+            azul,
+            alfa,
+        }
     }
 }
 
@@ -68,9 +78,15 @@ impl ImagemRgba {
             return Err("Dimensões inválidas ou limite de pixels excedido.".to_owned());
         }
         let mut pixels = Vec::new();
-        pixels.try_reserve_exact(total).map_err(|_| "Memória insuficiente para a imagem.")?;
+        pixels
+            .try_reserve_exact(total)
+            .map_err(|_| "Memória insuficiente para a imagem.")?;
         pixels.resize(total, CorRgba::default());
-        Ok(Self { largura, altura, pixels })
+        Ok(Self {
+            largura,
+            altura,
+            pixels,
+        })
     }
 
     /// Retorna largura e altura em pixels.
@@ -127,7 +143,12 @@ impl ImagemRgba {
     }
 
     /// Desenha uma linha por Bresenham; rejeita segmentos acima de um milhão de passos.
-    pub fn desenhar_linha(&mut self, inicio: Ponto2D, fim: Ponto2D, cor: CorRgba) -> Result<(), String> {
+    pub fn desenhar_linha(
+        &mut self,
+        inicio: Ponto2D,
+        fim: Ponto2D,
+        cor: CorRgba,
+    ) -> Result<(), String> {
         let mut x = i64::from(inicio.x);
         let mut y = i64::from(inicio.y);
         let x_fim = i64::from(fim.x);
@@ -180,7 +201,15 @@ mod testes {
     fn preenche_retangulo_com_recorte() {
         let mut imagem = ImagemRgba::nova(3, 2, 6).unwrap();
         let vermelho = CorRgba::opaca(255, 0, 0);
-        imagem.preencher_retangulo(Retangulo2D { x: -1, y: 0, largura: 3, altura: 2 }, vermelho);
+        imagem.preencher_retangulo(
+            Retangulo2D {
+                x: -1,
+                y: 0,
+                largura: 3,
+                altura: 2,
+            },
+            vermelho,
+        );
         assert_eq!(imagem.obter_pixel(0, 0), Some(vermelho));
         assert_eq!(imagem.obter_pixel(1, 1), Some(vermelho));
         assert_eq!(imagem.obter_pixel(2, 1), Some(CorRgba::default()));
@@ -190,7 +219,9 @@ mod testes {
     fn rasteriza_linha_diagonal() {
         let mut imagem = ImagemRgba::nova(3, 3, 9).unwrap();
         let branco = CorRgba::opaca(255, 255, 255);
-        imagem.desenhar_linha(Ponto2D { x: 0, y: 0 }, Ponto2D { x: 2, y: 2 }, branco).unwrap();
+        imagem
+            .desenhar_linha(Ponto2D { x: 0, y: 0 }, Ponto2D { x: 2, y: 2 }, branco)
+            .unwrap();
         assert_eq!(imagem.obter_pixel(0, 0), Some(branco));
         assert_eq!(imagem.obter_pixel(1, 1), Some(branco));
         assert_eq!(imagem.obter_pixel(2, 2), Some(branco));
