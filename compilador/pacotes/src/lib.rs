@@ -314,14 +314,43 @@ fn nome_valido(nome: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-fn versao_core(versao: &str) -> Option<(u64, u64, u64)> {
+fn versao_core(versao: &str) -> Option<(&str, &str, &str)> {
     let nucleo = versao.split(['-', '+']).next()?;
     let mut partes = nucleo.split('.');
-    Some((
-        partes.next()?.parse().ok()?,
-        partes.next()?.parse().ok()?,
-        partes.next()?.parse().ok()?,
-    ))
+    let major = partes.next()?;
+    let minor = partes.next()?;
+    let patch = partes.next()?;
+    if partes.next().is_some() {
+        return None;
+    }
+    Some((major, minor, patch))
+}
+
+fn comparar_identificador_numerico(a: &str, b: &str) -> std::cmp::Ordering {
+    a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+}
+
+fn comparar_core(a: &(&str, &str, &str), b: &(&str, &str, &str)) -> std::cmp::Ordering {
+    comparar_identificador_numerico(a.0, b.0)
+        .then_with(|| comparar_identificador_numerico(a.1, b.1))
+        .then_with(|| comparar_identificador_numerico(a.2, b.2))
+}
+
+fn incrementar_identificador_numerico(valor: &str) -> String {
+    let mut digitos = valor.as_bytes().to_vec();
+    let mut indice = digitos.len();
+    while indice > 0 {
+        indice -= 1;
+        if digitos[indice] < b'9' {
+            digitos[indice] += 1;
+            return String::from_utf8(digitos).expect("dígitos ASCII");
+        }
+        digitos[indice] = b'0';
+    }
+    let mut resultado = String::with_capacity(valor.len() + 1);
+    resultado.push('1');
+    resultado.push_str(&String::from_utf8(digitos).expect("dígitos ASCII"));
+    resultado
 }
 
 /// Valida restrições simples de SemVer: exata, ^, ~, comparadores e conjunção.
