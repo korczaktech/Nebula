@@ -1244,26 +1244,31 @@ fn verificar(caminho: &Path, json: bool) {
     let bytes = match std::fs::read(caminho) {
         Ok(bytes) => bytes,
         Err(erro) => {
-            eprintln!(
-                "Erro N0001: não foi possível ler '{}': {erro}",
-                caminho.display()
-            );
+            let diagnostico = Diagnostico::novo("N0001", Severidade::Erro, format!("Não foi possível ler o arquivo: {erro}"), None);
+            if json { println!("{}", diagnosticos_json(caminho, &[diagnostico], None)); }
+            else { eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display()); }
             std::process::exit(1);
         }
     };
     let conteudo = match String::from_utf8(bytes) {
         Ok(conteudo) => conteudo,
         Err(erro) => {
-            eprintln!(
-                "Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.",
-                caminho.display(),
-                erro.utf8_error().valid_up_to()
-            );
+            let deslocamento = erro.utf8_error().valid_up_to();
+            let diagnostico = Diagnostico::novo("N1000", Severidade::Erro, format!("O arquivo não contém UTF-8 válido; sequência inválida a partir do byte {deslocamento}."), None);
+            if json { println!("{}", diagnosticos_json(caminho, &[diagnostico], None)); }
+            else { eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), deslocamento); }
             std::process::exit(1);
         }
     };
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let resultado = analisar(&fonte);
+    if json {
+        println!("{}", diagnosticos_json(caminho, &resultado.diagnosticos, Some(&fonte)));
+        if !resultado.diagnosticos.is_empty() {
+            std::process::exit(1);
+        }
+        return;
+    }
     for diagnostico in &resultado.diagnosticos {
         let local = diagnostico
             .intervalo
