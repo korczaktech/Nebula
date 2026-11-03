@@ -17,6 +17,8 @@ pub struct Manifesto {
     pub versao: String,
     /// Dependências locais, indexadas pelo nome declarado.
     pub dependencias: BTreeMap<String, String>,
+    /// Restrições SemVer opcionais associadas às dependências.
+    pub restricoes_versao: BTreeMap<String, String>,
 }
 
 /// Pacote local encontrado pelo resolvedor.
@@ -52,11 +54,14 @@ impl Manifesto {
     /// versao = "1.0.0"
     /// [dependencias]
     /// biblioteca = "../biblioteca"
+    /// [restricoes]
+    /// biblioteca = "^1.2.0"
     pub fn analisar(conteudo: &str) -> Result<Self, String> {
         let mut secao = "";
         let mut nome = None;
         let mut versao = None;
         let mut dependencias = BTreeMap::new();
+        let mut restricoes_versao = BTreeMap::new();
         for (indice, original) in conteudo.lines().enumerate() {
             let linha = original.split('#').next().unwrap_or("").trim();
             if linha.is_empty() {
@@ -64,7 +69,7 @@ impl Manifesto {
             }
             if linha.starts_with('[') && linha.ends_with(']') {
                 secao = &linha[1..linha.len() - 1];
-                if secao != "pacote" && secao != "dependencias" {
+                if secao != "pacote" && secao != "dependencias" && secao != "restricoes" {
                     return Err(format!(
                         "Seção desconhecida na linha {}: {secao}",
                         indice + 1
@@ -109,6 +114,20 @@ impl Manifesto {
                         return Err(format!("Dependência duplicada: {chave}"));
                     }
                 }
+                "restricoes" => {
+                    if !nome_valido(chave) {
+                        return Err(format!("Nome de dependência inválido em restrições: {chave}"));
+                    }
+                    if !restricao_semver_valida(valor) {
+                        return Err(format!("Restrição SemVer inválida para '{chave}': {valor}"));
+                    }
+                    if restricoes_versao
+                        .insert(chave.to_owned(), valor.to_owned())
+                        .is_some()
+                    {
+                        return Err(format!("Restrição duplicada para dependência: {chave}"));
+                    }
+                }
                 _ => return Err(format!("A chave {chave} está fora de uma seção válida.")),
             }
         }
@@ -120,10 +139,18 @@ impl Manifesto {
         if !versao_semantica_valida(&versao) {
             return Err(format!("Versão não é SemVer válida: {versao}"));
         }
+        for nome_restricao in restricoes_versao.keys() {
+            if !dependencias.contains_key(nome_restricao) {
+                return Err(format!(
+                    "Restrição SemVer declarada para dependência inexistente: {nome_restricao}"
+                ));
+            }
+        }
         Ok(Self {
             nome,
             versao,
             dependencias,
+            restricoes_versao,
         })
     }
 }
@@ -241,6 +268,14 @@ fn resolver_dependencias(
                 dependencia.nome
             ));
         }
+        if let Some(restricao) = manifesto.restricoes_versao.get(nome) {
+            if !versao_satisfaz(&dependencia.versao, restricao) {
+                return Err(format!(
+                    "A dependência '{nome}' resolveu a versão {}, que não satisfaz '{restricao}'.",
+                    dependencia.versao
+                ));
+            }
+        }
         let impressao = sha256_hex(conteudo.as_bytes());
         let pacote = PacoteResolvido {
             nome: dependencia.nome.clone(),
@@ -271,6 +306,97 @@ fn nome_valido(nome: &str) -> bool {
         && nome
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+fn versao_core(versao: &str) -> Option<(u64, u64, u64)> {
+    let nucleo = versao.split(['-', '+']).next()?;
+    let mut partes = nucleo.split('.');
+    Some((
+        partes.next()?.parse().ok()?,
+        partes.next()?.parse().ok()?,
+        partes.next()?.parse().ok()?,
+    ))
+}
+
+/// Valida restrições simples de SemVer: exata, ^, ~, comparadores e conjunção.
+fn restricao_semver_valida(restricao: &str) -> bool {
+    if restricao == "*" {
+        return true;
+    }
+    !restricao.is_empty()
+        && restricao.split(',').all(|parte| {
+            let parte = parte.trim();
+            let versao = parte
+                .strip_prefix(">=")
+                .or_else(|| parte.strip_prefix("<="))
+                .or_else(|| parte.strip_prefix('>'))
+                .or_else(|| parte.strip_prefix('<'))
+                .or_else(|| parte.strip_prefix('^'))
+                .or_else(|| parte.strip_prefix('~'))
+                .or_else(|| parte.strip_prefix('='))
+                .unwrap_or(parte);
+            !versao.is_empty() && versao_semantica_valida(versao)
+        })
+}
+
+fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
+    if restricao == "*" {
+        return versao_semantica_valida(versao);
+    }
+    if restricao.trim() == versao {
+        return true;
+    }
+    let Some((major, minor, patch)) = versao_core(versao) else {
+        return false;
+    };
+    let candidata = (major, minor, patch);
+    if versao.contains('-') {
+        // Pré-lançamentos só são aceitos por uma restrição exata.
+        return false;
+    }
+    restricao.split(',').all(|parte| {
+        let parte = parte.trim();
+        if parte.is_empty() {
+            return false;
+        }
+        if let Some(base) = parte.strip_prefix(">=") {
+            return versao_core(base).is_some_and(|base| candidata >= base);
+        }
+        if let Some(base) = parte.strip_prefix("<=") {
+            return versao_core(base).is_some_and(|base| candidata <= base);
+        }
+        if let Some(base) = parte.strip_prefix('>') {
+            return versao_core(base).is_some_and(|base| candidata > base);
+        }
+        if let Some(base) = parte.strip_prefix('<') {
+            return versao_core(base).is_some_and(|base| candidata < base);
+        }
+        if let Some(base) = parte.strip_prefix('=') {
+            return versao_core(base).is_some_and(|base| candidata == base);
+        }
+        if let Some(base) = parte.strip_prefix('^') {
+            let Some(limite) = versao_core(base) else {
+                return false;
+            };
+            let (m, n, p) = limite;
+            let teto = if m > 0 {
+                (m + 1, 0, 0)
+            } else if n > 0 {
+                (0, n + 1, 0)
+            } else {
+                (0, 0, p.saturating_add(1))
+            };
+            return candidata >= limite && candidata < teto;
+        }
+        if let Some(base) = parte.strip_prefix('~') {
+            let Some(limite) = versao_core(base) else {
+                return false;
+            };
+            let teto = (limite.0, limite.1.saturating_add(1), 0);
+            return candidata >= limite && candidata < teto;
+        }
+        versao_core(parte).is_some_and(|base| candidata == base)
+    })
 }
 
 fn versao_semantica_valida(versao: &str) -> bool {
@@ -342,6 +468,30 @@ mod testes {
             Manifesto::analisar("[pacote]\nnome = \"app\"\nnome = \"outro\"\nversao = \"1.0.0\"")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn analisa_restricoes_semver_locais() {
+        let manifesto = Manifesto::analisar(
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\ntexto = \"../texto\"\n[restricoes]\ntexto = \"^1.2.0\"",
+        )
+        .unwrap();
+        assert_eq!(manifesto.restricoes_versao.get("texto").unwrap(), "^1.2.0");
+        assert!(restricao_semver_valida(">=1.2.0, <2.0.0"));
+        assert!(!restricao_semver_valida("=>1.2.0"));
+        assert!(versao_satisfaz("1.9.0", "^1.2.0"));
+        assert!(!versao_satisfaz("2.0.0", "^1.2.0"));
+        assert!(versao_satisfaz("1.2.9", "~1.2.0"));
+        assert!(!versao_satisfaz("1.3.0", "~1.2.0"));
+        assert!(versao_satisfaz("1.5.0", ">=1.2.0, <2.0.0"));
+    }
+
+    #[test]
+    fn rejeita_restricao_semver_sem_dependencia() {
+        let manifesto = Manifesto::analisar(
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[restricoes]\ntexto = \"^1.0.0\"",
+        );
+        assert!(manifesto.is_err());
     }
 
     #[test]
