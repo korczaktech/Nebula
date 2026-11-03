@@ -158,11 +158,7 @@ pub fn gravar_lockfile(diretorio: &Path, resolucao: &Resolucao) -> Result<PathBu
         }
     }
     let id = PROXIMO_LOCKFILE.fetch_add(1, Ordering::Relaxed);
-    let temporario = diretorio.join(format!(
-        ".nebula.lock.{}.{}.tmp",
-        std::process::id(),
-        id
-    ));
+    let temporario = diretorio.join(format!(".nebula.lock.{}.{}.tmp", std::process::id(), id));
     let resultado = (|| {
         let mut arquivo = OpenOptions::new()
             .write(true)

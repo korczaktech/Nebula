@@ -345,9 +345,17 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     let fonte = diretorio.join("principal.nbx");
     std::fs::write(&fonte, "funcao principal(): inteiro { devolver 42 }").unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
-    assert!(compilar.status.success(), "{}", String::from_utf8_lossy(&compilar.stderr));
+    assert!(
+        compilar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilar.stderr)
+    );
     let limpar = executar(&["limpar-cache", diretorio.to_str().unwrap()]);
-    assert!(limpar.status.success(), "{}", String::from_utf8_lossy(&limpar.stderr));
+    assert!(
+        limpar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&limpar.stderr)
+    );
     assert!(fonte.exists());
     let cache = diretorio.join(".nebula/cache");
     assert_eq!(
@@ -359,7 +367,6 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     );
     let _ = std::fs::remove_dir_all(diretorio);
 }
-
 
 #[test]
 fn dependencias_verificar_aceita_lockfile_atual_e_rejeita_modificado() {
