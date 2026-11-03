@@ -316,8 +316,16 @@ impl Lowerer {
         match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
                 let tipo_inferido = if tipo.is_none() { self.inferir_tipo_ast(valor) } else { Tipo::Desconhecido };
-                let valor = self.expressao(valor)?;
+                let mut valor = self.expressao(valor)?;
                 let tipo = tipo.as_deref().map_or(tipo_inferido, |t| self.tipo(t));
+                if matches!(tipo, Tipo::Inteiro128 | Tipo::InteiroU128)
+                    && !matches!(&valor, ExpressaoIr::Normalizar { tipo: tipo_existente, .. } if *tipo_existente == tipo)
+                {
+                    valor = ExpressaoIr::Normalizar {
+                        tipo: tipo.clone(),
+                        valor: Box::new(valor),
+                    };
+                }
                 if let Some(escopo) = self.escopos_tipos.last_mut() {
                     escopo.insert(nome.clone(), tipo.clone());
                 }
