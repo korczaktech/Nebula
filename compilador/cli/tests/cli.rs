@@ -38,12 +38,22 @@ fn formatar_normaliza_arquivo_validado() {
     let caminho = std::env::temp_dir().join(format!(
         "nebula-format-cli-{}-{}.nbx",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::write(&caminho, "variavel total = 42   ").unwrap();
     let saida = executar(&["formatar", caminho.to_str().unwrap()]);
-    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
-    assert_eq!(std::fs::read_to_string(&caminho).unwrap(), "variavel total = 42\n");
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(&caminho).unwrap(),
+        "variavel total = 42\n"
+    );
     let _ = std::fs::remove_file(caminho);
 }
 
