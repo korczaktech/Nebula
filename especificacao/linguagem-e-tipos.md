@@ -134,6 +134,8 @@ Igualdade só é válida para tipos que implementem igualdade. A igualdade de tu
 
 Tipos escalares primitivos são copiáveis. Tipos compostos não são automaticamente copiáveis: sua política depende da implementação explícita de cópia ou movimentação. O compilador deve rejeitar uso após movimentação e não pode inferir cópia apenas porque o valor cabe em um registrador.
 
+Nas estruturas, mover um campo não copiável move somente o caminho daquele campo. Os campos irmãos não movidos continuam acessíveis. A leitura do campo movido e o uso da estrutura inteira enquanto houver campos movidos são erros. Atribuir novamente ao caminho movido o reinicializa; atribuir uma estrutura inteira reinicializa todos os caminhos. Em fluxos condicionais, a junção conserva a união dos caminhos movidos em qualquer ramo. A regra se aplica também a caminhos aninhados de campos nomeados. A implementação atual cobre esse subconjunto de campos de estruturas; movimentação parcial de posições de tuplas, elementos de listas, payloads de enumerações e inicialização parcial de agregados ainda não está concluída.
+
 ## 7. Layout e ABI
 
 O layout de memória é definido por alvo e versão de ABI. Cada tipo deve expor tamanho, alinhamento e representação. Campos de estruturas seguem alinhamento natural do tipo, com padding determinístico; o tamanho final é múltiplo do alinhamento da estrutura. Tuplas seguem regra equivalente à de estruturas anônimas. Enumerações usam discriminante e payload com representação documentada, incluindo tamanho e alinhamento. O layout não pode depender do compilador Rust que hospeda o compilador Nebula.
