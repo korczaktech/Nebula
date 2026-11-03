@@ -1646,13 +1646,13 @@ mod testes {
     }
 
     #[test]
-    fn aceita_literal_inteiro_u64_em_representacao_de_registro() {
+    fn aceita_literal_inteiro128_em_dois_registros() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128))).unwrap();
         assert_eq!(&emissor.codigo[..2], &[0x48, 0xB8]);
         assert_eq!(u64::from_le_bytes(emissor.codigo[2..10].try_into().unwrap()), u64::MAX);
         emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128 + 1))).unwrap();
-        assert_eq!(u64::from_le_bytes(emissor.codigo[12..20].try_into().unwrap()), 1);
+        assert_eq!(u64::from_le_bytes(emissor.codigo[32..40].try_into().unwrap()), 1);
     }
 
     #[test]
