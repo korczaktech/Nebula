@@ -2412,7 +2412,6 @@ mod testes {
         assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
 
-}
 
     #[test]
     fn rejeita_instancia_generica_com_tipo_aninhado_nao_inferido() {
@@ -2437,6 +2436,8 @@ mod testes {
             r.diagnosticos
         );
     }
+}
+
 }
 
 pub use implementacao::*;
