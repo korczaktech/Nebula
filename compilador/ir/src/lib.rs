@@ -39,7 +39,7 @@ pub enum OperadorIr {
 pub enum ExpressaoIr {
     Constante(ValorIr),
     Normalizar { tipo: Tipo, valor: Box<ExpressaoIr> },
-    Conversao { tipo: Tipo, valor: Box<ExpressaoIr> },
+    Conversao { tipo: Tipo, origem: Tipo, valor: Box<ExpressaoIr> },
     ReferenciaFuncao { nome: String, tipo: Tipo },
     ReferenciaFuncaoQualificada { modulo: String, nome: String, tipo: Tipo },
     ChamadaIndireta { alvo: Box<ExpressaoIr>, argumentos: Vec<ExpressaoIr> },
@@ -720,8 +720,11 @@ impl Lowerer {
                                 ));
                                 return None;
                             }
+                            let argumento = argumentos.first()?;
+                            let origem = self.inferir_tipo_ast(argumento);
                             Some(ExpressaoIr::Conversao {
                                 tipo,
+                                origem,
                                 valor: Box::new(args.into_iter().next()?),
                             })
                         } else if self.genericas.contains_key(nome) {
@@ -1456,7 +1459,7 @@ impl Maquina<'_> {
                 self.chamar_funcao(&nome, funcao, valores)
             }
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
-            ExpressaoIr::Conversao { tipo, valor } => converter_valor_explicito(tipo, self.expressao(valor)?),
+            ExpressaoIr::Conversao { tipo, valor, .. } => converter_valor_explicito(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
             ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
