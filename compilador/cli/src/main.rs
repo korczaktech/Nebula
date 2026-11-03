@@ -1089,10 +1089,8 @@ funcao principal(): inteiro {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let diretorio = std::env::temp_dir().join(format!(
-            "nebula-abi-enum-{}-{sufixo}",
-            std::process::id()
-        ));
+        let diretorio =
+            std::env::temp_dir().join(format!("nebula-abi-enum-{}-{sufixo}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
@@ -1140,10 +1138,8 @@ funcao principal(): inteiro {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let diretorio = std::env::temp_dir().join(format!(
-            "nebula-abi-tupla-{}-{sufixo}",
-            std::process::id()
-        ));
+        let diretorio =
+            std::env::temp_dir().join(format!("nebula-abi-tupla-{}-{sufixo}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
@@ -1379,10 +1375,8 @@ funcao principal(): inteiro {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let diretorio = std::env::temp_dir().join(format!(
-            "nebula-u64-alto-{}-{sufixo}",
-            std::process::id()
-        ));
+        let diretorio =
+            std::env::temp_dir().join(format!("nebula-u64-alto-{}-{sufixo}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
@@ -1764,7 +1758,6 @@ funcao principal(): inteiro {
         );
         let _ = std::fs::remove_file(caminho);
     }
-
 }
 
 #[rustfmt::skip]
