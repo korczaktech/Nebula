@@ -2458,6 +2458,18 @@ mod testes {
     }
 
     #[test]
+    fn infere_genericos_em_tuplas_resultados_opcionais_e_funcoes() {
+        let r = analisar_codigo_fase5(
+            "funcao extrair<T>(valor: Resultado<Opcional<T>, texto>): Tupla<T, texto> { devolver (42, \"ok\") }\\nfuncao aplicar<T>(operacao: funcao(T): Opcional<T>, valor: T): Opcional<T> { devolver operacao(valor) }\\nvariavel resultado = aplicar(funcao(valor: inteiro): Opcional<inteiro> { devolver Opcional::Algum(valor) }, 42)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(
+            r.tipos_globais.get("resultado"),
+            Some(&Tipo::Opcional(Box::new(Tipo::Inteiro)))
+        );
+    }
+
+    #[test]
     fn rejeita_inferencia_generica_conflitante() {
         let r = analisar_codigo(
             "funcao escolher<T>(a: T, b: T): T { devolver a }\nvariavel valor = escolher(1, \"texto\")",
