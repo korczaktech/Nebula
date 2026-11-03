@@ -8,7 +8,7 @@ use nebula_semantica::Tipo;
 use std::collections::HashMap;
 
 const TAMANHO_CABECALHO: usize = 4096;
-const TAMANHO_QUADRO: u32 = 4096;
+const TAMANHO_QUADRO: u32 = 8192;
 const LIMITE_VARIAVEIS: usize = 512;
 const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 
@@ -21,7 +21,7 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     for instrucao in &programa.instrucoes {
         if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
             validar_tipo(tipo)?;
-            let deslocamento = globais.len().checked_mul(8)
+            let deslocamento = globais.len().checked_mul(16)
                 .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
             if globais.insert(nome.clone(), deslocamento).is_some() {
                 return Err(format!("Variável global '{nome}' declarada mais de uma vez."));
@@ -44,7 +44,7 @@ struct Emissor {
     pilha: usize,
     lacos: Vec<Laco>,
     globais: HashMap<String, usize>,
-    referencias_globais: Vec<(usize, String)>,
+    referencias_globais: Vec<(usize, String, i32)>,
     funcao_atual: String,
     erro_salto: Option<String>,
 }
@@ -288,12 +288,12 @@ impl Emissor {
                 self.converter_tipo_explicito(tipo, origem)?;
             },
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
-                let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
-                self.mov_rax(valor);
+                self.mov_rax(*valor as u64 as i64);
+                self.mov_rdx((*valor >> 64) as i64);
             }
             ExpressaoIr::Constante(ValorIr::InteiroSemSinal(valor)) => {
-                let valor = u64::try_from(*valor).map_err(|_| "Literal inteiro sem sinal fora do intervalo de 64 bits.")?;
-                self.mov_rax(valor as i64);
+                self.mov_rax(*valor as u64 as i64);
+                self.mov_rdx((*valor >> 64) as i64);
             }
             ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
@@ -309,6 +309,7 @@ impl Emissor {
             ExpressaoIr::Variavel(nome) => {
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.carregar_rax(deslocamento);
+                    self.carregar_rdx(deslocamento - 8);
                 } else if self.globais.contains_key(nome) {
                     self.carregar_global(nome);
                 } else {
@@ -595,7 +596,7 @@ impl Emissor {
         }
 
         match tipo {
-            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 => Ok(()),
+            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro128 | Tipo::InteiroU128 => Ok(()),
             Tipo::Logico => {
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                 Ok(())
@@ -792,7 +793,7 @@ impl Emissor {
             return Err("A função excedeu o limite inicial de 512 posições locais.".into());
         }
         self.proximo_slot += 1;
-        let deslocamento = -((self.proximo_slot * 8) as i32);
+        let deslocamento = -((self.proximo_slot * 16 - 8) as i32);
         self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
         Ok(deslocamento)
     }
@@ -805,14 +806,22 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x8B, 0x05]); // mov rax, [rip + disp32]
         let posicao = self.codigo.len();
         self.codigo.extend_from_slice(&[0; 4]);
-        self.referencias_globais.push((posicao, nome.to_owned()));
+        self.referencias_globais.push((posicao, nome.to_owned(), 0));
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x15]); // mov rdx, [rip + disp32]
+        let posicao_alto = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
     }
 
     fn armazenar_global(&mut self, nome: &str) {
         self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
         let posicao = self.codigo.len();
         self.codigo.extend_from_slice(&[0; 4]);
-        self.referencias_globais.push((posicao, nome.to_owned()));
+        self.referencias_globais.push((posicao, nome.to_owned(), 0));
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x15]); // mov [rip + disp32], rdx
+        let posicao_alto = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
     }
 
     fn verificar_carry(&mut self) {
@@ -857,6 +866,16 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
     }
 
+    fn armazenar_rdx(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x95]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn carregar_rdx(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x95]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
     fn carregar_rax(&mut self, deslocamento: i32) {
         self.codigo.extend_from_slice(&[0x48, 0x8B, 0x85]);
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
@@ -872,6 +891,11 @@ impl Emissor {
     fn mover_registrador_rax(&mut self, registrador: u8) {
         let rex = if registrador >= 8 { 0x4C } else { 0x48 };
         self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | ((registrador & 7) << 3)]);
+    }
+
+    fn mov_rdx(&mut self, valor: i64) {
+        self.codigo.extend_from_slice(&[0x48, 0xBA]);
+        self.codigo.extend_from_slice(&valor.to_le_bytes());
     }
 
     fn mover_rax_registrador(&mut self, registrador: u8) {
@@ -958,8 +982,9 @@ impl Emissor {
         let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
             .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
             .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
-        for (posicao, nome) in self.referencias_globais {
-            let deslocamento = *self.globais.get(&nome)
+        for (posicao, nome, parte) in self.referencias_globais {
+            let deslocamento = self.globais.get(&nome)
+                .and_then(|base| base.checked_add(usize::try_from(parte).ok()?))
                 .ok_or_else(|| format!("Variável global '{nome}' não foi alocada."))?;
             let destino = endereco_dados.checked_add(u64::try_from(deslocamento)
                 .map_err(|_| "Deslocamento da variável global excedeu o limite ELF64.")?)
@@ -973,7 +998,7 @@ impl Emissor {
                 .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
-        let tamanho_dados = self.globais.len().checked_mul(8)
+        let tamanho_dados = self.globais.len().checked_mul(16)
             .ok_or("Tamanho dos dados globais excedeu o limite do alvo.")?;
         Ok((self.codigo, tamanho_dados))
     }
@@ -1022,7 +1047,7 @@ fn tipo_decimal_expressao(expressao: &ExpressaoIr) -> Option<Tipo> {
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     match tipo {
         Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64
-        | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+        | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro128 | Tipo::InteiroU128
         | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte
         | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere => Ok(()),
         Tipo::Funcao(parametros, retorno) => {
