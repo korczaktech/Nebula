@@ -26,7 +26,7 @@ Antes de 1.0, mudanças incompatíveis são permitidas, mas devem atualizar espe
 - Outros alvos não são declarados suportados.
 - Não existe ABI 1.0 congelada.
 - Não existe garantia de compatibilidade entre lockfiles de versões futuras.
-- O cache incremental ainda não existe.
+- O cache incremental de artefatos ELF existe em `.nebula/cache`, com chave SHA-256, checksum do artefato e invalidação por fonte, módulos, versão do compilador, alvo e otimização. O cache não é um contrato estável 1.0.
 
 ## Critério de congelamento
 
