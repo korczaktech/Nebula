@@ -1781,7 +1781,7 @@ mod fixtures_conformidade_tipos {
     }
 
     #[test]
-    fn backend_nao_finge_suporte_a_abi_de_agregados_ou_inteiros_128() {
+    fn backend_rejeita_agregados_maiores_que_dois_registros() {
         let estrutura = rejeita_abi_nativa_pendente(
             include_str!("../fixtures/tipos/abi-estrutura-pendente.nbx"),
             "abi-estrutura-pendente.nbx",
