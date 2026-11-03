@@ -22,7 +22,7 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 
 ## Proteção dinâmica de empréstimos
 
-O runtime oferece `TabelaEmprestimos` como mecanismo dinâmico de exclusão por identificador: qualquer quantidade de empréstimos compartilhados pode coexistir; um empréstimo exclusivo só pode existir sem outros empréstimos; e um guard libera o empréstimo automaticamente no descarte. O mecanismo é seguro entre threads do processo e rejeita conflitos com erro tipado.
+O runtime oferece `TabelaEmprestimos` como mecanismo dinâmico de exclusão por identificador: qualquer quantidade de empréstimos compartilhados pode coexistir; um empréstimo exclusivo só pode existir sem outros empréstimos; e um guard libera o empréstimo automaticamente no descarte. O mecanismo é seguro entre threads do processo e rejeita conflitos com erro tipado. A API é acessível pelo crate `nebula-biblioteca::emprestimos`.
 
 Isso ainda não substitui o borrow checker estático: a gramática e a AST não possuem tipos de referência/vidas úteis, os guards ainda não são inseridos pelo compilador em cada acesso, e não há provas estáticas de aliasing ou validade de referências.
 

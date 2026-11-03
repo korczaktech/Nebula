@@ -7,7 +7,7 @@ Este registro apresenta entregas verificáveis. Não substitui os critérios int
 **Estado: parcial.**
 
 Implementado:
-- CLI principal: `ajuda`, `versao`, `criar`, `compilar`, `executar`, `testar`, `verificar`, `analisar`, `ir`, `interpretar`, `formatar`, `dependencias resolver` e `limpar`.
+- CLI principal: `ajuda`, `versao`, `criar`, `compilar`, `executar`, `testar`, `verificar`, `analisar`, `ir`, `interpretar`, `formatar`, `dependencias resolver`, `dependencias verificar`, `limpar` e `limpar-cache`.
 - `criar <diretorio> [--nome <nome>]` gera `nebula.toml` e `principal.nbx` sem substituir diretórios existentes.
 - `limpar <arquivo.nbx>` remove somente o `.out` padrão quando o cabeçalho corresponde a ELF64 little-endian x86-64; rejeita links simbólicos e preserva arquivos que não sejam executáveis ELF desse formato.
 - Formatador integrado na CLI principal e disponível como binário separado. Valida a sintaxe, remove espaços finais, padroniza a quebra de linha final, oferece `--check` e grava por arquivo temporário.
@@ -15,7 +15,7 @@ Implementado:
 
 Pendente:
 - Formatador canônico completo (indentação e regras de estilo), round-trip integral e fixtures de todos os construtos.
-- Cache e compilação incremental com invalidação correta.
+- Cache incremental de artefatos ELF com SHA-256, invalidado por fonte principal, módulos locais recursivos, versão/fingerprint do compilador, alvo e nível de otimização. Ainda falta cache incremental por unidade de módulo/IR e invalidação fina.
 - Alvos, diagnósticos estruturados e opções completas de build.
 - Caminhos de I/O, permissões, arquivos grandes e falhas multiplataforma para todos os comandos.
 
@@ -28,12 +28,14 @@ Implementado:
 - Workflow de `cargo audit` por push/PR e agenda.
 - Dependabot semanal para Cargo e GitHub Actions.
 - Fuzz smoke determinístico do Lexer/Parser para entradas malformadas.
-- Testes de travessia de diretórios e symlinks na resolução de módulos.
+- Testes de travessia de diretórios e symlinks na resolução de módulos, cache e lockfile.
+- Guards de empréstimo RAII no runtime: múltiplos leitores ou um escritor exclusivo por identificador, com liberação automática no descarte.
+- Restrições SemVer locais (`*`, `^`, `~`, comparadores e conjunções) associadas às dependências do manifesto.
 - Crate `nebula-seguranca` com SHA-256, HMAC-SHA-256 e comparação de bytes sem encerramento antecipado pelo conteúdo; vetores de teste conhecidos.
 - Parser e serializer JSON com testes de entradas inválidas, chaves duplicadas, Unicode e limites.
 
 Pendente:
-- Campanhas contínuas de fuzzing com corpus/cobertura para pacotes, JSON, lockfiles e interfaces críticas.
+- Campanhas contínuas de fuzzing com corpus/cobertura para pacotes, JSON, lockfiles e interfaces críticas. O workflow atual executa apenas fuzz smoke determinístico com entradas limitadas.
 - Auditoria independente de código, criptografia, supply chain e segurança.
 - Matriz de execução do backend para alvos adicionais, stress de memória e concorrência e baseline de benchmarks representativos. A matriz atual valida o workspace Rust em Linux/Windows/macOS, não executáveis Nebula nesses três sistemas.
 
@@ -57,4 +59,4 @@ Pendente:
 
 ## Validação
 
-A CI verde mais recente que cobre o código da biblioteca e os módulos de segurança foi executada no commit `5267dfaa093cb4c12f9e9b54d45f37e1bdc63119`. Os comandos `criar` e `limpar` foram adicionados depois desse commit e ainda precisam de sua própria execução integral em CI. Uma CI aprovada valida somente os jobs e testes executados; não conclui os itens completos nem a Fase 5.
+A CI verde mais recente que cobre o código da biblioteca e os módulos de segurança foi executada no commit `5267dfaa093cb4c12f9e9b54d45f37e1bdc63119`. Os comandos e recursos de cache, restrições SemVer e guards de empréstimo foram adicionados depois das execuções anteriores e precisam de aprovação na execução de CI do HEAD atual. Uma CI aprovada valida somente os jobs e testes executados; não conclui os itens completos nem a Fase 5.

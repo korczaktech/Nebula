@@ -14,7 +14,7 @@ Este documento descreve somente APIs Rust que existem no repositório. A existê
 | Rede | Cliente TCP síncrono com timeout e limite de leitura | Não oferece TLS, HTTP, DNS assíncrono ou protocolos de alto nível |
 | Tempo | Relógio Unix em milissegundos e suspensão | Não oferece calendários, fusos horários ou relógio monotônico público completo |
 | Sistema | Argumentos, plataforma e variáveis de ambiente | Não oferece todos os serviços de processos e sistema operacional |
-| Memória | Alocador com quota e handles geracionais | Ainda não é a interface de propriedade/borrow checker da linguagem |
+| Memória | Alocador com quota e handles geracionais; tabela de empréstimos compartilhados/exclusivos com guards RAII | Controle dinâmico por identificador; não é o borrow checker estático e não é associado automaticamente às variáveis do programa |
 | Paralelo | Tarefas, canais, atomics e cancelamento cooperativo | Sem async/await na gramática e sem integração completa ao ownership |
 | Segurança | SHA-256, HMAC-SHA-256 e comparação de bytes sem encerramento antecipado pelo conteúdo | Comprimento é observável; sem RNG criptográfico, KDF, gestão de chaves, TLS ou protocolos completos |
 | Dados | JSON estrito, serialização determinística e validação de entrada | Números são representados por ponto flutuante de 64 bits; sem formatos binários, esquema ou migrações |
