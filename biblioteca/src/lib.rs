@@ -4,6 +4,9 @@
 //! exportado quando oferece operações reais; módulos planejados sem API
 //! funcional não são publicados como se estivessem prontos.
 
+/// Serialização e análise de dados JSON.
+pub mod dados;
+
 /// Tipos e operações essenciais compartilhados pelos módulos.
 pub mod nucleo {
     pub use nebula_runtime::{ErroRuntime, Resultado, Valor};
