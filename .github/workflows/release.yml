@@ -45,7 +45,7 @@ jobs:
           mkdir -p dist
           install -m 0755 target/release/nebula dist/nebula-linux-x86_64
           install -m 0755 target/release/nebula-formatar dist/nebula-formatar-linux-x86_64
-          printf '%s\\n' "Linux x86-64 / ELF64" > dist/PLATAFORMA.txt
+          printf '%s\n' "Linux x86-64 / ELF64" > dist/PLATAFORMA.txt
           cd dist
           sha256sum nebula-linux-x86_64 nebula-formatar-linux-x86_64 PLATAFORMA.txt > SHA256SUMS
 
