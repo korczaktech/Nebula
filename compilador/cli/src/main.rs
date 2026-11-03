@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use nebula_backend::{alvos_suportados, validar_alvo};
 use nebula_cache::CacheCompilacao;
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::otimizador::NivelOtimizacao;
@@ -34,6 +35,17 @@ fn main() {
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
+        Some("alvos") => {
+            if argumentos.next().is_some() {
+                eprintln!("Uso: nebula alvos");
+                std::process::exit(2);
+            }
+            println!("Alvos com backend implementado:");
+            for alvo in alvos_suportados() {
+                println!("  {alvo}");
+            }
+            println!("Outros alvos permanecem indisponíveis até possuírem backend e testes próprios.");
+        },
         Some("criar") => {
             let Some(diretorio) = argumentos.next() else {
                 eprintln!("Uso: nebula criar <diretorio> [--nome <nome>]");
@@ -112,6 +124,7 @@ fn main() {
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
             let mut saida = PathBuf::from(&caminho).with_extension("out");
             let mut nivel = NivelOtimizacao::O1;
+            let mut alvo = "linux-x86_64".to_owned();
             while let Some(arg) = argumentos.next() {
                 if arg == "-o" {
                     let Some(valor) = argumentos.next() else { eprintln!("Erro: -o exige um caminho."); std::process::exit(2); };
@@ -119,12 +132,19 @@ fn main() {
                 } else if arg == "--otimizacao" {
                     let Some(valor) = argumentos.next() else { eprintln!("Erro: --otimizacao exige O0, O1, O2, O3 ou Os."); std::process::exit(2); };
                     nivel = nivel_otimizacao(&valor).unwrap_or_else(|erro| { eprintln!("{erro}"); std::process::exit(2); });
+                } else if arg == "--alvo" {
+                    let Some(valor) = argumentos.next() else { eprintln!("Erro: --alvo exige um identificador, por exemplo linux-x86_64."); std::process::exit(2); };
+                    alvo = valor;
                 } else if arg.starts_with("-O") {
                     nivel = nivel_otimizacao(&arg[1..]).unwrap_or_else(|erro| { eprintln!("{erro}"); std::process::exit(2); });
                 } else {
                     eprintln!("Argumento desconhecido: {arg}");
                     std::process::exit(2);
                 }
+            }
+            if let Err(erro) = validar_alvo(&alvo) {
+                eprintln!("Erro de alvo: {erro}");
+                std::process::exit(2);
             }
             if let Err(erro) = compilar_arquivo_com_nivel(Path::new(&caminho), &saida, nivel) {
                 eprintln!("Erro de compilação: {erro}");
@@ -1026,12 +1046,13 @@ fn ajuda() {
     println!("  limpar <arquivo>      Remove o executável .out padrão do arquivo");
     println!("  limpar-cache <projeto> Remove os artefatos em .nebula/cache");
     println!("  versao                Exibe a versão da ferramenta");
+    println!("  alvos                 Lista os alvos com backend implementado");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
-    println!("  formatar <arquivo>    Formata espaços finais sem alterar tokens");
+    println!("  formatar <arquivo>    Formata indentação e espaços sem reescrever tokens");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
     println!(
-        "  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)"
+        "  compilar <arquivo>    Gera executável nativo (--alvo linux-x86_64, -O0/-O1/-O2/-O3/-Os)"
     );
     println!("  interpretar <arquivo> Executa a IR pelo runtime Rust de referência");
     println!("  dependencias resolver [diretorio] Resolve dependências e grava nebula.lock");
