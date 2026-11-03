@@ -11,6 +11,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod formatador;
+
 #[rustfmt::skip]
 fn main() {
     let mut argumentos = std::env::args().skip(1);
@@ -90,6 +92,36 @@ fn main() {
                 }
                 Err(erro) => {
                     eprintln!("Erro ao resolver dependências: {erro}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some("formatar") => {
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula formatar <arquivo.nbx> [--check]");
+                std::process::exit(2);
+            };
+            let check = match argumentos.next().as_deref() {
+                None => false,
+                Some("--check") => true,
+                Some(opcao) => {
+                    eprintln!("Opção desconhecida para formatar: {opcao}");
+                    std::process::exit(2);
+                }
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Uso: nebula formatar <arquivo.nbx> [--check]");
+                std::process::exit(2);
+            }
+            match formatador::format_file(Path::new(&caminho), check) {
+                Ok(true) if check => {
+                    eprintln!("O arquivo precisa ser formatado: {caminho}");
+                    std::process::exit(1);
+                }
+                Ok(true) => println!("Arquivo formatado: {caminho}"),
+                Ok(false) => println!("Arquivo já está formatado: {caminho}"),
+                Err(erro) => {
+                    eprintln!("Erro ao formatar: {erro}");
                     std::process::exit(1);
                 }
             }
@@ -712,6 +744,7 @@ fn ajuda() {
     println!("  ajuda                 Exibe esta mensagem");
     println!("  versao                Exibe a versão da ferramenta");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
+    println!("  formatar <arquivo>    Formata espaços finais sem alterar tokens");
     println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
     println!(
