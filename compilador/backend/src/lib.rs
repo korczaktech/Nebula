@@ -1021,13 +1021,6 @@ impl Emissor {
         self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
     }
 
-    fn armazenar_global_parte(&mut self, nome: &str, parte: i32) {
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
-        let posicao = self.codigo.len();
-        self.codigo.extend_from_slice(&[0; 4]);
-        self.referencias_globais.push((posicao, nome.to_owned(), parte));
-    }
-
     fn verificar_carry(&mut self) {
         let sem_carry = self.emitir_jcc(0x83); // JNC
         self.encerrar_com_erro(2);
