@@ -81,6 +81,7 @@ fn criar_nao_sobrescreve_diretorio_existente() {
     let _ = std::fs::remove_dir_all(diretorio);
 }
 
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn limpar_remove_somente_executavel_elf64_padrao() {
     let diretorio = std::env::temp_dir().join(format!(
@@ -331,6 +332,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     let _ = std::fs::remove_dir_all(diretorio);
 }
 
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     let diretorio = std::env::temp_dir().join(format!(
