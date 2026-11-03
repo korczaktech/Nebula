@@ -252,7 +252,7 @@ fn analisar_emite_diagnosticos_json_semanticos() {
     let _ = std::fs::remove_file(caminho);
     assert_eq!(saida.status.code(), Some(1));
     let json = String::from_utf8_lossy(&saida.stdout);
-    assert!(json.contains("\\"valido\\":false"), "{json}");
+    assert!(json.contains(r#""valido":false"#), "{json}");
     assert!(json.contains(r#""codigo":"N3007""#), "{json}");
 }
 
