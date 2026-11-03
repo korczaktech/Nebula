@@ -2494,7 +2494,7 @@ mod testes {
     #[test]
     fn infere_genericos_em_parametros_e_retorno_de_tipo_funcao() {
         let ir = compilar(
-            "funcao identidade(valor: inteiro): inteiro { devolver valor }\\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T { devolver operacao(valor) }\\nvariavel resultado = aplicar(identidade, 42)",
+            "funcao identidade(valor: inteiro): inteiro { devolver valor }\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T { devolver operacao(valor) }\nvariavel resultado = aplicar(identidade, 42)",
         );
         assert!(ir.funcoes.contains_key("aplicar__inteiro"));
         let resultado = executar(&ir, 100).expect("inferência em tipo de função válida");
