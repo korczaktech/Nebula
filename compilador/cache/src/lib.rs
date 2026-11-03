@@ -30,8 +30,12 @@ impl CacheCompilacao {
     ///
     /// Recusa componentes `.nebula` ou `cache` que sejam links simbólicos.
     pub fn abrir(projeto: &Path) -> Result<Self, String> {
-        let projeto = fs::canonicalize(projeto)
-            .map_err(|erro| format!("não foi possível resolver o projeto '{}': {erro}", projeto.display()))?;
+        let projeto = fs::canonicalize(projeto).map_err(|erro| {
+            format!(
+                "não foi possível resolver o projeto '{}': {erro}",
+                projeto.display()
+            )
+        })?;
         if !fs::metadata(&projeto)
             .map_err(|erro| format!("não foi possível inspecionar o projeto: {erro}"))?
             .is_dir()
@@ -67,7 +71,11 @@ impl CacheCompilacao {
         let metadados = match fs::symlink_metadata(&caminho) {
             Ok(metadados) => metadados,
             Err(erro) if erro.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(erro) => return Err(format!("não foi possível inspecionar entrada do cache: {erro}")),
+            Err(erro) => {
+                return Err(format!(
+                    "não foi possível inspecionar entrada do cache: {erro}"
+                ));
+            }
         };
         if metadados.file_type().is_symlink() || !metadados.is_file() {
             return Err("entrada do cache não é um arquivo regular".to_owned());
@@ -138,14 +146,22 @@ impl CacheCompilacao {
                 .write(true)
                 .create_new(true)
                 .open(&temporario)
-                .map_err(|erro| format!("não foi possível criar arquivo temporário do cache: {erro}"))?;
+                .map_err(|erro| {
+                    format!("não foi possível criar arquivo temporário do cache: {erro}")
+                })?;
             arquivo.write_all(MAGIC).map_err(|erro| erro.to_string())?;
-            arquivo.write_all(chave.as_bytes()).map_err(|erro| erro.to_string())?;
-            arquivo.write_all(resumo.as_bytes()).map_err(|erro| erro.to_string())?;
+            arquivo
+                .write_all(chave.as_bytes())
+                .map_err(|erro| erro.to_string())?;
+            arquivo
+                .write_all(resumo.as_bytes())
+                .map_err(|erro| erro.to_string())?;
             arquivo
                 .write_all(&(conteudo.len() as u64).to_be_bytes())
                 .map_err(|erro| erro.to_string())?;
-            arquivo.write_all(conteudo).map_err(|erro| erro.to_string())?;
+            arquivo
+                .write_all(conteudo)
+                .map_err(|erro| erro.to_string())?;
             arquivo.sync_all().map_err(|erro| erro.to_string())?;
             drop(arquivo);
 
@@ -172,8 +188,12 @@ impl CacheCompilacao {
         for entrada in entradas {
             let entrada = entrada.map_err(|erro| format!("falha ao listar o cache: {erro}"))?;
             let caminho = entrada.path();
-            let meta = fs::symlink_metadata(&caminho)
-                .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", caminho.display()))?;
+            let meta = fs::symlink_metadata(&caminho).map_err(|erro| {
+                format!(
+                    "não foi possível inspecionar '{}': {erro}",
+                    caminho.display()
+                )
+            })?;
             if meta.file_type().is_symlink() {
                 fs::remove_file(&caminho)
                     .map_err(|erro| format!("não foi possível remover link do cache: {erro}"))?;
@@ -201,26 +221,32 @@ impl CacheCompilacao {
 
 fn criar_diretorio_seguro(caminho: &Path) -> Result<(), String> {
     match fs::symlink_metadata(caminho) {
-        Ok(meta) if meta.file_type().is_symlink() => {
-            Err(format!("o caminho '{}' não pode ser link simbólico", caminho.display()))
-        }
+        Ok(meta) if meta.file_type().is_symlink() => Err(format!(
+            "o caminho '{}' não pode ser link simbólico",
+            caminho.display()
+        )),
         Ok(meta) if meta.is_dir() => Ok(()),
         Ok(_) => Err(format!("'{}' existe e não é diretório", caminho.display())),
-        Err(erro) if erro.kind() == std::io::ErrorKind::NotFound => {
-            match fs::create_dir(caminho) {
-                Ok(()) => Ok(()),
-                Err(erro) if erro.kind() == std::io::ErrorKind::AlreadyExists => {
-                    let meta = fs::symlink_metadata(caminho)
-                        .map_err(|falha| format!("não foi possível inspecionar '{}': {falha}", caminho.display()))?;
-                    if meta.is_dir() && !meta.file_type().is_symlink() {
-                        Ok(())
-                    } else {
-                        Err(format!("'{}' foi criado como objeto não permitido", caminho.display()))
-                    }
+        Err(erro) if erro.kind() == std::io::ErrorKind::NotFound => match fs::create_dir(caminho) {
+            Ok(()) => Ok(()),
+            Err(erro) if erro.kind() == std::io::ErrorKind::AlreadyExists => {
+                let meta = fs::symlink_metadata(caminho).map_err(|falha| {
+                    format!(
+                        "não foi possível inspecionar '{}': {falha}",
+                        caminho.display()
+                    )
+                })?;
+                if meta.is_dir() && !meta.file_type().is_symlink() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "'{}' foi criado como objeto não permitido",
+                        caminho.display()
+                    ))
                 }
-                Err(erro) => Err(format!("não foi possível criar '{}': {erro}", caminho.display())),
             }
-        }
+            Err(erro) => Err(format!("não foi possível criar '{}': {erro}", caminho.display())),
+        },
         Err(erro) => Err(format!("não foi possível inspecionar '{}': {erro}", caminho.display())),
     }
 }
@@ -237,8 +263,9 @@ fn validar_chave(chave: &str) -> Result<(), String> {
 }
 
 fn descartar_arquivo_regular(caminho: &Path) -> Result<(), String> {
-    let meta = fs::symlink_metadata(caminho)
-        .map_err(|erro| format!("não foi possível inspecionar entrada inválida do cache: {erro}"))?;
+    let meta = fs::symlink_metadata(caminho).map_err(|erro| {
+        format!("não foi possível inspecionar entrada inválida do cache: {erro}")
+    })?;
     if meta.file_type().is_symlink() || !meta.is_file() {
         return Err("entrada inválida não é um arquivo regular; remoção recusada".to_owned());
     }

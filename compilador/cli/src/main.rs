@@ -1040,8 +1040,8 @@ fn mostrar_ir(caminho: &Path) {
         }
         std::process::exit(1);
     }
-    let (modulos, programas_modulos, _) =
-        carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
+    let (modulos, programas_modulos, _) = carregar_modulos(caminho, &sintaxe.programa)
+        .unwrap_or_else(|erro| {
             eprintln!("{erro}");
             std::process::exit(1);
         });

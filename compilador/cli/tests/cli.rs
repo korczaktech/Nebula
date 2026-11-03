@@ -276,7 +276,6 @@ fn analisar_rejeita_nome_nao_declarado() {
     assert!(String::from_utf8_lossy(&saida.stderr).contains("N3007"));
 }
 
-
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
@@ -291,11 +290,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
     let modulo = diretorio.join("Base.nbx");
-    std::fs::write(
-        &modulo,
-        "publico funcao valor(): inteiro { devolver 40 }",
-    )
-    .unwrap();
+    std::fs::write(&modulo, "publico funcao valor(): inteiro { devolver 40 }").unwrap();
     std::fs::write(
         &fonte,
         "incluir Base\nfuncao principal(): inteiro { devolver Base::valor() + 2 }",
@@ -325,11 +320,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
         .count();
     assert_eq!(entradas_antes, 1);
 
-    std::fs::write(
-        &modulo,
-        "publico funcao valor(): inteiro { devolver 39 }",
-    )
-    .unwrap();
+    std::fs::write(&modulo, "publico funcao valor(): inteiro { devolver 39 }").unwrap();
     assert_eq!(compilar(), Some(41));
     let entradas_depois = std::fs::read_dir(&cache)
         .unwrap()
