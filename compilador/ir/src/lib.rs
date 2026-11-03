@@ -1067,7 +1067,7 @@ fn literal(bruto: &str) -> Option<ValorIr> {
 
 fn desescapar(texto: &str) -> String {
     texto.replace("\\\\", "\u{0}")
-        .replace("\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
+        .replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
         .replace("\\0", "\0").replace("\\\"", "\"").replace("\\'", "'")
         .replace("\u{0}", "\\")
 }
