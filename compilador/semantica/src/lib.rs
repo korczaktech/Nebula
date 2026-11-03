@@ -423,12 +423,15 @@ impl<'a> Analisador<'a> {
                 if esperado.is_none() {
                     self.erro("N3005", "'devolver' só pode ser usado dentro de uma função.");
                 }
-                let obtido = valor.as_ref().map_or(Tipo::Vazio, |expressao| {
-                    esperado.as_ref().map_or_else(
-                        || self.expressao(expressao),
-                        |tipo| self.expressao_com_tipo_esperado(expressao, tipo),
-                    )
-                });
+                let obtido = if let Some(expressao) = valor {
+                    if let Some(tipo) = esperado.as_ref() {
+                        self.expressao_com_tipo_esperado(expressao, tipo)
+                    } else {
+                        self.expressao(expressao)
+                    }
+                } else {
+                    Tipo::Vazio
+                };
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
                         self.mover_valor(valor);
