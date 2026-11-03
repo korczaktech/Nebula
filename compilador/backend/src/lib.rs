@@ -135,6 +135,29 @@ impl Emissor {
                 }
                 Ok(())
             }
+            Tipo::Enumeracao(nome) => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da enumeração '{nome}' não foi fornecido à ABI nativa."))?;
+                if layout.tamanho == 0 || layout.tamanho > 16 {
+                    return Err(format!("A enumeração '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                }
+                if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 8) {
+                    return Err(format!("Payload da enumeração '{nome}' excede um registrador da ABI inicial."));
+                }
+                Ok(())
+            }
+            Tipo::Opcional(tipo) => {
+                if self.largura_abi_tipo(tipo)? > 1 {
+                    return Err("Payload de Opcional excede um registrador da ABI inicial.".into());
+                }
+                Ok(())
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                if self.largura_abi_tipo(sucesso)? > 1 || self.largura_abi_tipo(falha)? > 1 {
+                    return Err("Payload de Resultado excede um registrador da ABI inicial.".into());
+                }
+                Ok(())
+            }
             _ if validar_tipo(tipo).is_ok() => Ok(()),
             _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
         }
@@ -198,6 +221,14 @@ impl Emissor {
             let (tamanho, _) = self.layout_tupla(tipos)
                 .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
             return Ok(if tamanho > 8 { 2 } else { 1 });
+        }
+        if let Tipo::Enumeracao(nome) = tipo {
+            let layout = self.layouts_tipos.get(nome)
+                .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente."))?;
+            return Ok(if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) { 2 } else { 1 });
+        }
+        if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+            return Ok(2);
         }
         Ok(1)
     }
