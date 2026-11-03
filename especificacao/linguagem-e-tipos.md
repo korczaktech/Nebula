@@ -140,7 +140,7 @@ Nas estruturas, mover um campo não copiável move somente o caminho daquele cam
 
 O layout de memória é definido por alvo e versão de ABI. Cada tipo deve expor tamanho, alinhamento e representação. Campos de estruturas seguem alinhamento natural do tipo, com padding determinístico; o tamanho final é múltiplo do alinhamento da estrutura. Tuplas seguem regra equivalente à de estruturas anônimas. Enumerações usam discriminante e payload com representação documentada, incluindo tamanho e alinhamento. O layout não pode depender do compilador Rust que hospeda o compilador Nebula.
 
-A ABI de funções deve definir convenção de chamada, passagem de escalares, agregados, retorno, preservação de registradores, alinhamento de pilha e símbolos. Um backend sem suporte a uma representação ou ABI deve rejeitar o programa com diagnóstico, nunca reinterpretar agregado como inteiro de 64 bits.
+A ABI de funções deve definir convenção de chamada, passagem de escalares, agregados, retorno, preservação de registradores, alinhamento de pilha e símbolos. No backend ELF x86-64, inteiros assinados e sem sinal de 128 bits usam dois registradores inteiros consecutivos: parte baixa em `rax`/registrador de argumento inicial e parte alta em `rdx`/registrador seguinte; retornos usam `rdx:rax`. O backend já implementa passagem e retorno de `inteiro128`/`inteiro_u128`, soma, subtração, comparação e negação assinada com verificação de overflow. Multiplicação, divisão, resto e conversões envolvendo 128 bits ainda não estão completos. Um backend sem suporte a uma representação ou ABI deve rejeitar o programa com diagnóstico, nunca reinterpretar agregado como inteiro de 64 bits.
 
 ### 7.1 Representação inicial de tipos de função
 
