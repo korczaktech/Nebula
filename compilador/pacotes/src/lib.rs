@@ -45,6 +45,81 @@ pub struct Resolucao {
     pub lockfile: String,
 }
 
+fn remover_comentario(linha: &str) -> &str {
+    let mut em_texto = false;
+    let mut escape = false;
+    for (indice, caractere) in linha.char_indices() {
+        if em_texto {
+            if escape {
+                escape = false;
+            } else if caractere == '\\' {
+                escape = true;
+            } else if caractere == '"' {
+                em_texto = false;
+            }
+        } else if caractere == '"' {
+            em_texto = true;
+        } else if caractere == '#' {
+            return &linha[..indice];
+        }
+    }
+    linha
+}
+
+fn decodificar_string_toml(valor: &str) -> Result<String, String> {
+    let mut caracteres = valor.chars();
+    if caracteres.next() != Some('"') {
+        return Err("esperada string entre aspas duplas".to_owned());
+    }
+    let mut resultado = String::new();
+    loop {
+        match caracteres.next() {
+            Some('"') => {
+                if caracteres.next().is_some() {
+                    return Err("conteúdo após o fechamento da string".to_owned());
+                }
+                return Ok(resultado);
+            }
+            Some('\\') => {
+                let escape = caracteres
+                    .next()
+                    .ok_or_else(|| "escape incompleto na string".to_owned())?;
+                match escape {
+                    '"' => resultado.push('"'),
+                    '\\' => resultado.push('\\'),
+                    'b' => resultado.push('\u{0008}'),
+                    'f' => resultado.push('\u{000c}'),
+                    'n' => resultado.push('\n'),
+                    'r' => resultado.push('\r'),
+                    't' => resultado.push('\t'),
+                    'u' | 'U' => {
+                        let quantidade = if escape == 'u' { 4 } else { 8 };
+                        let mut hexadecimal = String::with_capacity(quantidade);
+                        for _ in 0..quantidade {
+                            hexadecimal.push(
+                                caracteres
+                                    .next()
+                                    .ok_or_else(|| "escape Unicode incompleto".to_owned())?,
+                            );
+                        }
+                        let codigo = u32::from_str_radix(&hexadecimal, 16)
+                            .map_err(|_| "escape Unicode inválido".to_owned())?;
+                        let caractere = char::from_u32(codigo)
+                            .ok_or_else(|| "escape Unicode não representa um escalar válido".to_owned())?;
+                        resultado.push(caractere);
+                    }
+                    _ => return Err(format!("escape TOML desconhecido: \\{escape}")),
+                }
+            }
+            Some(caractere) if caractere.is_control() => {
+                return Err("caractere de controle não escapado na string".to_owned());
+            }
+            Some(caractere) => resultado.push(caractere),
+            None => return Err("string não foi fechada".to_owned()),
+        }
+    }
+}
+
 impl Manifesto {
     /// Analisa o subconjunto estrito de nebula.toml suportado.
     ///
@@ -63,7 +138,7 @@ impl Manifesto {
         let mut dependencias = BTreeMap::new();
         let mut restricoes_versao = BTreeMap::new();
         for (indice, original) in conteudo.lines().enumerate() {
-            let linha = original.split('#').next().unwrap_or("").trim();
+            let linha = remover_comentario(original).trim();
             if linha.is_empty() {
                 continue;
             }
@@ -82,15 +157,8 @@ impl Manifesto {
                 .ok_or_else(|| format!("Esperado '=' na linha {}.", indice + 1))?;
             let chave = chave.trim();
             let valor = valor.trim();
-            let valor = valor
-                .strip_prefix('"')
-                .and_then(|v| v.strip_suffix('"'))
-                .ok_or_else(|| {
-                    format!(
-                        "Valor da linha {} deve estar entre aspas duplas.",
-                        indice + 1
-                    )
-                })?;
+            let valor = decodificar_string_toml(valor)
+                .map_err(|erro| format!("String inválida na linha {}: {erro}.", indice + 1))?;
             if valor.is_empty() {
                 return Err(format!("Valor vazio na linha {}.", indice + 1));
             }
@@ -120,7 +188,7 @@ impl Manifesto {
                             "Nome de dependência inválido em restrições: {chave}"
                         ));
                     }
-                    if !restricao_semver_valida(valor) {
+                    if !restricao_semver_valida(&valor) {
                         return Err(format!("Restrição SemVer inválida para '{chave}': {valor}"));
                     }
                     if restricoes_versao
@@ -631,6 +699,26 @@ mod testes {
         assert_eq!(m.nome, "app");
         assert_eq!(m.versao, "1.2.3");
         assert_eq!(m.dependencias.get("texto").unwrap(), "../texto");
+    }
+
+    #[test]
+    fn manifesto_preserva_hashes_e_decodifica_escapes_toml() {
+        let manifesto = Manifesto::analisar(
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = \"../lib#local\\u0020com\\u0020espaço\" # comentário",
+        )
+        .expect("manifesto com comentário e escapes");
+        assert_eq!(
+            manifesto.dependencias.get("lib").map(String::as_str),
+            Some("../lib#local com espaço")
+        );
+    }
+
+    #[test]
+    fn rejeita_escapes_toml_invalidos() {
+        let base = "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = ";
+        for valor in ["\"\q\"", "\"\uD800\"", "\"texto\" sobra"] {
+            assert!(Manifesto::analisar(&format!("{base}{valor}")).is_err(), "{valor}");
+        }
     }
 
     #[test]
