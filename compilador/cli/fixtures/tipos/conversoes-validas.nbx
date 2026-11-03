@@ -1,0 +1,4 @@
+variavel pequeno = inteiro8(127)
+variavel sem_sinal = inteiro_u16(65535)
+variavel decimal_curto = decimal32(0.1)
+variavel decimal_longo = decimal64(42)
