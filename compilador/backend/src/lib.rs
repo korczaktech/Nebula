@@ -608,7 +608,7 @@ impl Emissor {
             if let Some((64, origem_assinada)) = origem_inteira {
                 if destino_assinado != origem_assinada {
                     self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
-                    let valido = self.emitir_jcc(if destino_assinado { 0x89 } else { 0x89 });
+                    let valido = self.emitir_jcc(0x89);
                     self.encerrar_com_erro(2);
                     self.aplicar_salto(valido, self.codigo.len());
                 }
