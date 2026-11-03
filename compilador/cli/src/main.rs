@@ -1020,6 +1020,43 @@ mod testes {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn compila_conversao_decimal_para_inteiro_com_faixa() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio =
+            std::env::temp_dir().join(format!("nebula-decimal-inteiro-{}-{sufixo}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao principal(): inteiro64 {
+    variavel decimal: decimal64 = 42.75
+    devolver inteiro64(decimal)
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de conversão decimal");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(&diretorio).unwrap();
+    }
+
     #[test]
     fn rejeita_travessia_no_caminho_de_modulo() {
         let origem = std::env::temp_dir().join("principal.nbx");
