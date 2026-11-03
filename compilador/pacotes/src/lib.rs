@@ -367,8 +367,11 @@ fn restricao_semver_valida(restricao: &str) -> bool {
             if let Some((inicio, fim)) = grupo.split_once(" - ") {
                 return versao_semantica_valida(inicio.trim())
                     && versao_semantica_valida(fim.trim())
-                    && versao_core(inicio.trim()).zip(versao_core(fim.trim()))
-                        .is_some_and(|(inicio, fim)| comparar_core(&inicio, &fim) != std::cmp::Ordering::Greater);
+                    && versao_core(inicio.trim())
+                        .zip(versao_core(fim.trim()))
+                        .is_some_and(|(inicio, fim)| {
+                            comparar_core(&inicio, &fim) != std::cmp::Ordering::Greater
+                        });
             }
             grupo.split(',').all(|parte| {
                 let parte = parte.trim();
@@ -390,7 +393,9 @@ fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
     if !versao_semantica_valida(versao) || !restricao_semver_valida(restricao) {
         return false;
     }
-    restricao.split("||").any(|grupo| versao_satisfaz_conjuncao(versao, grupo.trim()))
+    restricao
+        .split("||")
+        .any(|grupo| versao_satisfaz_conjuncao(versao, grupo.trim()))
 }
 
 fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
@@ -442,7 +447,10 @@ fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
                 .or_else(|| clausula.strip_prefix('~'))
                 .or_else(|| clausula.strip_prefix('='))
                 .unwrap_or(clausula);
-            base.contains('-') && versao_core(base).is_some_and(|core| comparar_core(&core, &core_candidato) == std::cmp::Ordering::Equal)
+            base.contains('-')
+                && versao_core(base).is_some_and(|core| {
+                    comparar_core(&core, &core_candidato) == std::cmp::Ordering::Equal
+                })
         });
         if !prerelease_explicitamente_referenciado {
             return false;
@@ -471,15 +479,29 @@ fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
                 return false;
             };
             let teto = if limite.0 != "0" {
-                (incrementar_identificador_numerico(limite.0), "0".to_owned(), "0".to_owned())
+                (
+                    incrementar_identificador_numerico(limite.0),
+                    "0".to_owned(),
+                    "0".to_owned(),
+                )
             } else if limite.1 != "0" {
-                ("0".to_owned(), incrementar_identificador_numerico(limite.1), "0".to_owned())
+                (
+                    "0".to_owned(),
+                    incrementar_identificador_numerico(limite.1),
+                    "0".to_owned(),
+                )
             } else {
-                ("0".to_owned(), "0".to_owned(), incrementar_identificador_numerico(limite.2))
+                (
+                    "0".to_owned(),
+                    "0".to_owned(),
+                    incrementar_identificador_numerico(limite.2),
+                )
             };
             let teto_refs = (teto.0.as_str(), teto.1.as_str(), teto.2.as_str());
             return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
-                && versao_core(candidata).is_some_and(|core| comparar_core(&core, &teto_refs) == std::cmp::Ordering::Less);
+                && versao_core(candidata).is_some_and(|core| {
+                    comparar_core(&core, &teto_refs) == std::cmp::Ordering::Less
+                });
         }
         if let Some(base) = clausula.strip_prefix('~') {
             let Some(limite) = versao_core(base) else {
@@ -492,7 +514,9 @@ fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
             );
             let teto_refs = (teto.0, teto.1.as_str(), teto.2.as_str());
             return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
-                && versao_core(candidata).is_some_and(|core| comparar_core(&core, &teto_refs) == std::cmp::Ordering::Less);
+                && versao_core(candidata).is_some_and(|core| {
+                    comparar_core(&core, &teto_refs) == std::cmp::Ordering::Less
+                });
         }
         comparar(clausula).is_some_and(|ordem| ordem == std::cmp::Ordering::Equal)
     })
