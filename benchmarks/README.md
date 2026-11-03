@@ -42,3 +42,13 @@ Primeira medição de referência registrada pela CI em `ubuntu-latest`, Rust 1.
 | fibonacci | 0.23, 0.23, 0.22, 0.25, 0.25 | 0.23 s |
 
 O runner hospedado é variável e a CPU exata não foi registrada nessa execução; portanto, estes valores são apenas referência histórica. Uma comparação de desempenho válida exige repetir a coleta na mesma máquina, registrar CPU/OS/toolchain e comparar medianas.
+### Medição posterior
+
+Coleta na CI em `ubuntu-latest`, Rust 1.85.0, build release, O1, cinco execuções por carga. Commit medido: `2548183c6729e25e4a193d566b47d5a71830d98a`.
+
+| Carga | Tempos brutos (s) | Mediana |
+|---|---|---:|
+| loop | 0.12, 0.12, 0.12, 0.12, 0.13 | 0.12 s |
+| fibonacci | 0.26, 0.25, 0.25, 0.25, 0.25 | 0.25 s |
+
+A diferença entre medições não deve ser interpretada como regressão sem controle do hardware do runner; o runner hospedado não garante a mesma CPU em execuções distintas.
