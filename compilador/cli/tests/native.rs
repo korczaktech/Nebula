@@ -75,6 +75,15 @@ fn compila_variaveis_aritmetica_e_atribuicao() {
 }
 
 #[test]
+fn compila_valor_de_funcao_e_chamada_indireta() {
+    let resultado = compilar_e_executar(
+        "funcao-indireta",
+        "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao principal(): inteiro { variavel callback: funcao(inteiro): inteiro = somar; devolver callback(41) }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_funcoes_parametros_e_chamadas() {
     let resultado = compilar_e_executar(
         "funcao",
