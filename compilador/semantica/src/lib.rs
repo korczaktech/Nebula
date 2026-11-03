@@ -1292,12 +1292,32 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn tipo_contem_desconhecido(tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Desconhecido => true,
+            Tipo::Lista(interno) | Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
+                Self::tipo_contem_desconhecido(interno),
+            Tipo::Resultado(sucesso, falha) =>
+                Self::tipo_contem_desconhecido(sucesso) || Self::tipo_contem_desconhecido(falha),
+            Tipo::Tupla(tipos) => tipos.iter().any(Self::tipo_contem_desconhecido),
+            Tipo::Funcao(parametros, retorno) =>
+                parametros.iter().any(Self::tipo_contem_desconhecido)
+                    || Self::tipo_contem_desconhecido(retorno),
+            _ => false,
+        }
+    }
+
     fn inferir_genericos(
         esperado: &Tipo,
         obtido: &Tipo,
         genericos: &[String],
         inferidos: &mut HashMap<String, Tipo>,
     ) -> bool {
+        // Não transforme lacunas de inferência em instâncias concretas.
+        // Ex.: Opcional::Nenhum() não fornece informação suficiente para T.
+        if Self::tipo_contem_desconhecido(obtido) {
+            return false;
+        }
         match esperado {
             Tipo::Parametro(nome) if genericos.contains(nome) => {
                 if let Some(anterior) = inferidos.get(nome) {
@@ -2394,6 +2414,29 @@ mod testes {
 
 }
 
+    #[test]
+    fn rejeita_instancia_generica_com_tipo_aninhado_nao_inferido() {
+        let r = analisar_codigo(
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel ausente = identidade(Opcional::Nenhum())",
+        );
+        assert!(
+            r.diagnosticos.iter().any(|d| d.codigo == "N3032"),
+            "Uma lacuna de tipo aninhada não pode virar uma instância genérica concreta: {:?}",
+            r.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_inferencia_generica_inconsistente_em_tipos_compostos() {
+        let r = analisar_codigo(
+            "funcao par<T>(primeiro: T, segundo: T): T { devolver primeiro }\nvariavel resultado = par([1], [verdadeiro])",
+        );
+        assert!(
+            r.diagnosticos.iter().any(|d| d.codigo == "N3032"),
+            "O mesmo parâmetro genérico deve unificar com um único tipo concreto: {:?}",
+            r.diagnosticos
+        );
+    }
 }
 
 pub use implementacao::*;
