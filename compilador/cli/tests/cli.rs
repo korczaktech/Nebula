@@ -226,7 +226,11 @@ fn verificar_emite_diagnosticos_json_para_fonte_valida() {
     std::fs::write(&caminho, "variavel total = 42").unwrap();
     let saida = executar(&["verificar", caminho.to_str().unwrap(), "--json"]);
     let _ = std::fs::remove_file(caminho);
-    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
     let json = String::from_utf8_lossy(&saida.stdout);
     assert!(json.contains(r#""valido":true"#), "{json}");
     assert!(json.contains("\"diagnosticos\":[]"), "{json}");
