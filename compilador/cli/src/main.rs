@@ -540,7 +540,7 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
     if let Some(nome) = chamada_local {
         let ExpressaoIr::Chamada { argumentos, .. } = expressao else {

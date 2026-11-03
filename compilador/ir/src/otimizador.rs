@@ -225,6 +225,10 @@ fn propagar_constantes_expressao(
             for item in itens { propagar_constantes_expressao(item, constantes, relatorio); }
         }
         ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
+        ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+            propagar_constantes_expressao(alvo, constantes, relatorio);
+            for argumento in argumentos { propagar_constantes_expressao(argumento, constantes, relatorio); }
+        }
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             propagar_constantes_expressao(esquerda, constantes, relatorio);
             propagar_constantes_expressao(direita, constantes, relatorio);
@@ -326,6 +330,10 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
             }
         }
         ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => otimizar_expressao(valor, relatorio),
+        ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+            otimizar_expressao(alvo, relatorio);
+            for argumento in argumentos { otimizar_expressao(argumento, relatorio); }
+        }
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             otimizar_expressao(esquerda, relatorio);
             otimizar_expressao(direita, relatorio);
@@ -350,7 +358,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { otimizar_expressao(valor, relatorio); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) => {}
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 
     let dobrada = match expressao {

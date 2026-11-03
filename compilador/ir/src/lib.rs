@@ -41,6 +41,7 @@ pub enum ExpressaoIr {
     Normalizar { tipo: Tipo, valor: Box<ExpressaoIr> },
     Conversao { tipo: Tipo, valor: Box<ExpressaoIr> },
     ReferenciaFuncao { nome: String, tipo: Tipo },
+    ReferenciaFuncaoQualificada { modulo: String, nome: String, tipo: Tipo },
     ChamadaIndireta { alvo: Box<ExpressaoIr>, argumentos: Vec<ExpressaoIr> },
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
@@ -1014,7 +1015,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo.clone(),
-        ExpressaoIr::ReferenciaFuncao { tipo, .. } => tipo.clone(),
+        ExpressaoIr::ReferenciaFuncao { tipo, .. } | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => tipo.clone(),
         ExpressaoIr::ChamadaIndireta { alvo, .. } => match inferir_tipo(alvo) {
             Tipo::Funcao(_, retorno) => *retorno,
             _ => Tipo::Desconhecido,
@@ -1437,6 +1438,7 @@ impl Maquina<'_> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
             ExpressaoIr::ReferenciaFuncao { nome, .. } => Ok(ValorIr::Funcao(nome.clone())),
+            ExpressaoIr::ReferenciaFuncaoQualificada { modulo, nome, .. } => Ok(ValorIr::Funcao(format!("{modulo}::{nome}"))),
             ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
                 let ValorIr::Funcao(nome) = self.expressao(alvo)? else {
                     return Err("A chamada indireta exige um valor de função válido.".into());
