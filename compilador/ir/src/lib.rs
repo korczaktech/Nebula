@@ -23,7 +23,7 @@ use std::sync::{Arc, RwLock};
 /// Valor constante ou resultado de execução na IR.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
-    Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char),
+    Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char), Funcao(String),
     Lista(Vec<ValorIr>), Estrutura { nome: String, campos: Vec<(String, ValorIr)> }, Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
@@ -40,6 +40,8 @@ pub enum ExpressaoIr {
     Constante(ValorIr),
     Normalizar { tipo: Tipo, valor: Box<ExpressaoIr> },
     Conversao { tipo: Tipo, valor: Box<ExpressaoIr> },
+    ReferenciaFuncao { nome: String, tipo: Tipo },
+    ChamadaIndireta { alvo: Box<ExpressaoIr>, argumentos: Vec<ExpressaoIr> },
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
@@ -1198,6 +1200,7 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Logico(v) => ValorRuntime::Logico(v),
         ValorIr::Texto(v) => ValorRuntime::Texto(v),
         ValorIr::Caractere(v) => ValorRuntime::Caractere(v),
+        ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
@@ -1221,6 +1224,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
+        ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
         ValorRuntime::Estrutura { nome, campos } => {
             let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
             Ok(ValorIr::Estrutura { nome: nome.clone(), campos: campos.iter().map(|(nome, valor)| Ok((nome.clone(), converter_para_ir(valor.clone())?))).collect::<Result<_, String>>()? })
@@ -1890,6 +1894,7 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Inteiro(v) => v.to_string(), ValorIr::InteiroSemSinal(v) => v.to_string(), ValorIr::Decimal(v) => v.to_string(),
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
+        ValorIr::Funcao(nome) => format!("<função {nome}>"),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
         ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
         ValorIr::Intervalo(a,b) => format!("{a}..{b}"),
