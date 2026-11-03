@@ -328,7 +328,7 @@ impl Emissor {
             }
             let deslocamento = self.declarar(nome)?;
             self.mover_registrador_rax(registradores[indice_registrador]);
-            if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_)) {
+            if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                 self.normalizar_tipo(tipo)?;
             }
             self.armazenar_rax(deslocamento);
@@ -450,7 +450,7 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
-                if matches!(tipo, Tipo::Estrutura(_)) {
+                if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.validar_tipo_abi(tipo)?;
                     self.expressao(valor)?;
                 } else if let Tipo::Tupla(tipos) = tipo {
