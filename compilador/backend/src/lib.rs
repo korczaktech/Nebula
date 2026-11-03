@@ -254,6 +254,9 @@ impl Emissor {
         if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
             return Ok(2);
         }
+        if tipo_decimal(tipo) {
+            return Err("Parâmetros decimais ainda não possuem classificação de registradores na ABI nativa.".into());
+        }
         Ok(1)
     }
 
