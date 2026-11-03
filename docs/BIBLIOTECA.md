@@ -31,3 +31,7 @@ O banco local grava um snapshot JSON por substituição de arquivo e detecta con
 ## Status de integração
 
 As APIs estão organizadas no crate `nebula-biblioteca` e possuem testes Rust. A integração delas como módulos importáveis de Nebula (`incluir Segurança`, `incluir Dados` etc.), as assinaturas da linguagem, o encaminhamento de erros e o suporte no backend ELF ainda precisam ser implementados e testados. Por isso, os módulos da tabela não são declarados como biblioteca padrão completa ou estável.
+
+## Integração com o interpretador
+
+As funções `json_valido(texto)` e `json_canonico(texto)` estão disponíveis no interpretador Rust de referência. A primeira valida a entrada JSON estrita; a segunda devolve uma serialização determinística com chaves ordenadas. O backend ELF nativo ainda não liga essas funções ao runtime, portanto não são anunciadas como disponíveis em executáveis nativos.
