@@ -39,13 +39,13 @@ impl fmt::Display for ErroEmprestimo {
 
 impl std::error::Error for ErroEmprestimo {}
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct EstadoRecurso {
     compartilhados: HashMap<u64, ()>,
     exclusivo: Option<u64>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct EstadoTabela {
     recursos: HashMap<u64, EstadoRecurso>,
 }
@@ -54,12 +54,13 @@ struct EstadoTabela {
 ///
 /// As chaves identificam recursos gerenciados pelo chamador. A tabela não
 /// acessa os dados do recurso; ela apenas impõe a regra de exclusão de aliasing.
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TabelaEmprestimos {
     estado: Arc<Mutex<EstadoTabela>>,
 }
 
 /// Guard RAII que libera automaticamente o empréstimo quando descartado.
+#[derive(Debug)]
 pub struct GuardaEmprestimo {
     estado: Arc<Mutex<EstadoTabela>>,
     recurso: u64,
