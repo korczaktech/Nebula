@@ -4,7 +4,12 @@
 //! e a quebra de linha final. A sintaxe é validada antes da gravação.
 
 use nebula_fonte::ArquivoFonte;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static PROXIMO_TEMPORARIO: AtomicU64 = AtomicU64::new(1);
 
 /// Formata um arquivo. Em modo de verificação, nunca grava no disco.
 pub fn format_file(path: &Path, check: bool) -> Result<bool, String> {
@@ -141,8 +146,8 @@ fn contar_chaves(linha: &str, dentro_comentario: &mut bool) -> (usize, usize, us
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let metadata = std::fs::symlink_metadata(path)
         .map_err(|e| format!("não foi possível inspecionar '{}': {e}", path.display()))?;
-    if metadata.file_type().is_symlink() {
-        return Err("o formatador não substitui links simbólicos".to_string());
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("o formatador só substitui arquivos regulares, nunca links simbólicos".to_string());
     }
     let parent = path
         .parent()
@@ -151,22 +156,50 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let name = path
         .file_name()
         .ok_or_else(|| "caminho sem nome de arquivo".to_string())?;
-    let temp = parent.join(format!(
-        ".{}.{}.nebula-format-tmp",
-        name.to_string_lossy(),
-        std::process::id()
-    ));
-    let result = (|| {
-        std::fs::write(&temp, bytes)
-            .map_err(|e| format!("não foi possível gravar temporário: {e}"))?;
-        std::fs::rename(&temp, path)
+
+    let (temporario, mut arquivo) = loop {
+        let id = PROXIMO_TEMPORARIO
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| atual.checked_add(1))
+            .map_err(|_| "contador de arquivos temporários esgotado".to_string())?;
+        let candidato = parent.join(format!(
+            ".{}.{}.{}.nebula-format-tmp",
+            name.to_string_lossy(),
+            std::process::id(),
+            id
+        ));
+        match OpenOptions::new().write(true).create_new(true).open(&candidato) {
+            Ok(arquivo) => break (candidato, arquivo),
+            Err(erro) if erro.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(erro) => {
+                return Err(format!("não foi possível criar arquivo temporário: {erro}"));
+            }
+        }
+    };
+
+    let resultado = (|| {
+        arquivo
+            .set_permissions(metadata.permissions())
+            .map_err(|e| format!("não foi possível preservar permissões do arquivo: {e}"))?;
+        arquivo
+            .write_all(bytes)
+            .map_err(|e| format!("não foi possível gravar arquivo temporário: {e}"))?;
+        arquivo
+            .sync_all()
+            .map_err(|e| format!("não foi possível sincronizar arquivo temporário: {e}"))?;
+        drop(arquivo);
+        let atual = std::fs::symlink_metadata(path)
+            .map_err(|e| format!("arquivo de destino deixou de estar disponível: {e}"))?;
+        if atual.file_type().is_symlink() || !atual.is_file() {
+            return Err("o destino foi substituído por um objeto não regular".to_string());
+        }
+        std::fs::rename(&temporario, path)
             .map_err(|e| format!("não foi possível substituir o arquivo: {e}"))?;
         Ok(())
     })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temp);
+    if resultado.is_err() {
+        let _ = std::fs::remove_file(&temporario);
     }
-    result
+    resultado
 }
 
 #[cfg(test)]
