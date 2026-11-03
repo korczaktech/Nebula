@@ -303,6 +303,12 @@ impl<'a> Analisador<'a> {
             }
             NoAst::Escolha { valor, casos } => {
                 let tipo_valor = self.expressao(valor);
+                // Pattern matching consome valores algébricos não copiáveis.
+                // Os vínculos de payload passam a representar propriedade independente
+                // dentro de cada braço; o enum original não pode ser reutilizado.
+                if !Self::tipo_copiavel(&tipo_valor) {
+                    self.mover_valor(valor);
+                }
                 let (nome_enum, variantes) = match tipo_valor {
                     Tipo::Enumeracao(nome) => {
                         let Some(variantes) = self.variantes_enumeracoes.get(&nome).cloned() else {
@@ -2607,6 +2613,26 @@ mod testes {
             "variavel indice = 0\nvariavel nomes = [\"Lia\", \"Bia\"]\nvariavel nome = nomes[indice]\nexibir(nomes[1])",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn escolha_consume_enum_nao_copiavel() {
+        let r = analisar_codigo(
+            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\\nvariavel resposta = Resposta::Sucesso(\"ok\")\\nescolha resposta { caso Resposta::Sucesso(valor) { exibir(valor) } caso Resposta::Falha(erro) { exibir(erro) } }\\nexibir(resposta)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn escolha_consume_opcional_e_resultado_nao_copiaveis() {
+        let opcional = analisar_codigo(
+            "variavel valor = Opcional::Algum(\"texto\")\\nescolha valor { caso Opcional::Algum(conteudo) { exibir(conteudo) } caso Opcional::Nenhum { } }\\nexibir(valor)",
+        );
+        assert!(opcional.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", opcional.diagnosticos);
+        let resultado = analisar_codigo(
+            "variavel valor = Resultado::Sucesso(\"texto\")\\nescolha valor { caso Resultado::Sucesso(conteudo) { exibir(conteudo) } caso Resultado::Falha(erro) { exibir(erro) } }\\nexibir(valor)",
+        );
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", resultado.diagnosticos);
     }
 
     #[test]
