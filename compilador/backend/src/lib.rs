@@ -625,7 +625,7 @@ impl Emissor {
                 } else {
                     self.mov_rdx(0);
                 }
-                self.mov_rax(tag_enumeracao(nome, variante));
+                self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
@@ -1511,6 +1511,24 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
         ExpressaoIr::Unaria { valor, .. } => eh_inteiro_sem_sinal(valor),
         _ => false,
     }
+}
+
+fn nome_enum_canonico(nome: &str) -> &str {
+    match nome {
+        "opcional" => "Opcional",
+        "resultado" => "Resultado",
+        _ => nome,
+    }
+}
+
+fn tag_enumeracao(nome: &str, variante: &str) -> i64 {
+    let identificador = format!("{}::{variante}", nome_enum_canonico(nome));
+    let mut hash = 0xCBF2_9CE4_8422_2325u64;
+    for byte in identificador.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
+    }
+    hash as i64
 }
 
 fn indice_literal_ir(expressao: &ExpressaoIr) -> Option<usize> {
