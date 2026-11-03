@@ -227,8 +227,7 @@ fn versao_semantica_valida(versao: &str) -> bool {
         || !partes.iter().all(|parte| {
             !parte.is_empty()
                 && (parte == &"0"
-                    || (!parte.starts_with('0')
-                        && parte.bytes().all(|byte| byte.is_ascii_digit())))
+                    || (!parte.starts_with('0') && parte.bytes().all(|byte| byte.is_ascii_digit())))
         })
     {
         return false;
