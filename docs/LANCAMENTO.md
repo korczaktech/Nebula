@@ -51,3 +51,10 @@ gh attestation verify dist/nebula-formatar-linux-x86_64 --repo korczaktech/Nebul
 ```
 
 A atestação comprova a procedência do build. Ela não substitui a revisão jurídica da licença, a validação do artefato em cada plataforma ou uma assinatura destacada gerenciada pela organização.
+## Autocompilação
+
+**Decisão para a versão 1.0: fora do escopo estável; objetivo futuro experimental.** O compilador oficial continuará implementado em Rust. Não será criada uma implementação Nebula parcial apenas para marcar autocompilação como concluída.
+
+A decisão só poderá ser reaberta quando houver: (1) tipos, genéricos, módulos, erros e coleções suficientes para representar o compilador; (2) biblioteca padrão e runtime suficientes para leitura/escrita, caminhos, memória e diagnósticos; (3) backend validado para o subconjunto usado pelo compilador; (4) bootstrap em duas etapas; (5) builds reproduzíveis com artefatos idênticos ou diferenças determinísticas explicadas; e (6) suíte de conformidade, regressão, fuzzing e segurança aprovada também no compilador autogerado.
+
+Esses critérios ainda não foram satisfeitos. A autocompilação não é anunciada como implementada nem bloqueia artificialmente a 1.0; será reavaliada em uma fase posterior com evidências em CI.
