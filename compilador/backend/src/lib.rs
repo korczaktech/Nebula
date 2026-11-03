@@ -283,9 +283,9 @@ impl Emissor {
                     self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
                 }
             }
-            ExpressaoIr::Conversao { tipo, valor } => {
+            ExpressaoIr::Conversao { tipo, origem, valor } => {
                 self.expressao(valor)?;
-                self.converter_tipo_explicito(tipo, valor)?;
+                self.converter_tipo_explicito(tipo, origem)?;
             },
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
@@ -597,11 +597,9 @@ impl Emissor {
     fn converter_tipo_explicito(
         &mut self,
         destino: &Tipo,
-        origem: &ExpressaoIr,
+        tipo_origem: &Tipo,
     ) -> Result<(), String> {
-        let tipo_origem = tipo_valor_expressao(origem)
-            .ok_or("Não foi possível determinar o tipo de origem da conversão explícita.")?;
-        let origem_inteira = tipo_inteiro_abi(&tipo_origem);
+        let origem_inteira = tipo_inteiro_abi(tipo_origem);
         let destino_inteiro = tipo_inteiro_abi(destino);
 
         if let Some((64, destino_assinado)) = destino_inteiro {
@@ -933,17 +931,6 @@ fn tipo_inteiro_abi(tipo: &Tipo) -> Option<(u8, bool)> {
     }
 }
 
-fn tipo_valor_expressao(expressao: &ExpressaoIr) -> Option<Tipo> {
-    match expressao {
-        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => Some(tipo.clone()),
-        ExpressaoIr::Unaria { valor, .. } => tipo_valor_expressao(valor),
-        ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
-        ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
-        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
-        _ => None,
-    }
-}
-
 fn tipo_decimal_expressao(expressao: &ExpressaoIr) -> Option<Tipo> {
     match expressao {
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. }
@@ -1239,6 +1226,7 @@ mod testes {
         ] {
             let expressao = ExpressaoIr::Conversao {
                 tipo: destino,
+                origem: origem.clone(),
                 valor: Box::new(ExpressaoIr::Normalizar {
                     tipo: origem,
                     valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1))),
@@ -1260,6 +1248,7 @@ mod testes {
         };
         let conversao = ExpressaoIr::Conversao {
             tipo: Tipo::Inteiro16,
+            origem: Tipo::Inteiro64,
             valor: Box::new(origem),
         };
         let mut emissor = Emissor::novo(HashMap::new());
@@ -1272,6 +1261,7 @@ mod testes {
         };
         let conversao = ExpressaoIr::Conversao {
             tipo: Tipo::Decimal64,
+            origem: Tipo::InteiroU64,
             valor: Box::new(origem),
         };
         let mut emissor = Emissor::novo(HashMap::new());
