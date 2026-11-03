@@ -40,3 +40,14 @@ cargo build --locked --release -p nebula-cli
 ```
 
 O binário de desenvolvimento é produzido em `target/release/nebula`. Não há ainda pacote de sistema, instalador universal ou assinatura de release.
+
+## Proveniência dos artefatos
+
+O workflow de release gera atestações de proveniência assinadas pelo Sigstore para os executáveis, o identificador de plataforma e o arquivo de checksums. A atestação é associada ao repositório no GitHub e pode ser verificada com o GitHub CLI:
+
+```sh
+gh attestation verify dist/nebula-linux-x86_64 --repo korczaktech/Nebula
+gh attestation verify dist/nebula-formatar-linux-x86_64 --repo korczaktech/Nebula
+```
+
+A atestação comprova a procedência do build. Ela não substitui a revisão jurídica da licença, a validação do artefato em cada plataforma ou uma assinatura destacada gerenciada pela organização.

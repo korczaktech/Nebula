@@ -35,7 +35,7 @@ Implementado:
 Pendente:
 - Campanhas contínuas de fuzzing com corpus/cobertura para pacotes, JSON, lockfiles e interfaces críticas.
 - Auditoria independente de código, criptografia, supply chain e segurança.
-- Matriz real de execução para alvos adicionais, stress de memória e concorrência e baseline de benchmarks representativos.
+- Matriz de execução do backend para alvos adicionais, stress de memória e concorrência e baseline de benchmarks representativos. A matriz atual valida o workspace Rust em Linux/Windows/macOS, não executáveis Nebula nesses três sistemas.
 
 ## Item 11 — Documentação e lançamento
 
@@ -44,12 +44,13 @@ Pendente:
 Implementado:
 - Especificação, critérios da Fase 5, documentos de estabilidade, ferramentas, segurança, lançamento e biblioteca padrão.
 - Política de relato responsável e índice da documentação.
-- Workflow de release restrito ao Linux x86-64 com validação, checksums e bloqueio de publicação se faltar licença.
+- Workflow de release restrito ao Linux x86-64 com validação, checksums, atestação de proveniência Sigstore/GitHub e bloqueio de publicação se faltar licença.
+- CI ampliada para executar fmt, Clippy, testes e documentação em runners Ubuntu, Windows e macOS; o backend nativo declarado continua sendo apenas Linux x86-64.
 - Arquivo `LICENSE` e documento de situação da licença.
 
 Pendente:
 - Revisão jurídica e confirmação formal da licença e da titularidade.
-- Assinatura criptográfica dos artefatos e proteção/gestão de chaves.
+- Assinatura destacada/verificável dos executáveis e processo de gestão de chaves organizacionais; a atestação de proveniência já é assinada via Sigstore.
 - Instaladores e pacotes testados para cada plataforma suportada.
 - Guia de migração completo e referências finais da linguagem, runtime, biblioteca, pacotes e backends.
 - Congelamento e auditoria dos contratos 1.0.

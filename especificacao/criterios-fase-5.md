@@ -125,7 +125,7 @@ A Fase 5 não pode apagar nem enfraquecer os contratos já aprovados nas Fases 1
 - [ ] Definir política de estabilidade da linguagem, ABI, runtime, biblioteca padrão e formato de pacotes.
 - [ ] Definir versionamento semântico, changelog, suporte, correções e processo de depreciação.
 - [ ] Definir licença do projeto e política de distribuição das ferramentas e bibliotecas.
-- [ ] Gerar artefatos assinados/verificáveis, checksums, manifests e instruções de instalação para cada plataforma oficialmente suportada.
+- [ ] Gerar artefatos com atestações assinadas de proveniência, checksums, manifests e instruções de instalação para cada plataforma oficialmente suportada; assinatura destacada dos próprios executáveis ainda exige definição do processo de chaves.
 - [ ] Publicar versão 1.0 somente depois da aprovação de todos os critérios obrigatórios e da auditoria final.
 
 ## 12. Autocompilação

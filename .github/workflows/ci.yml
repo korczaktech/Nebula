@@ -11,9 +11,13 @@ permissions:
 
 jobs:
   validar:
-    name: Validar workspace Rust
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: Validar workspace Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - name: Obter código
         uses: actions/checkout@v7
@@ -38,7 +42,9 @@ jobs:
         run: cargo doc --locked --workspace --no-deps
 
       - name: Validar script de benchmark
+        if: runner.os == 'Linux'
         run: bash -n benchmarks/executar.sh
 
       - name: Executar benchmark inicial
+        if: runner.os == 'Linux'
         run: bash benchmarks/executar.sh
