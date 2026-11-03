@@ -38,6 +38,7 @@ struct Emissor {
     codigo: Vec<u8>,
     funcoes: HashMap<String, usize>,
     chamadas: Vec<(usize, String)>,
+    referencias_funcoes: Vec<(usize, String)>,
     escopos: Vec<HashMap<String, i32>>,
     proximo_slot: usize,
     pilha: usize,
@@ -59,6 +60,7 @@ impl Emissor {
             codigo: Vec::new(),
             funcoes: HashMap::new(),
             chamadas: Vec::new(),
+            referencias_funcoes: Vec::new(),
             escopos: Vec::new(),
             proximo_slot: 0,
             pilha: 0,
@@ -246,6 +248,34 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { valor, .. } => self.expressao(valor)?,
+            ExpressaoIr::ReferenciaFuncao { nome, .. } => self.emitir_referencia_funcao(nome),
+            ExpressaoIr::ReferenciaFuncaoQualificada { modulo, nome, .. } => {
+                self.emitir_referencia_funcao(&format!("{modulo}::{nome}"));
+            }
+            ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+                if argumentos.len() > 6 {
+                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
+                }
+                self.expressao(alvo)?;
+                self.push_rax();
+                for argumento in argumentos {
+                    self.expressao(argumento)?;
+                    self.push_rax();
+                }
+                let registradores = [7u8, 6, 2, 1, 8, 9];
+                for registrador in registradores.iter().take(argumentos.len()).rev() {
+                    self.pop_rax();
+                    self.mover_rax_registrador(*registrador);
+                }
+                self.codigo.extend_from_slice(&[0x41, 0x5B]); // pop r11: ponteiro da função
+                if self.pilha % 2 == 1 {
+                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
+                }
+                self.codigo.extend_from_slice(&[0x41, 0xFF, 0xD3]); // call r11
+                if self.pilha % 2 == 1 {
+                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
+                }
+            }
             ExpressaoIr::Conversao { .. } => return Err("Conversão numérica explícita ainda não suportada pelo backend nativo.".into()),
             ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
                 let valor = i64::try_from(*valor).map_err(|_| "Literal inteiro fora do intervalo de 64 bits.")?;
@@ -261,6 +291,7 @@ impl Emissor {
                 | ValorIr::Intervalo(_, _)
                 | ValorIr::IntervaloDecimal(_, _)
                 | ValorIr::Nulo
+                | ValorIr::Funcao(_)
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
             ExpressaoIr::Constante(ValorIr::Caractere(_)) => return Err("Caractere não ASCII ainda não é suportado pelo alvo inicial.".into()),
             ExpressaoIr::Variavel(nome) => {
@@ -452,6 +483,13 @@ impl Emissor {
         Ok(())
     }
 
+    fn emitir_referencia_funcao(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0xB8]); // mov rax, imm64
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 8]);
+        self.referencias_funcoes.push((posicao, nome.to_owned()));
+    }
+
     fn declarar(&mut self, nome: &str) -> Result<i32, String> {
         if self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome)) {
             return Err(format!("Identificador '{nome}' declarado mais de uma vez no mesmo escopo."));
@@ -596,6 +634,18 @@ impl Emissor {
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
 
+        for (posicao, nome) in self.referencias_funcoes {
+            let deslocamento = self.funcoes.get(&nome)
+                .ok_or_else(|| format!("Função referenciada '{nome}' não foi encontrada durante a geração nativa."))?;
+            let destino = 0x401000u64.checked_add(u64::try_from(deslocamento)
+                .map_err(|_| "Endereço da função excedeu o limite ELF64.")?)
+                .ok_or("Endereço da função excedeu o limite ELF64.")?;
+            let fim = posicao.checked_add(8).ok_or("Referência de função excedeu o limite do alvo.")?;
+            self.codigo.get_mut(posicao..fim)
+                .ok_or("Referência de função fora do segmento de código.")?
+                .copy_from_slice(&destino.to_le_bytes());
+        }
+
         let fim_texto = TAMANHO_CABECALHO.checked_add(self.codigo.len())
             .ok_or("Tamanho do segmento de código excedeu o limite do alvo.")?;
         let deslocamento_dados = alinhar_pagina(fim_texto)?;
@@ -633,6 +683,15 @@ fn calcular_relativo32(origem_apos_campo: i128, destino: i128) -> Result<i32, St
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     match tipo {
         Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64 => Ok(()),
+        Tipo::Funcao(parametros, retorno) => {
+            for parametro in parametros {
+                if *parametro == Tipo::Vazio {
+                    return Err("Parâmetro de função não pode ter tipo vazio no ABI x86-64.".into());
+                }
+                validar_tipo(parametro)?;
+            }
+            validar_tipo(retorno)
+        }
         _ => Err(format!("Tipo '{}' ainda não é suportado pelo backend sem runtime.", tipo.nome())),
     }
 }
