@@ -318,8 +318,10 @@ impl Lowerer {
                 let tipo_inferido = if tipo.is_none() { self.inferir_tipo_ast(valor) } else { Tipo::Desconhecido };
                 let mut valor = self.expressao(valor)?;
                 let tipo = tipo.as_deref().map_or(tipo_inferido, |t| self.tipo(t));
-                if matches!(tipo, Tipo::Inteiro128 | Tipo::InteiroU128)
-                    && !matches!(&valor, ExpressaoIr::Normalizar { tipo: tipo_existente, .. } if *tipo_existente == tipo)
+                if matches!(tipo,
+                    Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::Estrutura(_) | Tipo::Tupla(_)
+                    | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)
+                ) && !matches!(&valor, ExpressaoIr::Normalizar { tipo: tipo_existente, .. } if *tipo_existente == tipo)
                 {
                     valor = ExpressaoIr::Normalizar {
                         tipo: tipo.clone(),
