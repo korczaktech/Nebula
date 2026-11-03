@@ -2015,6 +2015,20 @@ mod testes {
     }
 
     #[test]
+    fn rejeita_builtins_json_sem_runtime_nativo() {
+        let mut programa = programa_com_retorno(0);
+        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Expressao(ExpressaoIr::Chamada {
+                nome: "json_valido".into(),
+                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{}".into()))],
+            }),
+        ];
+        let erro = gerar_executavel(&programa).unwrap_err();
+        assert!(erro.contains("biblioteca padrão/runtime"));
+        assert!(erro.contains("json_valido"));
+    }
+
+    #[test]
     fn rejeita_tipo_nao_suportado_sem_fingir_implementacao() {
         assert!(validar_tipo(&Tipo::Texto).is_err());
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
