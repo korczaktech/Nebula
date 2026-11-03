@@ -268,7 +268,7 @@ impl Emissor {
                     self.mover_rax_registrador(*registrador);
                 }
                 self.codigo.extend_from_slice(&[0x41, 0x5B]); // pop r11: ponteiro da função
-                self.pilha = self.pilha.checked_sub(8)
+                self.pilha = self.pilha.checked_sub(1)
                     .ok_or("Contabilidade da pilha inválida na chamada indireta.")?;
                 if self.pilha % 2 == 1 {
                     self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
