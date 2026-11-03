@@ -655,6 +655,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
     }
 
+    #[cfg(test)]
     fn armazenar_registrador(&mut self, registrador: u8, deslocamento: i32) {
         self.codigo.push(if registrador >= 8 { 0x4C } else { 0x48 });
         self.codigo.extend_from_slice(&[0x89, 0x85 | ((registrador & 7) << 3)]);
