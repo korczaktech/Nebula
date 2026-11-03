@@ -59,6 +59,11 @@ pub mod paralelo {
     pub use nebula_runtime::{AtomoI64, Canal, Tarefa, TokenCancelamento};
 }
 
+/// Funções criptográficas SHA-256, HMAC e comparação segura.
+pub mod seguranca {
+    pub use nebula_seguranca::{comparar_seguro, hmac_sha256_hex, sha256_hex};
+}
+
 /// Cliente TCP síncrono com limite explícito de leitura.
 pub mod rede {
     use std::io::{Read, Write};

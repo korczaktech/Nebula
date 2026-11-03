@@ -19,6 +19,7 @@ name = "nebula-biblioteca"
 version = "0.1.0"
 dependencies = [
  "nebula-runtime",
+ "nebula-seguranca",
 ]
 
 [[package]]
@@ -52,6 +53,13 @@ dependencies = [
 
 [[package]]
 name = "nebula-pacotes"
+version = "0.1.0"
+dependencies = [
+ "nebula-seguranca",
+]
+
+[[package]]
+name = "nebula-seguranca"
 version = "0.1.0"
 
 [[package]]

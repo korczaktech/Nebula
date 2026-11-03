@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+nebula-seguranca = { path = "../compilador/seguranca" }
 nebula-runtime = { path = "../compilador/runtime" }
 
 [lints]
