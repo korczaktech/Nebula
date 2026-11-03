@@ -687,19 +687,24 @@ impl Lowerer {
             Expressao::Binaria { esquerda, operador, direita } => {
                 let tipo_esquerda = self.inferir_tipo_ast(esquerda);
                 let tipo_direita = self.inferir_tipo_ast(direita);
+                let tipo_operacao = if tipo_numerico(&tipo_esquerda) && tipo_numerico(&tipo_direita) {
+                    Some(promover_tipo_numerico(&tipo_esquerda, &tipo_direita))
+                } else {
+                    None
+                };
                 let esquerda = self.expressao(esquerda)?;
                 let direita = self.expressao(direita)?;
-                let esquerda = if tipo_numerico(&tipo_esquerda) {
+                let esquerda = if let Some(tipo) = &tipo_operacao {
                     ExpressaoIr::Normalizar {
-                        tipo: tipo_esquerda,
+                        tipo: tipo.clone(),
                         valor: Box::new(esquerda),
                     }
                 } else {
                     esquerda
                 };
-                let direita = if tipo_numerico(&tipo_direita) {
+                let direita = if let Some(tipo) = &tipo_operacao {
                     ExpressaoIr::Normalizar {
-                        tipo: tipo_direita,
+                        tipo: tipo.clone(),
                         valor: Box::new(direita),
                     }
                 } else {
