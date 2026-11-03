@@ -1982,6 +1982,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_valor_de_funcao_e_chamada_indireta() {
+        let ir = compilar(
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nvariavel callback: funcao(inteiro): inteiro = somar\nexibir(callback(41))",
+        );
+        let resultado = executar(&ir, 200).expect("chamada indireta válida");
+        assert_eq!(resultado.saida, vec!["42"]);
+    }
+
+    #[test]
     fn executa_conversoes_numericas_explicitas() {
         let ir = compilar(
             "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nvariavel truncado = inteiro8(1.9)\nvariavel zero = inteiro_u8(-0.5)\nexibir(truncado)\nexibir(zero)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
