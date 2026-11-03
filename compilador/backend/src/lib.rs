@@ -877,22 +877,22 @@ impl Emissor {
                 }
                 let tipo_raiz = self.buscar_tipo_local(raiz)
                     .or_else(|| self.tipos_globais.get(raiz))
+                    .cloned()
                     .ok_or_else(|| format!("Tipo da variável '{raiz}' não foi encontrado para atribuição de campo."))?;
-                let Tipo::Estrutura(nome) = tipo_raiz else {
+                let Tipo::Estrutura(nome) = &tipo_raiz else {
                     return Err("Atribuição de campo exige uma variável de estrutura.".into());
                 };
-                self.validar_tipo_abi(tipo_raiz)?;
-                let layout = self.layouts_tipos.get(nome)
-                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
-                let (deslocamento, tamanho) = layout.campos.get(&caminho[0])
+                self.validar_tipo_abi(&tipo_raiz)?;
+                let (deslocamento, tamanho) = self.layouts_tipos.get(nome)
+                    .and_then(|layout| layout.campos.get(&caminho[0]).copied())
                     .ok_or_else(|| format!("Campo '{}' não encontrado em '{nome}'.", caminho[0]))?;
                 let largura = self.largura_abi_tipo(tipo)?;
-                if (*tamanho == 16 && largura != 2) || (*tamanho <= 8 && largura != 1) {
+                if (tamanho == 16 && largura != 2) || (tamanho <= 8 && largura != 1) {
                     return Err("Tipo do valor não corresponde à largura do campo no ABI.".into());
                 }
                 self.expressao(valor)?;
                 if let Some(base) = self.buscar_local(raiz) {
-                    match (*deslocamento, *tamanho) {
+                    match (deslocamento, tamanho) {
                         (0, 16) => {
                             self.armazenar_rax(base);
                             self.armazenar_rdx(base - 8);
