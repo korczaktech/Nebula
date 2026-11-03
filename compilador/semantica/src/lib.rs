@@ -556,7 +556,7 @@ impl<'a> Analisador<'a> {
                             Tipo::Desconhecido
                         }
                     }
-                    Expressao::Membro { .. } => {
+                    Expressao::Membro { .. } | Expressao::Indexacao { .. } => {
                         let tipo_destino = if let Some((raiz, caminho)) = Self::decompor_caminho_campo(destino) {
                             let tipo = self.resolver_tipo_caminho(&raiz, &caminho, false);
                             if let Some(simbolo) = self.buscar(&raiz).cloned() {
@@ -990,6 +990,9 @@ impl<'a> Analisador<'a> {
                 Tipo::Desconhecido
             }
             Expressao::Indexacao { alvo, indice } => {
+                if let Some((raiz, caminho)) = Self::decompor_caminho_campo(expressao) {
+                    return self.resolver_tipo_caminho(&raiz, &caminho, true);
+                }
                 let tipo_alvo = self.expressao(alvo);
                 let tipo_indice = self.expressao(indice);
                 if !Self::inteiro(&tipo_indice) && tipo_indice != Tipo::Desconhecido {
@@ -1385,6 +1388,15 @@ impl<'a> Analisador<'a> {
                 caminho.push(nome.clone());
                 Some((raiz, caminho))
             }
+            Expressao::Indexacao { alvo, indice } => {
+                let Some(LiteralNumerico::Inteiro(posicao)) = Self::literal_numerico(indice) else {
+                    return None;
+                };
+                let posicao = usize::try_from(posicao).ok()?;
+                let (raiz, mut caminho) = Self::decompor_caminho_campo(alvo)?;
+                caminho.push(format!("[{posicao}]"));
+                Some((raiz, caminho))
+            }
             _ => None,
         }
     }
@@ -1392,8 +1404,17 @@ impl<'a> Analisador<'a> {
     fn resolver_tipo_caminho_puro(&self, raiz: &str, caminho: &[String]) -> Option<Tipo> {
         let mut tipo = self.buscar(raiz)?.tipo.clone();
         for campo in caminho {
-            let Tipo::Estrutura(nome) = tipo else { return None; };
-            tipo = self.campos_estruturas.get(&nome)?.get(campo)?.clone();
+            if let Some(indice) = campo.strip_prefix('[').and_then(|v| v.strip_suffix(']')) {
+                let Ok(indice) = indice.parse::<usize>() else { return None; };
+                tipo = match tipo {
+                    Tipo::Tupla(elementos) => elementos.get(indice)?.clone(),
+                    Tipo::Lista(elemento) => *elemento,
+                    _ => return None,
+                };
+            } else {
+                let Tipo::Estrutura(nome) = tipo else { return None; };
+                tipo = self.campos_estruturas.get(&nome)?.get(campo)?.clone();
+            }
         }
         Some(tipo)
     }
@@ -1415,15 +1436,36 @@ impl<'a> Analisador<'a> {
                 self.erro("N3030", format!("O campo '{}.{}' foi movido e não pode ser utilizado novamente.", raiz, prefixo.join(".")));
                 return Tipo::Desconhecido;
             }
-            let Tipo::Estrutura(nome) = tipo else {
-                self.erro("N3041", format!("O tipo '{}' não possui campos acessíveis por '.'.", tipo.nome()));
-                return Tipo::Desconhecido;
-            };
-            let Some(tipo_campo) = self.campos_estruturas.get(&nome).and_then(|campos| campos.get(campo)).cloned() else {
-                self.erro("N3040", format!("A estrutura '{nome}' não possui o campo '{campo}'."));
-                return Tipo::Desconhecido;
-            };
-            tipo = tipo_campo;
+            if let Some(indice) = campo.strip_prefix('[').and_then(|v| v.strip_suffix(']')) {
+                let Ok(indice) = indice.parse::<usize>() else {
+                    self.erro("N3034", "O índice de uma tupla precisa ser um literal inteiro válido.");
+                    return Tipo::Desconhecido;
+                };
+                tipo = match tipo {
+                    Tipo::Tupla(elementos) => {
+                        let Some(tipo_indice) = elementos.get(indice).cloned() else {
+                            self.erro("N3034", "O índice da tupla está fora dos limites.");
+                            return Tipo::Desconhecido;
+                        };
+                        tipo_indice
+                    }
+                    Tipo::Lista(elemento) => *elemento,
+                    outro => {
+                        self.erro("N3013", format!("O tipo '{}' não pode ser indexado.", outro.nome()));
+                        return Tipo::Desconhecido;
+                    }
+                };
+            } else {
+                let Tipo::Estrutura(nome) = tipo else {
+                    self.erro("N3041", format!("O tipo '{}' não possui campos acessíveis por '.'.", tipo.nome()));
+                    return Tipo::Desconhecido;
+                };
+                let Some(tipo_campo) = self.campos_estruturas.get(&nome).and_then(|campos| campos.get(campo)).cloned() else {
+                    self.erro("N3040", format!("A estrutura '{nome}' não possui o campo '{campo}'."));
+                    return Tipo::Desconhecido;
+                };
+                tipo = tipo_campo;
+            }
         }
         tipo
     }
@@ -1595,6 +1637,42 @@ impl<'a> Analisador<'a> {
                         }
                     }
                 }
+            }
+            Expressao::Indexacao { alvo, indice } => {
+                if let Some((raiz, caminho)) = Self::decompor_caminho_campo(expressao) {
+                    let mut caminho_pai = caminho.clone();
+                    let _ = caminho_pai.pop();
+                    let tipo_pai = self.resolver_tipo_caminho_puro(&raiz, &caminho_pai);
+                    let tipo_elemento = self.resolver_tipo_caminho_puro(&raiz, &caminho);
+                    if tipo_elemento.is_some_and(|tipo| !Self::tipo_copiavel(&tipo)) {
+                        if matches!(tipo_pai, Some(Tipo::Lista(_))) {
+                            if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                                if caminho_pai.is_empty() {
+                                    simbolo.movido = true;
+                                    simbolo.campos_movidos.clear();
+                                } else {
+                                    simbolo.campos_movidos.insert(caminho_pai.join("."));
+                                }
+                            }
+                        } else if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                            simbolo.campos_movidos.insert(caminho.join("."));
+                        }
+                    }
+                } else if let Some((raiz, caminho_lista)) = Self::decompor_caminho_campo(alvo) {
+                    if self.resolver_tipo_caminho_puro(&raiz, &caminho_lista)
+                        .is_some_and(|tipo| matches!(tipo, Tipo::Lista(ref elemento) if !Self::tipo_copiavel(elemento)))
+                    {
+                        if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                            if caminho_lista.is_empty() {
+                                simbolo.movido = true;
+                                simbolo.campos_movidos.clear();
+                            } else {
+                                simbolo.campos_movidos.insert(caminho_lista.join("."));
+                            }
+                        }
+                    }
+                }
+                let _ = indice;
             }
             Expressao::Chamada { alvo, argumentos } => {
                 let construtor_algebrico = matches!(
