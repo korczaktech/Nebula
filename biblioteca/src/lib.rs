@@ -61,6 +61,11 @@ pub mod sistema {
     pub use nebula_runtime::{argumentos_processo, plataforma, variavel_ambiente};
 }
 
+/// Empréstimos compartilhados e exclusivos verificados em runtime.
+pub mod emprestimos {
+    pub use nebula_runtime::{ErroEmprestimo, GuardaEmprestimo, TabelaEmprestimos};
+}
+
 /// Alocação controlada e identificadores geracionais.
 pub mod memoria {
     pub use nebula_runtime::{Alocador, ErroAlocador, IdentificadorAlocacao};

@@ -6,8 +6,10 @@
 
 #[forbid(unsafe_code)]
 mod alocador;
+mod emprestimos;
 mod tipos;
 pub use alocador::{Alocador, ErroAlocador, IdentificadorAlocacao};
+pub use emprestimos::{ErroEmprestimo, GuardaEmprestimo, TabelaEmprestimos};
 pub use tipos::{
     CampoLayoutRuntime, LayoutRuntime, TipoRuntime, ValorTipado, VarianteRuntime, calcular_layout,
     validar_tipo, validar_valor,

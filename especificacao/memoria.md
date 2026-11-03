@@ -20,6 +20,12 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 - O runtime Rust possui um alocador de blocos com limite de bytes, identificadores geracionais, validação de intervalos, redimensionamento e invalidação de handles liberados.
 - O contexto do runtime é dono do alocador e invalida todas as alocações durante a finalização.
 
+## Proteção dinâmica de empréstimos
+
+O runtime oferece `TabelaEmprestimos` como mecanismo dinâmico de exclusão por identificador: qualquer quantidade de empréstimos compartilhados pode coexistir; um empréstimo exclusivo só pode existir sem outros empréstimos; e um guard libera o empréstimo automaticamente no descarte. O mecanismo é seguro entre threads do processo e rejeita conflitos com erro tipado.
+
+Isso ainda não substitui o borrow checker estático: a gramática e a AST não possuem tipos de referência/vidas úteis, os guards ainda não são inseridos pelo compilador em cada acesso, e não há provas estáticas de aliasing ou validade de referências.
+
 ## Limites explícitos
 
 Ainda não há verificador de empréstimos compartilhados/exclusivos, vidas úteis, referências ou ponteiros na AST/gramática. Também faltam destruição por valor, inicialização parcial, integração do alocador com valores da linguagem e ABI nativa. O acompanhamento de moves é uma análise parcial e não equivale a um borrow checker completo; portanto, nenhuma garantia geral de segurança de memória baseada em ownership/borrow checker deve ser anunciada.
