@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 nebula-cache = { path = "../cache" }
+nebula-diagnosticos = { path = "../diagnosticos" }
 nebula-fonte = { path = "../fonte" }
 nebula-sintaxe = { path = "../sintaxe" }
 nebula-semantica = { path = "../semantica" }
