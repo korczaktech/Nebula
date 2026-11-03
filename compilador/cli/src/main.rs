@@ -1446,6 +1446,7 @@ mod testes {
 
 }
 
+#[rustfmt::skip]
 #[cfg(test)]
 mod fixtures_conformidade_tipos {
     use super::*;
