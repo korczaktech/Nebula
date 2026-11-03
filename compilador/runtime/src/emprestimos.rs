@@ -27,7 +27,10 @@ impl fmt::Display for ErroEmprestimo {
                 write!(f, "o recurso {chave} possui empréstimo exclusivo ativo")
             }
             Self::CompartilhadoAtivo(chave) => {
-                write!(f, "o recurso {chave} possui empréstimos compartilhados ativos")
+                write!(
+                    f,
+                    "o recurso {chave} possui empréstimos compartilhados ativos"
+                )
             }
             Self::IdentificadorExcedido => {
                 write!(f, "não foi possível emitir identificador de empréstimo")
@@ -86,7 +89,9 @@ impl TabelaEmprestimos {
             return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
         }
         let identificador = PROXIMO_EMPRESTIMO
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| atual.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| {
+                atual.checked_add(1)
+            })
             .map_err(|_| ErroEmprestimo::IdentificadorExcedido)?;
         recurso_estado.compartilhados.insert(identificador, ());
         Ok(GuardaEmprestimo {
