@@ -1107,9 +1107,9 @@ fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, Str
             let inteiro = match valor {
                 ValorIr::Inteiro(v) if v >= 0 => v as u128,
                 ValorIr::InteiroSemSinal(v) => v,
-                ValorIr::Decimal(v) if v.is_finite() && v >= 0.0 => {
+                ValorIr::Decimal(v) if v.is_finite() => {
                     let v = v.trunc();
-                    if v >= u128::MAX as f64 {
+                    if v < 0.0 || v >= u128::MAX as f64 {
                         return Err(erro());
                     }
                     v as u128
@@ -1928,10 +1928,10 @@ mod testes {
     #[test]
     fn executa_conversoes_numericas_explicitas() {
         let ir = compilar(
-            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nvariavel truncado = inteiro8(1.9)\nexibir(truncado)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
+            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nvariavel truncado = inteiro8(1.9)\nvariavel zero = inteiro_u8(-0.5)\nexibir(truncado)\nexibir(zero)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
         );
         let resultado = executar(&ir, 200).expect("conversões explícitas válidas");
-        assert_eq!(resultado.saida, vec!["1", "127", "255", "42", "16777216"]);
+        assert_eq!(resultado.saida, vec!["1", "0", "127", "255", "42", "16777216"]);
     }
 
     #[test]
