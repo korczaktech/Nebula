@@ -1646,16 +1646,9 @@ impl<'a> Analisador<'a> {
                     let tipo_pai = self.resolver_tipo_caminho_puro(&raiz, &caminho_pai);
                     let tipo_elemento = self.resolver_tipo_caminho_puro(&raiz, &caminho);
                     if tipo_elemento.is_some_and(|tipo| !Self::tipo_copiavel(&tipo)) {
-                        if matches!(tipo_pai, Some(Tipo::Lista(_))) {
-                            if let Some(simbolo) = self.buscar_mutavel(&raiz) {
-                                if caminho_pai.is_empty() {
-                                    simbolo.movido = true;
-                                    simbolo.campos_movidos.clear();
-                                } else {
-                                    simbolo.campos_movidos.insert(caminho_pai.join("."));
-                                }
-                            }
-                        } else if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                        if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                            // Um índice literal identifica um elemento independente.
+                            // Índices dinâmicos não chegam aqui: continuam movendo a lista inteira.
                             simbolo.campos_movidos.insert(caminho.join("."));
                         }
                     }
@@ -2583,6 +2576,30 @@ mod testes {
     fn reatribuir_posicao_reinicializa_movimento_de_tupla() {
         let r = analisar_codigo(
             "variavel par = (\"Lia\", 20)\nvariavel nome = par[0]\npar[0] = \"Bia\"\nexibir(par[0])",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn mover_elemento_literal_de_lista_preserva_irmaos() {
+        let r = analisar_codigo(
+            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nexibir(nomes[1])",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_reuso_de_elemento_literal_movido_de_lista() {
+        let r = analisar_codigo(
+            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nexibir(nomes[0])",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn reatribuir_elemento_literal_reinicializa_movimento_de_lista() {
+        let r = analisar_codigo(
+            "variavel nomes = [\"Lia\", \"Bia\"]\\nvariavel nome = nomes[0]\\nnomes[0] = \"Ana\"\\nexibir(nomes[0])\\nexibir(nomes[1])",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
