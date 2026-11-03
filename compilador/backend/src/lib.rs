@@ -336,6 +336,7 @@ impl Emissor {
         }
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
         let mut indice_registrador = 0usize;
+        let mut slots_superiores = Vec::new();
         for (nome, tipo) in &funcao.parametros {
             self.validar_tipo_abi(tipo)?;
             let largura = self.largura_abi_tipo(tipo)?;
@@ -352,10 +353,15 @@ impl Emissor {
                 self.mover_registrador_rax(registradores[indice_registrador + 1]);
                 self.armazenar_rax(deslocamento - 8);
             } else {
-                self.mov_rdx(0);
-                self.armazenar_rdx(deslocamento - 8);
+                slots_superiores.push(deslocamento - 8);
             }
             indice_registrador += largura;
+        }
+        // Só zerar os slots auxiliares depois de capturar todos os argumentos:
+        // RDX é também o terceiro registrador de entrada do ABI System V.
+        for deslocamento in slots_superiores {
+            self.mov_rdx(0);
+            self.armazenar_rdx(deslocamento);
         }
 
         // Parâmetros e declarações do corpo compartilham o escopo da função.
