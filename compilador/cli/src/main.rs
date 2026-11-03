@@ -1419,7 +1419,7 @@ funcao principal(): inteiro {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
-    fn rejeita_nan_e_fora_de_faixa_em_conversao_decimal() {
+    fn rejeita_nan_faixas_e_conversoes_128_invalidas() {
         let programas = [
             r#"funcao principal(): inteiro64 {
     variavel valor: decimal64 = 1e100
@@ -1436,6 +1436,18 @@ funcao principal(): inteiro {
             r#"funcao principal(): inteiro_u64 {
     variavel valor: decimal64 = 18446744073709551616.0
     devolver inteiro_u64(valor)
+}"#,
+            r#"funcao principal(): inteiro64 {
+    variavel valor: inteiro128 = 9223372036854775808
+    devolver inteiro64(valor)
+}"#,
+            r#"funcao principal(): inteiro128 {
+    variavel valor: inteiro_u128 = 170141183460469231731687303715884105728
+    devolver inteiro128(valor)
+}"#,
+            r#"funcao principal(): inteiro_u128 {
+    variavel valor: inteiro128 = -1
+    devolver inteiro_u128(valor)
 }"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
