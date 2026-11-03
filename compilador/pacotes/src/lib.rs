@@ -655,7 +655,7 @@ mod testes {
         assert!(!versao_satisfaz("2.0.0", "^1.2.0"));
         assert!(versao_satisfaz("1.2.9", "~1.2.0"));
         assert!(!versao_satisfaz("1.3.0", "~1.2.0"));
-        assert!(!versao_satisfaz(
+        assert!(versao_satisfaz(
             "18446744073709551615.0.0",
             "^18446744073709551615.0.0"
         ));
@@ -681,6 +681,10 @@ mod testes {
             Some(std::cmp::Ordering::Greater)
         );
         assert!(versao_satisfaz(
+            "184467440737095516160.0.0",
+            ">=184467440737095516159.0.0"
+        ));
+        assert!(!versao_satisfaz(
             "184467440737095516160.0.0",
             "^184467440737095516159.0.0"
         ));
