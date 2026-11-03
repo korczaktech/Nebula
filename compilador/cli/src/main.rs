@@ -875,18 +875,28 @@ fn compilar_arquivo_com_nivel(
         componentes_cache.push(arquivo_modulo.to_string_lossy().as_bytes().to_vec());
         componentes_cache.push(codigo_modulo);
     }
-    let componentes_cache = componentes_cache
-        .iter()
-        .map(Vec::as_slice)
-        .collect::<Vec<_>>();
-    let chave_cache = CacheCompilacao::calcular_chave(&componentes_cache);
+    let fingerprint_compilador = std::env::current_exe()
+        .ok()
+        .and_then(|executavel| CacheCompilacao::fingerprint_arquivo(&executavel).ok());
+    let chave_cache = fingerprint_compilador.map(|fingerprint| {
+        componentes_cache.push(fingerprint.into_bytes());
+        let componentes = componentes_cache
+            .iter()
+            .map(Vec::as_slice)
+            .collect::<Vec<_>>();
+        CacheCompilacao::calcular_chave(&componentes)
+    });
     let diretorio_projeto = caminho
         .parent()
         .filter(|diretorio| !diretorio.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    let cache = CacheCompilacao::abrir(diretorio_projeto).ok();
-    if let Some(cache) = &cache {
-        if let Ok(Some(binario)) = cache.obter(&chave_cache) {
+    let cache = if chave_cache.is_some() {
+        CacheCompilacao::abrir(diretorio_projeto).ok()
+    } else {
+        None
+    };
+    if let (Some(cache), Some(chave_cache)) = (&cache, &chave_cache) {
+        if let Ok(Some(binario)) = cache.obter(chave_cache) {
             if executavel_elf64_valido(&binario) {
                 return gravar_executavel_atomico(saida, &binario);
             }
@@ -900,8 +910,8 @@ fn compilar_arquivo_com_nivel(
     ligar_modulos(&mut programa, programas_modulos);
     nebula_ir::otimizador::otimizar(&mut programa, nivel)?;
     let binario = nebula_backend::gerar_executavel(&programa)?;
-    if let Some(cache) = &cache {
-        let _ = cache.armazenar(&chave_cache, &binario);
+    if let (Some(cache), Some(chave_cache)) = (&cache, &chave_cache) {
+        let _ = cache.armazenar(chave_cache, &binario);
     }
     gravar_executavel_atomico(saida, &binario)
 }

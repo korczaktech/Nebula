@@ -64,6 +64,23 @@ impl CacheCompilacao {
         sha256_hex(&entrada)
     }
 
+    /// Calcula SHA-256 de um arquivo regular, sem seguir links simbólicos.
+    ///
+    /// Usado para invalidar artefatos quando o próprio compilador muda.
+    pub fn fingerprint_arquivo(caminho: &Path) -> Result<String, String> {
+        let metadados = fs::symlink_metadata(caminho)
+            .map_err(|erro| format!("não foi possível inspecionar arquivo de fingerprint: {erro}"))?;
+        if metadados.file_type().is_symlink() || !metadados.is_file() {
+            return Err("fingerprint exige um arquivo regular, não um link simbólico".to_owned());
+        }
+        if metadados.len() > 512 * 1024 * 1024 {
+            return Err("arquivo de fingerprint excede o limite de 512 MiB".to_owned());
+        }
+        let bytes = fs::read(caminho)
+            .map_err(|erro| format!("não foi possível ler arquivo de fingerprint: {erro}"))?;
+        Ok(sha256_hex(&bytes))
+    }
+
     /// Retorna um artefato válido; conteúdo truncado ou adulterado é descartado.
     pub fn obter(&self, chave: &str) -> Result<Option<Vec<u8>>, String> {
         validar_chave(chave)?;
@@ -343,6 +360,18 @@ mod testes {
             assert!(CacheCompilacao::abrir(&projeto).is_err());
             let _ = fs::remove_dir_all(projeto);
         }
+    }
+
+    #[test]
+    fn fingerprint_identifica_conteudo_de_arquivo_regular() {
+        let projeto = projeto_temporario("fingerprint");
+        let arquivo = projeto.join("compilador.bin");
+        fs::write(&arquivo, b"compilador A").unwrap();
+        let primeira = CacheCompilacao::fingerprint_arquivo(&arquivo).unwrap();
+        fs::write(&arquivo, b"compilador B").unwrap();
+        let segunda = CacheCompilacao::fingerprint_arquivo(&arquivo).unwrap();
+        assert_ne!(primeira, segunda);
+        let _ = fs::remove_dir_all(projeto);
     }
 
     #[test]
