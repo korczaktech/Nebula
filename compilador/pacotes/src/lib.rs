@@ -392,7 +392,6 @@ fn coletar_arquivos_pacote(diretorio: &Path, arquivos: &mut Vec<PathBuf>) -> Res
                 caminho.display()
             )
         })?;
-            .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", caminho.display()))?;
         if metadados.file_type().is_symlink() {
             return Err(format!(
                 "pacote contém link simbólico não permitido: {}",
