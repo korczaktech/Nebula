@@ -622,6 +622,24 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 if let Expressao::Nome(nome) = alvo.as_ref() {
+                    if let Some(destino) = Self::tipo_conversao_explicita(nome) {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige exatamente um argumento."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let obtido = self.expressao(&argumentos[0]);
+                        if !Self::numerico(&obtido) && obtido != Tipo::Desconhecido {
+                            self.erro("N3016", format!("'{nome}' exige um argumento numérico."));
+                        }
+                        if !Self::literal_cabe_em_tipo(&argumentos[0], &destino) {
+                            self.erro(
+                                "N3020",
+                                format!("O literal não cabe no tipo de destino '{}'.", destino.nome()),
+                            );
+                        }
+                        return destino;
+                    }
                     if nome == "exibir" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", "A função 'exibir' exige exatamente um argumento.");
@@ -1369,6 +1387,58 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn tipo_conversao_explicita(nome: &str) -> Option<Tipo> {
+        Some(match nome {
+            "inteiro8" => Tipo::Inteiro8,
+            "inteiro16" => Tipo::Inteiro16,
+            "inteiro32" => Tipo::Inteiro32,
+            "inteiro64" => Tipo::Inteiro64,
+            "inteiro128" => Tipo::Inteiro128,
+            "inteiro_u8" => Tipo::InteiroU8,
+            "inteiro_u16" => Tipo::InteiroU16,
+            "inteiro_u32" => Tipo::InteiroU32,
+            "inteiro_u64" => Tipo::InteiroU64,
+            "inteiro_u128" => Tipo::InteiroU128,
+            "byte" => Tipo::Byte,
+            "decimal32" => Tipo::Decimal32,
+            "decimal64" => Tipo::Decimal64,
+            _ => return None,
+        })
+    }
+
+    fn literal_cabe_em_tipo(expressao: &Expressao, destino: &Tipo) -> bool {
+        let Some(valor) = Self::literal_numerico(expressao) else {
+            return true;
+        };
+        match (valor, destino) {
+            (LiteralNumerico::Inteiro(v), Tipo::Inteiro8) => i8::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::Inteiro16) => i16::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::Inteiro32) => i32::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::Inteiro128) => true,
+            (LiteralNumerico::Inteiro(v), Tipo::InteiroU8 | Tipo::Byte) => u8::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::InteiroU16) => u16::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::InteiroU32) => u32::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::InteiroU64) => u64::try_from(v).is_ok(),
+            (LiteralNumerico::Inteiro(v), Tipo::InteiroU128) => u128::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::Inteiro8) => i8::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::Inteiro16) => i16::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::Inteiro32) => i32::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::Inteiro128) => i128::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU8 | Tipo::Byte) => u8::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU16) => u16::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU32) => u32::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(v), Tipo::InteiroU64) => u64::try_from(v).is_ok(),
+            (LiteralNumerico::InteiroSemSinal(_), Tipo::InteiroU128) => true,
+            (LiteralNumerico::Decimal(v), Tipo::Decimal32) => (v as f32).is_finite(),
+            (LiteralNumerico::Decimal(v), Tipo::Decimal64 | Tipo::Decimal) => v.is_finite(),
+            (LiteralNumerico::Inteiro(_) | LiteralNumerico::InteiroSemSinal(_), Tipo::Decimal32) => true,
+            (LiteralNumerico::Inteiro(_) | LiteralNumerico::InteiroSemSinal(_), Tipo::Decimal64 | Tipo::Decimal) => true,
+            _ => false,
+        }
+    }
+
     fn tipo_copiavel(tipo: &Tipo) -> bool {
         matches!(tipo,
             Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 |
@@ -1700,6 +1770,16 @@ mod testes {
             "estrutura Registro { callback: funcao(vazio): logico }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn valida_conversoes_numericas_explicitas() {
+        let valido = analisar_codigo(
+            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel fracao = decimal32(1.25)",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+        let invalido = analisar_codigo("variavel pequeno = inteiro8(128)");
+        assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", invalido.diagnosticos);
     }
 
     #[test]
