@@ -6,7 +6,7 @@ O executável principal é `nebula`. Os comandos implementados são documentados
 
 ## Formatador conservador
 
-O binário `nebula-formatar` valida a sintaxe antes de alterar o arquivo. Nesta etapa ele normaliza espaços em branco no fim das linhas, remove linhas vazias finais e garante uma única quebra de linha final. Não reindenta blocos nem reescreve tokens; essa escolha evita alterar código enquanto a gramática e o estilo canônico ainda evoluem.
+O binário `nebula-formatar` valida a sintaxe antes de alterar o arquivo. Ele aplica indentação de quatro espaços por nível de bloco, normaliza espaços finais, remove linhas vazias finais e garante uma única quebra de linha final. O scanner ignora chaves dentro de strings e comentários e preserva o texto dos tokens; a formatação é determinística e idempotente para o subconjunto léxico validado. Não reordena declarações, não reescreve expressões e não tenta corrigir sintaxe inválida.
 
 Uso:
 
