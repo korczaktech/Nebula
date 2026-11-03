@@ -1,55 +1,69 @@
 # Sistema de tipos — Nebula
 
-A especificação normativa única está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este arquivo registra a implementação atual e suas limitações verificadas; em caso de divergência, a especificação define o contrato-alvo e os critérios da Fase 5 registram o que ainda não está conforme.
-
+A especificação normativa está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este documento descreve o estado verificável da implementação. Os critérios completos de aceite estão em [criterios-fase-5.md](criterios-fase-5.md).
 
 ## Modelo implementado
 
-- Tipagem estática por padrão.
-- Inferência local e determinística em declarações sem anotação.
+- Tipagem estática por padrão, com inferência local e determinística.
 - Tipos explícitos nas interfaces de funções e variáveis anotadas.
-- Não há coerção implícita geral entre texto, números e lógicos.
-- Tipos numéricos de larguras diferentes são distintos; variáveis e expressões não literais exigem tipos compatíveis. Literais inteiros podem receber tipos inteiros anotados quando cabem na faixa; literais decimais podem receber tipos decimais anotados. Não há coerção contextual de literal inteiro para tipo decimal. Operações aritméticas entre operandos numéricos usam promoção definida pela análise.
+- Sem coerção implícita geral entre texto, caractere, lógico e números.
+- Tipos numéricos de larguras diferentes permanecem distintos em atribuições, parâmetros e retornos.
+- Literais numéricos recebem tipo contextual somente quando o valor cabe exatamente no destino.
+- Operações numéricas usam promoção determinística; mistura implícita de inteiros com e sem sinal é rejeitada.
+- Overflow inteiro é verificado na IR para larguras assinadas e não assinadas de 8 a 128 bits.
+- decimal32 é arredondado para IEEE-754 binary32 após cada operação na IR.
 
-## Tipos reconhecidos pela análise semântica
+## Tipos reconhecidos
 
-- logico
-- inteiro (tipo inteiro padrão; no alvo inicial Linux x86-64, signed de 64 bits)
-- inteiro8, inteiro16, inteiro32, inteiro64, inteiro128
-- decimal e decimal64
-- decimal32
-- byte
-- caractere
-- texto
-- vazio
-- listas homogêneas anotadas como [tipo] ou inferidas a partir dos elementos.
-- construtores genéricos em assinaturas: `Opcional<T>`, `Resultado<T, E>` e `Tupla<T1, T2, ...>`, com argumentos recursivos;
-- parâmetros de tipo em funções genéricas, com inferência por unificação estrutural e monomorfização de instâncias concretas na IR;
-- tuplas heterogêneas em expressões `(valor1, valor2, ...)`, incluindo tuplas unitárias `(valor,)` e vazias `()`; acesso por índice literal é verificado estaticamente e executado pelo interpretador.
+- vazio, logico, inteiro.
+- inteiro8, inteiro16, inteiro32, inteiro64, inteiro128.
+- inteiro_u8, inteiro_u16, inteiro_u32, inteiro_u64, inteiro_u128.
+- decimal, decimal32, decimal64.
+- byte, caractere, texto.
+- Listas homogêneas [T].
+- Tuplas heterogêneas Tupla<T1, T2, ...> e expressões tupla, incluindo () e (valor,).
+- Tipos nominais de estruturas e enumerações.
+- Opcional<T> e Resultado<T, E>.
+- Tipos de função funcao(T1, T2): Retorno, inclusive aninhados.
+- Parâmetros genéricos em funções, com unificação estrutural e monomorfização de instâncias concretas na IR.
 
-Aliases de tipo são resolvidos antes da análise dos corpos e ciclos ou destinos desconhecidos são rejeitados.
+Aliases são resolvidos antes da análise dos corpos. Ciclos e destinos desconhecidos são rejeitados. Tipos genéricos que dependam de informação ausente — por exemplo, Opcional::Nenhum() sem tipo contextual — não podem ser usados para fabricar uma instância genérica concreta.
 
-## Regras estáticas iniciais
+## Regras estáticas
 
 - Condições de quando, enquanto e para devem ser lógicas.
 - Aritmética exige operandos numéricos; texto + texto concatena.
 - Comparações relacionais exigem operandos numéricos.
-- Igualdade exige tipos compatíveis.
-- Listas devem ser homogêneas; uma lista vazia exige tipo esperado explícito para permitir inferência.
-- Índices de listas aceitam qualquer tipo inteiro suportado (`inteiro`, larguras explícitas e `byte`); tipos decimais são rejeitados.
-- Chamadas validam existência da função, aridade, tipos dos argumentos e tipo de retorno.
-- Literais inteiros e decimais são verificados contra os limites do tipo de destino; valores fora da faixa são rejeitados.
+- Igualdade estrutural é verificada para listas, tuplas, estruturas, enumerações, opcionais e resultados quando seus componentes implementam igualdade.
+- Listas devem ser homogêneas; lista vazia exige tipo esperado explícito.
+- Índices de listas aceitam tipos inteiros suportados; tipos decimais são rejeitados.
+- Índices de tuplas precisam ser literais válidos e estar dentro dos limites conhecidos em compilação.
+- Chamadas diretas e indiretas validam aridade, tipos dos argumentos e retorno.
 - Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
+- Literais e conversões numéricas explícitas são verificados contra a faixa do tipo de destino.
 
-## Limites atuais dos tipos compostos
+## Tipos compostos e funções
 
-`Tupla<T...>` possui valores heterogêneos no interpretador e lowering próprio na IR; o backend ELF ainda não implementa layout/ABI de agregados. `Opcional<T>` e `Resultado<T,E>` continuam limitados à resolução de tipos em assinaturas: seus construtores, propagação e padrões de correspondência ainda não estão implementados. A IR infere o retorno de funções comuns e genéricas, inclusive chamadas genéricas aninhadas, chamadas genéricas usadas em inicializadores locais e tipos de índices literais de tuplas; esses cenários têm testes de execução. A inferência ainda não cobre valores de função de primeira classe, chamadas genéricas qualificadas por módulo nem inferência de retorno a partir do corpo da função. Estruturas, enumerações e tipos definidos pelo usuário ainda não estão implementados. Inteiros sem sinal definidos na especificação normativa ainda não estão reconhecidos pela análise semântica. O sistema de tipos, portanto, permanece parcial.
+Estruturas e enumerações percorrem Lexer, Parser, AST, análise semântica, IR e interpretador. Construções de estruturas validam campos ausentes, duplicados, desconhecidos e incompatíveis. Enumerações validam variantes, payloads e correspondência exaustiva. Opcional<T> e Resultado<T,E> possuem construtores e correspondência de padrões executáveis no interpretador.
 
-Continuam abertas para alvos futuros e para estabilização geral da linguagem:
+A IR calcula e armazena layouts físicos de estruturas e enumerações, incluindo tamanho, alinhamento, padding, deslocamentos e discriminantes. O runtime também calcula layouts para os tipos suportados, detectando recursão por valor e tipos sem representação física.
 
-- Largura de inteiro por alvo além do Linux x86-64 inicial.
-- Regras de overflow específicas de outros alvos e modos.
-- Semântica completa de ponto flutuante, NaN e conversões.
-- Layout e alinhamento de tipos na ABI.
-- Inferência e instanciação de funções genéricas, construtores e padrões de tipos algébricos.
-- Representação executável e layout ABI de opcionais, resultados e tuplas.
+Valores de função sem captura de ambiente podem ser armazenados, retornados e chamados indiretamente pelo interpretador. O backend ELF x86-64 gera referências e chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente não estão implementadas.
+
+## Limites atuais e suporte por alvo
+
+O backend nativo implementado é Linux x86-64 / ELF64. Ele ainda não implementa ABI e geração nativa de agregados: estruturas, enumerações, tuplas, opcionais e resultados não podem ser passados ou retornados nativamente como agregados. A ABI nativa de inteiros de 128 bits também não está implementada.
+
+O backend ELF x86-64 possui operações SSE2 básicas para decimal32 e decimal64 (aritmética básica e comparações). Conversões numéricas explícitas envolvendo inteiros e decimais ainda precisam de validação nativa completa. Recursos não suportados devem ser rejeitados pelo backend, nunca tratados como se estivessem implementados.
+
+A inferência de retorno a partir do corpo da função e a inferência genérica qualificada por módulo permanecem indisponíveis. A política completa de cópia/movimentação, inicialização parcial e propriedade ainda pertence aos critérios de memória da Fase 5.
+
+## Trabalho restante
+
+- ABI e geração nativa de agregados, com passagem e retorno por função.
+- ABI nativa de inteiros de 128 bits.
+- Conversões explícitas entre inteiros e decimais com validação de faixa em cada alvo.
+- Inferência de retorno quando permitida e inferência genérica qualificada por módulo.
+- Regras completas de cópia, movimentação e inicialização parcial.
+- Fixtures normativas integrais cobrindo gramática, tipos, semântica e execução.
+- Backends adicionais e suas regras de layout/ABI.
