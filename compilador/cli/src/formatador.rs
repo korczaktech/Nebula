@@ -53,9 +53,7 @@ fn normalize_whitespace(source: &str) -> String {
         let nivel = depth.saturating_sub(fechamentos_iniciais);
         let recuo = " ".repeat(nivel.saturating_mul(4));
         linhas.push(format!("{recuo}{conteudo}"));
-        depth = depth
-            .saturating_sub(fechamentos)
-            .saturating_add(aberturas);
+        depth = depth.saturating_sub(fechamentos).saturating_add(aberturas);
     }
 
     while linhas.last().is_some_and(|linha| linha.is_empty()) {
@@ -192,7 +190,8 @@ mod tests {
 
     #[test]
     fn aplica_indentacao_canonica_em_blocos() {
-        let source = "funcao principal(): vazio {\nexibir(1)\nquando verdadeiro {\nexibir(2)\n}\n}\n";
+        let source =
+            "funcao principal(): vazio {\nexibir(1)\nquando verdadeiro {\nexibir(2)\n}\n}\n";
         let formatted = normalize_whitespace(source);
         assert_eq!(
             formatted,
@@ -203,7 +202,8 @@ mod tests {
 
     #[test]
     fn ignora_chaves_em_strings_e_comentarios() {
-        let source = "funcao principal(): vazio {\nexibir(\"{ }\") // }\n/* {\n } */\nexibir('}')\n}\n";
+        let source =
+            "funcao principal(): vazio {\nexibir(\"{ }\") // }\n/* {\n } */\nexibir('}')\n}\n";
         let formatted = normalize_whitespace(source);
         assert_eq!(
             formatted,
