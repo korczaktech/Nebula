@@ -1028,8 +1028,10 @@ mod testes {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let diretorio =
-            std::env::temp_dir().join(format!("nebula-decimal-inteiro-{}-{sufixo}", std::process::id()));
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-decimal-inteiro-{}-{sufixo}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&diretorio).unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
