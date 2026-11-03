@@ -177,8 +177,21 @@ impl Emissor {
             Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
             | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
-            Tipo::Estrutura(nome) => self.layouts_tipos.get(nome)
+            Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
+            Tipo::Opcional(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(interno)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento)?;
+                Some((Self::alinhar_layout(deslocamento.checked_add(tamanho)?, alinhamento)?, alinhamento))
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                let (tamanho_ok, alinhamento_ok) = self.tamanho_alinhamento_tipo(sucesso)?;
+                let (tamanho_erro, alinhamento_erro) = self.tamanho_alinhamento_tipo(falha)?;
+                let alinhamento = alinhamento_ok.max(alinhamento_erro);
+                let tamanho = tamanho_ok.max(tamanho_erro);
+                let deslocamento = Self::alinhar_layout(1, alinhamento)?;
+                Some((Self::alinhar_layout(deslocamento.checked_add(tamanho)?, alinhamento)?, alinhamento))
+            }
             Tipo::Tupla(tipos) => {
                 let (tamanho, _) = self.layout_tupla(tipos)?;
                 let alinhamento = tipos.iter()
