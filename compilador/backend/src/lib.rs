@@ -3,7 +3,7 @@
 
 #[rustfmt::skip]
 mod implementacao {
-use nebula_ir::{ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
+use nebula_ir::{CasoEscolhaIr, ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 use nebula_semantica::Tipo;
 use std::collections::HashMap;
 
@@ -383,9 +383,7 @@ impl Emissor {
                 else { self.codigo.extend_from_slice(&[0x31, 0xC0]); }
                 self.codigo.extend_from_slice(&[0xC9, 0xC3]);
             }
-            InstrucaoIr::Escolha { .. } => {
-                return Err("O backend nativo ainda não oferece layout/ABI para pattern matching de enumerações.".into());
-            }
+            InstrucaoIr::Escolha { valor, casos } => self.escolha(valor, casos)?,
             InstrucaoIr::Se { condicao, entao, senao } => {
                 self.expressao(condicao)?;
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
@@ -614,8 +612,20 @@ impl Emissor {
                 }
                 self.pop_rax();
             }
-            ExpressaoIr::ConstrucaoEnumeracao { .. } => {
-                return Err("Enumerações ainda exigem tag, payload e pattern matching na ABI nativa.".into());
+            ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
+                if valores.len() > 1 {
+                    return Err("A ABI inicial de enumerações aceita no máximo um valor de payload por variante.".into());
+                }
+                if let Some(valor) = valores.first() {
+                    if self.largura_abi_expressao(valor)? > 1 {
+                        return Err("Payload de enumeração não pode ocupar mais de um registrador na ABI inicial.".into());
+                    }
+                    self.expressao(valor)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                } else {
+                    self.mov_rdx(0);
+                }
+                self.mov_rax(tag_enumeracao(nome, variante));
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
@@ -1185,6 +1195,64 @@ impl Emissor {
 
     fn normalizar_logico(&mut self) {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+    }
+
+    fn escolha(&mut self, valor: &ExpressaoIr, casos: &[CasoEscolhaIr]) -> Result<(), String> {
+        let tipo = tipo_expressao_ir(valor)
+            .ok_or("Correspondência de padrões exige tipo algébrico conhecido.")?;
+        self.validar_tipo_abi(tipo)?;
+        self.expressao(valor)?;
+        let nome_tag = format!("\\0nebula_tag_{}", self.proximo_slot);
+        let slot_tag = self.declarar(&nome_tag)?;
+        self.armazenar_rax(slot_tag);
+        let nome_payload = format!("\\0nebula_payload_{}", self.proximo_slot);
+        let slot_payload = self.declarar(&nome_payload)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx
+        self.armazenar_rax(slot_payload);
+
+        let mut saltos_fim = Vec::new();
+        let mut possui_curinga = false;
+        for caso in casos {
+            let proximo_caso = if let (Some(enumeracao), Some(variante)) =
+                (&caso.enumeracao, &caso.variante)
+            {
+                let enumeracao = nome_enum_canonico(enumeracao);
+                self.mov_rax(tag_enumeracao(enumeracao, variante));
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // mov rcx, tag esperada
+                self.carregar_rax(slot_tag);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+                Some(self.emitir_jcc(0x85))
+            } else {
+                possui_curinga = true;
+                None
+            };
+
+            if caso.vinculacoes.len() > 1 {
+                return Err("A ABI inicial de enumerações suporta um único vínculo de payload por caso.".into());
+            }
+            self.escopos.push(HashMap::new());
+            if let Some(vinculo) = caso.vinculacoes.first() {
+                let deslocamento = self.declarar(vinculo)?;
+                self.carregar_rax(slot_payload);
+                self.armazenar_rax(deslocamento);
+                self.mov_rdx(0);
+                self.armazenar_rdx(deslocamento - 8);
+            }
+            self.bloco(&caso.corpo)?;
+            self.escopos.pop();
+            saltos_fim.push(self.emitir_jmp());
+            if let Some(salto) = proximo_caso {
+                self.aplicar_salto(salto, self.codigo.len());
+            }
+        }
+        if !possui_curinga {
+            self.encerrar_com_erro(2);
+        }
+        let fim = self.codigo.len();
+        for salto in saltos_fim {
+            self.aplicar_salto(salto, fim);
+        }
+        Ok(())
     }
 
     fn construir_tupla(&mut self, tipos: &[Tipo], valores: &[ExpressaoIr]) -> Result<(), String> {
