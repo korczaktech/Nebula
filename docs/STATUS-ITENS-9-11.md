@@ -10,12 +10,12 @@ Implementado:
 - CLI principal: `ajuda`, `versao`, `criar`, `compilar`, `executar`, `testar`, `verificar`, `analisar`, `ir`, `interpretar`, `formatar`, `dependencias resolver`, `dependencias verificar`, `limpar` e `limpar-cache`.
 - `criar <diretorio> [--nome <nome>]` gera `nebula.toml` e `principal.nbx` sem substituir diretórios existentes.
 - `limpar <arquivo.nbx>` remove somente o `.out` padrão quando o cabeçalho corresponde a ELF64 little-endian x86-64; rejeita links simbólicos e preserva arquivos que não sejam executáveis ELF desse formato.
-- Formatador integrado na CLI principal e disponível como binário separado. Valida a sintaxe, remove espaços finais, padroniza a quebra de linha final, oferece `--check` e grava por arquivo temporário.
+- Formatador integrado na CLI principal e disponível como binário separado. Valida a sintaxe, aplica indentação de quatro espaços por bloco, normaliza espaços finais, remove linhas vazias finais, oferece `--check` e grava por arquivo temporário exclusivo, preservando permissões do arquivo.
 - Testes de integração para criação, não sobrescrita, compilação/limpeza de artefato e preservação de `.out` que não seja ELF.
 
 Pendente:
-- Formatador canônico completo (indentação e regras de estilo), round-trip integral e fixtures de todos os construtos.
-- Cache incremental de artefatos ELF com SHA-256, invalidado por fonte principal, módulos locais recursivos, versão/fingerprint do compilador, alvo e nível de otimização. Ainda falta cache incremental por unidade de módulo/IR e invalidação fina.
+- Regras canônicas completas para todos os construtos, round-trip integral e fixtures de formatação ainda pendem; o formatador atual cobre indentação de blocos delimitados por chaves e preservação de strings/comentários.
+- Cache incremental de artefatos ELF com SHA-256, invalidado por fonte principal, módulos locais recursivos, versão/fingerprint do compilador, alvo e nível de otimização. Cache incremental por unidade de módulo/IR e invalidação fina ainda pendem.
 - Alvos, diagnósticos estruturados e opções completas de build.
 - Caminhos de I/O, permissões, arquivos grandes e falhas multiplataforma para todos os comandos.
 
@@ -27,7 +27,7 @@ Implementado:
 - CI para `cargo fmt`, Clippy com `-D warnings`, testes do workspace, `cargo doc` e benchmark.
 - Workflow de `cargo audit` por push/PR e agenda.
 - Dependabot semanal para Cargo e GitHub Actions.
-- Fuzz smoke determinístico do Lexer/Parser para entradas malformadas.
+- Fuzz smoke determinístico de Lexer/Parser, parser JSON e manifestos de pacotes com entradas malformadas.
 - Testes de travessia de diretórios e symlinks na resolução de módulos, cache e lockfile.
 - Guards de empréstimo RAII no runtime: múltiplos leitores ou um escritor exclusivo por identificador, com liberação automática no descarte.
 - Restrições SemVer locais (`*`, `^`, `~`, comparadores e conjunções) associadas às dependências do manifesto.
@@ -46,7 +46,7 @@ Pendente:
 Implementado:
 - Especificação, critérios da Fase 5, documentos de estabilidade, ferramentas, segurança, lançamento e biblioteca padrão.
 - Política de relato responsável e índice da documentação.
-- Workflow de release restrito ao Linux x86-64 com validação, checksums, atestação de proveniência Sigstore/GitHub e bloqueio de publicação se faltar licença.
+- Workflow de release restrito ao Linux x86-64 com validação, checksums, atestação de proveniência Sigstore/GitHub e bloqueio explícito enquanto `LICENSE-STATUS.md` não registrar aprovação para distribuição.
 - CI ampliada para executar fmt, Clippy, testes e documentação em runners Ubuntu, Windows e macOS; o backend nativo declarado continua sendo apenas Linux x86-64.
 - Arquivo `LICENSE` e documento de situação da licença.
 
@@ -59,4 +59,4 @@ Pendente:
 
 ## Validação
 
-A CI verde mais recente que cobre o código da biblioteca e os módulos de segurança foi executada no commit `5267dfaa093cb4c12f9e9b54d45f37e1bdc63119`. Os comandos e recursos de cache, restrições SemVer e guards de empréstimo foram adicionados depois das execuções anteriores e precisam de aprovação na execução de CI do HEAD atual. Uma CI aprovada valida somente os jobs e testes executados; não conclui os itens completos nem a Fase 5.
+A CI deve ser consultada no HEAD da branch `main` antes de qualquer marco de conclusão. As execuções aprovadas comprovam somente os jobs e testes executados; não concluem os itens completos nem a Fase 5.
