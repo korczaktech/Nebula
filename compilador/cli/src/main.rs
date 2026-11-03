@@ -226,7 +226,10 @@ fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
         return Err("o nome deve conter somente letras ASCII, números, '-' ou '_'".to_owned());
     }
     if diretorio.exists() {
-        return Err(format!("o diretório '{}' já existe; nenhum arquivo foi alterado", diretorio.display()));
+        return Err(format!(
+            "o diretório '{}' já existe; nenhum arquivo foi alterado",
+            diretorio.display()
+        ));
     }
     let pai = diretorio
         .parent()
@@ -237,12 +240,13 @@ fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
     std::fs::create_dir(diretorio)
         .map_err(|erro| format!("não foi possível criar '{}': {erro}", diretorio.display()))?;
 
-    let manifesto = format!(
-        "[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n"
-    );
+    let manifesto = format!("[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n");
     let fonte = "funcao principal(): vazio {\n}\n";
     let resultado = (|| {
-        escrever_novo(diretorio.join("nebula.toml").as_path(), manifesto.as_bytes())?;
+        escrever_novo(
+            diretorio.join("nebula.toml").as_path(),
+            manifesto.as_bytes(),
+        )?;
         escrever_novo(diretorio.join("principal.nbx").as_path(), fonte.as_bytes())?;
         Ok(())
     })();
@@ -295,7 +299,9 @@ fn limpar_artefato(fonte: &Path) -> Result<bool, String> {
     let metadados_fonte = std::fs::symlink_metadata(fonte)
         .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", fonte.display()))?;
     if !metadados_fonte.is_file() || metadados_fonte.file_type().is_symlink() {
-        return Err("a origem precisa ser um arquivo regular .nbx, não um link simbólico".to_owned());
+        return Err(
+            "a origem precisa ser um arquivo regular .nbx, não um link simbólico".to_owned(),
+        );
     }
     if fonte.extension().and_then(|extensao| extensao.to_str()) != Some("nbx") {
         return Err("a origem precisa usar a extensão .nbx".to_owned());
@@ -304,7 +310,12 @@ fn limpar_artefato(fonte: &Path) -> Result<bool, String> {
     let metadados = match std::fs::symlink_metadata(&artefato) {
         Ok(metadados) => metadados,
         Err(erro) if erro.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(erro) => return Err(format!("não foi possível inspecionar '{}': {erro}", artefato.display())),
+        Err(erro) => {
+            return Err(format!(
+                "não foi possível inspecionar '{}': {erro}",
+                artefato.display()
+            ));
+        }
     };
     if !metadados.is_file() || metadados.file_type().is_symlink() {
         return Err("o artefato não é um arquivo regular; nada foi removido".to_owned());

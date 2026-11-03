@@ -46,7 +46,11 @@ fn criar_projeto_gera_manifesto_e_fonte_vazios() {
     assert!(manifesto.contains("[pacote]"));
     assert!(manifesto.contains("versao = \"0.1.0\""));
     let fonte = diretorio.join("principal.nbx");
-    assert!(std::fs::read_to_string(&fonte).unwrap().contains("funcao principal"));
+    assert!(
+        std::fs::read_to_string(&fonte)
+            .unwrap()
+            .contains("funcao principal")
+    );
     let verificar = executar(&["analisar", fonte.to_str().unwrap()]);
     assert!(
         verificar.status.success(),
