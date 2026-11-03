@@ -7,6 +7,7 @@ name = "nebula-cli"
 version = "0.1.0"
 dependencies = [
  "nebula-cache",
+ "nebula-diagnosticos",
  "nebula-fonte",
  "nebula-sintaxe",
  "nebula-semantica",
