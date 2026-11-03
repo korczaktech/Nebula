@@ -1444,6 +1444,8 @@ mod testes {
         let _ = std::fs::remove_file(caminho);
     }
 
+}
+
 #[cfg(test)]
 mod fixtures_conformidade_tipos {
     use super::*;
@@ -1548,6 +1550,4 @@ mod fixtures_conformidade_tipos {
             "conversao-invalida.nbx",
         ).is_err());
     }
-}
-
 }
