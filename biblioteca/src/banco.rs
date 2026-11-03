@@ -6,8 +6,8 @@ use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 static PROXIMO_TEMPORARIO: AtomicU64 = AtomicU64::new(1);
 
@@ -119,7 +119,10 @@ impl BancoJson {
 
     /// Inicia uma transação com cópia consistente do estado atual.
     pub fn iniciar_transacao(&self) -> Result<Transacao<'_>, ErroBanco> {
-        let estado = self.estado.read().map_err(|_| ErroBanco::EstadoIndisponivel)?;
+        let estado = self
+            .estado
+            .read()
+            .map_err(|_| ErroBanco::EstadoIndisponivel)?;
         Ok(Transacao {
             banco: self,
             versao_base: estado.versao,
@@ -129,7 +132,10 @@ impl BancoJson {
 
     /// Retorna o número de documentos armazenados.
     pub fn quantidade(&self) -> Result<usize, ErroBanco> {
-        let estado = self.estado.read().map_err(|_| ErroBanco::EstadoIndisponivel)?;
+        let estado = self
+            .estado
+            .read()
+            .map_err(|_| ErroBanco::EstadoIndisponivel)?;
         Ok(estado.documentos.len())
     }
 

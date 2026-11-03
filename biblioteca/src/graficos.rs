@@ -184,12 +184,20 @@ impl ImagemRgba {
 
     /// Exporta os pixels em ordem RGBA, linha a linha.
     #[must_use]
-    pub fn bytes_rgba(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(self.pixels.len().saturating_mul(4));
+    pub fn bytes_rgba(&self) -> Result<Vec<u8>, String> {
+        let capacidade = self
+            .pixels
+            .len()
+            .checked_mul(4)
+            .ok_or("Tamanho de buffer RGBA excede o limite.")?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(capacidade)
+            .map_err(|_| "Memória insuficiente para exportar a imagem.")?;
         for pixel in &self.pixels {
             bytes.extend_from_slice(&[pixel.vermelho, pixel.verde, pixel.azul, pixel.alfa]);
         }
-        bytes
+        Ok(bytes)
     }
 }
 

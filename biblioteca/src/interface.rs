@@ -99,8 +99,14 @@ impl TelaTexto {
         if retangulo.x >= largura || retangulo.y >= altura {
             return;
         }
-        let ultimo_x = retangulo.x.saturating_add(retangulo.largura - 1).min(largura - 1);
-        let ultimo_y = retangulo.y.saturating_add(retangulo.altura - 1).min(altura - 1);
+        let ultimo_x = retangulo
+            .x
+            .saturating_add(retangulo.largura - 1)
+            .min(largura - 1);
+        let ultimo_y = retangulo
+            .y
+            .saturating_add(retangulo.altura - 1)
+            .min(altura - 1);
         for x in retangulo.x..=ultimo_x {
             self.definir(x, retangulo.y, borda);
             if retangulo.altura > 1 {
