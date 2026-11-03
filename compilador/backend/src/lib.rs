@@ -868,8 +868,49 @@ impl Emissor {
                     }
                 }
             }
-            ExpressaoIr::AtribuicaoCampo { .. } => {
-                return Err("Atribuição de campos exige layout e ABI de estruturas no backend nativo.".into());
+            ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo } => {
+                if caminho.len() != 1 {
+                    return Err("Atribuição nativa suporta somente campos diretos de estrutura.".into());
+                }
+                if tipo_decimal(tipo) {
+                    return Err("Atribuição de campos decimais em agregados ainda não possui classificação de registradores.".into());
+                }
+                let tipo_raiz = self.buscar_tipo_local(raiz)
+                    .or_else(|| self.tipos_globais.get(raiz))
+                    .ok_or_else(|| format!("Tipo da variável '{raiz}' não foi encontrado para atribuição de campo."))?;
+                let Tipo::Estrutura(nome) = tipo_raiz else {
+                    return Err("Atribuição de campo exige uma variável de estrutura.".into());
+                };
+                self.validar_tipo_abi(tipo_raiz)?;
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
+                let (deslocamento, tamanho) = layout.campos.get(&caminho[0])
+                    .ok_or_else(|| format!("Campo '{}' não encontrado em '{nome}'.", caminho[0]))?;
+                let largura = self.largura_abi_tipo(tipo)?;
+                if (*tamanho == 16 && largura != 2) || (*tamanho <= 8 && largura != 1) {
+                    return Err("Tipo do valor não corresponde à largura do campo no ABI.".into());
+                }
+                self.expressao(valor)?;
+                if let Some(base) = self.buscar_local(raiz) {
+                    match (*deslocamento, *tamanho) {
+                        (0, 16) => {
+                            self.armazenar_rax(base);
+                            self.armazenar_rdx(base - 8);
+                        }
+                        (0, _) => self.armazenar_rax(base),
+                        (8, _) => self.armazenar_rax(base - 8),
+                        _ => return Err("Campo não está em um registrador ABI.".into()),
+                    }
+                } else if self.globais.contains_key(raiz) {
+                    match (*deslocamento, *tamanho) {
+                        (0, 16) => self.armazenar_global(raiz),
+                        (0, _) => self.armazenar_global_parte(raiz, 0),
+                        (8, _) => self.armazenar_global_parte(raiz, 8),
+                        _ => return Err("Campo não está em um registrador ABI.".into()),
+                    }
+                } else {
+                    return Err(format!("Variável '{raiz}' não encontrada no backend."));
+                }
             }
             ExpressaoIr::Atribuicao { nome, valor, .. } => {
                 self.expressao(valor)?;
@@ -1248,6 +1289,13 @@ impl Emissor {
         let posicao_alto = self.codigo.len();
         self.codigo.extend_from_slice(&[0; 4]);
         self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
+    }
+
+    fn armazenar_global_parte(&mut self, nome: &str, parte: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned(), parte));
     }
 
     fn armazenar_global(&mut self, nome: &str) {
