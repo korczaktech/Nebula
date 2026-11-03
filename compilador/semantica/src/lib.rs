@@ -458,7 +458,15 @@ impl<'a> Analisador<'a> {
                     }
                     simbolo.tipo
                 } else if let Some(f) = self.funcoes.get(nome) {
-                    Tipo::Funcao(f.parametros.clone(), Box::new(f.retorno.clone()))
+                    if !f.genericos.is_empty() {
+                        self.erro(
+                            "N3057",
+                            format!("A função genérica '{nome}' precisa de uma instância concreta antes de ser usada como valor."),
+                        );
+                        Tipo::Desconhecido
+                    } else {
+                        Tipo::Funcao(f.parametros.clone(), Box::new(f.retorno.clone()))
+                    }
                 } else {
                     self.erro("N3007", format!("Nome '{nome}' não foi declarado."));
                     Tipo::Desconhecido
@@ -914,6 +922,15 @@ impl<'a> Analisador<'a> {
                         let indice = self.expressao(&argumentos[1]);
                         self.exigir_tipo(&indice, &Tipo::Inteiro, "índice de 'remover'");
                         return *elemento;
+                    }
+                    if let Some(simbolo) = self.buscar(nome).cloned() {
+                        if let Tipo::Funcao(parametros, retorno) = simbolo.tipo {
+                            self.validar_argumentos(argumentos, &parametros, nome);
+                            return *retorno;
+                        }
+                        self.erro("N3058", format!("O valor '{nome}' não é chamável."));
+                        for argumento in argumentos { self.expressao(argumento); }
+                        return Tipo::Desconhecido;
                     }
                     if let Some(funcao) = self.funcoes.get(nome).cloned() {
                         if funcao.genericos.is_empty() {
@@ -1790,6 +1807,27 @@ mod testes {
             "estrutura Registro { callback: funcao(vazio): logico }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn valida_valores_de_funcao_e_chamada_indireta() {
+        let r = analisar_codigo(
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nvariavel callback: funcao(inteiro): inteiro = somar\nvariavel resultado = callback(41)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("callback"), Some(&Tipo::Funcao(
+            vec![Tipo::Inteiro],
+            Box::new(Tipo::Inteiro),
+        )));
+        assert_eq!(r.tipos_globais.get("resultado"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
+    fn rejeita_referencia_generica_sem_instanciacao() {
+        let r = analisar_codigo(
+            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel callback = identidade",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3057"), "{:?}", r.diagnosticos);
     }
 
     #[test]
