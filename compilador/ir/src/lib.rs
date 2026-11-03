@@ -1240,7 +1240,6 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Texto(v) => ValorRuntime::Texto(v),
         ValorIr::Caractere(v) => ValorRuntime::Caractere(v),
         ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
-        ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
@@ -1264,7 +1263,6 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
-        ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
         ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
         ValorRuntime::Estrutura { nome, campos } => {
             let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
@@ -1947,7 +1945,6 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Inteiro(v) => v.to_string(), ValorIr::InteiroSemSinal(v) => v.to_string(), ValorIr::Decimal(v) => v.to_string(),
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
-        ValorIr::Funcao(nome) => format!("<função {nome}>"),
         ValorIr::Funcao(nome) => format!("<função {nome}>"),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
         ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
