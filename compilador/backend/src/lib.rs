@@ -330,6 +330,35 @@ impl Emissor {
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
                 self.mov_rax(i64::MIN);
             }
+            ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
+                if inteiro_128_expressao(valor) => {
+                if inteiro_128_sem_sinal_expressao(valor) {
+                    return Err("Negação de inteiro_u128 não é suportada como operação assinada.".into());
+                }
+                self.expressao(valor)?;
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = low original
+                self.mov_rax(i64::MIN);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC2]); // cmp rdx, rax
+                let nao_minimo_alto = self.emitir_jcc(0x85);
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test low original
+                let nao_minimo_baixo = self.emitir_jcc(0x85);
+                self.encerrar_com_erro(2);
+                let continuar = self.codigo.len();
+                self.aplicar_salto(nao_minimo_alto, continuar);
+                self.aplicar_salto(nao_minimo_baixo, continuar);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = low original
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let baixo_zero = self.emitir_jcc(0x84);
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+                let fim_negacao = self.emitir_jmp();
+                let destino_baixo_zero = self.codigo.len();
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xDA]); // neg rdx
+                self.codigo.extend_from_slice(&[0x48, 0x31, 0xC0]); // xor rax, rax
+                let fim = self.codigo.len();
+                self.aplicar_salto(baixo_zero, destino_baixo_zero);
+                self.aplicar_salto(fim_negacao, fim);
+            }
             ExpressaoIr::Unaria { operador, valor } => {
                 self.expressao(valor)?;
                 match operador {
