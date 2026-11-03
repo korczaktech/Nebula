@@ -1389,4 +1389,78 @@ mod testes {
         );
         let _ = std::fs::remove_file(caminho);
     }
+
+#[cfg(test)]
+mod fixtures_conformidade_tipos {
+    use super::*;
+
+    fn diagnosticos(codigo: &str, nome: &str) -> Vec<nebula_diagnosticos::Diagnostico> {
+        let fonte = ArquivoFonte::novo(nome, codigo);
+        let sintaxe = analisar(&fonte);
+        assert!(
+            sintaxe.diagnosticos.is_empty(),
+            "Fixture {nome} possui erro sintático: {:?}",
+            sintaxe.diagnosticos
+        );
+        analisar_com_modulos(&sintaxe.programa, &ModulosDisponiveis::new()).diagnosticos
+    }
+
+    #[test]
+    fn fixtures_validas_de_tipos_compostos_e_algbricos() {
+        let erros = diagnosticos(
+            include_str!("../fixtures/tipos/compostos.nbx"),
+            "compostos.nbx",
+        );
+        assert!(erros.is_empty(), "Fixture de tipos compostos: {erros:?}");
+    }
+
+    #[test]
+    fn fixture_valida_de_inferencia_generica_com_tipo_funcao() {
+        let erros = diagnosticos(
+            include_str!("../fixtures/tipos/genericos-funcao.nbx"),
+            "genericos-funcao.nbx",
+        );
+        assert!(erros.is_empty(), "Fixture de função genérica: {erros:?}");
+    }
+
+    #[test]
+    fn fixture_valida_de_movimentacao_parcial() {
+        let erros = diagnosticos(
+            include_str!("../fixtures/tipos/movimento-valido.nbx"),
+            "movimento-valido.nbx",
+        );
+        assert!(erros.is_empty(), "Fixture de movimento: {erros:?}");
+    }
+
+    #[test]
+    fn fixture_valida_de_conversoes_numericas() {
+        let erros = diagnosticos(
+            include_str!("../fixtures/tipos/conversoes-validas.nbx"),
+            "conversoes-validas.nbx",
+        );
+        assert!(erros.is_empty(), "Fixture de conversões: {erros:?}");
+    }
+
+    #[test]
+    fn fixtures_invalidas_rejeitam_inferencia_conflitante_movimento_e_limites() {
+        let genericos = diagnosticos(
+            include_str!("../fixtures/tipos/genericos-invalidos.nbx"),
+            "genericos-invalidos.nbx",
+        );
+        assert!(!genericos.is_empty(), "Inferência genérica conflitante foi aceita.");
+
+        let movimento = diagnosticos(
+            include_str!("../fixtures/tipos/movimento-invalido.nbx"),
+            "movimento-invalido.nbx",
+        );
+        assert!(!movimento.is_empty(), "Uso integral após movimento parcial foi aceito.");
+
+        let conversao = diagnosticos(
+            include_str!("../fixtures/tipos/conversao-invalida.nbx"),
+            "conversao-invalida.nbx",
+        );
+        assert!(!conversao.is_empty(), "Conversão fora do limite foi aceita.");
+    }
+}
+
 }
