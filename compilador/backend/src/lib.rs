@@ -217,7 +217,9 @@ impl Emissor {
             }
             let deslocamento = self.declarar(nome)?;
             self.mover_registrador_rax(registradores[indice_registrador]);
-            self.normalizar_tipo(tipo)?;
+            if !matches!(tipo, Tipo::Estrutura(_)) {
+                self.normalizar_tipo(tipo)?;
+            }
             self.armazenar_rax(deslocamento);
             if largura == 2 {
                 self.mover_registrador_rax(registradores[indice_registrador + 1]);
@@ -1274,6 +1276,14 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
             matches!(tipo, Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte),
         ExpressaoIr::Unaria { valor, .. } => eh_inteiro_sem_sinal(valor),
         _ => false,
+    }
+}
+
+fn tipo_expressao_ir(expressao: &ExpressaoIr) -> Option<&Tipo> {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => Some(tipo),
+        ExpressaoIr::Unaria { valor, .. } => tipo_expressao_ir(valor),
+        _ => None,
     }
 }
 
