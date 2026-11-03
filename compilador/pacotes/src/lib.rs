@@ -716,7 +716,7 @@ mod testes {
     #[test]
     fn rejeita_escapes_toml_invalidos() {
         let base = "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = ";
-        for valor in ["\"\q\"", "\"\uD800\"", "\"texto\" sobra"] {
+        for valor in [r#""\q""#, r#""\uD800""#, r#""texto" sobra"#] {
             assert!(Manifesto::analisar(&format!("{base}{valor}")).is_err(), "{valor}");
         }
     }
