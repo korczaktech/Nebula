@@ -1928,7 +1928,7 @@ mod testes {
     #[test]
     fn executa_conversoes_numericas_explicitas() {
         let ir = compilar(
-            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
+            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nvariavel truncado = inteiro8(1.9)\nexibir(truncado)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
         );
         let resultado = executar(&ir, 200).expect("conversões explícitas válidas");
         assert_eq!(resultado.saida, vec!["1", "127", "255", "42", "16777216"]);
