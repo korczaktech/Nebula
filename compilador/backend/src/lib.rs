@@ -379,7 +379,11 @@ impl Emissor {
                             });
                             self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
                         }
-                        _ => return Err("Operação de 128 bits ainda não suportada no backend nativo; use soma, subtração ou igualdade.".into()),
+                        OperadorIr::Menor | OperadorIr::MenorIgual
+                        | OperadorIr::Maior | OperadorIr::MaiorIgual => {
+                            self.comparar_inteiro_128(operador, sem_sinal);
+                        }
+                        _ => return Err("Operação de 128 bits ainda não suportada no backend nativo.".into()),
                     }
                     return Ok(());
                 }
@@ -621,7 +625,6 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
                 Ok(())
             }
-            Tipo::Inteiro128 | Tipo::InteiroU128 => Ok(()),
             Tipo::Decimal32 => {
                 self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
                 self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
@@ -862,6 +865,32 @@ impl Emissor {
 
     fn normalizar_logico(&mut self) {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+    }
+
+    fn comparar_inteiro_128(&mut self, operador: &OperadorIr, sem_sinal: bool) {
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2]); // cmp rdx, rsi
+        let (maior, menor, comparacao_baixa) = match operador {
+            OperadorIr::Menor => (if sem_sinal { 0x82 } else { 0x8C }, if sem_sinal { 0x87 } else { 0x8F }, 0x92),
+            OperadorIr::MenorIgual => (if sem_sinal { 0x82 } else { 0x8C }, if sem_sinal { 0x87 } else { 0x8F }, 0x96),
+            OperadorIr::Maior => (if sem_sinal { 0x87 } else { 0x8F }, if sem_sinal { 0x82 } else { 0x8C }, 0x97),
+            OperadorIr::MaiorIgual => (if sem_sinal { 0x87 } else { 0x8F }, if sem_sinal { 0x82 } else { 0x8C }, 0x93),
+            _ => unreachable!(),
+        };
+        let ramo_verdadeiro = self.emitir_jcc(maior);
+        let ramo_falso = self.emitir_jcc(menor);
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+        self.codigo.extend_from_slice(&[0x0F, comparacao_baixa, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+        let fim_comparacao = self.emitir_jmp();
+        let destino_verdadeiro = self.codigo.len();
+        self.mov_rax(1);
+        let fim_verdadeiro = self.emitir_jmp();
+        let destino_falso = self.codigo.len();
+        self.mov_rax(0);
+        let fim = self.codigo.len();
+        self.aplicar_salto(ramo_verdadeiro, destino_verdadeiro);
+        self.aplicar_salto(ramo_falso, destino_falso);
+        self.aplicar_salto(fim_comparacao, fim);
+        self.aplicar_salto(fim_verdadeiro, fim);
     }
 
     fn preparar_argumentos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
