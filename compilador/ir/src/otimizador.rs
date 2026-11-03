@@ -494,9 +494,7 @@ fn dobrar_binaria(a: &ValorIr, op: OperadorIr, b: &ValorIr) -> Option<ValorIr> {
 }
 
 fn inteiro(valor: i128) -> Option<ValorIr> {
-    (i64::MIN as i128..=i64::MAX as i128)
-        .contains(&valor)
-        .then_some(ValorIr::Inteiro(valor))
+    Some(ValorIr::Inteiro(valor))
 }
 
 fn decimal(valor: f64) -> Option<ValorIr> {
@@ -646,6 +644,22 @@ mod testes {
         assert!(matches!(ir.instrucoes[0], InstrucaoIr::Expressao(
             ExpressaoIr::Binaria { .. }
         )));
+    }
+
+    #[test]
+    fn dobra_operacoes_de_inteiros_de_128_bits_sem_truncar() {
+        let mut ir = programa(ExpressaoIr::Binaria {
+            esquerda: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(i64::MAX as i128 + 10))),
+            operador: OperadorIr::Mais,
+            direita: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(5))),
+        });
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O1).expect("O1");
+        assert_eq!(relatorio.constantes_dobradas, 1);
+        assert!(matches!(
+            &ir.instrucoes[0],
+            InstrucaoIr::Expressao(ExpressaoIr::Constante(ValorIr::Inteiro(valor)))
+                if *valor == i64::MAX as i128 + 15
+        ));
     }
 
     #[test]
