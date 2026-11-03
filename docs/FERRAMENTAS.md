@@ -17,6 +17,6 @@ nebula-formatar programa.nbx --check
 
 O modo `--check` retorna código 1 se houver alterações pendentes e não grava o arquivo. A gravação normal usa arquivo temporário no mesmo diretório e substituição atômica. O formatador não substitui a revisão da gramática nem é apresentado como formatador estilístico completo.
 
-## Cache
+## Cache incremental
 
-O cache incremental do compilador ainda não está disponível. Até sua implementação, os builds são completos; não há cache oculto nem promessa de invalidação incremental.
+A compilação nativa mantém entradas em `.nebula/cache`. A chave SHA-256 inclui os bytes da fonte principal, fontes de módulos carregados recursivamente, versão do compilador, alvo e nível de otimização. Cada entrada armazena checksum do artefato; conteúdo corrompido é descartado e recompilado. `nebula limpar-cache <projeto>` remove os arquivos armazenados sem apagar as fontes. Falha ou indisponibilidade do cache não bloqueia uma compilação normal.

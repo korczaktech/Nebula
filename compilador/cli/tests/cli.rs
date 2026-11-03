@@ -360,6 +360,46 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     let _ = std::fs::remove_dir_all(diretorio);
 }
 
+
+#[test]
+fn dependencias_verificar_aceita_lockfile_atual_e_rejeita_modificado() {
+    let raiz = std::env::temp_dir().join(format!(
+        "nebula-cli-lock-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(raiz.join("texto")).unwrap();
+    std::fs::write(
+        raiz.join("nebula.toml"),
+        "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\ntexto = \"texto\"",
+    )
+    .unwrap();
+    std::fs::write(
+        raiz.join("texto/nebula.toml"),
+        "[pacote]\nnome = \"texto\"\nversao = \"1.2.3\"",
+    )
+    .unwrap();
+    let resolver = executar(&["dependencias", "resolver", raiz.to_str().unwrap()]);
+    assert!(
+        resolver.status.success(),
+        "{}",
+        String::from_utf8_lossy(&resolver.stderr)
+    );
+    let verificar = executar(&["dependencias", "verificar", raiz.to_str().unwrap()]);
+    assert!(
+        verificar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verificar.stderr)
+    );
+    std::fs::write(raiz.join("nebula.lock"), "nebula-lock-v1\nmodificado").unwrap();
+    let alterado = executar(&["dependencias", "verificar", raiz.to_str().unwrap()]);
+    assert_eq!(alterado.status.code(), Some(1));
+    let _ = std::fs::remove_dir_all(raiz);
+}
+
 #[test]
 fn comando_ir_exibe_representacao_intermediaria() {
     let caminho = std::env::temp_dir().join(format!("nebula-ir-{}.nbx", std::process::id()));

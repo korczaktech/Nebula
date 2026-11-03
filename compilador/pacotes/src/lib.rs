@@ -1,8 +1,12 @@
 //! Manifestos e resolução reproduzível de dependências locais da Nebula.
 use nebula_seguranca::sha256_hex;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static PROXIMO_LOCKFILE: AtomicU64 = AtomicU64::new(1);
 
 /// Manifesto de um pacote Nebula.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -122,6 +126,69 @@ impl Manifesto {
             dependencias,
         })
     }
+}
+
+/// Confere se o lockfile existente corresponde exatamente ao grafo resolvido.
+pub fn validar_lockfile(conteudo: &str, resolucao: &Resolucao) -> Result<(), String> {
+    if conteudo == resolucao.lockfile {
+        Ok(())
+    } else {
+        Err("nebula.lock está desatualizado ou foi alterado; execute 'nebula dependencias resolver'".to_owned())
+    }
+}
+
+/// Resolve o projeto e confere o lockfile sem modificá-lo.
+pub fn verificar_lockfile(diretorio: &Path) -> Result<Resolucao, String> {
+    let resolucao = resolver(diretorio)?;
+    let caminho = diretorio.join("nebula.lock");
+    let conteudo = fs::read_to_string(&caminho)
+        .map_err(|erro| format!("não foi possível ler '{}': {erro}", caminho.display()))?;
+    validar_lockfile(&conteudo, &resolucao)?;
+    Ok(resolucao)
+}
+
+/// Publica o lockfile por arquivo temporário e substituição atômica.
+pub fn gravar_lockfile(diretorio: &Path, resolucao: &Resolucao) -> Result<PathBuf, String> {
+    let diretorio = fs::canonicalize(diretorio)
+        .map_err(|erro| format!("diretório do projeto indisponível: {erro}"))?;
+    let caminho = diretorio.join("nebula.lock");
+    if let Ok(meta) = fs::symlink_metadata(&caminho) {
+        if meta.file_type().is_symlink() || !meta.is_file() {
+            return Err("nebula.lock existente não é um arquivo regular".to_owned());
+        }
+    }
+    let id = PROXIMO_LOCKFILE.fetch_add(1, Ordering::Relaxed);
+    let temporario = diretorio.join(format!(
+        ".nebula.lock.{}.{}.tmp",
+        std::process::id(),
+        id
+    ));
+    let resultado = (|| {
+        let mut arquivo = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporario)
+            .map_err(|erro| format!("não foi possível criar lockfile temporário: {erro}"))?;
+        arquivo
+            .write_all(resolucao.lockfile.as_bytes())
+            .map_err(|erro| format!("não foi possível gravar lockfile: {erro}"))?;
+        arquivo
+            .sync_all()
+            .map_err(|erro| format!("não foi possível sincronizar lockfile: {erro}"))?;
+        drop(arquivo);
+        if fs::symlink_metadata(&caminho)
+            .is_ok_and(|meta| meta.file_type().is_symlink() || !meta.is_file())
+        {
+            return Err("nebula.lock foi substituído por um objeto não regular".to_owned());
+        }
+        fs::rename(&temporario, &caminho)
+            .map_err(|erro| format!("não foi possível publicar nebula.lock: {erro}"))?;
+        Ok(caminho.clone())
+    })();
+    if resultado.is_err() {
+        let _ = fs::remove_file(&temporario);
+    }
+    resultado
 }
 
 /// Lê e resolve o grafo de dependências locais a partir de um diretório.
@@ -310,6 +377,53 @@ mod testes {
                 entrada.push(char::from(byte));
             }
             let _ = Manifesto::analisar(&entrada);
+        }
+    }
+
+    fn projeto_com_dependencia_local(rotulo: &str) -> PathBuf {
+        let raiz = std::env::temp_dir().join(format!(
+            "nebula-lock-{rotulo}-{}-{}",
+            std::process::id(),
+            PROXIMO_LOCKFILE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(raiz.join("texto")).unwrap();
+        fs::write(
+            raiz.join("nebula.toml"),
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\ntexto = \"texto\"",
+        )
+        .unwrap();
+        fs::write(
+            raiz.join("texto/nebula.toml"),
+            "[pacote]\nnome = \"texto\"\nversao = \"1.2.3\"",
+        )
+        .unwrap();
+        raiz
+    }
+
+    #[test]
+    fn lockfile_verifica_grafo_e_detecta_alteracao() {
+        let raiz = projeto_com_dependencia_local("verificacao");
+        let resolucao = resolver(&raiz).unwrap();
+        gravar_lockfile(&raiz, &resolucao).unwrap();
+        assert!(verificar_lockfile(&raiz).is_ok());
+        fs::write(raiz.join("nebula.lock"), "nebula-lock-v1\ncorrompido").unwrap();
+        assert!(verificar_lockfile(&raiz).is_err());
+        let _ = fs::remove_dir_all(raiz);
+    }
+
+    #[test]
+    fn lockfile_recusa_link_simbolico_no_destino() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let raiz = projeto_com_dependencia_local("symlink");
+            let resolucao = resolver(&raiz).unwrap();
+            let externo = raiz.join("externo");
+            fs::write(&externo, "nao tocar").unwrap();
+            symlink(&externo, raiz.join("nebula.lock")).unwrap();
+            assert!(gravar_lockfile(&raiz, &resolucao).is_err());
+            assert_eq!(fs::read_to_string(externo).unwrap(), "nao tocar");
+            let _ = fs::remove_dir_all(raiz);
         }
     }
 

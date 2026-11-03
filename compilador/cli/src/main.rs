@@ -146,28 +146,42 @@ fn main() {
         }
         Some("dependencias") => {
             let Some(acao) = argumentos.next() else {
-                eprintln!("Uso: nebula dependencias resolver [diretorio]");
+                eprintln!("Uso: nebula dependencias <resolver|verificar> [diretorio]");
                 std::process::exit(2);
             };
-            if acao != "resolver" || argumentos.len() > 1 {
-                eprintln!("Uso: nebula dependencias resolver [diretorio]");
+            if !matches!(acao.as_str(), "resolver" | "verificar") || argumentos.len() > 1 {
+                eprintln!("Uso: nebula dependencias <resolver|verificar> [diretorio]");
                 std::process::exit(2);
             }
             let diretorio = argumentos.next().map(PathBuf::from)
                 .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-            match nebula_pacotes::resolver(&diretorio) {
-                Ok(resolucao) => {
-                    let destino = diretorio.join("nebula.lock");
-                    if let Err(erro) = std::fs::write(&destino, resolucao.lockfile) {
-                        eprintln!("Não foi possível gravar lockfile: {erro}");
+            if acao == "resolver" {
+                match nebula_pacotes::resolver(&diretorio) {
+                    Ok(resolucao) => match nebula_pacotes::gravar_lockfile(&diretorio, &resolucao) {
+                        Ok(destino) => {
+                            println!("Dependências resolvidas: {}", resolucao.pacotes.len());
+                            println!("Lockfile: {}", destino.display());
+                        }
+                        Err(erro) => {
+                            eprintln!("Não foi possível gravar lockfile: {erro}");
+                            std::process::exit(1);
+                        }
+                    },
+                    Err(erro) => {
+                        eprintln!("Erro ao resolver dependências: {erro}");
                         std::process::exit(1);
                     }
-                    println!("Dependências resolvidas: {}", resolucao.pacotes.len());
-                    println!("Lockfile: {}", destino.display());
                 }
-                Err(erro) => {
-                    eprintln!("Erro ao resolver dependências: {erro}");
-                    std::process::exit(1);
+            } else {
+                match nebula_pacotes::verificar_lockfile(&diretorio) {
+                    Ok(resolucao) => println!(
+                        "Lockfile válido: {} dependência(s) verificada(s).",
+                        resolucao.pacotes.len()
+                    ),
+                    Err(erro) => {
+                        eprintln!("Falha na verificação do lockfile: {erro}");
+                        std::process::exit(1);
+                    }
                 }
             }
         }
@@ -1006,7 +1020,8 @@ fn ajuda() {
         "  compilar <arquivo>    Gera executável ELF nativo Linux x86-64 (-O0/-O1/-O2/-O3/-Os)"
     );
     println!("  interpretar <arquivo> Executa a IR pelo runtime Rust de referência");
-    println!("  dependencias resolver [diretorio] Resolve dependências locais e grava nebula.lock");
+    println!("  dependencias resolver [diretorio] Resolve dependências e grava nebula.lock");
+    println!("  dependencias verificar [diretorio] Confere o lockfile sem alterá-lo");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
     println!("  testar <arquivo>      Compila e executa como teste de fumaça");
     println!();
