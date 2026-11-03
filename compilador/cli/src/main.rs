@@ -271,7 +271,7 @@ fn main() {
                 None => false,
                 Some("--json") => true,
                 Some(opcao) => {
-                    eprintln!("Opção desconhecida: {opcao}");
+                    eprintln!("Erro: analisar aceita somente um arquivo e a opção --json; opção desconhecida: {opcao}");
                     std::process::exit(2);
                 }
             };
@@ -290,7 +290,7 @@ fn main() {
                 None => false,
                 Some("--json") => true,
                 Some(opcao) => {
-                    eprintln!("Opção desconhecida: {opcao}");
+                    eprintln!("Erro: verificar aceita somente um arquivo e a opção --json; opção desconhecida: {opcao}");
                     std::process::exit(2);
                 }
             };
