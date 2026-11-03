@@ -1107,6 +1107,39 @@ mod testes {
         }
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn compila_caractere_unicode_fora_do_ascii() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-caractere-unicode-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao principal(): inteiro {
+    variavel letra: caractere = '🛰'
+    quando letra == '🛰' {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de caractere Unicode");
+        let status = Command::new(&saida).status().expect("executável gerado");
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn rejeita_travessia_no_caminho_de_modulo() {
         let origem = std::env::temp_dir().join("principal.nbx");
