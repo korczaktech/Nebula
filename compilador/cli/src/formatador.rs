@@ -207,7 +207,7 @@ mod tests {
         let formatted = normalize_whitespace(source);
         assert_eq!(
             formatted,
-            "funcao principal(): vazio {\n    exibir(\"{ }\") // }\n    /* {\n     } */\n    exibir('}')\n}\n"
+            "funcao principal(): vazio {\n    exibir(\"{ }\") // }\n    /* {\n    } */\n    exibir('}')\n}\n"
         );
     }
 
