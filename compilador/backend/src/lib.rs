@@ -342,6 +342,7 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
+                let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
                 self.expressao(esquerda)?;
                 if *operador == OperadorIr::E || *operador == OperadorIr::Ou {
                     self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
@@ -359,29 +360,46 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
                 self.pop_rax(); // rax=lhs
                 match operador {
-                    OperadorIr::Mais => { self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); self.verificar_overflow(); }
-                    OperadorIr::Menos => { self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); self.verificar_overflow(); }
-                    OperadorIr::Vezes => { self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]); self.verificar_overflow(); }
+                    OperadorIr::Mais => {
+                        self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]);
+                        if operacao_sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                    }
+                    OperadorIr::Menos => {
+                        self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]);
+                        if operacao_sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                    }
+                    OperadorIr::Vezes => {
+                        if operacao_sem_sinal {
+                            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xE1]); // mul rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                            let valido = self.emitir_jcc(0x84);
+                            self.encerrar_com_erro(2);
+                            self.aplicar_salto(valido, self.codigo.len());
+                        } else {
+                            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]);
+                            self.verificar_overflow();
+                        }
+                    }
                     OperadorIr::Divide | OperadorIr::Resto => {
-                        // A divisão por zero termina com código estável, em vez de SIGFPE.
                         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
                         let divisor_valido = self.emitir_jcc(0x85);
                         self.encerrar_com_erro(2);
                         self.aplicar_salto(divisor_valido, self.codigo.len());
-
-                        // INT64_MIN / -1 não é representável em signed division.
-                        // Rejeita a operação com o mesmo código estável da divisão por zero.
-                        self.codigo.extend_from_slice(&[0x48, 0x83, 0xF9, 0xFF]);
-                        let divisor_normal = self.emitir_jcc(0x85);
-                        self.codigo.extend_from_slice(&[0x48, 0xBA]);
-                        self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
-                        self.codigo.extend_from_slice(&[0x48, 0x39, 0xD0]);
-                        let dividendo_normal = self.emitir_jcc(0x85);
-                        self.encerrar_com_erro(2);
-                        let inicio_divisao = self.codigo.len();
-                        self.aplicar_salto(divisor_normal, inicio_divisao);
-                        self.aplicar_salto(dividendo_normal, inicio_divisao);
-                        self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
+                        if operacao_sem_sinal {
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2, 0x48, 0xF7, 0xF1]); // xor rdx,rdx; div rcx
+                        } else {
+                            self.codigo.extend_from_slice(&[0x48, 0x83, 0xF9, 0xFF]);
+                            let divisor_normal = self.emitir_jcc(0x85);
+                            self.codigo.extend_from_slice(&[0x48, 0xBA]);
+                            self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
+                            self.codigo.extend_from_slice(&[0x48, 0x39, 0xD0]);
+                            let dividendo_normal = self.emitir_jcc(0x85);
+                            self.encerrar_com_erro(2);
+                            let inicio_divisao = self.codigo.len();
+                            self.aplicar_salto(divisor_normal, inicio_divisao);
+                            self.aplicar_salto(dividendo_normal, inicio_divisao);
+                            self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
+                        }
                         if *operador == OperadorIr::Resto { self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); }
                     }
                     OperadorIr::Potencia => {
@@ -419,6 +437,10 @@ impl Emissor {
                         self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
                         let set = match operador {
                             OperadorIr::Igual => 0x94, OperadorIr::Diferente => 0x95,
+                            OperadorIr::Menor if operacao_sem_sinal => 0x92,
+                            OperadorIr::MenorIgual if operacao_sem_sinal => 0x96,
+                            OperadorIr::Maior if operacao_sem_sinal => 0x97,
+                            OperadorIr::MaiorIgual if operacao_sem_sinal => 0x93,
                             OperadorIr::Menor => 0x9C, OperadorIr::MenorIgual => 0x9E,
                             OperadorIr::Maior => 0x9F, OperadorIr::MaiorIgual => 0x9D,
                             _ => unreachable!(),
@@ -586,6 +608,12 @@ impl Emissor {
         self.referencias_globais.push((posicao, nome.to_owned()));
     }
 
+    fn verificar_carry(&mut self) {
+        let sem_carry = self.emitir_jcc(0x83); // JNC
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(sem_carry, self.codigo.len());
+    }
+
     fn verificar_overflow(&mut self) {
         // A semântica inteira é checked: overflow encerra o processo com código 2.
         let sem_overflow = self.emitir_jcc(0x81); // JNO
@@ -748,6 +776,15 @@ fn calcular_relativo32(origem_apos_campo: i128, destino: i128) -> Result<i32, St
         .ok_or("Deslocamento relativo excedeu o limite aritmético do alvo.")?;
     i32::try_from(relativo)
         .map_err(|_| "Deslocamento fora do alcance relativo de 32 bits do x86-64.".into())
+}
+
+fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } =>
+            matches!(tipo, Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte),
+        ExpressaoIr::Unaria { valor, .. } => eh_inteiro_sem_sinal(valor),
+        _ => false,
+    }
 }
 
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
@@ -1024,6 +1061,32 @@ mod testes {
         assert!(validar_tipo(&Tipo::Byte).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro128).is_err());
         assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+    }
+
+    #[test]
+    fn emite_operacoes_aritmeticas_sem_sinal() {
+        for (operador, bytes) in [
+            (OperadorIr::Divide, &[0x48, 0x31, 0xD2, 0x48, 0xF7, 0xF1][..]),
+            (OperadorIr::Menor, &[0x0F, 0x92, 0xC0][..]),
+            (OperadorIr::MenorIgual, &[0x0F, 0x96, 0xC0][..]),
+            (OperadorIr::Maior, &[0x0F, 0x97, 0xC0][..]),
+            (OperadorIr::MaiorIgual, &[0x0F, 0x93, 0xC0][..]),
+        ] {
+            let expressao = ExpressaoIr::Binaria {
+                esquerda: Box::new(ExpressaoIr::Normalizar {
+                    tipo: Tipo::InteiroU64,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::InteiroSemSinal(9))),
+                }),
+                operador,
+                direita: Box::new(ExpressaoIr::Normalizar {
+                    tipo: Tipo::InteiroU64,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::InteiroSemSinal(3))),
+                }),
+            };
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.expressao(&expressao).unwrap();
+            assert!(emissor.codigo.windows(bytes.len()).any(|janela| janela == bytes), "{operador:?}");
+        }
     }
 
     #[test]
