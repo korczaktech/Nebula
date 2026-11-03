@@ -519,8 +519,16 @@ impl Lowerer {
                 _ => Tipo::Desconhecido,
             },
             Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
-                Expressao::Nome(nome) => tipo_conversao_explicita(nome)
-                    .unwrap_or_else(|| self.inferir_tipo_chamada(nome, argumentos)),
+                Expressao::Nome(nome) => {
+                    if let Some(Tipo::Funcao(_, retorno)) = self.escopos_tipos.iter().rev()
+                        .find_map(|escopo| escopo.get(nome))
+                    {
+                        (**retorno).clone()
+                    } else {
+                        tipo_conversao_explicita(nome)
+                            .unwrap_or_else(|| self.inferir_tipo_chamada(nome, argumentos))
+                    }
+                },
                 Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                     let Expressao::Nome(tipo_base) = alvo.as_ref() else { return Tipo::Desconhecido; };
                     if self.variantes_enumeracoes.contains_key(tipo_base) {
