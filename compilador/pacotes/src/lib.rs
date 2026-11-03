@@ -228,7 +228,11 @@ pub fn resolver(diretorio: &Path) -> Result<Resolucao, String> {
     let mut visitando = BTreeSet::new();
     resolver_dependencias(&raiz, &raiz_dir, &mut encontrados, &mut visitando)?;
     let pacotes = encontrados.into_values().collect::<Vec<_>>();
-    let mut lockfile = format!("nebula-lock-v1\nraiz\t{}\t{}\n", raiz.nome, raiz.versao);
+    let impressao_raiz = sha256_hex(conteudo_raiz.as_bytes());
+    let mut lockfile = format!(
+        "nebula-lock-v2\nraiz\t{}\t{}\t{}\n",
+        raiz.nome, raiz.versao, impressao_raiz
+    );
     for pacote in &pacotes {
         lockfile.push_str(&format!(
             "pacote\t{}\t{}\t{}\n",
@@ -615,7 +619,7 @@ mod testes {
         let segunda = resolver(&raiz).unwrap();
         assert_eq!(primeira, segunda);
         assert_eq!(primeira.pacotes.len(), 2);
-        assert!(primeira.lockfile.contains("nebula-lock-v1"));
+        assert!(primeira.lockfile.contains("nebula-lock-v2"));
         let _ = fs::remove_dir_all(&raiz);
     }
 }
