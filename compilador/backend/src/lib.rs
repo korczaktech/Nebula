@@ -295,10 +295,10 @@ impl Emissor {
                 let valor = u64::try_from(*valor).map_err(|_| "Literal inteiro sem sinal fora do intervalo de 64 bits.")?;
                 self.mov_rax(valor as i64);
             }
+            ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) if valor.is_ascii() => self.mov_rax(*valor as i64),
-            ExpressaoIr::Constante(ValorIr::Decimal(_)
-                | ValorIr::Texto(_)
+            ExpressaoIr::Constante(ValorIr::Texto(_)
                 | ValorIr::Lista(_)
                 | ValorIr::Estrutura { .. }
                 | ValorIr::Intervalo(_, _)
@@ -343,6 +343,7 @@ impl Emissor {
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
                 let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
+                let tipo_decimal = tipo_decimal_expressao(esquerda);
                 self.expressao(esquerda)?;
                 if *operador == OperadorIr::E || *operador == OperadorIr::Ou {
                     self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
@@ -359,6 +360,17 @@ impl Emissor {
                 self.expressao(direita)?;
                 self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
                 self.pop_rax(); // rax=lhs
+                if let Some(tipo) = tipo_decimal {
+                    match operador {
+                        OperadorIr::Mais | OperadorIr::Menos | OperadorIr::Vezes | OperadorIr::Divide =>
+                            self.operar_decimal(tipo, operador)?,
+                        OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor
+                        | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual =>
+                            self.comparar_decimal(tipo, operador),
+                        _ => return Err("Operação não suportada para tipos decimais no backend nativo.".into()),
+                    }
+                    return Ok(());
+                }
                 match operador {
                     OperadorIr::Mais => {
                         self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]);
@@ -570,11 +582,75 @@ impl Emissor {
             Tipo::Inteiro128 | Tipo::InteiroU128 => Err(
                 "Inteiros de 128 bits exigem ABI de dois registradores, ainda não implementada no backend x86-64.".into()
             ),
-            Tipo::Decimal32 | Tipo::Decimal | Tipo::Decimal64 => Err(
-                "A normalização decimal exige operações IEEE-754 SSE, ainda não implementadas no backend nativo.".into()
-            ),
+            Tipo::Decimal32 => {
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+                self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
+                self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0, xmm0
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+                Ok(())
+            }
+            Tipo::Decimal | Tipo::Decimal64 => Ok(()),
             _ => Err(format!("Normalização de '{}' não é suportada pelo backend nativo.", tipo.nome())),
         }
+    }
+
+    fn carregar_decimais_sse(&mut self, tipo: &Tipo) {
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC9]); // movq xmm1, rcx
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC9]); // cvtsd2ss xmm1, xmm1
+        }
+    }
+
+    fn operar_decimal(&mut self, tipo: &Tipo, operador: &OperadorIr) -> Result<(), String> {
+        self.carregar_decimais_sse(tipo);
+        let (prefixo, opcode) = match (tipo, operador) {
+            (Tipo::Decimal32, OperadorIr::Mais) => (0xF3, 0x58),
+            (Tipo::Decimal32, OperadorIr::Menos) => (0xF3, 0x5C),
+            (Tipo::Decimal32, OperadorIr::Vezes) => (0xF3, 0x59),
+            (Tipo::Decimal32, OperadorIr::Divide) => (0xF3, 0x5E),
+            (_, OperadorIr::Mais) => (0xF2, 0x58),
+            (_, OperadorIr::Menos) => (0xF2, 0x5C),
+            (_, OperadorIr::Vezes) => (0xF2, 0x59),
+            (_, OperadorIr::Divide) => (0xF2, 0x5E),
+            _ => return Err("Operador decimal não suportado.".into()),
+        };
+        self.codigo.extend_from_slice(&[prefixo, 0x0F, opcode, 0xC1]);
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0, xmm0
+        }
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        Ok(())
+    }
+
+    fn comparar_decimal(&mut self, tipo: &Tipo, operador: &OperadorIr) {
+        self.carregar_decimais_sse(tipo);
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]);
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC9]);
+            self.codigo.extend_from_slice(&[0x0F, 0x2E, 0xC1]); // ucomiss xmm0, xmm1
+        } else {
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
+        }
+        match operador {
+            OperadorIr::Igual => {
+                self.codigo.extend_from_slice(&[0x0F, 0x94, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::Diferente => {
+                self.codigo.extend_from_slice(&[0x0F, 0x95, 0xC0, 0x0F, 0x9A, 0xC1, 0x08, 0xC8]);
+            }
+            OperadorIr::Menor => {
+                self.codigo.extend_from_slice(&[0x0F, 0x92, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::MenorIgual => {
+                self.codigo.extend_from_slice(&[0x0F, 0x96, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::Maior => self.codigo.extend_from_slice(&[0x0F, 0x97, 0xC0]),
+            OperadorIr::MaiorIgual => self.codigo.extend_from_slice(&[0x0F, 0x93, 0xC0]),
+            _ => unreachable!(),
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]); // movzx rax, al
     }
 
     fn declarar(&mut self, nome: &str) -> Result<i32, String> {
@@ -788,11 +864,22 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
     }
 }
 
+fn tipo_decimal_expressao(expressao: &ExpressaoIr) -> Option<&Tipo> {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. }
+            if matches!(tipo, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => Some(tipo),
+        ExpressaoIr::Unaria { valor, .. } => tipo_decimal_expressao(valor),
+        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(&Tipo::Decimal64),
+        _ => None,
+    }
+}
+
 fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
     match tipo {
         Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64
         | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
-        | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte => Ok(()),
+        | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte
+        | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 => Ok(()),
         Tipo::Funcao(parametros, retorno) => {
             for parametro in parametros {
                 if *parametro == Tipo::Vazio {
@@ -1062,6 +1149,51 @@ mod testes {
         assert!(validar_tipo(&Tipo::Byte).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro128).is_err());
         assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+    }
+
+    #[test]
+    fn normaliza_decimal32_para_ieee754_binary32() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.normalizar_tipo(&Tipo::Decimal32).unwrap();
+        assert!(emissor.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5A, 0xC0]));
+        assert!(emissor.codigo.windows(4).any(|janela| janela == [0xF3, 0x0F, 0x5A, 0xC0]));
+    }
+
+    #[test]
+    fn emite_aritmetica_decimal_sse2() {
+        let expressao = ExpressaoIr::Binaria {
+            esquerda: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(1.5))),
+            }),
+            operador: OperadorIr::Mais,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(2.5))),
+            }),
+        };
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&expressao).unwrap();
+        assert!(emissor.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x58, 0xC1]));
+    }
+
+    #[test]
+    fn comparacao_decimal_respeita_nan() {
+        let expressao = ExpressaoIr::Binaria {
+            esquerda: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(f64::NAN))),
+            }),
+            operador: OperadorIr::Igual,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(1.0))),
+            }),
+        };
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&expressao).unwrap();
+        assert!(emissor.codigo.windows(4).any(|janela| janela == [0x66, 0x0F, 0x2E, 0xC1]));
+        assert!(emissor.codigo.windows(3).any(|janela| janela == [0x0F, 0x9B, 0xC1]));
     }
 
     #[test]
