@@ -28,7 +28,7 @@ jobs:
       - name: Bloquear distribuição sem licença aprovada
         run: |
           test -s LICENSE
-          grep -q '^\\*\\*Status: APROVADA PARA DISTRIBUIÇÃO\\.\\*\\*
+          grep -q 'Status: APROVADA PARA DISTRIBUIÇÃO' LICENSE-STATUS.md
 
       - name: Validar workspace
         run: |
