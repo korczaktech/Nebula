@@ -4,8 +4,17 @@
 //! exportado quando oferece operações reais; módulos planejados sem API
 //! funcional não são publicados como se estivessem prontos.
 
+/// Banco de documentos JSON persistido em arquivo.
+pub mod banco;
+
 /// Serialização e análise de dados JSON.
 pub mod dados;
+
+/// Primitivas de rasterização RGBA bidimensional.
+pub mod graficos;
+
+/// Componentes de interface textual para terminal.
+pub mod interface;
 
 /// Tipos e operações essenciais compartilhados pelos módulos.
 pub mod nucleo {
