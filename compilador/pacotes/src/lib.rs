@@ -403,6 +403,28 @@ fn versao_satisfaz_conjuncao(versao: &str, restricao: &str) -> bool {
     if restricao.trim() == versao {
         return true;
     }
+    if let Some((inicio, fim)) = restricao.split_once(" - ") {
+        let inicio = inicio.trim();
+        let fim = fim.trim();
+        if versao.contains('-') {
+            let Some(core_candidato) = versao_core(versao) else {
+                return false;
+            };
+            let prerelease_explicito = [inicio, fim].iter().any(|base| {
+                base.contains('-')
+                    && versao_core(base).is_some_and(|core| {
+                        comparar_core(&core, &core_candidato) == std::cmp::Ordering::Equal
+                    })
+            });
+            if !prerelease_explicito {
+                return false;
+            }
+        }
+        return comparar_semver(versao, inicio)
+            .is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
+            && comparar_semver(versao, fim)
+                .is_some_and(|ordem| ordem != std::cmp::Ordering::Greater);
+    }
 
     let candidata = versao;
     let clausulas = restricao.split(',').map(str::trim).collect::<Vec<_>>();
