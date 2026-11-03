@@ -1394,72 +1394,72 @@ mod testes {
 mod fixtures_conformidade_tipos {
     use super::*;
 
-    fn diagnosticos(codigo: &str, nome: &str) -> Vec<nebula_diagnosticos::Diagnostico> {
+    fn validar_fixture(codigo: &str, nome: &str) -> Result<(), String> {
         let fonte = ArquivoFonte::novo(nome, codigo);
         let sintaxe = analisar(&fonte);
-        assert!(
-            sintaxe.diagnosticos.is_empty(),
-            "Fixture {nome} possui erro sintático: {:?}",
-            sintaxe.diagnosticos
-        );
-        analisar_com_modulos(&sintaxe.programa, &ModulosDisponiveis::new()).diagnosticos
+        if !sintaxe.diagnosticos.is_empty() {
+            return Err(format!("erros sintáticos: {:?}", sintaxe.diagnosticos));
+        }
+        let semantica = analisar_com_modulos(&sintaxe.programa, &ModulosDisponiveis::new());
+        if semantica.diagnosticos.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("erros semânticos: {:?}", semantica.diagnosticos))
+        }
     }
 
     #[test]
-    fn fixtures_validas_de_tipos_compostos_e_algbricos() {
-        let erros = diagnosticos(
+    fn valida_fixture_de_tipos_compostos_e_algebricos() {
+        let resultado = validar_fixture(
             include_str!("../fixtures/tipos/compostos.nbx"),
             "compostos.nbx",
         );
-        assert!(erros.is_empty(), "Fixture de tipos compostos: {erros:?}");
+        assert!(resultado.is_ok(), "{resultado:?}");
     }
 
     #[test]
-    fn fixture_valida_de_inferencia_generica_com_tipo_funcao() {
-        let erros = diagnosticos(
+    fn valida_fixture_de_inferencia_generica_com_tipo_funcao() {
+        let resultado = validar_fixture(
             include_str!("../fixtures/tipos/genericos-funcao.nbx"),
             "genericos-funcao.nbx",
         );
-        assert!(erros.is_empty(), "Fixture de função genérica: {erros:?}");
+        assert!(resultado.is_ok(), "{resultado:?}");
     }
 
     #[test]
-    fn fixture_valida_de_movimentacao_parcial() {
-        let erros = diagnosticos(
+    fn valida_fixture_de_movimentacao_parcial() {
+        let resultado = validar_fixture(
             include_str!("../fixtures/tipos/movimento-valido.nbx"),
             "movimento-valido.nbx",
         );
-        assert!(erros.is_empty(), "Fixture de movimento: {erros:?}");
+        assert!(resultado.is_ok(), "{resultado:?}");
     }
 
     #[test]
-    fn fixture_valida_de_conversoes_numericas() {
-        let erros = diagnosticos(
+    fn valida_fixture_de_conversoes_numericas() {
+        let resultado = validar_fixture(
             include_str!("../fixtures/tipos/conversoes-validas.nbx"),
             "conversoes-validas.nbx",
         );
-        assert!(erros.is_empty(), "Fixture de conversões: {erros:?}");
+        assert!(resultado.is_ok(), "{resultado:?}");
     }
 
     #[test]
-    fn fixtures_invalidas_rejeitam_inferencia_conflitante_movimento_e_limites() {
-        let genericos = diagnosticos(
+    fn rejeita_fixtures_invalidas_de_inferencia_movimento_e_conversao() {
+        assert!(validar_fixture(
             include_str!("../fixtures/tipos/genericos-invalidos.nbx"),
             "genericos-invalidos.nbx",
-        );
-        assert!(!genericos.is_empty(), "Inferência genérica conflitante foi aceita.");
+        ).is_err());
 
-        let movimento = diagnosticos(
+        assert!(validar_fixture(
             include_str!("../fixtures/tipos/movimento-invalido.nbx"),
             "movimento-invalido.nbx",
-        );
-        assert!(!movimento.is_empty(), "Uso integral após movimento parcial foi aceito.");
+        ).is_err());
 
-        let conversao = diagnosticos(
+        assert!(validar_fixture(
             include_str!("../fixtures/tipos/conversao-invalida.nbx"),
             "conversao-invalida.nbx",
-        );
-        assert!(!conversao.is_empty(), "Conversão fora do limite foi aceita.");
+        ).is_err());
     }
 }
 
