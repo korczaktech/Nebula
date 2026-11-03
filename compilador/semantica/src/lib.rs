@@ -974,7 +974,12 @@ impl<'a> Analisador<'a> {
                     self.erro("N3011", "Função qualificada não foi encontrada em um módulo importado.");
                     return Tipo::Desconhecido;
                 }
-                self.erro("N3012", "O alvo da chamada não é uma função conhecida.");
+                let tipo_alvo = self.expressao(alvo);
+                if let Tipo::Funcao(parametros, retorno) = tipo_alvo {
+                    self.validar_argumentos(argumentos, &parametros, "função indireta");
+                    return *retorno;
+                }
+                self.erro("N3012", "O alvo da chamada não é uma função conhecida nem um valor de função.");
                 for argumento in argumentos { self.expressao(argumento); }
                 Tipo::Desconhecido
             }
