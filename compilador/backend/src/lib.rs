@@ -20,7 +20,6 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     let mut globais = HashMap::new();
     for instrucao in &programa.instrucoes {
         if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
-            validar_tipo(tipo)?;
             let deslocamento = globais.len().checked_mul(16)
                 .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
             if globais.insert(nome.clone(), deslocamento).is_some() {
@@ -29,9 +28,20 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
         }
     }
     let mut emissor = Emissor::novo(globais);
+    emissor.carregar_layouts(programa);
+    for instrucao in &programa.instrucoes {
+        if let InstrucaoIr::Declarar { tipo, .. } = instrucao {
+            emissor.validar_tipo_abi(tipo)?;
+        }
+    }
     emissor.iniciar_programa(programa)?;
     let (codigo, tamanho_dados) = emissor.finalizar()?;
     gerar_elf(&codigo, tamanho_dados)
+}
+
+struct LayoutAgregado {
+    tamanho: u64,
+    campos: HashMap<String, (u64, u64)>,
 }
 
 struct Emissor {
@@ -44,6 +54,7 @@ struct Emissor {
     pilha: usize,
     lacos: Vec<Laco>,
     globais: HashMap<String, usize>,
+    layouts_tipos: HashMap<String, LayoutAgregado>,
     referencias_globais: Vec<(usize, String, i32)>,
     funcao_atual: String,
     erro_salto: Option<String>,
@@ -66,9 +77,71 @@ impl Emissor {
             pilha: 0,
             lacos: Vec::new(),
             globais,
+            layouts_tipos: HashMap::new(),
             referencias_globais: Vec::new(),
             funcao_atual: String::new(),
             erro_salto: None,
+        }
+    }
+
+    fn carregar_layouts(&mut self, programa: &ProgramaIr) {
+        self.layouts_tipos = programa.layouts_tipos.iter().map(|(nome, layout)| {
+            let campos = layout.campos.iter().map(|campo| {
+                (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
+            }).collect();
+            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, campos })
+        }).collect();
+    }
+
+    fn validar_tipo_abi(&self, tipo: &Tipo) -> Result<(), String> {
+        match tipo {
+            Tipo::Funcao(parametros, retorno) => {
+                for parametro in parametros {
+                    if *parametro == Tipo::Vazio {
+                        return Err("Parâmetro de função não pode ter tipo vazio no ABI x86-64.".into());
+                    }
+                    self.validar_tipo_abi(parametro)?;
+                }
+                self.validar_tipo_abi(retorno)
+            }
+            Tipo::Estrutura(nome) => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' não foi fornecido à ABI nativa."))?;
+                if layout.tamanho == 0 || layout.tamanho > 16 {
+                    return Err(format!("A estrutura '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                }
+                for (campo, (deslocamento, tamanho)) in &layout.campos {
+                    if !matches!(*deslocamento, 0 | 8) || *tamanho == 0 || *tamanho > 8 {
+                        return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores da ABI inicial."));
+                    }
+                }
+                Ok(())
+            }
+            _ if validar_tipo(tipo).is_ok() => Ok(()),
+            _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
+        }
+    }
+
+    fn largura_abi_tipo(&self, tipo: &Tipo) -> Result<usize, String> {
+        self.validar_tipo_abi(tipo)?;
+        if tipo_inteiro_128(tipo) {
+            return Ok(2);
+        }
+        if let Tipo::Estrutura(nome) = tipo {
+            let layout = self.layouts_tipos.get(nome)
+                .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
+            return Ok(if layout.tamanho > 8 { 2 } else { 1 });
+        }
+        Ok(1)
+    }
+
+    fn largura_abi_expressao(&self, expressao: &ExpressaoIr) -> Result<usize, String> {
+        if let ExpressaoIr::Normalizar { tipo, .. } = expressao {
+            self.largura_abi_tipo(tipo)
+        } else if inteiro_128_expressao(expressao) {
+            Ok(2)
+        } else {
+            Ok(1)
         }
     }
 
@@ -118,7 +191,7 @@ impl Emissor {
         if self.funcoes.contains_key(&funcao.nome) {
             return Err(format!("Função duplicada no backend: '{}'.", funcao.nome));
         }
-        validar_tipo(&funcao.retorno)?;
+        self.validar_tipo_abi(&funcao.retorno)?;
         self.funcoes.insert(funcao.nome.clone(), self.codigo.len());
         self.funcao_atual = funcao.nome.clone();
         self.escopos.clear();
@@ -137,8 +210,8 @@ impl Emissor {
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
         let mut indice_registrador = 0usize;
         for (nome, tipo) in &funcao.parametros {
-            validar_tipo(tipo)?;
-            let largura = if tipo_inteiro_128(tipo) { 2 } else { 1 };
+            self.validar_tipo_abi(tipo)?;
+            let largura = self.largura_abi_tipo(tipo)?;
             if indice_registrador + largura > registradores.len() {
                 return Err(format!("A função '{}' excede os seis registradores inteiros do ABI x86-64.", funcao.nome));
             }
@@ -177,7 +250,7 @@ impl Emissor {
     fn instrucao(&mut self, instrucao: &InstrucaoIr) -> Result<(), String> {
         match instrucao {
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
-                validar_tipo(tipo)?;
+                self.validar_tipo_abi(tipo)?;
                 self.expressao(valor)?;
                 if self.funcao_atual == NOME_INICIO_INTERNO
                     && self.escopos.len() == 1
@@ -960,23 +1033,24 @@ impl Emissor {
 
     fn preparar_argumentos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
         let registradores = [7u8, 6, 2, 1, 8, 9];
-        let quantidade = argumentos.iter().map(|argumento| {
-            if inteiro_128_expressao(argumento) { 2usize } else { 1usize }
-        }).sum::<usize>();
+        let larguras = argumentos.iter()
+            .map(|argumento| self.largura_abi_expressao(argumento))
+            .collect::<Result<Vec<_>, _>>()?;
+        let quantidade = larguras.iter().sum::<usize>();
         if quantidade > registradores.len() {
             return Err("Os argumentos excedem os seis registradores inteiros do ABI x86-64.".into());
         }
-        for argumento in argumentos {
+        for (argumento, largura) in argumentos.iter().zip(&larguras) {
             self.expressao(argumento)?;
             self.push_rax();
-            if inteiro_128_expressao(argumento) {
+            if *largura == 2 {
                 self.codigo.extend_from_slice(&[0x52]); // push rdx
                 self.pilha += 1;
             }
         }
         let mut indice = quantidade;
-        for argumento in argumentos.iter().rev() {
-            if inteiro_128_expressao(argumento) {
+        for largura in larguras.iter().rev() {
+            if *largura == 2 {
                 indice -= 2;
                 self.pop_rax();
                 self.mover_rax_registrador(registradores[indice + 1]);
