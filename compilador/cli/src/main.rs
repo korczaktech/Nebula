@@ -833,7 +833,7 @@ fn compilar_arquivo_com_nivel(
     validar_caminhos_compilacao(caminho, saida)?;
     let bytes = std::fs::read(caminho)
         .map_err(|e| format!("não foi possível ler '{}': {e}", caminho.display()))?;
-    let conteudo = String::from_utf8(bytes)
+    let conteudo = String::from_utf8(bytes.clone())
         .map_err(|e| format!("arquivo não contém UTF-8 válido no byte {}", e.utf8_error().valid_up_to()))?;
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
