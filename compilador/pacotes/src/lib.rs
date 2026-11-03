@@ -257,7 +257,6 @@ fn identificadores_semver_validos(valor: &str, prerelease: bool) -> bool {
         })
 }
 
-
 #[cfg(test)]
 mod testes {
     use super::*;
