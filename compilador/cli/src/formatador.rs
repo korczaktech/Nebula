@@ -147,7 +147,9 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let metadata = std::fs::symlink_metadata(path)
         .map_err(|e| format!("não foi possível inspecionar '{}': {e}", path.display()))?;
     if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err("o formatador só substitui arquivos regulares, nunca links simbólicos".to_string());
+        return Err(
+            "o formatador só substitui arquivos regulares, nunca links simbólicos".to_string(),
+        );
     }
     let parent = path
         .parent()
@@ -159,7 +161,9 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
     let (temporario, mut arquivo) = loop {
         let id = PROXIMO_TEMPORARIO
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| atual.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| {
+                atual.checked_add(1)
+            })
             .map_err(|_| "contador de arquivos temporários esgotado".to_string())?;
         let candidato = parent.join(format!(
             ".{}.{}.{}.nebula-format-tmp",
@@ -167,7 +171,11 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
             std::process::id(),
             id
         ));
-        match OpenOptions::new().write(true).create_new(true).open(&candidato) {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidato)
+        {
             Ok(arquivo) => break (candidato, arquivo),
             Err(erro) if erro.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(erro) => {
@@ -257,17 +265,20 @@ mod tests {
 
     #[test]
     fn grava_substituicao_atomica_e_preserva_conteudo_formatado() {
-        let path = std::env::temp_dir().join(format!(
-            "nebula-format-write-{}.nbx",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("nebula-format-write-{}.nbx", std::process::id()));
         std::fs::write(&path, "variavel x = 1   ").unwrap();
         assert!(format_file(&path, false).unwrap());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "variavel x = 1\n");
-        assert!(!std::fs::read_dir(path.parent().unwrap())
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|entrada| entrada.file_name().to_string_lossy().contains("nebula-format-tmp")));
+        assert!(
+            !std::fs::read_dir(path.parent().unwrap())
+                .unwrap()
+                .filter_map(Result::ok)
+                .any(|entrada| entrada
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("nebula-format-tmp"))
+        );
         let _ = std::fs::remove_file(path);
     }
 
