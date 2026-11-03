@@ -28,3 +28,7 @@ A compilação nativa mantém entradas em `.nebula/cache`. A chave SHA-256 inclu
 - Cada diagnóstico contém código estável, severidade, mensagem, intervalo em bytes e linha/coluna quando a fonte está disponível.
 - `nebula alvos` lista somente os alvos com backend implementado.
 - `nebula compilar arquivo.nbx --alvo linux-x86_64` seleciona explicitamente o backend ELF64 Linux. Alvos ainda não implementados são rejeitados antes da geração do artefato.
+
+## Integridade de pacotes
+
+O resolvedor atual aceita dependências locais por caminho relativo. O `nebula.lock` registra versão, caminho resolvido e SHA-256 do conteúdo de cada pacote; o fingerprint inclui caminhos relativos e hashes dos arquivos, ignorando somente diretórios de VCS/build/cache (`.git`, `target` e `.nebula`). Links simbólicos e arquivos especiais dentro da árvore do pacote são rejeitados. O resolvedor ainda não consulta registry remoto nem baixa pacotes pela rede.
