@@ -158,7 +158,13 @@ impl Emissor {
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
             Tipo::Tupla(tipos) => {
                 let (tamanho, _) = self.layout_tupla(tipos)?;
-                Some((tamanho, 8))
+                let alinhamento = tipos.iter()
+                    .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
+                    .collect::<Option<Vec<_>>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(1);
+                Some((tamanho, alinhamento))
             }
             _ => None,
         }
