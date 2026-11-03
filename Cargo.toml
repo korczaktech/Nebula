@@ -12,6 +12,7 @@ members = [
     "biblioteca",
     "compilador/pacotes",
     "compilador/seguranca",
+    "compilador/cache",
 ]
 
 [workspace.package]

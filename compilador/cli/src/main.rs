@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+use nebula_cache::CacheCompilacao;
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::otimizador::NivelOtimizacao;
 use nebula_ir::{ExpressaoIr, InstrucaoIr, ProgramaIr, baixar};
@@ -67,6 +68,31 @@ fn main() {
                 Ok(false) => println!("Nenhum artefato padrão encontrado para: {caminho}"),
                 Err(erro) => {
                     eprintln!("Não foi possível limpar o artefato: {erro}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some("limpar-cache") => {
+            let Some(projeto) = argumentos.next() else {
+                eprintln!("Uso: nebula limpar-cache <diretorio-do-projeto>");
+                std::process::exit(2);
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: limpar-cache aceita somente um diretório.");
+                std::process::exit(2);
+            }
+            let cache = CacheCompilacao::abrir(Path::new(&projeto)).unwrap_or_else(|erro| {
+                eprintln!("Não foi possível abrir o cache: {erro}");
+                std::process::exit(1);
+            });
+            match cache.limpar() {
+                Ok(resultado) => println!(
+                    "Cache removido: {} arquivo(s), {} byte(s) liberado(s).",
+                    resultado.removidos,
+                    resultado.bytes_liberados
+                ),
+                Err(erro) => {
+                    eprintln!("Não foi possível limpar o cache: {erro}");
                     std::process::exit(1);
                 }
             }
@@ -359,7 +385,7 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
             .collect::<Vec<_>>()
             .join("\n"));
     }
-    let (modulos, programas_modulos) = carregar_modulos(caminho, &sintaxe.programa)?;
+    let (modulos, programas_modulos, _) = carregar_modulos(caminho, &sintaxe.programa)?;
     let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
         return Err(resultado.diagnosticos.join("\n"));
@@ -466,9 +492,17 @@ fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
 fn carregar_modulos(
     origem: &Path,
     programa: &Programa,
-) -> Result<(ModulosDisponiveis, Vec<(String, ProgramaIr)>), String> {
+) -> Result<
+    (
+        ModulosDisponiveis,
+        Vec<(String, ProgramaIr)>,
+        Vec<(PathBuf, Vec<u8>)>,
+    ),
+    String,
+> {
     let mut assinaturas = ModulosDisponiveis::new();
     let mut programas = Vec::new();
+    let mut fontes_lidas = Vec::new();
     let mut cache = std::collections::HashMap::new();
     let mut ativos = HashSet::new();
     for item in &programa.itens {
@@ -482,10 +516,11 @@ fn carregar_modulos(
             &mut cache,
             &mut ativos,
             &mut programas,
+            &mut fontes_lidas,
         )?;
         assinaturas.insert(caminho.clone(), exportadas);
     }
-    Ok((assinaturas, programas))
+    Ok((assinaturas, programas, fontes_lidas))
 }
 
 #[rustfmt::skip]
@@ -496,6 +531,7 @@ fn carregar_modulo_recursivo(
     cache: &mut HashMap<String, std::collections::HashMap<String, AssinaturaFuncao>>,
     ativos: &mut HashSet<PathBuf>,
     programas: &mut Vec<(String, ProgramaIr)>,
+    fontes_lidas: &mut Vec<(PathBuf, Vec<u8>)>,
 ) -> Result<std::collections::HashMap<String, AssinaturaFuncao>, String> {
     if let Some(assinaturas) = cache.get(identificador) {
         return Ok(assinaturas.clone());
@@ -516,6 +552,7 @@ fn carregar_modulo_recursivo(
                 arquivo.display()
             )
         })?;
+        fontes_lidas.push((arquivo_canonico.clone(), bytes.clone()));
         let codigo = String::from_utf8(bytes)
             .map_err(|erro| format!("Módulo '{}' não é UTF-8 válido: {erro}", arquivo.display()))?;
         let fonte = ArquivoFonte::novo(&arquivo, codigo);
@@ -558,6 +595,7 @@ fn carregar_modulo_recursivo(
                 cache,
                 ativos,
                 programas,
+                fontes_lidas,
             )?;
             modulos_disponiveis.insert(caminho_filho.clone(), exportadas);
             caminhos_canonicos.insert(caminho_filho.clone(), id_filho);
@@ -804,7 +842,38 @@ fn compilar_arquivo_com_nivel(
             .map(|d| format!("{} — {}", d.codigo, d.mensagem))
             .collect::<Vec<_>>().join("\n"));
     }
-    let (modulos, programas_modulos) = carregar_modulos(caminho, &sintaxe.programa)?;
+    let (modulos, programas_modulos, mut fontes_modulos) =
+        carregar_modulos(caminho, &sintaxe.programa)?;
+    let nivel_chave = format!("{nivel:?}");
+    fontes_modulos.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut componentes_cache = vec![
+        b"nebula-build-v1".to_vec(),
+        env!("CARGO_PKG_VERSION").as_bytes().to_vec(),
+        b"linux-x86_64-elf64".to_vec(),
+        nivel_chave.into_bytes(),
+        bytes.clone(),
+    ];
+    for (arquivo_modulo, codigo_modulo) in fontes_modulos {
+        componentes_cache.push(arquivo_modulo.to_string_lossy().as_bytes().to_vec());
+        componentes_cache.push(codigo_modulo);
+    }
+    let componentes_cache = componentes_cache
+        .iter()
+        .map(Vec::as_slice)
+        .collect::<Vec<_>>();
+    let chave_cache = CacheCompilacao::calcular_chave(&componentes_cache);
+    let diretorio_projeto = caminho
+        .parent()
+        .filter(|diretorio| !diretorio.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let cache = CacheCompilacao::abrir(diretorio_projeto).ok();
+    if let Some(cache) = &cache {
+        if let Ok(Some(binario)) = cache.obter(&chave_cache) {
+            if executavel_elf64_valido(&binario) {
+                return gravar_executavel_atomico(saida, &binario);
+            }
+        }
+    }
     let ir = baixar(&sintaxe.programa, &modulos);
     if !ir.diagnosticos.is_empty() {
         return Err(ir.diagnosticos.join("\n"));
@@ -813,7 +882,18 @@ fn compilar_arquivo_com_nivel(
     ligar_modulos(&mut programa, programas_modulos);
     nebula_ir::otimizador::otimizar(&mut programa, nivel)?;
     let binario = nebula_backend::gerar_executavel(&programa)?;
+    if let Some(cache) = &cache {
+        let _ = cache.armazenar(&chave_cache, &binario);
+    }
     gravar_executavel_atomico(saida, &binario)
+}
+
+fn executavel_elf64_valido(binario: &[u8]) -> bool {
+    binario.len() >= 64
+        && binario.get(0..4) == Some(&[0x7f, b'E', b'L', b'F'])
+        && binario.get(4) == Some(&2)
+        && binario.get(5) == Some(&1)
+        && binario.get(18..20) == Some(&[0x3e, 0x00])
 }
 
 fn nivel_otimizacao(valor: &str) -> Result<NivelOtimizacao, String> {
@@ -916,6 +996,7 @@ fn ajuda() {
     println!("  ajuda                 Exibe esta mensagem");
     println!("  criar <diretório>     Cria um projeto Nebula vazio");
     println!("  limpar <arquivo>      Remove o executável .out padrão do arquivo");
+    println!("  limpar-cache <projeto> Remove os artefatos em .nebula/cache");
     println!("  versao                Exibe a versão da ferramenta");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  formatar <arquivo>    Formata espaços finais sem alterar tokens");
@@ -959,7 +1040,7 @@ fn mostrar_ir(caminho: &Path) {
         }
         std::process::exit(1);
     }
-    let (modulos, programas_modulos) =
+    let (modulos, programas_modulos, _) =
         carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
             eprintln!("{erro}");
             std::process::exit(1);
@@ -1010,7 +1091,7 @@ fn analisar_arquivo(caminho: &Path) {
         }
         std::process::exit(1);
     }
-    let (modulos, _) = carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
+    let (modulos, _, _) = carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
         eprintln!("{erro}");
         std::process::exit(1);
     });

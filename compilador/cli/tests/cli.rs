@@ -276,6 +276,99 @@ fn analisar_rejeita_nome_nao_declarado() {
     assert!(String::from_utf8_lossy(&saida.stderr).contains("N3007"));
 }
 
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-cache-cli-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&diretorio).unwrap();
+    let fonte = diretorio.join("principal.nbx");
+    let modulo = diretorio.join("Base.nbx");
+    std::fs::write(
+        &modulo,
+        "publico funcao valor(): inteiro { devolver 40 }",
+    )
+    .unwrap();
+    std::fs::write(
+        &fonte,
+        "incluir Base\nfuncao principal(): inteiro { devolver Base::valor() + 2 }",
+    )
+    .unwrap();
+
+    let compilar = || {
+        let saida = executar(&["compilar", fonte.to_str().unwrap()]);
+        assert!(
+            saida.status.success(),
+            "{}",
+            String::from_utf8_lossy(&saida.stderr)
+        );
+        std::process::Command::new(fonte.with_extension("out"))
+            .status()
+            .expect("executável gerado")
+            .code()
+    };
+
+    assert_eq!(compilar(), Some(42));
+    assert_eq!(compilar(), Some(42));
+    let cache = diretorio.join(".nebula/cache");
+    let entradas_antes = std::fs::read_dir(&cache)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entrada| entrada.path().extension().is_some_and(|ext| ext == "nbc"))
+        .count();
+    assert_eq!(entradas_antes, 1);
+
+    std::fs::write(
+        &modulo,
+        "publico funcao valor(): inteiro { devolver 39 }",
+    )
+    .unwrap();
+    assert_eq!(compilar(), Some(41));
+    let entradas_depois = std::fs::read_dir(&cache)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entrada| entrada.path().extension().is_some_and(|ext| ext == "nbc"))
+        .count();
+    assert_eq!(entradas_depois, 2);
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
+#[test]
+fn limpar_cache_remove_artefatos_sem_remover_fontes() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-limpar-cache-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&diretorio).unwrap();
+    let fonte = diretorio.join("principal.nbx");
+    std::fs::write(&fonte, "funcao principal(): inteiro { devolver 42 }").unwrap();
+    let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
+    assert!(compilar.status.success(), "{}", String::from_utf8_lossy(&compilar.stderr));
+    let limpar = executar(&["limpar-cache", diretorio.to_str().unwrap()]);
+    assert!(limpar.status.success(), "{}", String::from_utf8_lossy(&limpar.stderr));
+    assert!(fonte.exists());
+    let cache = diretorio.join(".nebula/cache");
+    assert_eq!(
+        std::fs::read_dir(cache)
+            .unwrap()
+            .filter_map(Result::ok)
+            .count(),
+        0
+    );
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
 #[test]
 fn comando_ir_exibe_representacao_intermediaria() {
     let caminho = std::env::temp_dir().join(format!("nebula-ir-{}.nbx", std::process::id()));

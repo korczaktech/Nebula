@@ -6,6 +6,7 @@ version = 4
 name = "nebula-cli"
 version = "0.1.0"
 dependencies = [
+ "nebula-cache",
  "nebula-fonte",
  "nebula-sintaxe",
  "nebula-semantica",
@@ -28,6 +29,13 @@ version = "0.1.0"
 dependencies = [
  "nebula-ir",
  "nebula-semantica",
+]
+
+[[package]]
+name = "nebula-cache"
+version = "0.1.0"
+dependencies = [
+ "nebula-seguranca",
 ]
 
 [[package]]
