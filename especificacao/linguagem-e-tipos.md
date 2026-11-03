@@ -125,7 +125,7 @@ A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter o
 2. Literais numéricos sem contexto recebem o tipo padrão da família; o contexto pode selecionar um tipo de largura explícita apenas quando o valor couber exatamente.
 3. A promoção de operandos em expressões aritméticas deve ser determinística e documentada; não pode depender da arquitetura hospedeira.
 4. Operações entre inteiros com e sem sinal não podem ser promovidas silenciosamente se isso alterar a faixa representável.
-5. Conversões explícitas verificam faixa. Se o valor não couber, a conversão falha de forma definida.
+5. Conversões explícitas verificam faixa. Se o valor não couber, a conversão falha de forma definida. As conversões numéricas explícitas são chamadas pelo nome do tipo (`inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128`, `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128`, `byte`, `decimal32` e `decimal64`). Conversões de decimal para inteiro truncam em direção a zero e verificam a faixa antes de produzir o valor.
 6. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial. Operações cujo tipo resultante é `decimal32` são arredondadas para IEEE-754 binary32 após cada operação, não apenas ao armazenar o resultado final.
 
 ## 6. Igualdade, cópia e movimentação
