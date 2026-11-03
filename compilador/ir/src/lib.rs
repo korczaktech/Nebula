@@ -1926,6 +1926,21 @@ mod testes {
     }
 
     #[test]
+    fn executa_conversoes_numericas_explicitas() {
+        let ir = compilar(
+            "variavel pequeno = inteiro8(127)\nvariavel sem_sinal = inteiro_u8(255)\nvariavel ampliado = inteiro8(inteiro_u16(42))\nvariavel decimal = decimal32(16777217)\nexibir(pequeno)\nexibir(sem_sinal)\nexibir(ampliado)\nexibir(decimal)",
+        );
+        let resultado = executar(&ir, 200).expect("conversões explícitas válidas");
+        assert_eq!(resultado.saida, vec!["127", "255", "42", "16777216"]);
+    }
+
+    #[test]
+    fn rejeita_conversao_explicita_fora_da_faixa() {
+        let ir = compilar("variavel valor = inteiro8(127 + 1)");
+        assert!(executar(&ir, 100).unwrap_err().contains("Conversão explícita"));
+    }
+
+    #[test]
     fn verifica_overflow_em_operacoes_de_largura_reduzida() {
         let assinado = compilar(
             "variavel a: inteiro8 = 127\nvariavel b: inteiro8 = 1\nvariavel c: inteiro8 = a + b",
