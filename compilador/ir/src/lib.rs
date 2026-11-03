@@ -2022,6 +2022,10 @@ mod testes {
     use nebula_fonte::ArquivoFonte;
     use nebula_sintaxe::analisar;
 
+    fn caminho_portavel(caminho: &std::path::Path) -> String {
+        caminho.to_string_lossy().replace('\\', "/")
+    }
+
     fn compilar(codigo: &str) -> ProgramaIr {
         let fonte = ArquivoFonte::novo("teste.nbx", codigo);
         let sintaxe = analisar(&fonte);
@@ -2325,7 +2329,7 @@ mod testes {
         let caminho = std::env::temp_dir()
             .join(format!("nebula-ir-{}.txt", std::process::id()))
             .to_string_lossy()
-            .into_owned();
+            .replace('\\', "/");
         let codigo = format!(
             "escrever_arquivo(\"{caminho}\", \"Nebula\")\nexibir(ler_arquivo(\"{caminho}\"))\nexibir(existe_arquivo(\"{caminho}\"))"
         );
@@ -2357,12 +2361,12 @@ mod testes {
         std::fs::write(&origem, "Nebula").unwrap();
         let codigo = format!(
             "exibir(copiar_arquivo(\"{}\", \"{}\"))\nexibir(mover_arquivo(\"{}\", \"{}\"))\nexibir(ler_arquivo(\"{}\"))\nexibir(remover_arquivo(\"{}\"))",
-            origem.display(),
-            copia.display(),
-            copia.display(),
-            destino.display(),
-            destino.display(),
-            destino.display()
+            caminho_portavel(&origem),
+            caminho_portavel(&copia),
+            caminho_portavel(&copia),
+            caminho_portavel(&destino),
+            caminho_portavel(&destino),
+            caminho_portavel(&destino)
         );
         let ir = compilar(&codigo);
         let resultado = executar(&ir, 100).expect("operações de arquivo válidas");
@@ -2376,7 +2380,7 @@ mod testes {
         let _ = std::fs::remove_dir_all(&raiz);
         std::fs::create_dir_all(&raiz).unwrap();
         std::fs::write(raiz.join("arquivo.txt"), "").unwrap();
-        let caminho = raiz.to_str().unwrap();
+        let caminho = caminho_portavel(&raiz);
         let codigo = format!(
             "exibir(diretorio_existe(\"{caminho}\"))\nexibir(comprimento(listar_diretorio(\"{caminho}\")))"
         );
