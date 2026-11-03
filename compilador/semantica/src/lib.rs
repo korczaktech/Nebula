@@ -861,6 +861,20 @@ impl<'a> Analisador<'a> {
                         self.expressao(&argumentos[0]);
                         return Tipo::Texto;
                     }
+                    if nome == "json_valido" || nome == "json_canonico" {
+                        if argumentos.len() != 1 {
+                            self.erro("N3015", format!("'{nome}' exige exatamente um texto JSON."));
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let entrada = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&entrada, &Tipo::Texto, "entrada JSON");
+                        return if nome == "json_valido" {
+                            Tipo::Logico
+                        } else {
+                            Tipo::Texto
+                        };
+                    }
                     if nome == "ler_arquivo"
                         || nome == "existe_arquivo"
                         || nome == "criar_diretorio"
@@ -2340,6 +2354,22 @@ mod testes {
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3009"));
         let r = analisar_codigo("constante itens = [1]\nremover(itens, 0)");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3009"));
+    }
+
+    #[test]
+    fn valida_tipos_dos_builtins_json() {
+        let r = analisar_codigo(
+            "variavel valido = json_valido(\"{\\\"chave\\\": 1}\")\nvariavel canonico = json_canonico(\"{\\\"b\\\":2,\\\"a\\\":1}\")",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("valido"), Some(&Tipo::Logico));
+        assert_eq!(r.tipos_globais.get("canonico"), Some(&Tipo::Texto));
+    }
+
+    #[test]
+    fn rejeita_argumento_nao_textual_nos_builtins_json() {
+        let r = analisar_codigo("json_valido(42)\njson_canonico(falso)");
+        assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 2);
     }
 
     #[test]
