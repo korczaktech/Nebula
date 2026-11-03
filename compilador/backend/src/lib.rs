@@ -1891,8 +1891,8 @@ mod testes {
         let deslocamento = u64::from_le_bytes(binario[128..136].try_into().unwrap());
         let endereco = u64::from_le_bytes(binario[136..144].try_into().unwrap());
         assert_eq!(deslocamento % 0x1000, endereco % 0x1000);
-        assert_eq!(u64::from_le_bytes(binario[152..160].try_into().unwrap()), 8);
-        assert_eq!(u64::from_le_bytes(binario[160..168].try_into().unwrap()), 8);
+        assert_eq!(u64::from_le_bytes(binario[152..160].try_into().unwrap()), 16);
+        assert_eq!(u64::from_le_bytes(binario[160..168].try_into().unwrap()), 16);
         assert_eq!(u32::from_le_bytes(binario[176..180].try_into().unwrap()), 0x6474_E551);
         assert_eq!(u32::from_le_bytes(binario[180..184].try_into().unwrap()), 6);
     }
