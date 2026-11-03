@@ -337,7 +337,10 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
-                if tipo_inteiro_128(tipo) {
+                if matches!(tipo, Tipo::Estrutura(_)) {
+                    self.validar_tipo_abi(tipo)?;
+                    self.expressao(valor)?;
+                } else if tipo_inteiro_128(tipo) {
                     match valor.as_ref() {
                         ExpressaoIr::Unaria { operador, valor: interno }
                             if *operador == OperadorIr::Menos =>
@@ -374,7 +377,9 @@ impl Emissor {
                 } else {
                     self.expressao(valor)?;
                 }
-                self.normalizar_tipo(tipo)?;
+                if !matches!(tipo, Tipo::Estrutura(_)) {
+                    self.normalizar_tipo(tipo)?;
+                }
             },
             ExpressaoIr::ReferenciaFuncao { nome, .. } => self.emitir_referencia_funcao(nome),
             ExpressaoIr::ReferenciaFuncaoQualificada { modulo, nome, .. } => {
