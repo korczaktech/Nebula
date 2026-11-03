@@ -38,6 +38,8 @@ pub enum Valor {
     Texto(String),
     /// Caractere Unicode.
     Caractere(char),
+    /// Referência nominal a uma função compilada.
+    Funcao(String),
     /// Lista compartilhada e protegida contra acesso concorrente.
     Lista(Arc<RwLock<Vec<Valor>>>),
     /// Instância de estrutura com campos nomeados e acesso sincronizado.
@@ -73,6 +75,7 @@ impl PartialEq for Valor {
             (Self::Decimal(a), Self::Decimal(b)) => a == b,
             (Self::Texto(a), Self::Texto(b)) => a == b,
             (Self::Caractere(a), Self::Caractere(b)) => a == b,
+            (Self::Funcao(a), Self::Funcao(b)) => a == b,
             (
                 Self::Intervalo {
                     inicio: ai,
