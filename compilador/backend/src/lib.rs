@@ -148,10 +148,11 @@ impl Emissor {
             self.armazenar_rax(deslocamento);
             if largura == 2 {
                 self.mover_registrador_rax(registradores[indice_registrador + 1]);
+                self.armazenar_rax(deslocamento - 8);
             } else {
                 self.mov_rdx(0);
+                self.armazenar_rdx(deslocamento - 8);
             }
-            self.armazenar_rax(deslocamento - 8);
             indice_registrador += largura;
         }
 
@@ -344,6 +345,44 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
+                if inteiro_128_expressao(esquerda) {
+                    self.expressao(esquerda)?;
+                    self.push_rax();
+                    self.codigo.push(0x52); // push rdx
+                    self.pilha += 1;
+                    self.expressao(direita)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = rhs low
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xD6]); // rsi = rhs high
+                    self.pop_rax();
+                    self.codigo.extend_from_slice(&[0x5A]); // pop rdx = lhs high
+                    self.pilha = self.pilha.saturating_sub(1);
+                    let sem_sinal = inteiro_128_sem_sinal_expressao(esquerda);
+                    match operador {
+                        OperadorIr::Mais => {
+                            self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); // add rax, rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x11, 0xF2]); // adc rdx, rsi
+                            if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                        }
+                        OperadorIr::Menos => {
+                            self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
+                            self.verificar_carry();
+                        }
+                        OperadorIr::Igual | OperadorIr::Diferente => {
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xC8]); // xor low
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xF2]); // xor high
+                            self.codigo.extend_from_slice(&[0x48, 0x09, 0xD0]); // or halves
+                            self.codigo.extend_from_slice(if *operador == OperadorIr::Igual {
+                                &[0x0F, 0x94, 0xC0]
+                            } else {
+                                &[0x0F, 0x95, 0xC0]
+                            });
+                            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+                        }
+                        _ => return Err("Operação de 128 bits ainda não suportada no backend nativo; use soma, subtração ou igualdade.".into()),
+                    }
+                    return Ok(());
+                }
                 let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
                 let tipo_decimal = tipo_decimal_expressao(esquerda);
                 self.expressao(esquerda)?;
@@ -1041,6 +1080,14 @@ fn inteiro_128_expressao(expressao: &ExpressaoIr) -> bool {
     match expressao {
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo_inteiro_128(tipo),
         ExpressaoIr::Unaria { valor, .. } => inteiro_128_expressao(valor),
+        _ => false,
+    }
+}
+
+fn inteiro_128_sem_sinal_expressao(expressao: &ExpressaoIr) -> bool {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => *tipo == Tipo::InteiroU128,
+        ExpressaoIr::Unaria { valor, .. } => inteiro_128_sem_sinal_expressao(valor),
         _ => false,
     }
 }
