@@ -674,6 +674,7 @@ impl Emissor {
             let abaixo_maximo = self.emitir_jcc(0x82); // JB
             self.encerrar_com_erro(2);
             self.aplicar_salto(abaixo_maximo, self.codigo.len());
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
         } else {
             // 0 <= x < 2^64.
             self.mov_rax(0);
