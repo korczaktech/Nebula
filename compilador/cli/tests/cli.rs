@@ -229,7 +229,7 @@ fn verificar_emite_diagnosticos_json_para_fonte_valida() {
     assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
     let json = String::from_utf8_lossy(&saida.stdout);
     assert!(json.contains(r#""valido":true"#), "{json}");
-    assert!(json.contains(r#""diagnosticos":[] "#), "{json}");
+    assert!(json.contains("\"diagnosticos\":[]"), "{json}");
 }
 
 #[test]
