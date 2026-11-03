@@ -423,7 +423,12 @@ impl<'a> Analisador<'a> {
                 if esperado.is_none() {
                     self.erro("N3005", "'devolver' só pode ser usado dentro de uma função.");
                 }
-                let obtido = valor.as_ref().map_or(Tipo::Vazio, |e| self.expressao(e));
+                let obtido = valor.as_ref().map_or(Tipo::Vazio, |expressao| {
+                    esperado.as_ref().map_or_else(
+                        || self.expressao(expressao),
+                        |tipo| self.expressao_com_tipo_esperado(expressao, tipo),
+                    )
+                });
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
                         self.mover_valor(valor);
@@ -463,6 +468,31 @@ impl<'a> Analisador<'a> {
         let Expressao::Chamada { alvo, argumentos } = expressao else {
             return self.expressao(expressao);
         };
+        if let Expressao::Membro { alvo: base, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
+            if let Expressao::Nome(tipo_nome) = base.as_ref() {
+                match (tipo_nome.as_str(), esperado) {
+                    ("Opcional" | "opcional", Tipo::Opcional(interno)) if variante == "Algum" && argumentos.len() == 1 => {
+                        let obtido = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&obtido, interno, "payload de Opcional");
+                        return esperado.clone();
+                    }
+                    ("Opcional" | "opcional", Tipo::Opcional(_)) if variante == "Nenhum" && argumentos.is_empty() => {
+                        return esperado.clone();
+                    }
+                    ("Resultado" | "resultado", Tipo::Resultado(sucesso, _)) if variante == "Sucesso" && argumentos.len() == 1 => {
+                        let obtido = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&obtido, sucesso, "payload de Resultado");
+                        return esperado.clone();
+                    }
+                    ("Resultado" | "resultado", Tipo::Resultado(_, falha)) if variante == "Falha" && argumentos.len() == 1 => {
+                        let obtido = self.expressao(&argumentos[0]);
+                        self.exigir_tipo(&obtido, falha, "payload de Resultado");
+                        return esperado.clone();
+                    }
+                    _ => {}
+                }
+            }
+        }
         let Expressao::Nome(nome) = alvo.as_ref() else {
             return self.expressao(expressao);
         };
