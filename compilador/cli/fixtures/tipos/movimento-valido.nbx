@@ -5,3 +5,6 @@ exibir(conta.idade)
 variavel par = ("Lia", 20)
 variavel pessoa = par[0]
 exibir(par[1])
+variavel nomes = ["Lia", "Bia"]
+variavel nome_lista = nomes[0]
+exibir(nomes[1])
