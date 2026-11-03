@@ -476,7 +476,7 @@ impl<'a> Analisador<'a> {
                 match (tipo_nome.as_str(), esperado) {
                     ("Opcional" | "opcional", Tipo::Opcional(interno)) if variante == "Algum" && argumentos.len() == 1 => {
                         let obtido = self.expressao(&argumentos[0]);
-                        self.exigir_tipo(&obtido, interno, "payload de Opcional");
+                        self.exigir_expressao_tipo(&argumentos[0], &obtido, interno, "payload de Opcional");
                         return esperado.clone();
                     }
                     ("Opcional" | "opcional", Tipo::Opcional(_)) if variante == "Nenhum" && argumentos.is_empty() => {
@@ -484,12 +484,12 @@ impl<'a> Analisador<'a> {
                     }
                     ("Resultado" | "resultado", Tipo::Resultado(sucesso, _)) if variante == "Sucesso" && argumentos.len() == 1 => {
                         let obtido = self.expressao(&argumentos[0]);
-                        self.exigir_tipo(&obtido, sucesso, "payload de Resultado");
+                        self.exigir_expressao_tipo(&argumentos[0], &obtido, sucesso, "payload de Resultado");
                         return esperado.clone();
                     }
                     ("Resultado" | "resultado", Tipo::Resultado(_, falha)) if variante == "Falha" && argumentos.len() == 1 => {
                         let obtido = self.expressao(&argumentos[0]);
-                        self.exigir_tipo(&obtido, falha, "payload de Resultado");
+                        self.exigir_expressao_tipo(&argumentos[0], &obtido, falha, "payload de Resultado");
                         return esperado.clone();
                     }
                     _ => {}
@@ -616,7 +616,7 @@ impl<'a> Analisador<'a> {
             Expressao::Binaria { esquerda, operador, direita } => {
                 let a = self.expressao(esquerda);
                 let b = self.expressao(direita);
-                self.binaria(&a, *operador, &b)
+                self.binaria(&a, *operador, &b, direita)
             }
             Expressao::Atribuicao { destino, valor } => {
                 let tipo_valor = self.expressao(valor);
@@ -1150,7 +1150,7 @@ impl<'a> Analisador<'a> {
         }
     }
 
-    fn binaria(&mut self, a: &Tipo, op: TipoToken, b: &Tipo) -> Tipo {
+    fn binaria(&mut self, a: &Tipo, op: TipoToken, b: &Tipo, expressao_direita: &Expressao) -> Tipo {
         use TipoToken::{Diferente, Divide, E, Igual, Intervalo, Maior, MaiorIgual, Menor, MenorIgual, Menos, Mais, Ou, Potencia, Resto, Vezes};
         match op {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
@@ -1181,7 +1181,7 @@ impl<'a> Analisador<'a> {
                 }
             }
             Igual | Diferente => {
-                self.exigir_tipo(b, a, "comparação de igualdade");
+                self.exigir_expressao_tipo(expressao_direita, b, a, "comparação de igualdade");
                 if *a != Tipo::Desconhecido
                     && !self.tipo_implementa_igualdade(a, 0, &mut HashSet::new())
                 {
@@ -1859,6 +1859,7 @@ impl<'a> Analisador<'a> {
     fn tipos_compativeis(obtido: &Tipo, esperado: &Tipo) -> bool {
         match (obtido, esperado) {
             (Tipo::Desconhecido, _) | (_, Tipo::Desconhecido) => true,
+            (Tipo::Inteiro, Tipo::Inteiro64) | (Tipo::Inteiro64, Tipo::Inteiro) => true,
             (Tipo::Parametro(a), Tipo::Parametro(b)) => a == b,
             (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b))
             | (Tipo::Opcional(a), Tipo::Opcional(b)) => Self::tipos_compativeis(a, b),
@@ -2369,6 +2370,20 @@ mod testes {
     fn distingue_larguras_de_inteiros() {
         let r = analisar_codigo("variavel a: inteiro8 = 1\nvariavel b: inteiro64 = a");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+    #[test]
+    fn inteiro_padrao_e_alias_semantico_de_inteiro64() {
+        assert!(Analisador::tipos_compativeis(&Tipo::Inteiro, &Tipo::Inteiro64));
+        assert!(Analisador::tipos_compativeis(&Tipo::Inteiro64, &Tipo::Inteiro));
+        let r = analisar_codigo("funcao obter(): inteiro64 { devolver 42 }\nvariavel valor: inteiro = obter()");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn literal_de_comparacao_recebe_tipo_numerico_contextual() {
+        let r = analisar_codigo("variavel valor: inteiro_u64 = 42\nvariavel igual = valor == 42");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
     #[test]
