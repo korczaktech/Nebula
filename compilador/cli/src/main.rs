@@ -14,6 +14,17 @@ use std::process::Command;
 
 mod formatador;
 
+type ProgramaModuloCarregado = (String, ProgramaIr);
+type FonteModuloCarregada = (PathBuf, Vec<u8>);
+type ResultadoCarregamentoModulos = Result<
+    (
+        ModulosDisponiveis,
+        Vec<ProgramaModuloCarregado>,
+        Vec<FonteModuloCarregada>,
+    ),
+    String,
+>;
+
 #[rustfmt::skip]
 fn main() {
     let mut argumentos = std::env::args().skip(1);
@@ -506,14 +517,7 @@ fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
 fn carregar_modulos(
     origem: &Path,
     programa: &Programa,
-) -> Result<
-    (
-        ModulosDisponiveis,
-        Vec<(String, ProgramaIr)>,
-        Vec<(PathBuf, Vec<u8>)>,
-    ),
-    String,
-> {
+) -> ResultadoCarregamentoModulos {
     let mut assinaturas = ModulosDisponiveis::new();
     let mut programas = Vec::new();
     let mut fontes_lidas = Vec::new();
