@@ -62,7 +62,10 @@ fn formatar_check_detecta_sem_alterar_arquivo() {
     let caminho = std::env::temp_dir().join(format!(
         "nebula-format-check-cli-{}-{}.nbx",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     let original = "variavel total = 42   ";
     std::fs::write(&caminho, original).unwrap();

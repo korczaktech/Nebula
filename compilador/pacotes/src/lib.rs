@@ -1,8 +1,8 @@
 //! Manifestos e resolução reproduzível de dependências locais da Nebula.
+use nebula_seguranca::sha256_hex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use nebula_seguranca::sha256_hex;
 
 /// Manifesto de um pacote Nebula.
 #[derive(Clone, Debug, PartialEq, Eq)]

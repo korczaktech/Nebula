@@ -82,7 +82,6 @@ fn sha256_digest(bytes: &[u8]) -> [u8; 32] {
     digest
 }
 
-
 /// Calcula SHA-256 e retorna o resumo em hexadecimal minúsculo.
 #[must_use]
 pub fn sha256_hex(dados: &[u8]) -> String {
@@ -136,14 +135,23 @@ mod testes {
 
     #[test]
     fn sha256_corresponde_a_vetores_conhecidos() {
-        assert_eq!(sha256_hex(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     #[test]
     fn hmac_sha256_corresponde_a_vetor_rfc_4231() {
         let chave = [0x0b_u8; 20];
-        assert_eq!(hmac_sha256_hex(&chave, b"Hi There"), "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
+        assert_eq!(
+            hmac_sha256_hex(&chave, b"Hi There"),
+            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+        );
     }
 
     #[test]

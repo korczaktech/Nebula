@@ -67,11 +67,15 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         std::process::id()
     ));
     let result = (|| {
-        std::fs::write(&temp, bytes).map_err(|e| format!("não foi possível gravar temporário: {e}"))?;
-        std::fs::rename(&temp, path).map_err(|e| format!("não foi possível substituir o arquivo: {e}"))?;
+        std::fs::write(&temp, bytes)
+            .map_err(|e| format!("não foi possível gravar temporário: {e}"))?;
+        std::fs::rename(&temp, path)
+            .map_err(|e| format!("não foi possível substituir o arquivo: {e}"))?;
         Ok(())
     })();
-    if result.is_err() { let _ = std::fs::remove_file(&temp); }
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
     result
 }
 
