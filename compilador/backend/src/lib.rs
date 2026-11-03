@@ -1016,11 +1016,6 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
     }
 
-    fn carregar_rdx(&mut self, deslocamento: i32) {
-        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x95]);
-        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
-    }
-
     fn carregar_rax(&mut self, deslocamento: i32) {
         self.codigo.extend_from_slice(&[0x48, 0x8B, 0x85]);
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
