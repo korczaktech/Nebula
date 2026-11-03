@@ -27,6 +27,109 @@ fn ausencia_de_comando_exibe_ajuda() {
 }
 
 #[test]
+fn criar_projeto_gera_manifesto_e_fonte_vazios() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-criar-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let saida = executar(&["criar", diretorio.to_str().unwrap()]);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    let manifesto = std::fs::read_to_string(diretorio.join("nebula.toml")).unwrap();
+    assert!(manifesto.contains("[pacote]"));
+    assert!(manifesto.contains("versao = \"0.1.0\""));
+    let fonte = diretorio.join("principal.nbx");
+    assert!(std::fs::read_to_string(&fonte).unwrap().contains("funcao principal"));
+    let verificar = executar(&["analisar", fonte.to_str().unwrap()]);
+    assert!(
+        verificar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verificar.stderr)
+    );
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
+#[test]
+fn criar_nao_sobrescreve_diretorio_existente() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-criar-existente-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&diretorio).unwrap();
+    std::fs::write(diretorio.join("preservar.txt"), "conteudo").unwrap();
+    let saida = executar(&["criar", diretorio.to_str().unwrap()]);
+    assert_eq!(saida.status.code(), Some(1));
+    assert_eq!(
+        std::fs::read_to_string(diretorio.join("preservar.txt")).unwrap(),
+        "conteudo"
+    );
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
+#[test]
+fn limpar_remove_somente_executavel_elf64_padrao() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-limpar-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&diretorio).unwrap();
+    let fonte = diretorio.join("principal.nbx");
+    std::fs::write(&fonte, "funcao principal(): inteiro { devolver 42 }").unwrap();
+    let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
+    assert!(
+        compilar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilar.stderr)
+    );
+    let artefato = fonte.with_extension("out");
+    assert!(artefato.exists());
+    let limpar = executar(&["limpar", fonte.to_str().unwrap()]);
+    assert!(
+        limpar.status.success(),
+        "{}",
+        String::from_utf8_lossy(&limpar.stderr)
+    );
+    assert!(!artefato.exists());
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
+#[test]
+fn limpar_preserva_arquivo_out_que_nao_seja_elf64() {
+    let diretorio = std::env::temp_dir().join(format!(
+        "nebula-limpar-seguro-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&diretorio).unwrap();
+    let fonte = diretorio.join("principal.nbx");
+    let artefato = fonte.with_extension("out");
+    std::fs::write(&fonte, "funcao principal(): vazio {}").unwrap();
+    std::fs::write(&artefato, b"arquivo de usuario").unwrap();
+    let limpar = executar(&["limpar", fonte.to_str().unwrap()]);
+    assert_eq!(limpar.status.code(), Some(1));
+    assert_eq!(std::fs::read(&artefato).unwrap(), b"arquivo de usuario");
+    let _ = std::fs::remove_dir_all(diretorio);
+}
+
+#[test]
 fn versao_exibe_versao_do_pacote() {
     let saida = executar(&["versao"]);
     assert!(saida.status.success());

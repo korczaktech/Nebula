@@ -22,6 +22,55 @@ fn main() {
             env!("CARGO_PKG_VERSION")
         ),
         Some("ajuda" | "--help" | "-h") | None => ajuda(),
+        Some("criar") => {
+            let Some(diretorio) = argumentos.next() else {
+                eprintln!("Uso: nebula criar <diretorio> [--nome <nome>]");
+                std::process::exit(2);
+            };
+            let nome = match argumentos.next().as_deref() {
+                None => None,
+                Some("--nome") => match argumentos.next() {
+                    Some(nome) => Some(nome),
+                    None => {
+                        eprintln!("Erro: --nome exige um identificador.");
+                        std::process::exit(2);
+                    }
+                },
+                Some(opcao) => {
+                    eprintln!("Opção desconhecida: {opcao}");
+                    std::process::exit(2);
+                }
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Uso: nebula criar <diretorio> [--nome <nome>]");
+                std::process::exit(2);
+            }
+            match criar_projeto(Path::new(&diretorio), nome.as_deref()) {
+                Ok(()) => println!("Projeto Nebula criado: {}", diretorio),
+                Err(erro) => {
+                    eprintln!("Não foi possível criar o projeto: {erro}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some("limpar") => {
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula limpar <arquivo.nbx>");
+                std::process::exit(2);
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Erro: limpar aceita somente um arquivo .nbx.");
+                std::process::exit(2);
+            }
+            match limpar_artefato(Path::new(&caminho)) {
+                Ok(true) => println!("Artefato removido: {}", Path::new(&caminho).with_extension("out").display()),
+                Ok(false) => println!("Nenhum artefato padrão encontrado para: {caminho}"),
+                Err(erro) => {
+                    eprintln!("Não foi possível limpar o artefato: {erro}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Some("compilar") => {
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
             let mut saida = PathBuf::from(&caminho).with_extension("out");
@@ -166,6 +215,118 @@ fn main() {
             std::process::exit(2);
         }
     }
+}
+
+fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
+    let nome_projeto = match nome {
+        Some(nome) => nome.to_owned(),
+        None => nome_padrao_projeto(diretorio)?,
+    };
+    if !nome_valido_projeto(&nome_projeto) {
+        return Err("o nome deve conter somente letras ASCII, números, '-' ou '_'".to_owned());
+    }
+    if diretorio.exists() {
+        return Err(format!("o diretório '{}' já existe; nenhum arquivo foi alterado", diretorio.display()));
+    }
+    let pai = diretorio
+        .parent()
+        .filter(|pai| !pai.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    std::fs::create_dir_all(pai)
+        .map_err(|erro| format!("não foi possível criar o diretório pai: {erro}"))?;
+    std::fs::create_dir(diretorio)
+        .map_err(|erro| format!("não foi possível criar '{}': {erro}", diretorio.display()))?;
+
+    let manifesto = format!(
+        "[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n"
+    );
+    let fonte = "funcao principal(): vazio {\n}\n";
+    let resultado = (|| {
+        escrever_novo(diretorio.join("nebula.toml").as_path(), manifesto.as_bytes())?;
+        escrever_novo(diretorio.join("principal.nbx").as_path(), fonte.as_bytes())?;
+        Ok(())
+    })();
+    if resultado.is_err() {
+        let _ = std::fs::remove_dir_all(diretorio);
+    }
+    resultado
+}
+
+fn nome_padrao_projeto(diretorio: &Path) -> Result<String, String> {
+    let nome = diretorio
+        .file_name()
+        .and_then(|nome| nome.to_str())
+        .ok_or_else(|| "o diretório precisa ter um nome UTF-8".to_owned())?;
+    let mut saida = String::new();
+    for caractere in nome.chars() {
+        if caractere.is_ascii_alphanumeric() || caractere == '_' || caractere == '-' {
+            saida.push(caractere.to_ascii_lowercase());
+        } else if !saida.ends_with('-') {
+            saida.push('-');
+        }
+    }
+    let saida = saida.trim_matches(['-', '_']).to_owned();
+    if saida.is_empty() {
+        return Err("não foi possível derivar um nome válido do diretório; use --nome".to_owned());
+    }
+    Ok(saida)
+}
+
+fn nome_valido_projeto(nome: &str) -> bool {
+    !nome.is_empty()
+        && nome
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+fn escrever_novo(caminho: &Path, conteudo: &[u8]) -> Result<(), String> {
+    use std::io::Write as _;
+    let mut arquivo = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(caminho)
+        .map_err(|erro| format!("não foi possível criar '{}': {erro}", caminho.display()))?;
+    arquivo
+        .write_all(conteudo)
+        .map_err(|erro| format!("não foi possível gravar '{}': {erro}", caminho.display()))
+}
+
+fn limpar_artefato(fonte: &Path) -> Result<bool, String> {
+    let metadados_fonte = std::fs::symlink_metadata(fonte)
+        .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", fonte.display()))?;
+    if !metadados_fonte.is_file() || metadados_fonte.file_type().is_symlink() {
+        return Err("a origem precisa ser um arquivo regular .nbx, não um link simbólico".to_owned());
+    }
+    if fonte.extension().and_then(|extensao| extensao.to_str()) != Some("nbx") {
+        return Err("a origem precisa usar a extensão .nbx".to_owned());
+    }
+    let artefato = fonte.with_extension("out");
+    let metadados = match std::fs::symlink_metadata(&artefato) {
+        Ok(metadados) => metadados,
+        Err(erro) if erro.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(erro) => return Err(format!("não foi possível inspecionar '{}': {erro}", artefato.display())),
+    };
+    if !metadados.is_file() || metadados.file_type().is_symlink() {
+        return Err("o artefato não é um arquivo regular; nada foi removido".to_owned());
+    }
+    use std::io::Read as _;
+    let mut arquivo = std::fs::File::open(&artefato)
+        .map_err(|erro| format!("não foi possível abrir '{}': {erro}", artefato.display()))?;
+    let mut cabecalho = [0_u8; 20];
+    let quantidade = arquivo
+        .read(&mut cabecalho)
+        .map_err(|erro| format!("não foi possível ler o cabeçalho do artefato: {erro}"))?;
+    let elf64_linux_x86_64 = quantidade == cabecalho.len()
+        && cabecalho[0..4] == [0x7f, b'E', b'L', b'F']
+        && cabecalho[4] == 2
+        && cabecalho[5] == 1
+        && cabecalho[18..20] == [0x3e, 0x00];
+    if !elf64_linux_x86_64 {
+        return Err("o arquivo .out não corresponde ao formato ELF64 Linux x86-64 suportado; nada foi removido".to_owned());
+    }
+    std::fs::remove_file(&artefato)
+        .map_err(|erro| format!("não foi possível remover '{}': {erro}", artefato.display()))?;
+    Ok(true)
 }
 
 fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
@@ -742,6 +903,8 @@ fn ajuda() {
     println!();
     println!("Comandos disponíveis:");
     println!("  ajuda                 Exibe esta mensagem");
+    println!("  criar <diretório>     Cria um projeto Nebula vazio");
+    println!("  limpar <arquivo>      Remove o executável .out padrão do arquivo");
     println!("  versao                Exibe a versão da ferramenta");
     println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
     println!("  formatar <arquivo>    Formata espaços finais sem alterar tokens");
