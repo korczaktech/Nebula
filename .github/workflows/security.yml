@@ -25,5 +25,5 @@ jobs:
         uses: dtolnay/rust-toolchain@1.85.0
       - name: Instalar cargo-audit
         uses: taiki-e/install-action@cargo-audit
-      - name: Auditar dependências travadas
-        run: cargo audit --locked
+      - name: Auditar dependências do lockfile
+        run: cargo audit
