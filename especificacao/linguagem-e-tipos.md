@@ -117,7 +117,7 @@ A monomorfização gera uma instância concreta para cada conjunto distinto de a
 
 ### 4.1 Tipos de função
 
-A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter outros tipos de função e tipos genéricos. O retorno pode ser `vazio`. A assinatura preserva a ordem e a identidade dos tipos. O layout de um valor de função é um ponteiro de código de 8 bytes, alinhado a 8 bytes, no ABI inicial x86-64. A aceitação dessa assinatura em campos e descrições de tipos não implica suporte a valores de função de primeira classe, closures, captura de ambiente ou chamadas indiretas; essas operações permanecem indisponíveis até que a representação e o backend correspondente sejam implementados.
+A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter outros tipos de função e tipos genéricos. O retorno pode ser `vazio`. A assinatura preserva a ordem e a identidade dos tipos. O layout de um valor de função é um ponteiro de código de 8 bytes, alinhado a 8 bytes, no ABI inicial x86-64. Valores de função sem captura de ambiente são representados como ponteiros de código. A IR e o interpretador de referência suportam armazenamento, retorno e chamadas indiretas desses valores; o backend ELF x86-64 também gera referências e chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente não fazem parte do suporte atual. O armazenamento de ponteiros de função dentro de agregados ainda não pode ser compilado nativamente enquanto a ABI de agregados não estiver implementada.
 
 ## 5. Conversões e promoção
 
@@ -142,7 +142,7 @@ A ABI de funções deve definir convenção de chamada, passagem de escalares, a
 
 ### 7.1 Representação inicial de tipos de função
 
-No ABI inicial Linux x86-64, o descritor físico de um tipo de função ocupa um ponteiro de código de 8 bytes, alinhado a 8 bytes. A assinatura mantém a ordem e os tipos dos parâmetros e o tipo de retorno. Esse descritor de layout não implica, por si só, suporte a closures, captura de ambiente, valores de função armazenáveis ou chamadas indiretas: tais operações só podem ser aceitas quando a representação de valor, a convenção de chamada e a geração de código correspondente estiverem implementadas. O backend deve rejeitar chamadas indiretas e valores de função ainda não suportados.
+No ABI inicial Linux x86-64, o descritor físico de um tipo de função ocupa um ponteiro de código de 8 bytes, alinhado a 8 bytes. A assinatura mantém a ordem e os tipos dos parâmetros e o tipo de retorno. Esse descritor é compatível com valores de função sem captura de ambiente. A IR e o interpretador suportam esses valores e chamadas indiretas; o backend ELF x86-64 também gera chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente permanecem indisponíveis. Chamadas ou armazenamento que dependam de ABI de agregados continuam rejeitados pelo backend até que essa ABI seja implementada.
 
 ## 8. Diagnósticos
 
