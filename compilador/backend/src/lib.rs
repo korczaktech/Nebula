@@ -361,6 +361,7 @@ impl Emissor {
         }
         self.codigo.extend_from_slice(&[0x31, 0xC0, 0xC9, 0xC3]); // retorno implícito zero
         self.escopos.clear();
+        self.tipos_escopos.clear();
         Ok(())
     }
 
