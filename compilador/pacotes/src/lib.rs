@@ -359,13 +359,19 @@ fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
     let candidata = versao;
     let clausulas = restricao.split(',').map(str::trim).collect::<Vec<_>>();
     if candidata.contains('-') {
-        let Some(core_candidato) = versao_core(candidata) else { return false; };
+        let Some(core_candidato) = versao_core(candidata) else {
+            return false;
+        };
         let prerelease_explicitamente_referenciado = clausulas.iter().any(|clausula| {
             let base = clausula
-                .strip_prefix(">=").or_else(|| clausula.strip_prefix("<="))
-                .or_else(|| clausula.strip_prefix('>')).or_else(|| clausula.strip_prefix('<'))
-                .or_else(|| clausula.strip_prefix('^')).or_else(|| clausula.strip_prefix('~'))
-                .or_else(|| clausula.strip_prefix('=')).unwrap_or(clausula);
+                .strip_prefix(">=")
+                .or_else(|| clausula.strip_prefix("<="))
+                .or_else(|| clausula.strip_prefix('>'))
+                .or_else(|| clausula.strip_prefix('<'))
+                .or_else(|| clausula.strip_prefix('^'))
+                .or_else(|| clausula.strip_prefix('~'))
+                .or_else(|| clausula.strip_prefix('='))
+                .unwrap_or(clausula);
             base.contains('-') && versao_core(base) == Some(core_candidato)
         });
         if !prerelease_explicitamente_referenciado {
@@ -391,24 +397,36 @@ fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
             return comparar(base).is_some_and(|ordem| ordem == std::cmp::Ordering::Equal);
         }
         if let Some(base) = clausula.strip_prefix('^') {
-            let Some(limite) = versao_core(base) else { return false; };
+            let Some(limite) = versao_core(base) else {
+                return false;
+            };
             let (major, minor, patch) = limite;
             let teto = if major > 0 {
-                let Some(proximo) = major.checked_add(1) else { return false; };
+                let Some(proximo) = major.checked_add(1) else {
+                    return false;
+                };
                 (proximo, 0, 0)
             } else if minor > 0 {
-                let Some(proximo) = minor.checked_add(1) else { return false; };
+                let Some(proximo) = minor.checked_add(1) else {
+                    return false;
+                };
                 (0, proximo, 0)
             } else {
-                let Some(proximo) = patch.checked_add(1) else { return false; };
+                let Some(proximo) = patch.checked_add(1) else {
+                    return false;
+                };
                 (0, 0, proximo)
             };
             return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
                 && versao_core(candidata).is_some_and(|core| core < teto);
         }
         if let Some(base) = clausula.strip_prefix('~') {
-            let Some(limite) = versao_core(base) else { return false; };
-            let Some(proxima_minor) = limite.1.checked_add(1) else { return false; };
+            let Some(limite) = versao_core(base) else {
+                return false;
+            };
+            let Some(proxima_minor) = limite.1.checked_add(1) else {
+                return false;
+            };
             return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
                 && versao_core(candidata).is_some_and(|core| core < (limite.0, proxima_minor, 0));
         }
@@ -577,9 +595,15 @@ mod testes {
             "1.0.0",
         ];
         for par in sequencia.windows(2) {
-            assert_eq!(comparar_semver(par[0], par[1]), Some(std::cmp::Ordering::Less));
+            assert_eq!(
+                comparar_semver(par[0], par[1]),
+                Some(std::cmp::Ordering::Less)
+            );
         }
-        assert_eq!(comparar_semver("1.0.0+build.1", "1.0.0+build.9"), Some(std::cmp::Ordering::Equal));
+        assert_eq!(
+            comparar_semver("1.0.0+build.1", "1.0.0+build.9"),
+            Some(std::cmp::Ordering::Equal)
+        );
     }
 
     #[test]
