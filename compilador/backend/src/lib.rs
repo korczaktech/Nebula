@@ -986,6 +986,54 @@ impl Emissor {
         let origem_inteira = tipo_inteiro_abi(tipo_origem);
         let destino_inteiro = tipo_inteiro_abi(destino);
 
+        if let Some((128, destino_assinado)) = destino_inteiro {
+            if let Some((bits_origem, origem_assinada)) = origem_inteira {
+                if bits_origem == 128 {
+                    if destino_assinado != origem_assinada {
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                        let valido = self.emitir_jcc(0x89); // JNS
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(valido, self.codigo.len());
+                    }
+                    return Ok(());
+                }
+                if origem_assinada && !destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+                    let valido = self.emitir_jcc(0x89); // JNS
+                    self.encerrar_com_erro(2);
+                    self.aplicar_salto(valido, self.codigo.len());
+                }
+                if origem_assinada && destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                    self.codigo.extend_from_slice(&[0x48, 0xC1, 0xFA, 0x3F]); // sar rdx, 63
+                } else {
+                    self.mov_rdx(0);
+                }
+                return Ok(());
+            }
+        }
+
+        if let Some((128, origem_assinada)) = origem_inteira {
+            if destino_inteiro.is_some() {
+                let (_, destino_assinado) = destino_inteiro.unwrap();
+                if destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = low
+                    self.codigo.extend_from_slice(&[0x48, 0xC1, 0xF9, 0x3F]); // sar rcx, 63
+                    self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp rdx, rcx
+                } else {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                }
+                let valido = self.emitir_jcc(0x84);
+                self.encerrar_com_erro(2);
+                self.aplicar_salto(valido, self.codigo.len());
+                return self.normalizar_tipo(destino);
+            }
+            if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return Err("Conversão de inteiro128 para decimal ainda não está implementada.".into());
+            }
+            let _ = origem_assinada;
+        }
+
         if let Some((64, destino_assinado)) = destino_inteiro {
             if let Some((_, origem_assinada)) = origem_inteira {
                 if destino_assinado != origem_assinada {
@@ -1040,9 +1088,12 @@ impl Emissor {
         self.encerrar_com_erro(2);
         self.aplicar_salto(finito, self.codigo.len());
 
-        let Some((_, assinado)) = tipo_inteiro_abi(destino) else {
+        let Some((largura, assinado)) = tipo_inteiro_abi(destino) else {
             return Err(format!("Tipo '{}' não possui conversão inteira nativa.", destino.nome()));
         };
+        if largura == 128 {
+            return Err("Conversão decimal para inteiro128 ainda não está implementada.".into());
+        }
         if assinado {
             // -2^63 <= x < 2^63; o limite inferior é inclusivo e o superior exclusivo.
             self.mov_rax(0xC3E0_0000_0000_0000u64 as i64);
@@ -1596,6 +1647,8 @@ fn tipo_inteiro_abi(tipo: &Tipo) -> Option<(u8, bool)> {
         Tipo::InteiroU16 => Some((16, false)),
         Tipo::InteiroU32 => Some((32, false)),
         Tipo::InteiroU64 => Some((64, false)),
+        Tipo::Inteiro128 => Some((128, true)),
+        Tipo::InteiroU128 => Some((128, false)),
         _ => None,
     }
 }
