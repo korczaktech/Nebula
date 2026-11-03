@@ -346,75 +346,123 @@ fn restricao_semver_valida(restricao: &str) -> bool {
 }
 
 fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
-    if restricao == "*" {
-        return versao_semantica_valida(versao);
+    if !versao_semantica_valida(versao) || !restricao_semver_valida(restricao) {
+        return false;
+    }
+    if restricao.trim() == "*" {
+        return !versao.contains('-');
     }
     if restricao.trim() == versao {
         return true;
     }
-    let Some((major, minor, patch)) = versao_core(versao) else {
-        return false;
-    };
-    let candidata = (major, minor, patch);
-    if versao.contains('-') {
-        // Pré-lançamentos só são aceitos por uma restrição exata.
-        return false;
-    }
-    restricao.split(',').all(|parte| {
-        let parte = parte.trim();
-        if parte.is_empty() {
+
+    let candidata = versao;
+    let clausulas = restricao.split(',').map(str::trim).collect::<Vec<_>>();
+    if candidata.contains('-') {
+        let Some(core_candidato) = versao_core(candidata) else { return false; };
+        let prerelease_explicitamente_referenciado = clausulas.iter().any(|clausula| {
+            let base = clausula
+                .strip_prefix(">=").or_else(|| clausula.strip_prefix("<="))
+                .or_else(|| clausula.strip_prefix('>')).or_else(|| clausula.strip_prefix('<'))
+                .or_else(|| clausula.strip_prefix('^')).or_else(|| clausula.strip_prefix('~'))
+                .or_else(|| clausula.strip_prefix('=')).unwrap_or(clausula);
+            base.contains('-') && versao_core(base) == Some(core_candidato)
+        });
+        if !prerelease_explicitamente_referenciado {
             return false;
         }
-        if let Some(base) = parte.strip_prefix(">=") {
-            return versao_core(base).is_some_and(|base| candidata >= base);
+    }
+
+    clausulas.iter().all(|clausula| {
+        let comparar = |base: &str| comparar_semver(candidata, base);
+        if let Some(base) = clausula.strip_prefix(">=") {
+            return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less);
         }
-        if let Some(base) = parte.strip_prefix("<=") {
-            return versao_core(base).is_some_and(|base| candidata <= base);
+        if let Some(base) = clausula.strip_prefix("<=") {
+            return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Greater);
         }
-        if let Some(base) = parte.strip_prefix('>') {
-            return versao_core(base).is_some_and(|base| candidata > base);
+        if let Some(base) = clausula.strip_prefix('>') {
+            return comparar(base).is_some_and(|ordem| ordem == std::cmp::Ordering::Greater);
         }
-        if let Some(base) = parte.strip_prefix('<') {
-            return versao_core(base).is_some_and(|base| candidata < base);
+        if let Some(base) = clausula.strip_prefix('<') {
+            return comparar(base).is_some_and(|ordem| ordem == std::cmp::Ordering::Less);
         }
-        if let Some(base) = parte.strip_prefix('=') {
-            return versao_core(base).is_some_and(|base| candidata == base);
+        if let Some(base) = clausula.strip_prefix('=') {
+            return comparar(base).is_some_and(|ordem| ordem == std::cmp::Ordering::Equal);
         }
-        if let Some(base) = parte.strip_prefix('^') {
-            let Some(limite) = versao_core(base) else {
-                return false;
-            };
-            let (m, n, p) = limite;
-            let teto = if m > 0 {
-                let Some(proximo) = m.checked_add(1) else {
-                    return false;
-                };
+        if let Some(base) = clausula.strip_prefix('^') {
+            let Some(limite) = versao_core(base) else { return false; };
+            let (major, minor, patch) = limite;
+            let teto = if major > 0 {
+                let Some(proximo) = major.checked_add(1) else { return false; };
                 (proximo, 0, 0)
-            } else if n > 0 {
-                let Some(proximo) = n.checked_add(1) else {
-                    return false;
-                };
+            } else if minor > 0 {
+                let Some(proximo) = minor.checked_add(1) else { return false; };
                 (0, proximo, 0)
             } else {
-                let Some(proximo) = p.checked_add(1) else {
-                    return false;
-                };
+                let Some(proximo) = patch.checked_add(1) else { return false; };
                 (0, 0, proximo)
             };
-            return candidata >= limite && candidata < teto;
+            return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
+                && versao_core(candidata).is_some_and(|core| core < teto);
         }
-        if let Some(base) = parte.strip_prefix('~') {
-            let Some(limite) = versao_core(base) else {
-                return false;
-            };
-            let Some(proxima_minor) = limite.1.checked_add(1) else {
-                return false;
-            };
-            let teto = (limite.0, proxima_minor, 0);
-            return candidata >= limite && candidata < teto;
+        if let Some(base) = clausula.strip_prefix('~') {
+            let Some(limite) = versao_core(base) else { return false; };
+            let Some(proxima_minor) = limite.1.checked_add(1) else { return false; };
+            return comparar(base).is_some_and(|ordem| ordem != std::cmp::Ordering::Less)
+                && versao_core(candidata).is_some_and(|core| core < (limite.0, proxima_minor, 0));
         }
-        versao_core(parte).is_some_and(|base| candidata == base)
+        comparar(clausula).is_some_and(|ordem| ordem == std::cmp::Ordering::Equal)
     })
+}
+
+fn comparar_semver(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    use std::cmp::Ordering;
+    let core_a = versao_core(a)?;
+    let core_b = versao_core(b)?;
+    let ordem_core = core_a.cmp(&core_b);
+    if ordem_core != Ordering::Equal {
+        return Some(ordem_core);
+    }
+    let pre_a = parte_prerelease(a)?;
+    let pre_b = parte_prerelease(b)?;
+    Some(match (pre_a, pre_b) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (Some(a), Some(b)) => comparar_identificadores_prerelease(a, b),
+    })
+}
+
+fn parte_prerelease(versao: &str) -> Option<Option<&str>> {
+    let sem_build = versao.split('+').next()?;
+    Some(sem_build.split_once('-').map(|(_, prerelease)| prerelease))
+}
+
+fn comparar_identificadores_prerelease(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let mut a = a.split('.');
+    let mut b = b.split('.');
+    loop {
+        match (a.next(), b.next()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(a), Some(b)) => {
+                let a_num = a.parse::<u64>();
+                let b_num = b.parse::<u64>();
+                let ordem = match (a_num, b_num) {
+                    (Ok(a), Ok(b)) => a.cmp(&b),
+                    (Ok(_), Err(_)) => Ordering::Less,
+                    (Err(_), Ok(_)) => Ordering::Greater,
+                    (Err(_), Err(_)) => a.cmp(b),
+                };
+                if ordem != Ordering::Equal {
+                    return ordem;
+                }
+            }
+        }
+    }
 }
 
 fn versao_semantica_valida(versao: &str) -> bool {
@@ -514,6 +562,32 @@ mod testes {
             "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[restricoes]\ntexto = \"^1.0.0\"",
         );
         assert!(manifesto.is_err());
+    }
+
+    #[test]
+    fn compara_pre_lancamentos_semver_conforme_precedencia() {
+        let sequencia = [
+            "1.0.0-alpha",
+            "1.0.0-alpha.1",
+            "1.0.0-alpha.beta",
+            "1.0.0-beta",
+            "1.0.0-beta.2",
+            "1.0.0-beta.11",
+            "1.0.0-rc.1",
+            "1.0.0",
+        ];
+        for par in sequencia.windows(2) {
+            assert_eq!(comparar_semver(par[0], par[1]), Some(std::cmp::Ordering::Less));
+        }
+        assert_eq!(comparar_semver("1.0.0+build.1", "1.0.0+build.9"), Some(std::cmp::Ordering::Equal));
+    }
+
+    #[test]
+    fn restricoes_semver_comparam_pre_lancamentos_e_limites() {
+        assert!(versao_satisfaz("1.2.3-rc.2", ">=1.2.3-rc.1, <1.2.3"));
+        assert!(!versao_satisfaz("1.2.3-rc.2", ">=1.2.0, <2.0.0"));
+        assert!(versao_satisfaz("1.2.3", ">=1.2.0, <2.0.0"));
+        assert!(!versao_satisfaz("2.0.0", "^1.2.0"));
     }
 
     #[test]
