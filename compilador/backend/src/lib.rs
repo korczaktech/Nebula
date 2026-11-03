@@ -494,7 +494,7 @@ impl Emissor {
                                 valor: interno.clone(),
                             };
                             self.expressao(&ExpressaoIr::Unaria {
-                                operador: operador.clone(),
+                                operador: *operador,
                                 valor: Box::new(interno),
                             })?;
                         }
@@ -512,7 +512,7 @@ impl Emissor {
                             };
                             self.expressao(&ExpressaoIr::Binaria {
                                 esquerda: Box::new(esquerda),
-                                operador: operador.clone(),
+                                operador: *operador,
                                 direita: Box::new(direita),
                             })?;
                         }
