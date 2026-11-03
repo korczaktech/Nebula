@@ -1,0 +1,2 @@
+estrutura Ponto { x: inteiro, y: inteiro }
+funcao principal(): Ponto { devolver Ponto { x: 1, y: 2 } }
