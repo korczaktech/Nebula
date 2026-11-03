@@ -9,3 +9,4 @@
 - [Critérios de aceite da Fase 5](../especificacao/criterios-fase-5.md)
 
 - [Biblioteca padrão](../biblioteca/src/lib.rs)
+- [Biblioteca padrão e limites das APIs](BIBLIOTECA.md)
