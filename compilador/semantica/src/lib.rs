@@ -557,9 +557,8 @@ impl<'a> Analisador<'a> {
                         }
                     }
                     Expressao::Membro { .. } => {
-                        let mut tipo_destino = Tipo::Desconhecido;
-                        if let Some((raiz, caminho)) = Self::decompor_caminho_campo(destino) {
-                            tipo_destino = self.resolver_tipo_caminho(&raiz, &caminho, false);
+                        let tipo_destino = if let Some((raiz, caminho)) = Self::decompor_caminho_campo(destino) {
+                            let tipo = self.resolver_tipo_caminho(&raiz, &caminho, false);
                             if let Some(simbolo) = self.buscar(&raiz).cloned() {
                                 if !simbolo.mutavel {
                                     self.erro("N3009", format!("Não é permitido alterar campos da constante '{raiz}'."));
@@ -571,9 +570,10 @@ impl<'a> Analisador<'a> {
                                     movido != &prefixo && !movido.starts_with(&format!("{prefixo}."))
                                 );
                             }
+                            tipo
                         } else {
-                            tipo_destino = self.expressao(destino);
-                        }
+                            self.expressao(destino)
+                        };
                         self.exigir_expressao_tipo(valor, &tipo_valor, &tipo_destino, "atribuição de campo");
                         tipo_destino
                     }
