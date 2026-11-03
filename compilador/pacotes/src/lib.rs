@@ -351,7 +351,7 @@ fn resolver_dependencias(
                 ));
             }
         }
-        let impressao = sha256_hex(conteudo.as_bytes());
+        let impressao = impressao_pacote(&diretorio_dep)?;
         let pacote = PacoteResolvido {
             nome: dependencia.nome.clone(),
             versao: dependencia.versao.clone(),
@@ -773,6 +773,23 @@ mod testes {
                 "{valor}"
             );
         }
+    }
+
+    #[test]
+    fn lockfile_detecta_alteracao_em_codigo_da_dependencia() {
+        let raiz = std::env::temp_dir().join(format!("nebula-pacote-fingerprint-{}", std::process::id()));
+        let app = raiz.join("app");
+        let lib = raiz.join("lib");
+        fs::create_dir_all(&app).unwrap();
+        fs::create_dir_all(&lib).unwrap();
+        fs::write(app.join("nebula.toml"), "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = \"../lib\"").unwrap();
+        fs::write(lib.join("nebula.toml"), "[pacote]\nnome = \"lib\"\nversao = \"1.0.0\"").unwrap();
+        fs::write(lib.join("lib.nbx"), "funcao valor(): inteiro { devolver 1 }").unwrap();
+        let primeiro = resolver(&app).unwrap();
+        fs::write(lib.join("lib.nbx"), "funcao valor(): inteiro { devolver 2 }").unwrap();
+        let segundo = resolver(&app).unwrap();
+        assert_ne!(primeiro.lockfile, segundo.lockfile);
+        let _ = fs::remove_dir_all(raiz);
     }
 
     #[test]
