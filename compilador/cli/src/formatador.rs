@@ -37,15 +37,107 @@ pub fn format_file(path: &Path, check: bool) -> Result<bool, String> {
 }
 
 fn normalize_whitespace(source: &str) -> String {
-    let mut lines = source.lines().map(str::trim_end).collect::<Vec<_>>();
-    while lines.last().is_some_and(|line| line.is_empty()) {
-        lines.pop();
+    let mut depth = 0_usize;
+    let mut dentro_comentario = false;
+    let mut linhas = Vec::new();
+
+    for original in source.lines() {
+        let conteudo = original.trim();
+        if conteudo.is_empty() {
+            linhas.push(String::new());
+            continue;
+        }
+
+        let (aberturas, fechamentos, fechamentos_iniciais) =
+            contar_chaves(conteudo, &mut dentro_comentario);
+        let nivel = depth.saturating_sub(fechamentos_iniciais);
+        let recuo = " ".repeat(nivel.saturating_mul(4));
+        linhas.push(format!("{recuo}{conteudo}"));
+        depth = depth
+            .saturating_sub(fechamentos)
+            .saturating_add(aberturas);
     }
-    if lines.is_empty() {
+
+    while linhas.last().is_some_and(|linha| linha.is_empty()) {
+        linhas.pop();
+    }
+    if linhas.is_empty() {
         String::new()
     } else {
-        format!("{}\n", lines.join("\n"))
+        format!("{}\n", linhas.join("\n"))
     }
+}
+
+/// Conta delimitadores de bloco ignorando strings e comentários.
+fn contar_chaves(linha: &str, dentro_comentario: &mut bool) -> (usize, usize, usize) {
+    let caracteres = linha.chars().collect::<Vec<_>>();
+    let mut indice = 0;
+    let mut aberturas = 0_usize;
+    let mut fechamentos = 0_usize;
+    let mut fechamentos_iniciais = 0_usize;
+    let mut inicio_logico = true;
+
+    while indice < caracteres.len() {
+        if *dentro_comentario {
+            if caracteres[indice] == '*' && caracteres.get(indice + 1) == Some(&'/') {
+                *dentro_comentario = false;
+                indice += 2;
+            } else {
+                indice += 1;
+            }
+            continue;
+        }
+
+        let atual = caracteres[indice];
+        let proximo = caracteres.get(indice + 1).copied();
+        if atual.is_whitespace() {
+            indice += 1;
+            continue;
+        }
+        if atual == '/' && proximo == Some('*') {
+            *dentro_comentario = true;
+            indice += 2;
+            continue;
+        }
+        if atual == '/' && proximo == Some('/') {
+            break;
+        }
+        if atual == '}' {
+            fechamentos += 1;
+            if inicio_logico {
+                fechamentos_iniciais += 1;
+            }
+            indice += 1;
+            continue;
+        }
+
+        inicio_logico = false;
+        if atual == '{' {
+            aberturas += 1;
+            indice += 1;
+            continue;
+        }
+
+        if atual == '"' || atual == '\'' {
+            let delimitador = atual;
+            indice += 1;
+            while indice < caracteres.len() {
+                if caracteres[indice] == '\\' {
+                    indice = (indice + 2).min(caracteres.len());
+                    continue;
+                }
+                if caracteres[indice] == delimitador {
+                    indice += 1;
+                    break;
+                }
+                indice += 1;
+            }
+            continue;
+        }
+        indice += 1;
+    }
+
+    (aberturas, fechamentos, fechamentos_iniciais)
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -96,6 +188,27 @@ mod tests {
         let formatted = normalize_whitespace(source);
         assert!(formatted.contains("\"a  b\""));
         assert_eq!(formatted.matches('\n').count(), 3);
+    }
+
+    #[test]
+    fn aplica_indentacao_canonica_em_blocos() {
+        let source = "funcao principal(): vazio {\nexibir(1)\nquando verdadeiro {\nexibir(2)\n}\n}\n";
+        let formatted = normalize_whitespace(source);
+        assert_eq!(
+            formatted,
+            "funcao principal(): vazio {\n    exibir(1)\n    quando verdadeiro {\n        exibir(2)\n    }\n}\n"
+        );
+        assert_eq!(normalize_whitespace(&formatted), formatted);
+    }
+
+    #[test]
+    fn ignora_chaves_em_strings_e_comentarios() {
+        let source = "funcao principal(): vazio {\nexibir(\"{ }\") // }\n/* {\n } */\nexibir('}')\n}\n";
+        let formatted = normalize_whitespace(source);
+        assert_eq!(
+            formatted,
+            "funcao principal(): vazio {\n    exibir(\"{ }\") // }\n    /* {\n     } */\n    exibir('}')\n}\n"
+        );
     }
 
     #[test]
