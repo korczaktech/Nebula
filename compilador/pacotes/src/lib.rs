@@ -384,11 +384,20 @@ fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
             };
             let (m, n, p) = limite;
             let teto = if m > 0 {
-                (m + 1, 0, 0)
+                let Some(proximo) = m.checked_add(1) else {
+                    return false;
+                };
+                (proximo, 0, 0)
             } else if n > 0 {
-                (0, n + 1, 0)
+                let Some(proximo) = n.checked_add(1) else {
+                    return false;
+                };
+                (0, proximo, 0)
             } else {
-                (0, 0, p.saturating_add(1))
+                let Some(proximo) = p.checked_add(1) else {
+                    return false;
+                };
+                (0, 0, proximo)
             };
             return candidata >= limite && candidata < teto;
         }
@@ -396,7 +405,10 @@ fn versao_satisfaz(versao: &str, restricao: &str) -> bool {
             let Some(limite) = versao_core(base) else {
                 return false;
             };
-            let teto = (limite.0, limite.1.saturating_add(1), 0);
+            let Some(proxima_minor) = limite.1.checked_add(1) else {
+                return false;
+            };
+            let teto = (limite.0, proxima_minor, 0);
             return candidata >= limite && candidata < teto;
         }
         versao_core(parte).is_some_and(|base| candidata == base)
@@ -487,6 +499,10 @@ mod testes {
         assert!(!versao_satisfaz("2.0.0", "^1.2.0"));
         assert!(versao_satisfaz("1.2.9", "~1.2.0"));
         assert!(!versao_satisfaz("1.3.0", "~1.2.0"));
+        assert!(!versao_satisfaz(
+            "18446744073709551615.0.0",
+            "^18446744073709551615.0.0"
+        ));
         assert!(versao_satisfaz("1.5.0", ">=1.2.0, <2.0.0"));
     }
 
