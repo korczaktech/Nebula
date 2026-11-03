@@ -20,3 +20,11 @@ O modo `--check` retorna código 1 se houver alterações pendentes e não grava
 ## Cache incremental
 
 A compilação nativa mantém entradas em `.nebula/cache`. A chave SHA-256 inclui os bytes da fonte principal, fontes de módulos carregados recursivamente, versão do compilador, alvo e nível de otimização. Cada entrada armazena checksum do artefato; conteúdo corrompido é descartado e recompilado. `nebula limpar-cache <projeto>` remove os arquivos armazenados sem apagar as fontes. `nebula dependencias resolver <projeto>` atualiza o lockfile por substituição atômica; `nebula dependencias verificar <projeto>` recalcula o grafo e falha quando o lockfile não corresponde ao estado dos manifestos. Falha ou indisponibilidade do cache não bloqueia uma compilação normal.
+
+## Diagnósticos estruturados e alvos
+
+- `nebula verificar arquivo.nbx --json` retorna o resultado sintático em JSON.
+- `nebula analisar arquivo.nbx --json` retorna diagnósticos sintáticos e semânticos em JSON.
+- Cada diagnóstico contém código estável, severidade, mensagem, intervalo em bytes e linha/coluna quando a fonte está disponível.
+- `nebula alvos` lista somente os alvos com backend implementado.
+- `nebula compilar arquivo.nbx --alvo linux-x86_64` seleciona explicitamente o backend ELF64 Linux. Alvos ainda não implementados são rejeitados antes da geração do artefato.
