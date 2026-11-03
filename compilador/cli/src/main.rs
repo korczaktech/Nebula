@@ -121,7 +121,7 @@ fn main() {
             }
         }
         Some("compilar") => {
-            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [-o <saida>]"); std::process::exit(2); };
+            let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula compilar <arquivo.nbx> [--alvo <alvo>] [-o <saida>] [--otimizacao O0|O1|O2|O3|Os]"); std::process::exit(2); };
             let mut saida = PathBuf::from(&caminho).with_extension("out");
             let mut nivel = NivelOtimizacao::O1;
             let mut alvo = "linux-x86_64".to_owned();
@@ -153,6 +153,10 @@ fn main() {
             println!("Executável gerado: {}", saida.display());
         }
         Some("executar" | "testar") => {
+            if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+                eprintln!("O comando executar/testar exige um host Linux x86-64; use compilar para gerar o ELF em outro host.");
+                std::process::exit(2);
+            }
             let Some(caminho) = argumentos.next() else { eprintln!("Uso: nebula executar|testar <arquivo.nbx>"); std::process::exit(2); };
             if argumentos.next().is_some() { eprintln!("Erro: executar aceita somente um arquivo."); std::process::exit(2); }
             let temporario = std::env::temp_dir().join(format!("nebula-{}{}", std::process::id(), if cfg!(windows) { ".exe" } else { "" }));
