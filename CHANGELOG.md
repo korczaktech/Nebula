@@ -2,12 +2,19 @@
 
 ## Não lançado — Ferramentas, qualidade e preparação de lançamento
 
-- Adiciona o executável `nebula-formatar`, com validação sintática, normalização conservadora, modo `--check`, gravação temporária e testes automatizados.
-- Adiciona auditoria RustSec periódica com `cargo audit --locked` e atualizações semanais de dependências Cargo e GitHub Actions via Dependabot.
-- Agenda fuzz smoke determinístico do Lexer e Parser.
-- Documenta segurança, estabilidade, compatibilidade, processo de lançamento e situação ainda pendente da licença.
-- Adiciona workflow de preparação de release Linux x86-64 com validação, binários e checksums; a publicação é bloqueada enquanto não existir um arquivo LICENSE aprovado.
-- Cache incremental, integração do formatador como subcomando `nebula formatar`, campanhas contínuas de fuzzing, assinatura dos artefatos e instaladores multiplataforma continuam pendentes.
+- Integra o formatador à CLI principal e mantém o binário independente `nebula-formatar`, com validação sintática, indentação de blocos, modo `--check`, gravação temporária exclusiva e preservação de permissões.
+- Adiciona saída JSON de diagnósticos sintáticos e semânticos nos comandos `verificar` e `analisar`, com código, severidade, mensagem, intervalo em bytes e linha/coluna.
+- Adiciona `nebula alvos` e seleção explícita `compilar --alvo`; destinos sem backend real são rejeitados.
+- Adiciona cache incremental de artefatos ELF, com SHA-256, checksum, invalidação por fonte/módulos/alvo/otimização e comando de limpeza.
+- Amplia o gerenciador de pacotes com SemVer para pré-lançamentos, versões numéricas longas, comparadores, caret, tilde, intervalos e alternativas; o lockfile registra fingerprint dos arquivos do pacote.
+- Fortalece o parser do manifesto com comentários fora de strings e escapes TOML básicos/Unicode.
+- Integra `json_valido(texto)` e `json_canonico(texto)` ao interpretador de referência; o backend ELF ainda não inclui o runtime JSON.
+- Expande fuzz smoke determinístico para Lexer/Parser, JSON e manifestos de pacotes.
+- Adiciona baseline inicial versionada de loop e Fibonacci; os tempos são indicativos de runner hospedado variável e não substituem medições em hardware fixo.
+- Mantém CI de fmt, Clippy, testes e documentação em Linux/Windows/macOS; isso valida o workspace Rust, não executáveis Nebula nesses três sistemas.
+- Adiciona workflow de release Linux x86-64 com checksums e atestação de proveniência; a publicação fica bloqueada enquanto `LICENSE-STATUS.md` não registrar aprovação jurídica.
+- Auditoria RustSec periódica com `cargo audit` e atualizações semanais de dependências via Dependabot.
+- Instaladores multiplataforma, backends adicionais, assinatura destacada gerenciada pela organização, revisão jurídica e auditoria independente continuam pendentes.
 
 ## Não lançado — Reestruturação do backend nativo (Fase 4 validada)
 
