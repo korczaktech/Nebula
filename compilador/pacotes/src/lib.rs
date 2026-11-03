@@ -104,8 +104,9 @@ fn decodificar_string_toml(valor: &str) -> Result<String, String> {
                         }
                         let codigo = u32::from_str_radix(&hexadecimal, 16)
                             .map_err(|_| "escape Unicode inválido".to_owned())?;
-                        let caractere = char::from_u32(codigo)
-                            .ok_or_else(|| "escape Unicode não representa um escalar válido".to_owned())?;
+                        let caractere = char::from_u32(codigo).ok_or_else(|| {
+                            "escape Unicode não representa um escalar válido".to_owned()
+                        })?;
                         resultado.push(caractere);
                     }
                     _ => return Err(format!("escape TOML desconhecido: \\{escape}")),
@@ -717,7 +718,10 @@ mod testes {
     fn rejeita_escapes_toml_invalidos() {
         let base = "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = ";
         for valor in [r#""\q""#, r#""\uD800""#, r#""texto" sobra"#] {
-            assert!(Manifesto::analisar(&format!("{base}{valor}")).is_err(), "{valor}");
+            assert!(
+                Manifesto::analisar(&format!("{base}{valor}")).is_err(),
+                "{valor}"
+            );
         }
     }
 
