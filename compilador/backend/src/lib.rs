@@ -19,7 +19,7 @@ const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     let mut globais = HashMap::new();
     for instrucao in &programa.instrucoes {
-        if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+        if let InstrucaoIr::Declarar { nome, .. } = instrucao {
             let deslocamento = globais.len().checked_mul(16)
                 .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
             if globais.insert(nome.clone(), deslocamento).is_some() {
@@ -906,7 +906,7 @@ impl Emissor {
                         _ => return Err("Campo não está em um registrador ABI.".into()),
                     }
                 } else if self.globais.contains_key(raiz) {
-                    match (*deslocamento, *tamanho) {
+                    match (deslocamento, tamanho) {
                         (0, 16) => self.armazenar_global(raiz),
                         (0, _) => self.armazenar_global_parte(raiz, 0),
                         (8, _) => self.armazenar_global_parte(raiz, 8),
