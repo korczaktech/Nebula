@@ -299,6 +299,23 @@ mod testes {
     }
 
     #[test]
+    fn manifestos_resistem_a_entradas_adversariais_deterministicas() {
+        for semente_inicial in 0..512_u32 {
+            let mut estado = semente_inicial.wrapping_add(0x85eb_ca6b);
+            let tamanho = semente_inicial as usize % 128 + 1;
+            let mut entrada = String::with_capacity(tamanho);
+            for _ in 0..tamanho {
+                estado = estado
+                    .wrapping_mul(1_103_515_245)
+                    .wrapping_add(12_345);
+                let byte = b' ' + ((estado >> 24) % 95);
+                entrada.push(char::from(byte));
+            }
+            let _ = Manifesto::analisar(&entrada);
+        }
+    }
+
+    #[test]
     fn resolve_dependencias_transitivas_com_lock_deterministico() {
         let raiz = std::env::temp_dir().join(format!("nebula-pacotes-{}", std::process::id()));
         let _ = fs::remove_dir_all(&raiz);

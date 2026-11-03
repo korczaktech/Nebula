@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   entradas-adversariais:
-    name: Lexer e Parser com entradas adversariais
+    name: Lexer, Parser, JSON e pacotes com entradas adversariais
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -23,5 +23,9 @@ jobs:
           persist-credentials: false
       - name: Instalar Rust
         uses: dtolnay/rust-toolchain@1.85.0
-      - name: Executar fuzz smoke determinístico
+      - name: Lexer e Parser
         run: cargo test --locked -p nebula-sintaxe lexer_e_parser_resistem_a_entradas_malformadas_deterministicas -- --nocapture
+      - name: Parser JSON
+        run: cargo test --locked -p nebula-biblioteca json_parser_resiste_a_entradas_adversariais_deterministicas -- --nocapture
+      - name: Manifestos e pacotes
+        run: cargo test --locked -p nebula-pacotes manifestos_resistem_a_entradas_adversariais_deterministicas -- --nocapture

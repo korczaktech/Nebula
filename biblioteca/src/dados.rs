@@ -425,6 +425,28 @@ mod testes {
     }
 
     #[test]
+    fn json_parser_resiste_a_entradas_adversariais_deterministicas() {
+        for semente_inicial in 0..512_u32 {
+            let mut estado = semente_inicial.wrapping_add(0x9e37_79b9);
+            let mut bytes = Vec::with_capacity((semente_inicial as usize % 97) + 1);
+            let tamanho = semente_inicial as usize % 97 + 1;
+            for _ in 0..tamanho {
+                estado = estado
+                    .wrapping_mul(1_664_525)
+                    .wrapping_add(1_013_904_223);
+                bytes.push((estado >> 24) as u8);
+            }
+            let entrada = String::from_utf8_lossy(&bytes);
+            if let Ok(valor) = analisar_json(&entrada) {
+                let serializado = serializar_json(&valor).expect("valor analisado deve ser serializável");
+                let novamente = analisar_json(&serializado)
+                    .expect("serialização válida deve ser analisável");
+                assert_eq!(valor, novamente);
+            }
+        }
+    }
+
+    #[test]
     fn rejeita_conteudo_adicional_e_limites_excedidos() {
         assert!(analisar_json("true false").is_err());
         let profundo = format!(
