@@ -1009,12 +1009,7 @@ funcao principal(): inteiro {
     variavel positivo: inteiro128 = 42
     variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455
     variavel zero: inteiro_u128 = 0
-    quando soma == esperado
-        e identidade(soma) == esperado
-        e negativo < positivo
-        e -positivo == negativo
-        e identidade_sem_sinal(maximo) == maximo
-        e maximo > zero {
+    quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero {
         devolver 42
     } senao {
         devolver 0
