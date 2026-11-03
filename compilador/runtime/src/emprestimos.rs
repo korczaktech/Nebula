@@ -89,7 +89,9 @@ impl TabelaEmprestimos {
             return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
         }
         let identificador = PROXIMO_EMPRESTIMO
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| atual.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| {
+                atual.checked_add(1)
+            })
             .map_err(|_| ErroEmprestimo::IdentificadorExcedido)?;
         recurso_estado.compartilhados.insert(identificador, ());
         Ok(GuardaEmprestimo {
@@ -114,7 +116,9 @@ impl TabelaEmprestimos {
             return Err(ErroEmprestimo::CompartilhadoAtivo(recurso));
         }
         let identificador = PROXIMO_EMPRESTIMO
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| atual.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |atual| {
+                atual.checked_add(1)
+            })
             .map_err(|_| ErroEmprestimo::IdentificadorExcedido)?;
         recurso_estado.exclusivo = Some(identificador);
         Ok(GuardaEmprestimo {
