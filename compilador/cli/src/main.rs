@@ -1031,6 +1031,57 @@ funcao principal(): inteiro {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn compila_enum_com_payload_e_pattern_matching() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-abi-enum-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"enumeracao Resposta { Sucesso(inteiro64), Falha(inteiro64), Vazio }
+funcao transformar(resposta: Resposta): Resposta {
+    escolha resposta {
+        caso Resposta::Sucesso(valor) { devolver Resposta::Falha(valor + 1) }
+        caso Resposta::Falha(erro) { devolver Resposta::Sucesso(erro + 1) }
+        caso Resposta::Vazio { devolver Resposta::Vazio }
+    }
+}
+funcao principal(): inteiro {
+    variavel resultado = transformar(Resposta::Sucesso(41))
+    escolha resultado {
+        caso Resposta::Sucesso(valor) { devolver 0 }
+        caso Resposta::Falha(erro) { devolver erro }
+        caso Resposta::Vazio { devolver 1 }
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de enumeração com payload");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável de enumeração não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn compila_tuplas_de_dois_elementos_no_abi() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
