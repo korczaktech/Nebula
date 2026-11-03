@@ -37,6 +37,8 @@ pub struct RelatorioOtimizacao {
     pub blocos_vazios_removidos: usize,
     /// Quantidade de leituras substituídas por constantes imutáveis locais.
     pub propagacoes_constantes: usize,
+    /// Quantidade de identidades algébricas aplicadas sem remover efeitos.
+    pub simplificacoes_algebricas: usize,
 }
 
 /// Otimiza um programa IR sem executar código nem remover efeitos observáveis.
@@ -384,6 +386,60 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
     if let Some(valor) = dobrada {
         *expressao = ExpressaoIr::Constante(valor);
         relatorio.constantes_dobradas += 1;
+        return;
+    }
+
+    if let Some(simplificada) = simplificar_identidade(expressao) {
+        *expressao = simplificada;
+        relatorio.simplificacoes_algebricas += 1;
+    }
+}
+
+fn simplificar_identidade(expressao: &ExpressaoIr) -> Option<ExpressaoIr> {
+    use OperadorIr as O;
+    use ValorIr as V;
+
+    let ExpressaoIr::Binaria {
+        esquerda,
+        operador,
+        direita,
+    } = expressao
+    else {
+        return None;
+    };
+
+    let zero = |valor: &ExpressaoIr| {
+        matches!(
+            valor,
+            ExpressaoIr::Constante(V::Inteiro(0) | V::InteiroSemSinal(0))
+        )
+    };
+    let um = |valor: &ExpressaoIr| {
+        matches!(
+            valor,
+            ExpressaoIr::Constante(V::Inteiro(1) | V::InteiroSemSinal(1))
+        )
+    };
+    let verdadeiro = |valor: &ExpressaoIr| {
+        matches!(valor, ExpressaoIr::Constante(V::Logico(true)))
+    };
+    let falso = |valor: &ExpressaoIr| {
+        matches!(valor, ExpressaoIr::Constante(V::Logico(false)))
+    };
+
+    match operador {
+        O::Mais if zero(direita) => Some((**esquerda).clone()),
+        O::Mais if zero(esquerda) => Some((**direita).clone()),
+        O::Menos if zero(direita) => Some((**esquerda).clone()),
+        O::Vezes if um(direita) => Some((**esquerda).clone()),
+        O::Vezes if um(esquerda) => Some((**direita).clone()),
+        O::Divide if um(direita) => Some((**esquerda).clone()),
+        O::Potencia if um(direita) => Some((**esquerda).clone()),
+        O::E if verdadeiro(esquerda) => Some((**direita).clone()),
+        O::E if verdadeiro(direita) => Some((**esquerda).clone()),
+        O::Ou if falso(esquerda) => Some((**direita).clone()),
+        O::Ou if falso(direita) => Some((**esquerda).clone()),
+        _ => None,
     }
 }
 
@@ -506,6 +562,64 @@ mod testes {
         assert_eq!(ir.instrucoes, vec![InstrucaoIr::Expressao(
             ExpressaoIr::Constante(ValorIr::Inteiro(42))
         )]);
+    }
+
+    #[test]
+    fn simplifica_identidades_sem_remover_chamadas() {
+        let chamada = ExpressaoIr::Chamada {
+            nome: "obter_valor".into(),
+            argumentos: vec![],
+        };
+        let mut ir = programa(ExpressaoIr::Binaria {
+            esquerda: Box::new(chamada.clone()),
+            operador: OperadorIr::Mais,
+            direita: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(0))),
+        });
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O1).expect("O1");
+        assert_eq!(relatorio.simplificacoes_algebricas, 1);
+        assert_eq!(
+            ir.instrucoes,
+            vec![InstrucaoIr::Expressao(chamada)]
+        );
+    }
+
+    #[test]
+    fn simplifica_idempotencia_booleana_preservando_operando() {
+        let chamada = ExpressaoIr::Chamada {
+            nome: "condicao".into(),
+            argumentos: vec![],
+        };
+        let mut ir = programa(ExpressaoIr::Binaria {
+            esquerda: Box::new(chamada.clone()),
+            operador: OperadorIr::E,
+            direita: Box::new(ExpressaoIr::Constante(ValorIr::Logico(true))),
+        });
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
+        assert_eq!(relatorio.simplificacoes_algebricas, 1);
+        assert_eq!(
+            ir.instrucoes,
+            vec![InstrucaoIr::Expressao(chamada)]
+        );
+    }
+
+    #[test]
+    fn nao_aplica_identidade_que_descartaria_efeito() {
+        let chamada = ExpressaoIr::Chamada {
+            nome: "efeito".into(),
+            argumentos: vec![],
+        };
+        let mut ir = programa(ExpressaoIr::Binaria {
+            esquerda: Box::new(chamada.clone()),
+            operador: OperadorIr::Vezes,
+            direita: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(0))),
+        });
+        let relatorio = otimizar(&mut ir, NivelOtimizacao::O1).expect("O1");
+        assert_eq!(relatorio.simplificacoes_algebricas, 0);
+        assert!(matches!(
+            &ir.instrucoes[0],
+            InstrucaoIr::Expressao(ExpressaoIr::Binaria { esquerda, .. })
+                if **esquerda == chamada
+        ));
     }
 
     #[test]
