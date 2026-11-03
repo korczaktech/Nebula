@@ -200,12 +200,16 @@ impl<'a> Analisador<'a> {
     fn item(&mut self, item: &NoAst) {
         match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
-                let inferido = self.expressao(valor);
+                let esperado_declarado = tipo.as_deref().map(|tipo| self.resolver_tipo(tipo));
+                let inferido = if let Some(esperado) = esperado_declarado.as_ref() {
+                    self.expressao_com_tipo_esperado(valor, esperado)
+                } else {
+                    self.expressao(valor)
+                };
                 self.mover_valor(valor);
-                let final_tipo = if let Some(tipo) = tipo {
-                    let esperado = self.resolver_tipo(tipo);
+                let final_tipo = if let Some(esperado) = esperado_declarado {
                     if esperado == Tipo::Desconhecido {
-                        self.erro("N3021", format!("Tipo '{tipo}' não foi declarado."));
+                        self.erro("N3021", format!("Tipo '{}' não foi declarado.", tipo.as_deref().unwrap_or("")));
                     }
                     self.exigir_expressao_tipo(valor, &inferido, &esperado, "inicialização da variável");
                     esperado
@@ -453,6 +457,42 @@ impl<'a> Analisador<'a> {
         self.abrir_escopo();
         for item in itens { self.item(item); }
         self.fechar_escopo();
+    }
+
+    fn expressao_com_tipo_esperado(&mut self, expressao: &Expressao, esperado: &Tipo) -> Tipo {
+        let Expressao::Chamada { alvo, argumentos } = expressao else {
+            return self.expressao(expressao);
+        };
+        let Expressao::Nome(nome) = alvo.as_ref() else {
+            return self.expressao(expressao);
+        };
+        let Some(funcao) = self.funcoes.get(nome).cloned() else {
+            return self.expressao(expressao);
+        };
+        if funcao.genericos.is_empty() || argumentos.len() != funcao.parametros.len() {
+            return self.expressao(expressao);
+        }
+
+        let tipos_obtidos: Vec<Tipo> = argumentos.iter()
+            .map(|argumento| self.expressao(argumento))
+            .collect();
+        let mut inferidos = HashMap::new();
+        for (parametro, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+            if !Self::inferir_genericos(parametro, obtido, &funcao.genericos, &mut inferidos) {
+                self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
+            }
+        }
+        let _ = Self::inferir_genericos(&funcao.retorno, esperado, &funcao.genericos, &mut inferidos);
+        for parametro in &funcao.genericos {
+            if !inferidos.contains_key(parametro) {
+                self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
+            }
+        }
+        for (parametro, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+            let parametro = Self::substituir_genericos(parametro, &inferidos);
+            self.exigir_tipo(obtido, &parametro, "argumento de função genérica");
+        }
+        Self::substituir_genericos(&funcao.retorno, &inferidos)
     }
 
     fn expressao(&mut self, expressao: &Expressao) -> Tipo {
