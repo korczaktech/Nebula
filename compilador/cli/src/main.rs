@@ -882,7 +882,17 @@ mod testes {
         .unwrap();
         compilar_arquivo_com_nivel(&origem, &saida, NivelOtimizacao::O2)
             .expect("compilação O2 válida");
-        let status = Command::new(&saida).status().expect("executável gerado");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
         assert_eq!(status.code(), Some(7));
         let _ = std::fs::remove_file(origem);
         let _ = std::fs::remove_file(saida);
@@ -915,6 +925,42 @@ mod testes {
         .unwrap();
 
         compilar_arquivo(&origem, &saida).expect("compilação com módulo local");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn compila_e_executa_retorno_e_chamada_indireta_de_funcao() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-funcao-indireta-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 2 }\nfuncao obter(): funcao(inteiro): inteiro { devolver somar }\nfuncao principal(): inteiro { devolver obter()(40) }",
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação com função indireta");
         let mut tentativas = 0;
         let status = loop {
             match Command::new(&saida).status() {
