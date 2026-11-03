@@ -978,6 +978,57 @@ mod testes {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn compila_chamadas_e_retorno_com_inteiros128() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-abi-inteiro128-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"variavel global: inteiro128 = 1208925819614629174706176
+funcao somar(a: inteiro128, b: inteiro128): inteiro128 {
+    devolver a + b
+}
+funcao identidade(valor: inteiro128): inteiro128 {
+    devolver valor
+}
+funcao principal(): inteiro {
+    variavel soma = somar(global, global)
+    variavel esperado: inteiro128 = 2417851639229258349412352
+    quando soma == esperado e identidade(soma) == esperado {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação com ABI inteiro128");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável inteiro128 não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn compila_conversao_e_aritmetica_decimal32_com_variaveis() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1527,11 +1578,16 @@ mod fixtures_conformidade_tipos {
         );
         assert!(estrutura.is_err(), "ABI de estrutura ainda pendente foi aceita.");
 
-        let inteiro128 = rejeita_abi_nativa_pendente(
-            include_str!("../fixtures/tipos/abi-inteiro128-pendente.nbx"),
-            "abi-inteiro128-pendente.nbx",
+        let inteiro128 = include_str!("../fixtures/tipos/abi-inteiro128-pendente.nbx");
+        let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", inteiro128);
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(ir.diagnosticos.is_empty(), "{:?}", ir.diagnosticos);
+        assert!(
+            nebula_backend::gerar_executavel(&ir.programa.expect("IR de inteiro128")).is_ok(),
+            "ABI escalar de inteiro128 deve gerar ELF."
         );
-        assert!(inteiro128.is_err(), "ABI de inteiro128 ainda pendente foi aceita.");
     }
 
     #[test]
