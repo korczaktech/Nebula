@@ -684,11 +684,33 @@ impl Lowerer {
                     valor: Box::new(valor_ir),
                 })
             },
-            Expressao::Binaria { esquerda, operador, direita } => Some(ExpressaoIr::Binaria {
-                esquerda: Box::new(self.expressao(esquerda)?),
-                operador: converter_operador(*operador)?,
-                direita: Box::new(self.expressao(direita)?),
-            }),
+            Expressao::Binaria { esquerda, operador, direita } => {
+                let tipo_esquerda = self.inferir_tipo_ast(esquerda);
+                let tipo_direita = self.inferir_tipo_ast(direita);
+                let esquerda = self.expressao(esquerda)?;
+                let direita = self.expressao(direita)?;
+                let esquerda = if tipo_numerico(&tipo_esquerda) {
+                    ExpressaoIr::Normalizar {
+                        tipo: tipo_esquerda,
+                        valor: Box::new(esquerda),
+                    }
+                } else {
+                    esquerda
+                };
+                let direita = if tipo_numerico(&tipo_direita) {
+                    ExpressaoIr::Normalizar {
+                        tipo: tipo_direita,
+                        valor: Box::new(direita),
+                    }
+                } else {
+                    direita
+                };
+                Some(ExpressaoIr::Binaria {
+                    esquerda: Box::new(esquerda),
+                    operador: converter_operador(*operador)?,
+                    direita: Box::new(direita),
+                })
+            },
             Expressao::Atribuicao { destino, valor } => {
                 let tipo = self.inferir_tipo_ast(destino);
                 let valor = Box::new(self.expressao(valor)?);
