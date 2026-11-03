@@ -1,0 +1,3 @@
+funcao identidade(valor: inteiro): inteiro { devolver valor }
+funcao aplicar<T>(operacao: funcao(T): T, valor: T): T { devolver operacao(valor) }
+variavel resposta = aplicar(identidade, 42)
