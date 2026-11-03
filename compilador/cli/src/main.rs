@@ -1054,9 +1054,9 @@ fn ajuda() {
     println!("  limpar-cache <projeto> Remove os artefatos em .nebula/cache");
     println!("  versao                Exibe a versão da ferramenta");
     println!("  alvos                 Lista os alvos com backend implementado");
-    println!("  verificar <arquivo>   Analisa léxica e sintaticamente um arquivo .nbx");
+    println!("  verificar <arquivo>   Analisa sintaxe (aceita --json)");
     println!("  formatar <arquivo>    Formata indentação e espaços sem reescrever tokens");
-    println!("  analisar <arquivo>    Verifica nomes, escopos e tipos estáticos");
+    println!("  analisar <arquivo>    Verifica nomes, escopos e tipos (aceita --json)");
     println!("  ir <arquivo>          Gera e exibe a representação intermediária");
     println!(
         "  compilar <arquivo>    Gera executável nativo (--alvo linux-x86_64, -O0/-O1/-O2/-O3/-Os)"
@@ -2102,6 +2102,29 @@ funcao principal(): inteiro {
         let saida = interpretar_arquivo(&caminho).expect("interpretação válida");
         assert_eq!(saida, vec!["Olá, Nebula"]);
         let _ = std::fs::remove_file(caminho);
+    }
+
+    #[test]
+    fn serializa_diagnosticos_em_json_com_escape_correto() {
+        let caminho = Path::new("arquivo\\\"teste.nbx");
+        let diagnosticos = [Diagnostico::novo(
+            "N3007",
+            Severidade::Erro,
+            "Nome inválido: \\"valor\\\"\\nlinha seguinte",
+            None,
+        )];
+        let json = diagnosticos_json(caminho, &diagnosticos, None);
+        assert!(json.starts_with("{\\"arquivo\\":"));
+        assert!(json.contains("\\"valido\\":false"));
+        assert!(json.contains("\\"codigo\\":\\"N3007\\""));
+        assert!(json.contains("\\"mensagem\\":\\"Nome inválido: \\\\"valor\\\"\\\\nlinha seguinte\\""));
+    }
+
+    #[test]
+    fn serializa_lista_vazia_de_diagnosticos_como_valida() {
+        let json = diagnosticos_json(Path::new("valido.nbx"), &[], None);
+        assert!(json.contains("\\"valido\\":true"));
+        assert!(json.ends_with("\\"diagnosticos\\":[]}}"));
     }
 
     #[test]
