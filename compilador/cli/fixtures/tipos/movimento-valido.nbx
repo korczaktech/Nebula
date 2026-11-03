@@ -1,0 +1,7 @@
+estrutura Conta { nome: texto, idade: inteiro }
+variavel conta = Conta { nome: "Lia", idade: 20 }
+variavel nome = conta.nome
+exibir(conta.idade)
+variavel par = ("Lia", 20)
+variavel pessoa = par[0]
+exibir(par[1])
