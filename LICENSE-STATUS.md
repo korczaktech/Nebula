@@ -1,5 +1,7 @@
 # Situação da licença
 
+**Status: PENDENTE DE REVISÃO JURÍDICA E APROVAÇÃO PARA DISTRIBUIÇÃO.**
+
 A licença da Nebula foi adicionada ao arquivo `LICENSE` como Licença de Uso Restrito Korczak — Nebula, versão 1.0, datada de 2 de novembro de 2026.
 
 Ela permite uso pessoal, acadêmico, profissional e comercial. Também permite criar, vender, licenciar e distribuir programas independentes desenvolvidos com a Nebula.
