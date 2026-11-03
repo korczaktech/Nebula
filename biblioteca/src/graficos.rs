@@ -183,7 +183,6 @@ impl ImagemRgba {
     }
 
     /// Exporta os pixels em ordem RGBA, linha a linha.
-    #[must_use]
     pub fn bytes_rgba(&self) -> Result<Vec<u8>, String> {
         let capacidade = self
             .pixels
