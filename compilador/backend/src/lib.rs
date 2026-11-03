@@ -429,6 +429,7 @@ impl Emissor {
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
                 self.escopos.push(HashMap::new());
+                self.tipos_escopos.push(HashMap::new());
                 if let Some(inicial) = inicial { self.instrucao(inicial)?; }
                 let inicio_condicao = self.codigo.len();
                 let fim_condicao = if let Some(condicao) = condicao {
@@ -446,7 +447,8 @@ impl Emissor {
                 let destino_fim = self.codigo.len();
                 if let Some(salto) = fim_condicao { self.aplicar_salto(salto, destino_fim); }
                 for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
-                self.escopos.pop();
+                let _ = self.escopos.pop();
+                let _ = self.tipos_escopos.pop();
             }
             InstrucaoIr::Parar => {
                 let salto = self.emitir_jmp();
@@ -1939,6 +1941,7 @@ mod testes {
     fn rejeita_declaracao_duplicada_no_mesmo_escopo() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.escopos.push(HashMap::new());
+        emissor.tipos_escopos.push(HashMap::new());
         assert!(emissor.declarar("valor").is_ok());
         assert!(emissor.declarar("valor").is_err());
     }
