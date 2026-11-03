@@ -54,7 +54,7 @@ Valores de função sem captura de ambiente podem ser armazenados, retornados e 
 
 O backend nativo implementado é Linux x86-64 / ELF64. Ele ainda não implementa ABI e geração nativa de agregados: estruturas, enumerações, tuplas, opcionais e resultados não podem ser passados ou retornados nativamente como agregados. A ABI nativa de inteiros de 128 bits também não está implementada.
 
-O backend ELF x86-64 possui operações SSE2 básicas para decimal32 e decimal64 (aritmética básica e comparações). Conversões numéricas explícitas envolvendo inteiros e decimais ainda precisam de validação nativa completa. Recursos não suportados devem ser rejeitados pelo backend, nunca tratados como se estivessem implementados.
+O backend ELF x86-64 possui operações SSE2 para decimal32 e decimal64 (aritmética básica, comparações e normalização binary32). Conversões explícitas entre inteiros de 8 a 64 bits e decimais são geradas nativamente: inteiro para decimal usa conversão SSE2, e decimal para inteiro verifica NaN e faixa antes de truncar em direção a zero. Conversões entre larguras inteiras também verificam sinal e faixa. A ABI de inteiros de 128 bits permanece indisponível no backend nativo. Recursos não suportados devem ser rejeitados pelo backend, nunca tratados como se estivessem implementados.
 
 A inferência de retorno a partir do corpo da função e a inferência genérica qualificada por módulo permanecem indisponíveis. A política completa de cópia/movimentação, inicialização parcial e propriedade ainda pertence aos critérios de memória da Fase 5.
 
