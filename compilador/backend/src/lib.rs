@@ -436,9 +436,42 @@ impl Emissor {
             ExpressaoIr::Lista(_) | ExpressaoIr::Tupla(_) | ExpressaoIr::Indexacao { .. } => {
                 return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
             }
-            ExpressaoIr::Membro { .. } | ExpressaoIr::ConstrucaoEstrutura { .. }
-            | ExpressaoIr::ConstrucaoEnumeracao { .. } => {
-                return Err("Estruturas e enumerações aguardam a implementação do layout e ABI no backend nativo.".into());
+            ExpressaoIr::Membro { alvo, campo } => {
+                let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+                    return Err("Acesso de campo nativo exige uma estrutura com tipo conhecido.".into());
+                };
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
+                let (deslocamento, _) = layout.campos.get(campo)
+                    .ok_or_else(|| format!("Campo '{campo}' não encontrado no layout de '{nome}'."))?;
+                self.expressao(alvo)?;
+                match deslocamento {
+                    0 => {}
+                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                    _ => return Err(format!("Campo '{campo}' não está em um dos dois registradores ABI.")),
+                }
+            }
+            ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
+                let primeiro = campos.iter().find(|(campo, _)| {
+                    layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 0)
+                }).ok_or_else(|| format!("Estrutura '{nome}' não possui campo inicializável no primeiro registrador."))?;
+                let segundo = campos.iter().find(|(campo, _)| {
+                    layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 8)
+                });
+                self.expressao(&primeiro.1)?;
+                self.push_rax();
+                if let Some((_, valor)) = segundo {
+                    self.expressao(valor)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]);
+                } else {
+                    self.mov_rdx(0);
+                }
+                self.pop_rax();
+            }
+            ExpressaoIr::ConstrucaoEnumeracao { .. } => {
+                return Err("Enumerações ainda exigem tag, payload e pattern matching na ABI nativa.".into());
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
