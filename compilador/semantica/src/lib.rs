@@ -1389,10 +1389,11 @@ impl<'a> Analisador<'a> {
                 Some((raiz, caminho))
             }
             Expressao::Indexacao { alvo, indice } => {
-                let Some(LiteralNumerico::Inteiro(posicao)) = Self::literal_numerico(indice) else {
-                    return None;
+                let posicao = match Self::literal_numerico(indice)? {
+                    LiteralNumerico::Inteiro(posicao) => usize::try_from(posicao).ok()?,
+                    LiteralNumerico::InteiroSemSinal(posicao) => usize::try_from(posicao).ok()?,
+                    LiteralNumerico::Decimal(_) => return None,
                 };
-                let posicao = usize::try_from(posicao).ok()?;
                 let (raiz, mut caminho) = Self::decompor_caminho_campo(alvo)?;
                 caminho.push(format!("[{posicao}]"));
                 Some((raiz, caminho))
