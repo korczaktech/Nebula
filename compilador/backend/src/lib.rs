@@ -188,6 +188,11 @@ impl Emissor {
                 .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
             return Ok(if layout.tamanho > 8 { 2 } else { 1 });
         }
+        if let Tipo::Tupla(tipos) = tipo {
+            let (tamanho, _) = self.layout_tupla(tipos)
+                .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
+            return Ok(if tamanho > 8 { 2 } else { 1 });
+        }
         Ok(1)
     }
 
@@ -273,7 +278,7 @@ impl Emissor {
             }
             let deslocamento = self.declarar(nome)?;
             self.mover_registrador_rax(registradores[indice_registrador]);
-            if !matches!(tipo, Tipo::Estrutura(_)) {
+            if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_)) {
                 self.normalizar_tipo(tipo)?;
             }
             self.armazenar_rax(deslocamento);
@@ -398,6 +403,13 @@ impl Emissor {
                 if matches!(tipo, Tipo::Estrutura(_)) {
                     self.validar_tipo_abi(tipo)?;
                     self.expressao(valor)?;
+                } else if let Tipo::Tupla(tipos) = tipo {
+                    self.validar_tipo_abi(tipo)?;
+                    if let ExpressaoIr::Tupla(valores) = valor.as_ref() {
+                        self.construir_tupla(tipos, valores)?;
+                    } else {
+                        self.expressao(valor)?;
+                    }
                 } else if tipo_inteiro_128(tipo) {
                     match valor.as_ref() {
                         ExpressaoIr::Unaria { operador, valor: interno }
@@ -435,7 +447,7 @@ impl Emissor {
                 } else {
                     self.expressao(valor)?;
                 }
-                if !matches!(tipo, Tipo::Estrutura(_)) {
+                if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_)) {
                     self.normalizar_tipo(tipo)?;
                 }
             },
@@ -491,8 +503,28 @@ impl Emissor {
                     return Err(format!("Variável '{nome}' não encontrada no backend."));
                 }
             }
-            ExpressaoIr::Lista(_) | ExpressaoIr::Tupla(_) | ExpressaoIr::Indexacao { .. } => {
-                return Err("Listas e indexação aguardam a implementação do suporte de memória/runtime.".into());
+            ExpressaoIr::Lista(_) => {
+                return Err("Listas aguardam a implementação do suporte de memória/runtime.".into());
+            }
+            ExpressaoIr::Tupla(_) => {
+                return Err("Tupla precisa de tipo contextual para a ABI nativa.".into());
+            }
+            ExpressaoIr::Indexacao { alvo, indice } => {
+                let Some(Tipo::Tupla(tipos)) = tipo_expressao_ir(alvo) else {
+                    return Err("Indexação nativa está disponível somente para tuplas tipadas.".into());
+                };
+                let posicao = indice_literal_ir(indice)
+                    .ok_or("A indexação nativa de tupla exige índice literal.")?;
+                let (_, campos) = self.layout_tupla(tipos)
+                    .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
+                let (deslocamento, _) = campos.get(posicao)
+                    .ok_or("Índice de tupla fora dos limites.")?;
+                self.expressao(alvo)?;
+                match deslocamento {
+                    0 => {}
+                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                    _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                }
             }
             ExpressaoIr::Membro { alvo, campo } => {
                 let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
@@ -1099,6 +1131,30 @@ impl Emissor {
 
     fn normalizar_logico(&mut self) {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+    }
+
+    fn construir_tupla(&mut self, tipos: &[Tipo], valores: &[ExpressaoIr]) -> Result<(), String> {
+        if tipos.len() != valores.len() {
+            return Err("Quantidade de elementos da tupla não corresponde ao tipo declarado.".into());
+        }
+        let (_, campos) = self.layout_tupla(tipos)
+            .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
+        if tipos.len() == 1 && campos[0].1 == 16 {
+            return self.expressao(&valores[0]);
+        }
+        let primeiro = campos.iter().position(|(deslocamento, _)| *deslocamento == 0)
+            .ok_or("Tupla não possui elemento no primeiro registrador.")?;
+        let segundo = campos.iter().position(|(deslocamento, _)| *deslocamento == 8);
+        self.expressao(&valores[primeiro])?;
+        self.push_rax();
+        if let Some(indice) = segundo {
+            self.expressao(&valores[indice])?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]);
+        } else {
+            self.mov_rdx(0);
+        }
+        self.pop_rax();
+        Ok(())
     }
 
     fn comparar_inteiro_128(&mut self, operador: &OperadorIr, sem_sinal: bool) {
