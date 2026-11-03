@@ -138,7 +138,9 @@ impl Emissor {
         for ((nome, tipo), registrador) in funcao.parametros.iter().zip(registradores) {
             validar_tipo(tipo)?;
             let deslocamento = self.declarar(nome)?;
-            self.armazenar_registrador(registrador, deslocamento);
+            self.mover_registrador_rax(registrador);
+            self.normalizar_tipo(tipo)?;
+            self.armazenar_rax(deslocamento);
         }
 
         // Parâmetros e declarações do corpo compartilham o escopo da função.
@@ -631,6 +633,11 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
     }
 
+    fn mover_registrador_rax(&mut self, registrador: u8) {
+        let rex = if registrador >= 8 { 0x4C } else { 0x48 };
+        self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | ((registrador & 7) << 3)]);
+    }
+
     fn mover_rax_registrador(&mut self, registrador: u8) {
         let rex = if registrador >= 8 { 0x49 } else { 0x48 };
         self.codigo.extend_from_slice(&[rex, 0x89, 0xC0 | (registrador & 7)]);
@@ -1070,6 +1077,23 @@ mod testes {
         emissor.codigo.clear();
         emissor.carregar_rax(-8);
         assert_eq!(&emissor.codigo, &[0x48, 0x8B, 0x85, 0xF8, 0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn codifica_movimento_de_argumentos_para_rax() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        for (registrador, esperado) in [
+            (7, &[0x48, 0x89, 0xF8][..]),
+            (6, &[0x48, 0x89, 0xF0][..]),
+            (2, &[0x48, 0x89, 0xD0][..]),
+            (1, &[0x48, 0x89, 0xC8][..]),
+            (8, &[0x4C, 0x89, 0xC0][..]),
+            (9, &[0x4C, 0x89, 0xC8][..]),
+        ] {
+            emissor.codigo.clear();
+            emissor.mover_registrador_rax(registrador);
+            assert_eq!(emissor.codigo.as_slice(), esperado);
+        }
     }
 
     #[test]
