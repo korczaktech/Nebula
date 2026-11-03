@@ -999,10 +999,22 @@ funcao somar(a: inteiro128, b: inteiro128): inteiro128 {
 funcao identidade(valor: inteiro128): inteiro128 {
     devolver valor
 }
+funcao identidade_sem_sinal(valor: inteiro_u128): inteiro_u128 {
+    devolver valor
+}
 funcao principal(): inteiro {
     variavel soma = somar(global, global)
     variavel esperado: inteiro128 = 2417851639229258349412352
-    quando soma == esperado e identidade(soma) == esperado {
+    variavel negativo: inteiro128 = -42
+    variavel positivo: inteiro128 = 42
+    variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455
+    variavel zero: inteiro_u128 = 0
+    quando soma == esperado
+        e identidade(soma) == esperado
+        e negativo < positivo
+        e -positivo == negativo
+        e identidade_sem_sinal(maximo) == maximo
+        e maximo > zero {
         devolver 42
     } senao {
         devolver 0
