@@ -6,6 +6,7 @@
 #[rustfmt::skip]
 mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
+use nebula_biblioteca::dados::{analisar_json, serializar_json};
 use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
     LayoutRuntime,
@@ -1565,6 +1566,22 @@ impl Maquina<'_> {
                     self.saida.push(valores.iter().map(formatar).collect::<Vec<_>>().join(" "));
                     return Ok(ValorIr::Vazio);
                 }
+                if nome == "json_valido" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        return Ok(ValorIr::Logico(analisar_json(texto).is_ok()));
+                    }
+                    return Err("'json_valido' exige exatamente um texto.".into());
+                }
+                if nome == "json_canonico" {
+                    if let [ValorIr::Texto(texto)] = valores.as_slice() {
+                        let valor = analisar_json(texto)
+                            .map_err(|erro| format!("JSON inválido: {erro}"))?;
+                        return serializar_json(&valor)
+                            .map(ValorIr::Texto)
+                            .map_err(|erro| format!("Falha ao serializar JSON: {erro}"));
+                    }
+                    return Err("'json_canonico' exige exatamente um texto.".into());
+                }
                 if nome == "comprimento" {
                     let Some(valor) = valores.first() else {
                         return Err("'comprimento' exige um argumento.".into());
@@ -2525,6 +2542,26 @@ mod testes {
         let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = soma(2, 3)");
         let r = executar(&ir, 100).expect("execução válida");
         assert_eq!(r.globais.get("total"), Some(&ValorIr::Inteiro(5)));
+    }
+
+    #[test]
+    fn executa_builtins_json_com_serializacao_deterministica() {
+        let ir = compilar(
+            "variavel valido = json_valido(\"{\\\"chave\\\":1}\")\nvariavel invalido = json_valido(\"{\\\"chave\\\":}\")\nvariavel canonico = json_canonico(\"{\\\"b\\\":2,\\\"a\\\":1}\")",
+        );
+        let resultado = executar(&ir, 100).expect("builtins JSON");
+        assert_eq!(resultado.globais.get("valido"), Some(&ValorIr::Logico(true)));
+        assert_eq!(resultado.globais.get("invalido"), Some(&ValorIr::Logico(false)));
+        assert_eq!(
+            resultado.globais.get("canonico"),
+            Some(&ValorIr::Texto("{\\"a\\":1,\\"b\\":2}".into()))
+        );
+    }
+
+    #[test]
+    fn json_canonico_retorna_erro_para_entrada_invalida() {
+        let ir = compilar("variavel canonico = json_canonico(\"{\\\"chave\\\":}\")");
+        assert!(executar(&ir, 100).unwrap_err().contains("JSON inválido"));
     }
 
     #[test]
