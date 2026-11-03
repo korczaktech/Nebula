@@ -160,7 +160,8 @@ impl Parser<'_> {
                                 if !(0xdc00..=0xdfff).contains(&segundo) {
                                     return Err(self.erro("Par substituto Unicode inválido."));
                                 }
-                                0x10000 + ((u32::from(primeiro) - 0xd800) << 10)
+                                0x10000
+                                    + ((u32::from(primeiro) - 0xd800) << 10)
                                     + (u32::from(segundo) - 0xdc00)
                             } else if (0xdc00..=0xdfff).contains(&primeiro) {
                                 return Err(self.erro("Substituto Unicode isolado."));
@@ -426,7 +427,11 @@ mod testes {
     #[test]
     fn rejeita_conteudo_adicional_e_limites_excedidos() {
         assert!(analisar_json("true false").is_err());
-        let profundo = format!("{}0{}", "[".repeat(LIMITE_PROFUNDIDADE + 2), "]".repeat(LIMITE_PROFUNDIDADE + 2));
+        let profundo = format!(
+            "{}0{}",
+            "[".repeat(LIMITE_PROFUNDIDADE + 2),
+            "]".repeat(LIMITE_PROFUNDIDADE + 2)
+        );
         assert!(analisar_json(&profundo).is_err());
     }
 
