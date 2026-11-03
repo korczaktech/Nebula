@@ -1002,7 +1002,8 @@ funcao deslocar(ponto: Ponto): Ponto {
     devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
 }
 funcao principal(): inteiro {
-    variavel original = Ponto { x: 40, y: 0 }
+    variavel original = Ponto { x: 39, y: 0 }
+    original.x = 40
     variavel resultado = deslocar(original)
     quando resultado.x == 41 e resultado.y == 2 {
         devolver 42
