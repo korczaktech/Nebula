@@ -264,7 +264,43 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
-                self.expressao(valor)?;
+                if tipo_inteiro_128(tipo) {
+                    match valor.as_ref() {
+                        ExpressaoIr::Unaria { operador, valor: interno }
+                            if *operador == OperadorIr::Menos =>
+                        {
+                            let interno = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: interno.clone(),
+                            };
+                            self.expressao(&ExpressaoIr::Unaria {
+                                operador: operador.clone(),
+                                valor: Box::new(interno),
+                            })?;
+                        }
+                        ExpressaoIr::Binaria { esquerda, operador, direita }
+                            if matches!(operador, OperadorIr::Mais | OperadorIr::Menos
+                                | OperadorIr::Vezes | OperadorIr::Divide | OperadorIr::Resto) =>
+                        {
+                            let esquerda = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: esquerda.clone(),
+                            };
+                            let direita = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: direita.clone(),
+                            };
+                            self.expressao(&ExpressaoIr::Binaria {
+                                esquerda: Box::new(esquerda),
+                                operador: operador.clone(),
+                                direita: Box::new(direita),
+                            })?;
+                        }
+                        _ => self.expressao(valor)?,
+                    }
+                } else {
+                    self.expressao(valor)?;
+                }
                 self.normalizar_tipo(tipo)?;
             },
             ExpressaoIr::ReferenciaFuncao { nome, .. } => self.emitir_referencia_funcao(nome),
