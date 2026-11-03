@@ -221,6 +221,42 @@ fn verificar_sem_caminho_retorna_codigo_dois() {
 }
 
 #[test]
+fn verificar_emite_diagnosticos_json_para_fonte_valida() {
+    let caminho = std::env::temp_dir().join(format!("nebula-json-ok-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel total = 42").unwrap();
+    let saida = executar(&["verificar", caminho.to_str().unwrap(), "--json"]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    let json = String::from_utf8_lossy(&saida.stdout);
+    assert!(json.contains("\\"valido\\":true"), "{json}");
+    assert!(json.contains("\\"diagnosticos\\":[]"), "{json}");
+}
+
+#[test]
+fn verificar_emite_diagnosticos_json_para_fonte_invalida() {
+    let caminho = std::env::temp_dir().join(format!("nebula-json-erro-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel =").unwrap();
+    let saida = executar(&["verificar", caminho.to_str().unwrap(), "--json"]);
+    let _ = std::fs::remove_file(caminho);
+    assert_eq!(saida.status.code(), Some(1));
+    let json = String::from_utf8_lossy(&saida.stdout);
+    assert!(json.contains("\\"valido\\":false"), "{json}");
+    assert!(json.contains("\\"codigo\\":\\"N2010\\""), "{json}");
+}
+
+#[test]
+fn analisar_emite_diagnosticos_json_semanticos() {
+    let caminho = std::env::temp_dir().join(format!("nebula-json-sem-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel total = ausente").unwrap();
+    let saida = executar(&["analisar", caminho.to_str().unwrap(), "--json"]);
+    let _ = std::fs::remove_file(caminho);
+    assert_eq!(saida.status.code(), Some(1));
+    let json = String::from_utf8_lossy(&saida.stdout);
+    assert!(json.contains("\\"valido\\":false"), "{json}");
+    assert!(json.contains("\\"codigo\\":\\"N3007\\""), "{json}");
+}
+
+#[test]
 fn verificar_rejeita_arquivo_sem_utf8_valido() {
     let caminho = std::env::temp_dir().join(format!("nebula-bytes-{}.nbx", std::process::id()));
     std::fs::write(&caminho, vec![255_u8, 254_u8]).expect("grava bytes de teste");
