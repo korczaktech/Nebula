@@ -495,7 +495,7 @@ fn qualificar_expressao_modulo(
                 qualificar_expressao_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Unaria { valor, .. } => {
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => {
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::Binaria {

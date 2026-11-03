@@ -1415,7 +1415,7 @@ impl<'a> Analisador<'a> {
             (LiteralNumerico::Inteiro(v), Tipo::Inteiro16) => i16::try_from(v).is_ok(),
             (LiteralNumerico::Inteiro(v), Tipo::Inteiro32) => i32::try_from(v).is_ok(),
             (LiteralNumerico::Inteiro(v), Tipo::Inteiro64) => i64::try_from(v).is_ok(),
-            (LiteralNumerico::Inteiro(v), Tipo::Inteiro128) => true,
+            (LiteralNumerico::Inteiro(_), Tipo::Inteiro128) => true,
             (LiteralNumerico::Inteiro(v), Tipo::InteiroU8 | Tipo::Byte) => u8::try_from(v).is_ok(),
             (LiteralNumerico::Inteiro(v), Tipo::InteiroU16) => u16::try_from(v).is_ok(),
             (LiteralNumerico::Inteiro(v), Tipo::InteiroU32) => u32::try_from(v).is_ok(),

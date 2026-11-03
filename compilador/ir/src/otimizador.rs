@@ -224,7 +224,7 @@ fn propagar_constantes_expressao(
         ExpressaoIr::Lista(itens) | ExpressaoIr::Tupla(itens) => {
             for item in itens { propagar_constantes_expressao(item, constantes, relatorio); }
         }
-        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => propagar_constantes_expressao(valor, constantes, relatorio),
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             propagar_constantes_expressao(esquerda, constantes, relatorio);
             propagar_constantes_expressao(direita, constantes, relatorio);
@@ -325,7 +325,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
                 otimizar_expressao(item, relatorio);
             }
         }
-        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Unaria { valor, .. } => otimizar_expressao(valor, relatorio),
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => otimizar_expressao(valor, relatorio),
         ExpressaoIr::Binaria { esquerda, direita, .. } => {
             otimizar_expressao(esquerda, relatorio);
             otimizar_expressao(direita, relatorio);

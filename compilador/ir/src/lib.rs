@@ -39,6 +39,7 @@ pub enum OperadorIr {
 pub enum ExpressaoIr {
     Constante(ValorIr),
     Normalizar { tipo: Tipo, valor: Box<ExpressaoIr> },
+    Conversao { tipo: Tipo, valor: Box<ExpressaoIr> },
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
@@ -509,7 +510,8 @@ impl Lowerer {
                 _ => Tipo::Desconhecido,
             },
             Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
-                Expressao::Nome(nome) => self.inferir_tipo_chamada(nome, argumentos),
+                Expressao::Nome(nome) => tipo_conversao_explicita(nome)
+                    .unwrap_or_else(|| self.inferir_tipo_chamada(nome, argumentos)),
                 Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                     let Expressao::Nome(tipo_base) = alvo.as_ref() else { return Tipo::Desconhecido; };
                     if self.variantes_enumeracoes.contains_key(tipo_base) {
@@ -667,7 +669,18 @@ impl Lowerer {
                 let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
                 match alvo.as_ref() {
                     Expressao::Nome(nome) => {
-                        if self.genericas.contains_key(nome) {
+                        if let Some(tipo) = tipo_conversao_explicita(nome) {
+                            if args.len() != 1 {
+                                self.diagnosticos.push(format!(
+                                    "A conversão '{nome}' exige exatamente um argumento."
+                                ));
+                                return None;
+                            }
+                            Some(ExpressaoIr::Conversao {
+                                tipo,
+                                valor: Box::new(args.into_iter().next()?),
+                            })
+                        } else if self.genericas.contains_key(nome) {
                             let especializado = self.registrar_instancia_generica(nome, argumentos)?;
                             Some(ExpressaoIr::Chamada { nome: especializado, argumentos: args })
                         } else {
@@ -1051,6 +1064,76 @@ fn formatar_erro_runtime(erro: ErroRuntime) -> String {
     format!("Erro do runtime: {erro:?}")
 }
 
+fn tipo_conversao_explicita(nome: &str) -> Option<Tipo> {
+    Some(match nome {
+        "inteiro8" => Tipo::Inteiro8,
+        "inteiro16" => Tipo::Inteiro16,
+        "inteiro32" => Tipo::Inteiro32,
+        "inteiro64" => Tipo::Inteiro64,
+        "inteiro128" => Tipo::Inteiro128,
+        "inteiro_u8" => Tipo::InteiroU8,
+        "inteiro_u16" => Tipo::InteiroU16,
+        "inteiro_u32" => Tipo::InteiroU32,
+        "inteiro_u64" => Tipo::InteiroU64,
+        "inteiro_u128" => Tipo::InteiroU128,
+        "byte" => Tipo::Byte,
+        "decimal32" => Tipo::Decimal32,
+        "decimal64" => Tipo::Decimal64,
+        _ => return None,
+    })
+}
+
+fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
+    let erro = || format!("Conversão explícita para '{}' fora da faixa ou incompatível.", tipo.nome());
+    match tipo {
+        Tipo::Inteiro | Tipo::Inteiro64 | Tipo::Inteiro8 | Tipo::Inteiro16
+        | Tipo::Inteiro32 | Tipo::Inteiro128 => {
+            let inteiro = match valor {
+                ValorIr::Inteiro(v) => v,
+                ValorIr::InteiroSemSinal(v) => i128::try_from(v).map_err(|_| erro())?,
+                ValorIr::Decimal(v) if v.is_finite() => {
+                    let v = v.trunc();
+                    if v < i128::MIN as f64 || v >= -(i128::MIN as f64) {
+                        return Err(erro());
+                    }
+                    v as i128
+                }
+                _ => return Err(erro()),
+            };
+            normalizar_valor(tipo, ValorIr::Inteiro(inteiro))
+        }
+        Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+        | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte => {
+            let inteiro = match valor {
+                ValorIr::Inteiro(v) if v >= 0 => v as u128,
+                ValorIr::InteiroSemSinal(v) => v,
+                ValorIr::Decimal(v) if v.is_finite() && v >= 0.0 => {
+                    let v = v.trunc();
+                    if v >= u128::MAX as f64 {
+                        return Err(erro());
+                    }
+                    v as u128
+                }
+                _ => return Err(erro()),
+            };
+            normalizar_valor(tipo, ValorIr::InteiroSemSinal(inteiro))
+        }
+        Tipo::Decimal32 | Tipo::Decimal | Tipo::Decimal64 => {
+            let decimal = match valor {
+                ValorIr::Inteiro(v) => v as f64,
+                ValorIr::InteiroSemSinal(v) => v as f64,
+                ValorIr::Decimal(v) => v,
+                _ => return Err(erro()),
+            };
+            if !decimal.is_finite() {
+                return Err(erro());
+            }
+            normalizar_valor(tipo, ValorIr::Decimal(decimal))
+        }
+        _ => Err(erro()),
+    }
+}
+
 fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
     match (tipo, valor.clone()) {
         (Tipo::Inteiro | Tipo::Inteiro64, ValorIr::Inteiro(v)) =>
@@ -1310,6 +1393,7 @@ impl Maquina<'_> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
+            ExpressaoIr::Conversao { tipo, valor } => converter_valor_explicito(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
             ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
