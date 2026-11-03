@@ -1,0 +1,2 @@
+funcao par<T>(primeiro: T, segundo: T): T { devolver primeiro }
+variavel resultado = par([1], [verdadeiro])
