@@ -1065,6 +1065,42 @@ mod testes {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn converte_decimal_e_inteiro_u64_acima_de_i64_maximo() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-u64-alto-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao principal(): inteiro {
+    variavel valor: decimal64 = 9223372036854775808.0
+    variavel convertido: inteiro_u64 = inteiro_u64(valor)
+    variavel esperado: inteiro_u64 = 9223372036854775808
+    variavel decimal: decimal64 = decimal64(esperado)
+    quando convertido == esperado e decimal == valor {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("conversão de u64 acima de i64::MAX");
+        let status = Command::new(&saida).status().expect("executável de conversão");
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn rejeita_nan_e_fora_de_faixa_em_conversao_decimal() {
         let programas = [
             r#"funcao principal(): inteiro64 {
@@ -1074,6 +1110,14 @@ mod testes {
             r#"funcao principal(): inteiro64 {
     variavel valor: decimal64 = 0.0 / 0.0
     devolver inteiro64(valor)
+}"#,
+            r#"funcao principal(): inteiro_u64 {
+    variavel valor: decimal64 = -1.0
+    devolver inteiro_u64(valor)
+}"#,
+            r#"funcao principal(): inteiro_u64 {
+    variavel valor: decimal64 = 18446744073709551616.0
+    devolver inteiro_u64(valor)
 }"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
