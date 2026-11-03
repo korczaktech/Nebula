@@ -321,8 +321,11 @@ impl Lowerer {
                 if matches!(tipo,
                     Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::Estrutura(_) | Tipo::Tupla(_)
                     | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)
-                ) && !matches!(&valor, ExpressaoIr::Normalizar { tipo: tipo_existente, .. } if *tipo_existente == tipo)
-                {
+                ) {
+                    let valor = match valor {
+                        ExpressaoIr::Normalizar { valor, .. } => *valor,
+                        outro => outro,
+                    };
                     valor = ExpressaoIr::Normalizar {
                         tipo: tipo.clone(),
                         valor: Box::new(valor),
