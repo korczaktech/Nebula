@@ -121,9 +121,7 @@ impl Manifesto {
                         ));
                     }
                     if !restricao_semver_valida(valor) {
-                        return Err(format!(
-                            "Restrição SemVer inválida para '{chave}': {valor}"
-                        ));
+                        return Err(format!("Restrição SemVer inválida para '{chave}': {valor}"));
                     }
                     if restricoes_versao
                         .insert(chave.to_owned(), valor.to_owned())
