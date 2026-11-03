@@ -347,9 +347,9 @@ impl Emissor {
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
                 if inteiro_128_expressao(esquerda) {
                     self.expressao(esquerda)?;
-                    self.push_rax();
-                    self.codigo.push(0x52); // push rdx
+                    self.codigo.push(0x52); // push rdx = lhs high
                     self.pilha += 1;
+                    self.push_rax(); // push rax = lhs low
                     self.expressao(direita)?;
                     self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = rhs low
                     self.codigo.extend_from_slice(&[0x48, 0x89, 0xD6]); // rsi = rhs high
@@ -366,7 +366,7 @@ impl Emissor {
                         OperadorIr::Menos => {
                             self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
                             self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
-                            self.verificar_carry();
+                            if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
                         }
                         OperadorIr::Igual | OperadorIr::Diferente => {
                             self.codigo.extend_from_slice(&[0x48, 0x31, 0xC8]); // xor low
