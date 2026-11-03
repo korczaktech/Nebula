@@ -631,7 +631,7 @@ impl Lowerer {
         if matches!(
             tipo,
             Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
-                | Tipo::Inteiro64 | Tipo::InteiroU8 | Tipo::InteiroU16
+                | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::InteiroU8 | Tipo::InteiroU16
                 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte | Tipo::Decimal32
         ) {
             Some(ExpressaoIr::Normalizar {
