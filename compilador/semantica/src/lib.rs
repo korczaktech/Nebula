@@ -548,7 +548,7 @@ impl<'a> Analisador<'a> {
                                 self.erro("N3009", format!("Não é permitido alterar a constante '{nome}'."));
                             }
                             self.exigir_expressao_tipo(valor, &tipo_valor, &simbolo.tipo, "atribuição");
-                            if let Some(simbolo) = self.buscar_mutavel(nome) { simbolo.movido = false; }
+                            if let Some(simbolo) = self.buscar_mutavel(nome) { simbolo.movido = false; simbolo.campos_movidos.clear(); }
                             self.mover_valor(valor);
                             simbolo.tipo
                         } else {
@@ -2428,6 +2428,43 @@ mod testes {
     fn nao_coage_literal_inteiro_para_tipo_decimal() {
         let r = analisar_codigo("variavel valor: decimal32 = 1");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+    #[test]
+    fn move_campo_sem_invalidar_campos_independentes() {
+        let r = analisar_codigo(
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.idade)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_reuso_de_campo_movido_e_uso_integral_parcialmente_movido() {
+        let campo = analisar_codigo(
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.nome)",
+        );
+        assert!(campo.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", campo.diagnosticos);
+
+        let inteiro = analisar_codigo(
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta)",
+        );
+        assert!(inteiro.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", inteiro.diagnosticos);
+    }
+
+    #[test]
+    fn reatribuir_campo_reinicializa_movimento_parcial() {
+        let r = analisar_codigo(
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nconta.nome = \"Bia\"\nexibir(conta.nome)\nexibir(conta.idade)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn movimento_parcial_e_mesclado_entre_ramos() {
+        let r = analisar_codigo(
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro { variavel nome = conta.nome } senao {}\nexibir(conta.nome)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
 
     #[test]
