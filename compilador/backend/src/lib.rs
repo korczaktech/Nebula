@@ -497,7 +497,7 @@ impl Emissor {
                 } else {
                     self.expressao(valor)?;
                 }
-                if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_)) {
+                if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.normalizar_tipo(tipo)?;
                 }
             },
