@@ -1444,6 +1444,39 @@ mod fixtures_conformidade_tipos {
         assert!(resultado.is_ok(), "{resultado:?}");
     }
 
+    fn rejeita_abi_nativa_pendente(codigo: &str, nome: &str) -> Result<(), String> {
+        let fonte = ArquivoFonte::novo(nome, codigo);
+        let sintaxe = analisar(&fonte);
+        if !sintaxe.diagnosticos.is_empty() {
+            return Err(format!("erros sintáticos: {:?}", sintaxe.diagnosticos));
+        }
+        let semantica = analisar_com_modulos(&sintaxe.programa, &ModulosDisponiveis::new());
+        if !semantica.diagnosticos.is_empty() {
+            return Err(format!("erros semânticos: {:?}", semantica.diagnosticos));
+        }
+        let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        if !ir.diagnosticos.is_empty() {
+            return Err(format!("erros na IR: {:?}", ir.diagnosticos));
+        }
+        let programa = ir.programa.ok_or_else(|| "IR não foi produzida".to_owned())?;
+        nebula_backend::gerar_executavel(&programa).map(|_| ()).map_err(|erro| erro.to_string())
+    }
+
+    #[test]
+    fn backend_nao_finge_suporte_a_abi_de_agregados_ou_inteiros_128() {
+        let estrutura = rejeita_abi_nativa_pendente(
+            include_str!("../fixtures/tipos/abi-estrutura-pendente.nbx"),
+            "abi-estrutura-pendente.nbx",
+        );
+        assert!(estrutura.is_err(), "ABI de estrutura ainda pendente foi aceita.");
+
+        let inteiro128 = rejeita_abi_nativa_pendente(
+            include_str!("../fixtures/tipos/abi-inteiro128-pendente.nbx"),
+            "abi-inteiro128-pendente.nbx",
+        );
+        assert!(inteiro128.is_err(), "ABI de inteiro128 ainda pendente foi aceita.");
+    }
+
     #[test]
     fn rejeita_fixtures_invalidas_de_inferencia_movimento_e_conversao() {
         assert!(validar_fixture(
