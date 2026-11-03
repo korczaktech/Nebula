@@ -513,6 +513,7 @@ impl Emissor {
                 self.expressao(valor)?;
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.armazenar_rax(deslocamento);
+                    self.armazenar_rdx(deslocamento - 8);
                 } else if self.globais.contains_key(nome) {
                     self.armazenar_global(nome);
                 } else {
@@ -1387,8 +1388,8 @@ mod testes {
         assert!(validar_tipo(&Tipo::Inteiro8).is_ok());
         assert!(validar_tipo(&Tipo::InteiroU32).is_ok());
         assert!(validar_tipo(&Tipo::Byte).is_ok());
-        assert!(validar_tipo(&Tipo::Inteiro128).is_err());
-        assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+        assert!(validar_tipo(&Tipo::Inteiro128).is_ok());
+        assert!(validar_tipo(&Tipo::InteiroU128).is_ok());
     }
 
     #[test]
@@ -1556,14 +1557,15 @@ mod testes {
         emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128))).unwrap();
         assert_eq!(&emissor.codigo[..2], &[0x48, 0xB8]);
         assert_eq!(u64::from_le_bytes(emissor.codigo[2..10].try_into().unwrap()), u64::MAX);
-        assert!(emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128 + 1))).is_err());
+        emissor.expressao(&ExpressaoIr::Constante(ValorIr::InteiroSemSinal(u64::MAX as u128 + 1))).unwrap();
+        assert_eq!(u64::from_le_bytes(emissor.codigo[12..20].try_into().unwrap()), 1);
     }
 
     #[test]
-    fn rejeita_128_bits_e_aceita_decimais_sse2() {
+    fn aceita_128_bits_e_decimais_sse2() {
         let mut emissor = Emissor::novo(HashMap::new());
-        assert!(emissor.normalizar_tipo(&Tipo::Inteiro128).is_err());
-        assert!(emissor.normalizar_tipo(&Tipo::InteiroU128).is_err());
+        assert!(emissor.normalizar_tipo(&Tipo::Inteiro128).is_ok());
+        assert!(emissor.normalizar_tipo(&Tipo::InteiroU128).is_ok());
         assert!(emissor.normalizar_tipo(&Tipo::Decimal32).is_ok());
         assert!(emissor.normalizar_tipo(&Tipo::Decimal64).is_ok());
     }
