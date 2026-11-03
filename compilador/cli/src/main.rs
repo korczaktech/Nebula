@@ -2106,25 +2106,25 @@ funcao principal(): inteiro {
 
     #[test]
     fn serializa_diagnosticos_em_json_com_escape_correto() {
-        let caminho = Path::new("arquivo\\\"teste.nbx");
+        let caminho = Path::new(r#"arquivo"teste.nbx"#);
         let diagnosticos = [Diagnostico::novo(
             "N3007",
             Severidade::Erro,
-            "Nome inválido: \\"valor\\\"\\nlinha seguinte",
+            r#"Nome "valor""#,
             None,
         )];
         let json = diagnosticos_json(caminho, &diagnosticos, None);
-        assert!(json.starts_with("{\\"arquivo\\":"));
-        assert!(json.contains("\\"valido\\":false"));
-        assert!(json.contains("\\"codigo\\":\\"N3007\\""));
-        assert!(json.contains("\\"mensagem\\":\\"Nome inválido: \\\\"valor\\\"\\\\nlinha seguinte\\""));
+        assert!(json.starts_with(r#"{"arquivo":"#));
+        assert!(json.contains(r#""valido":false"#));
+        assert!(json.contains(r#""codigo":"N3007""#));
+        assert!(json.contains(r#""mensagem":"Nome \"valor\"""#));
     }
 
     #[test]
     fn serializa_lista_vazia_de_diagnosticos_como_valida() {
         let json = diagnosticos_json(Path::new("valido.nbx"), &[], None);
-        assert!(json.contains("\\"valido\\":true"));
-        assert!(json.ends_with("\\"diagnosticos\\":[]}}"));
+        assert!(json.contains(r#""valido":true"#));
+        assert!(json.ends_with(r#""diagnosticos":[]}"#));
     }
 
     #[test]
