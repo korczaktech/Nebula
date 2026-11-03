@@ -1,6 +1,6 @@
 # Benchmarks iniciais da Nebula
 
-Este conjunto mede o tempo de execução de programas compilados pelo backend nativo ELF x86-64, implementado em Rust. O backend atual não possui passes de otimização; os resultados são uma linha de base, não uma comparação de níveis de otimização.
+Este conjunto mede o tempo de execução de programas compilados pelo backend nativo ELF x86-64, implementado em Rust. O backend executa a IR otimizada pelo passe O1 padrão da CLI; os resultados são uma linha de base de execução, não uma comparação entre níveis.
 
 ## Requisitos
 
@@ -29,5 +29,16 @@ O script compila a CLI em modo release, gera um executável para cada carga e ex
 - Registre CPU, sistema operacional, versão da Nebula e tempos brutos.
 - Repita medições e use mediana; não compare uma única execução.
 - O tempo medido inclui somente a execução do programa gerado.
-- O backend ainda não aplica otimizações sobre a IR. Os níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os` serão introduzidos somente após a implementação dos recursos-base e do otimizador próprio.
+- O compilador possui níveis `-O0`, `-O1`, `-O2`, `-O3` e `-Os`; este script usa o nível padrão `-O1`. Compare níveis diferentes somente com o mesmo ambiente.
 - Este benchmark é uma linha de base inicial, não uma comparação científica nem uma prova de superioridade sobre C/C++.
+
+## Baseline versionada
+
+Primeira medição de referência registrada pela CI em `ubuntu-latest`, Rust 1.85.0, build release, nível padrão O1, cinco execuções por carga. Commit medido: `a6786adda1311e0bc56884534e3713c595031a6b`.
+
+| Carga | Tempos brutos (s) | Mediana |
+|---|---|---:|
+| loop | 0.11, 0.11, 0.11, 0.11, 0.11 | 0.11 s |
+| fibonacci | 0.23, 0.23, 0.22, 0.25, 0.25 | 0.23 s |
+
+O runner hospedado é variável e a CPU exata não foi registrada nessa execução; portanto, estes valores são apenas referência histórica. Uma comparação de desempenho válida exige repetir a coleta na mesma máquina, registrar CPU/OS/toolchain e comparar medianas.
