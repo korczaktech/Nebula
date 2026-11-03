@@ -978,7 +978,7 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Logico(_)) => Tipo::Logico,
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
-        ExpressaoIr::Normalizar { tipo, .. } => tipo.clone(),
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo.clone(),
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
         ExpressaoIr::ConstrucaoEstrutura { nome, .. } => Tipo::Estrutura(nome.clone()),
