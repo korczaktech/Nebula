@@ -2460,12 +2460,12 @@ mod testes {
     #[test]
     fn infere_genericos_em_tuplas_resultados_opcionais_e_funcoes() {
         let r = analisar_codigo_fase5(
-            "funcao extrair<T>(valor: Resultado<Opcional<T>, texto>): Tupla<T, texto> { devolver (42, \"ok\") }\\nfuncao aplicar<T>(operacao: funcao(T): Opcional<T>, valor: T): Opcional<T> { devolver operacao(valor) }\\nvariavel resultado = aplicar(funcao(valor: inteiro): Opcional<inteiro> { devolver Opcional::Algum(valor) }, 42)",
+            "funcao empacotar<T>(valor: T): Tupla<T,texto> { devolver (valor, \"ok\") }\\nfuncao receber<T>(valor: Resultado<Opcional<T>,texto>) { exibir(\"ok\") }\\nvariavel pacote = empacotar(42)\\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\\nreceber(valor)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(
-            r.tipos_globais.get("resultado"),
-            Some(&Tipo::Opcional(Box::new(Tipo::Inteiro)))
+            r.tipos_globais.get("pacote"),
+            Some(&Tipo::Tupla(vec![Tipo::Inteiro, Tipo::Texto]))
         );
     }
 
