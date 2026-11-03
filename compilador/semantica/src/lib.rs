@@ -2102,7 +2102,7 @@ mod testes {
     #[test]
     fn infere_generico_a_partir_do_tipo_esperado_do_retorno() {
         let r = analisar_codigo(
-            "funcao vazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\\nvariavel valor: Opcional<inteiro> = vazio()",
+            "funcao vazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\nvariavel valor: Opcional<inteiro> = vazio()",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(
