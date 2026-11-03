@@ -363,10 +363,10 @@ impl Emissor {
                 if let Some(tipo) = tipo_decimal {
                     match operador {
                         OperadorIr::Mais | OperadorIr::Menos | OperadorIr::Vezes | OperadorIr::Divide =>
-                            self.operar_decimal(tipo, operador)?,
+                            self.operar_decimal(&tipo, operador)?,
                         OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor
                         | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual =>
-                            self.comparar_decimal(tipo, operador),
+                            self.comparar_decimal(&tipo, operador),
                         _ => return Err("Operação não suportada para tipos decimais no backend nativo.".into()),
                     }
                     return Ok(());
@@ -864,12 +864,12 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
     }
 }
 
-fn tipo_decimal_expressao(expressao: &ExpressaoIr) -> Option<&Tipo> {
+fn tipo_decimal_expressao(expressao: &ExpressaoIr) -> Option<Tipo> {
     match expressao {
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. }
-            if matches!(tipo, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => Some(tipo),
+            if matches!(tipo, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => Some(tipo.clone()),
         ExpressaoIr::Unaria { valor, .. } => tipo_decimal_expressao(valor),
-        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(&Tipo::Decimal64),
+        ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
         _ => None,
     }
 }
