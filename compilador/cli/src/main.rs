@@ -4,6 +4,7 @@
 
 use nebula_backend::{alvos_suportados, validar_alvo};
 use nebula_cache::CacheCompilacao;
+use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::ArquivoFonte;
 use nebula_ir::otimizador::NivelOtimizacao;
 use nebula_ir::{ExpressaoIr, InstrucaoIr, ProgramaIr, baixar};
@@ -263,26 +264,28 @@ fn main() {
         }
         Some("analisar") => {
             let Some(caminho) = argumentos.next() else {
-                eprintln!("Uso: nebula analisar <arquivo.nbx>");
+                eprintln!("Uso: nebula analisar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             };
+            let json = argumentos.next().as_deref() == Some("--json");
             if argumentos.next().is_some() {
-                eprintln!("Erro: o comando 'analisar' aceita somente um arquivo.");
+                eprintln!("Erro: o comando 'analisar' aceita somente --json como opção.");
                 std::process::exit(2);
             }
-            analisar_arquivo(Path::new(&caminho));
+            analisar_arquivo(Path::new(&caminho), json);
         }
         Some("verificar" | "check") => {
             let Some(caminho) = argumentos.next() else {
-                eprintln!("Uso: nebula verificar <arquivo.nbx>");
+                eprintln!("Uso: nebula verificar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             };
+            let json = argumentos.next().as_deref() == Some("--json");
             if argumentos.next().is_some() {
-                eprintln!("Erro: o comando 'verificar' aceita somente um arquivo.");
-                eprintln!("Uso: nebula verificar <arquivo.nbx>");
+                eprintln!("Erro: o comando 'verificar' aceita somente --json como opção.");
+                eprintln!("Uso: nebula verificar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             }
-            verificar(Path::new(&caminho));
+            verificar(Path::new(&caminho), json);
         }
         Some(comando) => {
             eprintln!("Comando desconhecido: {comando}");
@@ -1111,7 +1114,60 @@ fn mostrar_ir(caminho: &Path) {
     println!("{programa:#?}");
 }
 
-fn analisar_arquivo(caminho: &Path) {
+fn escapar_json(texto: &str) -> String {
+    let mut saida = String::from("\"");
+    for caractere in texto.chars() {
+        match caractere {
+            '"' => saida.push_str("\\\""),
+            '\\' => saida.push_str("\\\\"),
+            '\n' => saida.push_str("\\n"),
+            '\r' => saida.push_str("\\r"),
+            '\t' => saida.push_str("\\t"),
+            c if c <= '\u{001f}' => saida.push_str(&format!("\\u{:04x}", c as u32)),
+            c => saida.push(c),
+        }
+    }
+    saida.push('"');
+    saida
+}
+
+fn diagnosticos_json(caminho: &Path, diagnosticos: &[Diagnostico], fonte: Option<&ArquivoFonte>) -> String {
+    let itens = diagnosticos.iter().map(|diagnostico| {
+        let local = diagnostico.intervalo.and_then(|intervalo| {
+            fonte.and_then(|arquivo| arquivo.linha_coluna(intervalo.inicio))
+                .map(|(linha, coluna)| (intervalo, linha, coluna))
+        });
+        let intervalo = diagnostico.intervalo.map_or_else(
+            || "null".to_owned(),
+            |i| format!("{{\"inicio\":{},\"fim\":{}}}", i.inicio, i.fim),
+        );
+        let (linha, coluna) = local.map_or(("null".to_owned(), "null".to_owned()), |(_, l, c)| {
+            (l.to_string(), c.to_string())
+        });
+        let severidade = match diagnostico.severidade {
+            Severidade::Erro => "erro",
+            Severidade::Aviso => "aviso",
+            Severidade::Informacao => "informacao",
+        };
+        format!(
+            "{{\"codigo\":{},\"severidade\":{},\"mensagem\":{},\"intervalo\":{},\"linha\":{},\"coluna\":{}}}",
+            escapar_json(diagnostico.codigo),
+            escapar_json(severidade),
+            escapar_json(&diagnostico.mensagem),
+            intervalo,
+            linha,
+            coluna
+        )
+    }).collect::<Vec<_>>().join(",");
+    format!(
+        "{{\"arquivo\":{},\"valido\":{},\"diagnosticos\":[{}]}}",
+        escapar_json(&caminho.display().to_string()),
+        diagnosticos.is_empty(),
+        itens
+    )
+}
+
+fn analisar_arquivo(caminho: &Path, json: bool) {
     let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
         eprintln!(
             "Erro N0001: não foi possível ler '{}': {erro}",
@@ -1160,7 +1216,7 @@ fn analisar_arquivo(caminho: &Path) {
     }
 }
 
-fn verificar(caminho: &Path) {
+fn verificar(caminho: &Path, json: bool) {
     let bytes = match std::fs::read(caminho) {
         Ok(bytes) => bytes,
         Err(erro) => {
