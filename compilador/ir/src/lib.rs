@@ -322,13 +322,13 @@ impl Lowerer {
                     Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::Estrutura(_) | Tipo::Tupla(_)
                     | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)
                 ) {
-                    let valor = match valor {
+                    let valor_interno = match valor {
                         ExpressaoIr::Normalizar { valor, .. } => *valor,
                         outro => outro,
                     };
                     valor = ExpressaoIr::Normalizar {
                         tipo: tipo.clone(),
-                        valor: Box::new(valor),
+                        valor: Box::new(valor_interno),
                     };
                 }
                 if let Some(escopo) = self.escopos_tipos.last_mut() {
