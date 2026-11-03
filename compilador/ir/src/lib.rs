@@ -455,6 +455,12 @@ impl Lowerer {
             }),
             Expressao::Nome(nome) => self.escopos_tipos.iter().rev()
                 .find_map(|escopo| escopo.get(nome).cloned())
+                .or_else(|| self.assinaturas_funcoes.get(nome).and_then(|(parametros, retorno)| {
+                    (!self.genericas.contains_key(nome)).then(|| Tipo::Funcao(
+                        parametros.iter().map(|tipo| self.tipo(tipo)).collect(),
+                        Box::new(retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.tipo(tipo))),
+                    ))
+                }))
                 .unwrap_or(Tipo::Desconhecido),
             Expressao::Lista(itens) => {
                 let Some(primeiro) = itens.first() else { return Tipo::Lista(Box::new(Tipo::Desconhecido)); };
@@ -621,7 +627,26 @@ impl Lowerer {
 
     fn expressao_sem_tipo(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
         match expressao {
-            Expressao::Nome(nome) => Some(ExpressaoIr::Variavel(nome.clone())),
+            Expressao::Nome(nome) => {
+                if self.escopos_tipos.iter().rev().any(|escopo| escopo.contains_key(nome)) {
+                    Some(ExpressaoIr::Variavel(nome.clone()))
+                } else if let Some((parametros, retorno)) = self.assinaturas_funcoes.get(nome).cloned() {
+                    if self.genericas.contains_key(nome) {
+                        self.diagnosticos.push(format!(
+                            "A função genérica '{nome}' precisa de uma instância concreta antes de ser usada como valor."
+                        ));
+                        None
+                    } else {
+                        let tipo = Tipo::Funcao(
+                            parametros.iter().map(|tipo| self.tipo(tipo)).collect(),
+                            Box::new(retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.tipo(tipo))),
+                        );
+                        Some(ExpressaoIr::ReferenciaFuncao { nome: nome.clone(), tipo })
+                    }
+                } else {
+                    Some(ExpressaoIr::Variavel(nome.clone()))
+                }
+            },
             Expressao::Literal(valor) => Some(ExpressaoIr::Constante(literal(valor)?)),
             Expressao::Lista(valores) => Some(ExpressaoIr::Lista(
                 valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
@@ -671,7 +696,15 @@ impl Lowerer {
                 let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
                 match alvo.as_ref() {
                     Expressao::Nome(nome) => {
-                        if let Some(tipo) = tipo_conversao_explicita(nome) {
+                        if self.escopos_tipos.iter().rev()
+                            .find_map(|escopo| escopo.get(nome))
+                            .is_some_and(|tipo| matches!(tipo, Tipo::Funcao(_, _)))
+                        {
+                            Some(ExpressaoIr::ChamadaIndireta {
+                                alvo: Box::new(self.expressao(alvo)?),
+                                argumentos: args,
+                            })
+                        } else if let Some(tipo) = tipo_conversao_explicita(nome) {
                             if args.len() != 1 {
                                 self.diagnosticos.push(format!(
                                     "A conversão '{nome}' exige exatamente um argumento."
@@ -981,6 +1014,11 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo.clone(),
+        ExpressaoIr::ReferenciaFuncao { tipo, .. } => tipo.clone(),
+        ExpressaoIr::ChamadaIndireta { alvo, .. } => match inferir_tipo(alvo) {
+            Tipo::Funcao(_, retorno) => *retorno,
+            _ => Tipo::Desconhecido,
+        },
         ExpressaoIr::Constante(_) => Tipo::Desconhecido,
         ExpressaoIr::Lista(v) => Tipo::Lista(Box::new(v.first().map_or(Tipo::Desconhecido, inferir_tipo))),
         ExpressaoIr::ConstrucaoEstrutura { nome, .. } => Tipo::Estrutura(nome.clone()),
@@ -1201,6 +1239,7 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Texto(v) => ValorRuntime::Texto(v),
         ValorIr::Caractere(v) => ValorRuntime::Caractere(v),
         ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
+        ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
@@ -1224,6 +1263,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Logico(v) => Ok(ValorIr::Logico(v)),
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
+        ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
         ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
         ValorRuntime::Estrutura { nome, campos } => {
             let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
@@ -1396,6 +1436,17 @@ impl Maquina<'_> {
     fn expressao(&mut self, e: &ExpressaoIr) -> Result<ValorIr, String> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
+            ExpressaoIr::ReferenciaFuncao { nome, .. } => Ok(ValorIr::Funcao(nome.clone())),
+            ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+                let ValorIr::Funcao(nome) = self.expressao(alvo)? else {
+                    return Err("A chamada indireta exige um valor de função válido.".into());
+                };
+                let valores = argumentos.iter().map(|argumento| self.expressao(argumento))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let funcao = self.programa.funcoes.get(&nome).cloned()
+                    .ok_or_else(|| format!("Função referenciada '{nome}' não foi encontrada na IR."))?;
+                self.chamar_funcao(&nome, funcao, valores)
+            }
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
             ExpressaoIr::Conversao { tipo, valor } => converter_valor_explicito(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
@@ -1894,6 +1945,7 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Inteiro(v) => v.to_string(), ValorIr::InteiroSemSinal(v) => v.to_string(), ValorIr::Decimal(v) => v.to_string(),
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
+        ValorIr::Funcao(nome) => format!("<função {nome}>"),
         ValorIr::Funcao(nome) => format!("<função {nome}>"),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
         ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
