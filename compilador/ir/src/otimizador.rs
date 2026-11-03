@@ -259,7 +259,7 @@ fn propagar_constantes_expressao(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { propagar_constantes_expressao(valor, constantes, relatorio); }
         }
-        ExpressaoIr::Constante(_) => {}
+        ExpressaoIr::Constante(_) | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 }
 
