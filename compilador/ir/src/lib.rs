@@ -1100,7 +1100,7 @@ fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, Str
                 }
                 _ => return Err(erro()),
             };
-            normalizar_valor(tipo, ValorIr::Inteiro(inteiro))
+            normalizar_valor(tipo, ValorIr::Inteiro(inteiro)).map_err(|_| erro())
         }
         Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
         | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte => {
@@ -1116,7 +1116,7 @@ fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, Str
                 }
                 _ => return Err(erro()),
             };
-            normalizar_valor(tipo, ValorIr::InteiroSemSinal(inteiro))
+            normalizar_valor(tipo, ValorIr::InteiroSemSinal(inteiro)).map_err(|_| erro())
         }
         Tipo::Decimal32 | Tipo::Decimal | Tipo::Decimal64 => {
             let decimal = match valor {
@@ -1128,7 +1128,7 @@ fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, Str
             if !decimal.is_finite() {
                 return Err(erro());
             }
-            normalizar_valor(tipo, ValorIr::Decimal(decimal))
+            normalizar_valor(tipo, ValorIr::Decimal(decimal)).map_err(|_| erro())
         }
         _ => Err(erro()),
     }
