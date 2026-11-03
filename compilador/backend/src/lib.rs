@@ -627,8 +627,6 @@ impl Emissor {
     fn comparar_decimal(&mut self, tipo: &Tipo, operador: &OperadorIr) {
         self.carregar_decimais_sse(tipo);
         if *tipo == Tipo::Decimal32 {
-            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]);
-            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC9]);
             self.codigo.extend_from_slice(&[0x0F, 0x2E, 0xC1]); // ucomiss xmm0, xmm1
         } else {
             self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
@@ -1250,11 +1248,12 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_normalizacao_de_128_bits_e_decimais_na_abi_atual() {
+    fn rejeita_128_bits_e_aceita_decimais_sse2() {
         let mut emissor = Emissor::novo(HashMap::new());
         assert!(emissor.normalizar_tipo(&Tipo::Inteiro128).is_err());
         assert!(emissor.normalizar_tipo(&Tipo::InteiroU128).is_err());
-        assert!(emissor.normalizar_tipo(&Tipo::Decimal32).is_err());
+        assert!(emissor.normalizar_tipo(&Tipo::Decimal32).is_ok());
+        assert!(emissor.normalizar_tipo(&Tipo::Decimal64).is_ok());
     }
 
     #[test]
