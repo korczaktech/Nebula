@@ -15,7 +15,7 @@ Implementado nesta rodada:
 - Testes unitários para idempotência, preservação de conteúdo, modo de verificação e rejeição de sintaxe inválida.
 
 Pendente:
-- Integrar `formatar` como subcomando do executável principal `nebula`.
+- Subcomando `nebula formatar <arquivo.nbx> [--check]` integrado ao executável principal, com validação sintática, gravação atômica e testes de integração.
 - Formatador estilístico completo com indentação e regras canônicas.
 - Cache/compilação incremental com invalidação por dependências.
 - Completar e validar todos os comandos oficiais `criar`, `limpar` e os demais fluxos da CLI.
