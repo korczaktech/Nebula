@@ -386,17 +386,28 @@ fn coletar_arquivos_pacote(diretorio: &Path, arquivos: &mut Vec<PathBuf>) -> Res
         if matches!(nome.to_str(), Some(".git" | "target" | ".nebula")) {
             continue;
         }
-        let metadados = fs::symlink_metadata(&caminho)
+        let metadados = fs::symlink_metadata(&caminho).map_err(|erro| {
+            format!(
+                "não foi possível inspecionar '{}': {erro}",
+                caminho.display()
+            )
+        })?;
             .map_err(|erro| format!("não foi possível inspecionar '{}': {erro}", caminho.display()))?;
         if metadados.file_type().is_symlink() {
-            return Err(format!("pacote contém link simbólico não permitido: {}", caminho.display()));
+            return Err(format!(
+                "pacote contém link simbólico não permitido: {}",
+                caminho.display()
+            ));
         }
         if metadados.is_dir() {
             coletar_arquivos_pacote(&caminho, arquivos)?;
         } else if metadados.is_file() {
             arquivos.push(caminho);
         } else {
-            return Err(format!("pacote contém arquivo especial não permitido: {}", caminho.display()));
+            return Err(format!(
+                "pacote contém arquivo especial não permitido: {}",
+                caminho.display()
+            ));
         }
     }
     Ok(())
@@ -784,16 +795,33 @@ mod testes {
 
     #[test]
     fn lockfile_detecta_alteracao_em_codigo_da_dependencia() {
-        let raiz = std::env::temp_dir().join(format!("nebula-pacote-fingerprint-{}", std::process::id()));
+        let raiz =
+            std::env::temp_dir().join(format!("nebula-pacote-fingerprint-{}", std::process::id()));
         let app = raiz.join("app");
         let lib = raiz.join("lib");
         fs::create_dir_all(&app).unwrap();
         fs::create_dir_all(&lib).unwrap();
-        fs::write(app.join("nebula.toml"), "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = \"../lib\"").unwrap();
-        fs::write(lib.join("nebula.toml"), "[pacote]\nnome = \"lib\"\nversao = \"1.0.0\"").unwrap();
-        fs::write(lib.join("lib.nbx"), "funcao valor(): inteiro { devolver 1 }").unwrap();
+        fs::write(
+            app.join("nebula.toml"),
+            "[pacote]\nnome = \"app\"\nversao = \"1.0.0\"\n[dependencias]\nlib = \"../lib\"",
+        )
+        .unwrap();
+        fs::write(
+            lib.join("nebula.toml"),
+            "[pacote]\nnome = \"lib\"\nversao = \"1.0.0\"",
+        )
+        .unwrap();
+        fs::write(
+            lib.join("lib.nbx"),
+            "funcao valor(): inteiro { devolver 1 }",
+        )
+        .unwrap();
         let primeiro = resolver(&app).unwrap();
-        fs::write(lib.join("lib.nbx"), "funcao valor(): inteiro { devolver 2 }").unwrap();
+        fs::write(
+            lib.join("lib.nbx"),
+            "funcao valor(): inteiro { devolver 2 }",
+        )
+        .unwrap();
         let segundo = resolver(&app).unwrap();
         assert_ne!(primeiro.lockfile, segundo.lockfile);
         let _ = fs::remove_dir_all(raiz);
