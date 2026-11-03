@@ -604,6 +604,17 @@ impl Emissor {
         let origem_inteira = tipo_inteiro_abi(&tipo_origem);
         let destino_inteiro = tipo_inteiro_abi(destino);
 
+        if let Some((64, destino_assinado)) = destino_inteiro {
+            if let Some((64, origem_assinada)) = origem_inteira {
+                if destino_assinado != origem_assinada {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    let valido = self.emitir_jcc(if destino_assinado { 0x89 } else { 0x89 });
+                    self.encerrar_com_erro(2);
+                    self.aplicar_salto(valido, self.codigo.len());
+                }
+                return Ok(());
+            }
+        }
         if destino_inteiro.is_some() {
             if origem_inteira.is_some() {
                 return self.normalizar_tipo(destino);
@@ -1218,6 +1229,27 @@ mod testes {
         assert!(validar_tipo(&Tipo::Byte).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro128).is_err());
         assert!(validar_tipo(&Tipo::InteiroU128).is_err());
+    }
+
+    #[test]
+    fn conversao_entre_i64_e_u64_verifica_sinal() {
+        for (destino, origem) in [
+            (Tipo::Inteiro64, Tipo::InteiroU64),
+            (Tipo::InteiroU64, Tipo::Inteiro64),
+        ] {
+            let expressao = ExpressaoIr::Conversao {
+                tipo: destino,
+                valor: Box::new(ExpressaoIr::Normalizar {
+                    tipo: origem,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1))),
+                }),
+            };
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.expressao(&expressao).unwrap();
+            assert!(emissor.codigo.windows(3).any(|janela| janela == [0x48, 0x85, 0xC0]));
+            assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x89]));
+            assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x05]));
+        }
     }
 
     #[test]
