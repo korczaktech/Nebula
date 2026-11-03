@@ -68,8 +68,9 @@ impl CacheCompilacao {
     ///
     /// Usado para invalidar artefatos quando o próprio compilador muda.
     pub fn fingerprint_arquivo(caminho: &Path) -> Result<String, String> {
-        let metadados = fs::symlink_metadata(caminho)
-            .map_err(|erro| format!("não foi possível inspecionar arquivo de fingerprint: {erro}"))?;
+        let metadados = fs::symlink_metadata(caminho).map_err(|erro| {
+            format!("não foi possível inspecionar arquivo de fingerprint: {erro}")
+        })?;
         if metadados.file_type().is_symlink() || !metadados.is_file() {
             return Err("fingerprint exige um arquivo regular, não um link simbólico".to_owned());
         }
