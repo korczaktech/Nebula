@@ -23,7 +23,7 @@ jobs:
           persist-credentials: false
 
       - name: Instalar Rust
-        uses: dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@1.120.0
 
       - name: Bloquear distribuição sem licença aprovada
         run: |
