@@ -54,7 +54,7 @@ pub fn analisar_com_modulos(programa: &Programa, modulos: &ModulosDisponiveis) -
 }
 
 #[derive(Debug, Clone)]
-struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool }
+struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool, campos_movidos: HashSet<String> }
 
 #[derive(Debug, Clone, Copy)]
 enum LiteralNumerico { Inteiro(i128), InteiroSemSinal(u128), Decimal(f64) }
@@ -215,7 +215,7 @@ impl<'a> Analisador<'a> {
                     }
                     inferido
                 };
-                self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false });
+                self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
             }
             NoAst::Funcao { nome, genericos, parametros, corpo, .. } => {
                 if !self.funcoes_vistas.insert(nome.clone()) { return; }
@@ -227,7 +227,7 @@ impl<'a> Analisador<'a> {
                 self.parametros_genericos.extend(genericos.iter().cloned());
                 self.abrir_escopo();
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
-                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false });
+                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false, campos_movidos: HashSet::new() });
                 }
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
@@ -344,7 +344,7 @@ impl<'a> Analisador<'a> {
                                     self.erro("N3050", format!("Variante '{variante}' exige {} vínculos de payload, mas recebeu {}.", payload.len(), caso.vinculacoes.len()));
                                 }
                                 for (vinculo, tipo) in caso.vinculacoes.iter().zip(payload) {
-                                    self.declarar(vinculo, Simbolo { tipo: tipo.clone(), mutavel: false, movido: false });
+                                    self.declarar(vinculo, Simbolo { tipo: tipo.clone(), mutavel: false, movido: false, campos_movidos: HashSet::new() });
                                 }
                             } else {
                                 self.erro("N3051", format!("Variante '{variante}' não existe na enumeração '{nome_enum}'."));
@@ -453,8 +453,8 @@ impl<'a> Analisador<'a> {
         match expressao {
             Expressao::Nome(nome) => {
                 if let Some(simbolo) = self.buscar(nome).cloned() {
-                    if simbolo.movido {
-                        self.erro("N3030", format!("O valor '{nome}' foi movido e não pode ser utilizado novamente."));
+                    if simbolo.movido || !simbolo.campos_movidos.is_empty() {
+                        self.erro("N3030", format!("O valor '{nome}' ou parte de seus campos foi movido e não pode ser utilizado integralmente."));
                     }
                     simbolo.tipo
                 } else if let Some(f) = self.funcoes.get(nome) {
@@ -557,17 +557,22 @@ impl<'a> Analisador<'a> {
                         }
                     }
                     Expressao::Membro { .. } => {
-                        let tipo_destino = self.expressao(destino);
-                        let mut raiz = destino.as_ref();
-                        while let Expressao::Membro { alvo, operador: TipoToken::Ponto, .. } = raiz {
-                            raiz = alvo;
-                        }
-                        if let Expressao::Nome(nome) = raiz {
-                            if let Some(simbolo) = self.buscar(nome).cloned() {
+                        let mut tipo_destino = Tipo::Desconhecido;
+                        if let Some((raiz, caminho)) = Self::decompor_caminho_campo(destino) {
+                            tipo_destino = self.resolver_tipo_caminho(&raiz, &caminho, false);
+                            if let Some(simbolo) = self.buscar(&raiz).cloned() {
                                 if !simbolo.mutavel {
-                                    self.erro("N3009", format!("Não é permitido alterar campos da constante '{nome}'."));
+                                    self.erro("N3009", format!("Não é permitido alterar campos da constante '{raiz}'."));
                                 }
                             }
+                            if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                                let prefixo = caminho.join(".");
+                                simbolo.campos_movidos.retain(|movido|
+                                    movido != &prefixo && !movido.starts_with(&format!("{prefixo}."))
+                                );
+                            }
+                        } else {
+                            tipo_destino = self.expressao(destino);
                         }
                         self.exigir_expressao_tipo(valor, &tipo_valor, &tipo_destino, "atribuição de campo");
                         tipo_destino
@@ -1028,6 +1033,10 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 if *operador == TipoToken::Ponto {
+                    if let Some((raiz, mut caminho)) = Self::decompor_caminho_campo(alvo) {
+                        caminho.push(nome.clone());
+                        return self.resolver_tipo_caminho(&raiz, &caminho, true);
+                    }
                     let tipo_alvo = self.expressao(alvo);
                     match tipo_alvo {
                         Tipo::Estrutura(nome_estrutura) => {
@@ -1367,6 +1376,57 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn decompor_caminho_campo(expressao: &Expressao) -> Option<(String, Vec<String>)> {
+        match expressao {
+            Expressao::Nome(nome) => Some((nome.clone(), Vec::new())),
+            Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => {
+                let (raiz, mut caminho) = Self::decompor_caminho_campo(alvo)?;
+                caminho.push(nome.clone());
+                Some((raiz, caminho))
+            }
+            _ => None,
+        }
+    }
+
+    fn resolver_tipo_caminho_puro(&self, raiz: &str, caminho: &[String]) -> Option<Tipo> {
+        let mut tipo = self.buscar(raiz)?.tipo.clone();
+        for campo in caminho {
+            let Tipo::Estrutura(nome) = tipo else { return None; };
+            tipo = self.campos_estruturas.get(&nome)?.get(campo)?.clone();
+        }
+        Some(tipo)
+    }
+
+    fn resolver_tipo_caminho(&mut self, raiz: &str, caminho: &[String], verificar_movidos: bool) -> Tipo {
+        let Some(simbolo) = self.buscar(raiz).cloned() else {
+            self.erro("N3007", format!("Nome '{raiz}' não foi declarado."));
+            return Tipo::Desconhecido;
+        };
+        if simbolo.movido {
+            self.erro("N3030", format!("O valor '{raiz}' foi movido e não pode ser utilizado novamente."));
+            return Tipo::Desconhecido;
+        }
+        let mut tipo = simbolo.tipo;
+        let mut prefixo = Vec::new();
+        for campo in caminho {
+            prefixo.push(campo.clone());
+            if verificar_movidos && simbolo.campos_movidos.contains(&prefixo.join(".")) {
+                self.erro("N3030", format!("O campo '{}.{}' foi movido e não pode ser utilizado novamente.", raiz, prefixo.join(".")));
+                return Tipo::Desconhecido;
+            }
+            let Tipo::Estrutura(nome) = tipo else {
+                self.erro("N3041", format!("O tipo '{}' não possui campos acessíveis por '.'.", tipo.nome()));
+                return Tipo::Desconhecido;
+            };
+            let Some(tipo_campo) = self.campos_estruturas.get(&nome).and_then(|campos| campos.get(campo)).cloned() else {
+                self.erro("N3040", format!("A estrutura '{nome}' não possui o campo '{campo}'."));
+                return Tipo::Desconhecido;
+            };
+            tipo = tipo_campo;
+        }
+        tipo
+    }
+
     fn buscar_mutavel(&mut self, nome: &str) -> Option<&mut Simbolo> {
         self.escopos.iter_mut().rev().find_map(|escopo| escopo.get_mut(nome))
     }
@@ -1522,6 +1582,18 @@ impl<'a> Analisador<'a> {
             }
             Expressao::ConstrucaoEstrutura { campos, .. } => {
                 for (_, valor) in campos { self.mover_valor(valor); }
+            }
+            Expressao::Membro { alvo, operador: TipoToken::Ponto, nome } => {
+                if let Some((raiz, mut caminho)) = Self::decompor_caminho_campo(alvo) {
+                    caminho.push(nome.clone());
+                    if self.resolver_tipo_caminho_puro(&raiz, &caminho)
+                        .is_some_and(|tipo| !Self::tipo_copiavel(&tipo))
+                    {
+                        if let Some(simbolo) = self.buscar_mutavel(&raiz) {
+                            simbolo.campos_movidos.insert(caminho.join("."));
+                        }
+                    }
+                }
             }
             Expressao::Chamada { alvo, argumentos } => {
                 let construtor_algebrico = matches!(
@@ -1712,26 +1784,39 @@ impl<'a> Analisador<'a> {
         self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, None));
     }
 
-    fn snapshot_movidos(&self) -> HashSet<(usize, String)> {
-        self.escopos.iter().enumerate().flat_map(|(indice, escopo)| {
-            escopo.iter()
-                .filter(|(_, simbolo)| simbolo.movido)
-                .map(move |(nome, _)| (indice, nome.clone()))
-        }).collect()
+    fn snapshot_movidos(&self) -> HashSet<(usize, String, String)> {
+        let mut estado = HashSet::new();
+        for (indice, escopo) in self.escopos.iter().enumerate() {
+            for (nome, simbolo) in escopo {
+                if simbolo.movido {
+                    estado.insert((indice, nome.clone(), String::new()));
+                }
+                for campo in &simbolo.campos_movidos {
+                    estado.insert((indice, nome.clone(), campo.clone()));
+                }
+            }
+        }
+        estado
     }
 
-    fn restaurar_movidos(&mut self, estado: &HashSet<(usize, String)>) {
+    fn restaurar_movidos(&mut self, estado: &HashSet<(usize, String, String)>) {
         for (indice, escopo) in self.escopos.iter_mut().enumerate() {
             for (nome, simbolo) in escopo {
-                simbolo.movido = estado.contains(&(indice, nome.clone()));
+                simbolo.movido = estado.contains(&(indice, nome.clone(), String::new()));
+                simbolo.campos_movidos = estado.iter()
+                    .filter(|(escopo_indice, nome_simbolo, campo)|
+                        *escopo_indice == indice && nome_simbolo == nome && !campo.is_empty()
+                    )
+                    .map(|(_, _, campo)| campo.clone())
+                    .collect();
             }
         }
     }
 
     fn mesclar_movidos(
         &mut self,
-        primeiro: &HashSet<(usize, String)>,
-        segundo: &HashSet<(usize, String)>,
+        primeiro: &HashSet<(usize, String, String)>,
+        segundo: &HashSet<(usize, String, String)>,
     ) {
         let combinado = primeiro.union(segundo).cloned().collect();
         self.restaurar_movidos(&combinado);
