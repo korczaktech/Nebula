@@ -935,7 +935,7 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
-                if nome == "exibir" || nome == "ler_texto" {
+                if nome == "exibir" || nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
                 self.preparar_argumentos(argumentos)?;
