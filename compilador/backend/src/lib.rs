@@ -1013,9 +1013,8 @@ impl Emissor {
             }
         }
 
-        if let Some((128, origem_assinada)) = origem_inteira {
-            if destino_inteiro.is_some() {
-                let (_, destino_assinado) = destino_inteiro.unwrap();
+        if let Some((128, _)) = origem_inteira {
+            if let Some((_, destino_assinado)) = destino_inteiro {
                 if destino_assinado {
                     self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = low
                     self.codigo.extend_from_slice(&[0x48, 0xC1, 0xF9, 0x3F]); // sar rcx, 63
@@ -1031,7 +1030,6 @@ impl Emissor {
             if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
                 return Err("Conversão de inteiro128 para decimal ainda não está implementada.".into());
             }
-            let _ = origem_assinada;
         }
 
         if let Some((64, destino_assinado)) = destino_inteiro {
