@@ -1641,9 +1641,6 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Indexacao { alvo, indice } => {
                 if let Some((raiz, caminho)) = Self::decompor_caminho_campo(expressao) {
-                    let mut caminho_pai = caminho.clone();
-                    let _ = caminho_pai.pop();
-                    let tipo_pai = self.resolver_tipo_caminho_puro(&raiz, &caminho_pai);
                     let tipo_elemento = self.resolver_tipo_caminho_puro(&raiz, &caminho);
                     if tipo_elemento.is_some_and(|tipo| !Self::tipo_copiavel(&tipo)) {
                         if let Some(simbolo) = self.buscar_mutavel(&raiz) {
