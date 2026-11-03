@@ -15,7 +15,7 @@ temporario="$(mktemp -d)"
 trap 'rm -rf "$temporario"' EXIT
 
 for carga in loop fibonacci; do
-    printf '\n%s — compilação nativa sem passes de otimização\n' "$carga"
+    printf '\n%s — compilação nativa com otimização padrão O1\n' "$carga"
     executavel="$temporario/nebula-$carga"
     "$nebula" compilar "benchmarks/$carga.nbx" -o "$executavel"
     for repeticao in 1 2 3 4 5; do
