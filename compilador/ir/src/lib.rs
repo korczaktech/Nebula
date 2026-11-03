@@ -2554,7 +2554,7 @@ mod testes {
         assert_eq!(resultado.globais.get("invalido"), Some(&ValorIr::Logico(false)));
         assert_eq!(
             resultado.globais.get("canonico"),
-            Some(&ValorIr::Texto("{\\"a\\":1,\\"b\\":2}".into()))
+            Some(&ValorIr::Texto(r#"{"a":1,"b":2}"#.into()))
         );
     }
 
