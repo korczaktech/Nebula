@@ -976,6 +976,52 @@ mod testes {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn compila_conversao_e_aritmetica_decimal32_com_variaveis() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-decimal32-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao principal(): inteiro {
+    variavel origem: inteiro = 16777217
+    variavel convertido: decimal32 = decimal32(origem)
+    variavel um: decimal32 = 1.0
+    variavel soma = convertido + um
+    quando soma == 16777216.0 {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação decimal32");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn rejeita_travessia_no_caminho_de_modulo() {
         let origem = std::env::temp_dir().join("principal.nbx");
