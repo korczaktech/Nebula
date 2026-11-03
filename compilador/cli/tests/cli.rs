@@ -20,6 +20,27 @@ fn ajuda_explicita_retorna_sucesso_e_instrucoes() {
 }
 
 #[test]
+fn lista_somente_alvos_com_backend_real() {
+    let saida = executar(&["alvos"]);
+    assert!(saida.status.success());
+    let stdout = String::from_utf8_lossy(&saida.stdout);
+    assert!(stdout.contains("linux-x86_64"));
+    assert!(!stdout.contains("wasm32"));
+}
+
+#[test]
+fn rejeita_alvo_sem_backend_antes_de_compilar() {
+    let saida = executar(&[
+        "compilar",
+        "arquivo-inexistente.nbx",
+        "--alvo",
+        "wasm32",
+    ]);
+    assert_eq!(saida.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&saida.stderr).contains("ainda não possui backend implementado"));
+}
+
+#[test]
 fn ausencia_de_comando_exibe_ajuda() {
     let saida = executar(&[]);
     assert!(saida.status.success());
