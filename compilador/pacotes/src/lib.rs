@@ -422,7 +422,7 @@ fn incrementar_identificador_numerico(valor: &str) -> String {
     resultado
 }
 
-/// Valida restrições simples de SemVer: exata, ^, ~, comparadores e conjunção.
+/// Valida restrições SemVer exatas, comparadores, caret, tilde, intervalos e alternativas.
 fn restricao_semver_valida(restricao: &str) -> bool {
     !restricao.is_empty()
         && restricao.split("||").all(|grupo| {
