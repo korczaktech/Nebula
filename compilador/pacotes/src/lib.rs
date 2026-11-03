@@ -306,7 +306,7 @@ mod testes {
             let mut entrada = String::with_capacity(tamanho);
             for _ in 0..tamanho {
                 estado = estado.wrapping_mul(1_103_515_245).wrapping_add(12_345);
-                let byte = b' ' + ((estado >> 24) % 95);
+                let byte = b' ' + ((estado >> 24) % 95) as u8;
                 entrada.push(char::from(byte));
             }
             let _ = Manifesto::analisar(&entrada);
