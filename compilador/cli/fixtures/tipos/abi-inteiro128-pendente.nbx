@@ -1,1 +1,9 @@
-variavel valor: inteiro128 = 42
+funcao principal(): inteiro {
+    variavel valor: inteiro128 = 42
+    variavel sem_sinal: inteiro_u128 = 42
+    quando valor == inteiro128(sem_sinal) {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}
