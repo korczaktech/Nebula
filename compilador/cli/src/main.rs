@@ -994,8 +994,9 @@ mod testes {
     variavel origem: inteiro = 16777217
     variavel convertido: decimal32 = decimal32(origem)
     variavel um: decimal32 = 1.0
+    variavel esperado: decimal32 = 16777216.0
     variavel soma = convertido + um
-    quando soma == 16777216.0 {
+    quando soma == esperado {
         devolver 42
     } senao {
         devolver 0
