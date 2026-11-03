@@ -455,6 +455,12 @@ impl<'a> Analisador<'a> {
                 NoAst::Devolver(_) => return true,
                 NoAst::Quando { entao, senao, .. }
                     if Self::garante_retorno(entao) && Self::garante_retorno(senao) => return true,
+                NoAst::Escolha { casos, .. }
+                    if !casos.is_empty()
+                        && casos.iter().all(|caso| Self::garante_retorno(&caso.corpo)) =>
+                {
+                    return true;
+                }
                 _ => {}
             }
         }
