@@ -130,9 +130,9 @@ A Fase 5 não pode apagar nem enfraquecer os contratos já aprovados nas Fases 1
 
 ## 12. Autocompilação
 
-- [ ] Avaliar a autocompilação com critérios objetivos de viabilidade e segurança.
+- [x] Avaliar a autocompilação com critérios objetivos de viabilidade e segurança; a decisão para 1.0 é mantê-la fora do escopo estável.
 - [ ] Se entrar no escopo do lançamento, compilar o compilador com a própria Nebula, validar bootstrap reproduzível e comparar artefatos.
-- [ ] Se não atingir maturidade para 1.0, documentar a decisão e manter a autocompilação explicitamente experimental/futura, sem alegar que está concluída.
+- [x] Como não atingiu maturidade para 1.0, documentar a decisão e manter a autocompilação explicitamente experimental/futura, sem alegar que está concluída (`docs/LANCAMENTO.md`).
 
 ## Portões de conclusão
 
