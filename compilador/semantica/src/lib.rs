@@ -1844,7 +1844,7 @@ mod testes {
 
     #[test]
     fn rejeita_referencia_generica_sem_instanciacao() {
-        let r = analisar_codigo(
+        let r = analisar_codigo_fase5(
             "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel callback = identidade",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3057"), "{:?}", r.diagnosticos);
@@ -2274,7 +2274,7 @@ mod testes {
 
     #[test]
     fn infere_generico_em_funcao_de_identidade() {
-        let r = analisar_codigo(
+        let r = analisar_codigo_fase5(
             "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
@@ -2413,9 +2413,20 @@ mod testes {
     }
 
 
+fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
+    let fonte = nebula_fonte::ArquivoFonte::novo("teste-fase5.nbx", codigo);
+    let sintaxe = nebula_sintaxe::analisar(&fonte);
+    assert!(
+        sintaxe.diagnosticos.is_empty(),
+        "{:?}",
+        sintaxe.diagnosticos
+    );
+    analisar_semantica(&sintaxe.programa)
+}
+
     #[test]
     fn rejeita_instancia_generica_com_tipo_aninhado_nao_inferido() {
-        let r = analisar_codigo(
+        let r = analisar_codigo_fase5(
             "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel ausente = identidade(Opcional::Nenhum())",
         );
         assert!(
@@ -2427,7 +2438,7 @@ mod testes {
 
     #[test]
     fn rejeita_inferencia_generica_inconsistente_em_tipos_compostos() {
-        let r = analisar_codigo(
+        let r = analisar_codigo_fase5(
             "funcao par<T>(primeiro: T, segundo: T): T { devolver primeiro }\nvariavel resultado = par([1], [verdadeiro])",
         );
         assert!(
