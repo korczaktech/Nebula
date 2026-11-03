@@ -1168,20 +1168,32 @@ fn diagnosticos_json(caminho: &Path, diagnosticos: &[Diagnostico], fonte: Option
 }
 
 fn analisar_arquivo(caminho: &Path, json: bool) {
-    let bytes = std::fs::read(caminho).unwrap_or_else(|erro| {
-        eprintln!(
-            "Erro N0001: não foi possível ler '{}': {erro}",
-            caminho.display()
-        );
-        std::process::exit(1);
-    });
-    let conteudo = String::from_utf8(bytes).unwrap_or_else(|erro| {
-        eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), erro.utf8_error().valid_up_to());
-        std::process::exit(1);
-    });
+    let bytes = match std::fs::read(caminho) {
+        Ok(bytes) => bytes,
+        Err(erro) => {
+            let diagnostico = Diagnostico::novo("N0001", Severidade::Erro, format!("Não foi possível ler o arquivo: {erro}"), None);
+            if json { println!("{}", diagnosticos_json(caminho, &[diagnostico], None)); }
+            else { eprintln!("Erro N0001: não foi possível ler '{}': {erro}", caminho.display()); }
+            std::process::exit(1);
+        }
+    };
+    let conteudo = match String::from_utf8(bytes) {
+        Ok(conteudo) => conteudo,
+        Err(erro) => {
+            let deslocamento = erro.utf8_error().valid_up_to();
+            let diagnostico = Diagnostico::novo("N1000", Severidade::Erro, format!("O arquivo não contém UTF-8 válido; sequência inválida a partir do byte {deslocamento}."), None);
+            if json { println!("{}", diagnosticos_json(caminho, &[diagnostico], None)); }
+            else { eprintln!("Erro N1000: arquivo '{}' não contém UTF-8 válido; sequência inválida a partir do byte {}.", caminho.display(), deslocamento); }
+            std::process::exit(1);
+        }
+    };
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
+        if json {
+            println!("{}", diagnosticos_json(caminho, &sintaxe.diagnosticos, Some(&fonte)));
+            std::process::exit(1);
+        }
         for diagnostico in &sintaxe.diagnosticos {
             let local = diagnostico
                 .intervalo
@@ -1201,17 +1213,29 @@ fn analisar_arquivo(caminho: &Path, json: bool) {
         }
         std::process::exit(1);
     }
-    let (modulos, _, _) = carregar_modulos(caminho, &sintaxe.programa).unwrap_or_else(|erro| {
-        eprintln!("{erro}");
-        std::process::exit(1);
-    });
+    let (modulos, _, _) = match carregar_modulos(caminho, &sintaxe.programa) {
+        Ok(carregados) => carregados,
+        Err(erro) => {
+            if json {
+                let diagnostico = Diagnostico::novo("N0001", Severidade::Erro, erro, None);
+                println!("{}", diagnosticos_json(caminho, &[diagnostico], Some(&fonte)));
+            } else {
+                eprintln!("{erro}");
+            }
+            std::process::exit(1);
+        }
+    };
     let resultado = analisar_com_modulos(&sintaxe.programa, &modulos);
-    for diagnostico in &resultado.diagnosticos {
-        eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
-    }
-    if resultado.diagnosticos.is_empty() {
+    if json {
+        println!("{}", diagnosticos_json(caminho, &resultado.diagnosticos, Some(&fonte)));
+    } else if resultado.diagnosticos.is_empty() {
         println!("Arquivo válido semanticamente: {}", caminho.display());
     } else {
+        for diagnostico in &resultado.diagnosticos {
+            eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
+        }
+    }
+    if !resultado.diagnosticos.is_empty() {
         std::process::exit(1);
     }
 }
