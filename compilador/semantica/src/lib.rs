@@ -575,6 +575,7 @@ impl<'a> Analisador<'a> {
                             self.expressao(destino)
                         };
                         self.exigir_expressao_tipo(valor, &tipo_valor, &tipo_destino, "atribuição de campo");
+                        self.mover_valor(valor);
                         tipo_destino
                     }
                     _ => {
@@ -2449,6 +2450,14 @@ mod testes {
             "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta)",
         );
         assert!(inteiro.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", inteiro.diagnosticos);
+    }
+
+    #[test]
+    fn atribuir_campo_move_o_valor_de_origem() {
+        let r = analisar_codigo(
+            "estrutura Conta { nome: texto }\nvariavel nome = \"Lia\"\nvariavel conta = Conta { nome: \"Ana\" }\nconta.nome = nome\nexibir(nome)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
 
     #[test]
