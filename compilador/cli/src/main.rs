@@ -1181,6 +1181,53 @@ funcao principal(): inteiro {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
+    fn converte_inteiros_entre_64_e_128_bits() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-conversao-inteiro128-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"funcao principal(): inteiro {
+    variavel negativo: inteiro128 = -42
+    variavel estreito: inteiro64 = inteiro64(negativo)
+    variavel ampliado: inteiro128 = inteiro128(estreito)
+    variavel sem_sinal: inteiro_u128 = inteiro_u128(42)
+    variavel de_volta: inteiro_u64 = inteiro_u64(sem_sinal)
+    quando estreito == -42 e ampliado == negativo e de_volta == 42 {
+        devolver 42
+    } senao {
+        devolver 0
+    }
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de conversões 64/128");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável de conversão 128 não pôde ser iniciado: {erro}"),
+            }
+        };
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
     fn compila_chamadas_e_retorno_com_inteiros128() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
