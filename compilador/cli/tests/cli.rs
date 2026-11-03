@@ -30,14 +30,11 @@ fn lista_somente_alvos_com_backend_real() {
 
 #[test]
 fn rejeita_alvo_sem_backend_antes_de_compilar() {
-    let saida = executar(&[
-        "compilar",
-        "arquivo-inexistente.nbx",
-        "--alvo",
-        "wasm32",
-    ]);
+    let saida = executar(&["compilar", "arquivo-inexistente.nbx", "--alvo", "wasm32"]);
     assert_eq!(saida.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&saida.stderr).contains("ainda não possui backend implementado"));
+    assert!(
+        String::from_utf8_lossy(&saida.stderr).contains("ainda não possui backend implementado")
+    );
 }
 
 #[test]
