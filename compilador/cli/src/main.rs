@@ -267,7 +267,14 @@ fn main() {
                 eprintln!("Uso: nebula analisar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             };
-            let json = argumentos.next().as_deref() == Some("--json");
+            let json = match argumentos.next().as_deref() {
+                None => false,
+                Some("--json") => true,
+                Some(opcao) => {
+                    eprintln!("Opção desconhecida: {opcao}");
+                    std::process::exit(2);
+                }
+            };
             if argumentos.next().is_some() {
                 eprintln!("Erro: o comando 'analisar' aceita somente --json como opção.");
                 std::process::exit(2);
@@ -279,7 +286,14 @@ fn main() {
                 eprintln!("Uso: nebula verificar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             };
-            let json = argumentos.next().as_deref() == Some("--json");
+            let json = match argumentos.next().as_deref() {
+                None => false,
+                Some("--json") => true,
+                Some(opcao) => {
+                    eprintln!("Opção desconhecida: {opcao}");
+                    std::process::exit(2);
+                }
+            };
             if argumentos.next().is_some() {
                 eprintln!("Erro: o comando 'verificar' aceita somente --json como opção.");
                 eprintln!("Uso: nebula verificar <arquivo.nbx> [--json]");
