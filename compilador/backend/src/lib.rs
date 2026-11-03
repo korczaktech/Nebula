@@ -639,7 +639,7 @@ impl Emissor {
         for (posicao, nome) in self.referencias_funcoes {
             let deslocamento = self.funcoes.get(&nome)
                 .ok_or_else(|| format!("Função referenciada '{nome}' não foi encontrada durante a geração nativa."))?;
-            let destino = 0x401000u64.checked_add(u64::try_from(deslocamento)
+            let destino = 0x401000u64.checked_add(u64::try_from(*deslocamento)
                 .map_err(|_| "Endereço da função excedeu o limite ELF64.")?)
                 .ok_or("Endereço da função excedeu o limite ELF64.")?;
             let fim = posicao.checked_add(8).ok_or("Referência de função excedeu o limite do alvo.")?;
