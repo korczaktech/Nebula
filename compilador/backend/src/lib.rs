@@ -135,12 +135,24 @@ impl Emissor {
             return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
         }
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
-        for ((nome, tipo), registrador) in funcao.parametros.iter().zip(registradores) {
+        let mut indice_registrador = 0usize;
+        for (nome, tipo) in &funcao.parametros {
             validar_tipo(tipo)?;
+            let largura = if tipo_inteiro_128(tipo) { 2 } else { 1 };
+            if indice_registrador + largura > registradores.len() {
+                return Err(format!("A função '{}' excede os seis registradores inteiros do ABI x86-64.", funcao.nome));
+            }
             let deslocamento = self.declarar(nome)?;
-            self.mover_registrador_rax(registrador);
+            self.mover_registrador_rax(registradores[indice_registrador]);
             self.normalizar_tipo(tipo)?;
             self.armazenar_rax(deslocamento);
+            if largura == 2 {
+                self.mover_registrador_rax(registradores[indice_registrador + 1]);
+            } else {
+                self.mov_rdx(0);
+            }
+            self.armazenar_rax(deslocamento - 8);
+            indice_registrador += largura;
         }
 
         // Parâmetros e declarações do corpo compartilham o escopo da função.
@@ -174,6 +186,7 @@ impl Emissor {
                 } else {
                     let deslocamento = self.declarar(nome)?;
                     self.armazenar_rax(deslocamento);
+                    self.armazenar_rdx(deslocamento - 8);
                 }
             }
             InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
@@ -258,20 +271,9 @@ impl Emissor {
                 self.emitir_referencia_funcao(&format!("{modulo}::{nome}"));
             }
             ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
-                if argumentos.len() > 6 {
-                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
-                }
                 self.expressao(alvo)?;
                 self.push_rax();
-                for argumento in argumentos {
-                    self.expressao(argumento)?;
-                    self.push_rax();
-                }
-                let registradores = [7u8, 6, 2, 1, 8, 9];
-                for registrador in registradores.iter().take(argumentos.len()).rev() {
-                    self.pop_rax();
-                    self.mover_rax_registrador(*registrador);
-                }
+                self.preparar_argumentos(argumentos)?;
                 self.codigo.extend_from_slice(&[0x41, 0x5B]); // pop r11: ponteiro da função
                 self.pilha = self.pilha.checked_sub(1)
                     .ok_or("Contabilidade da pilha inválida na chamada indireta.")?;
@@ -482,18 +484,7 @@ impl Emissor {
                 if nome == "exibir" || nome == "ler_texto" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
-                if argumentos.len() > 6 {
-                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
-                }
-                for argumento in argumentos {
-                    self.expressao(argumento)?;
-                    self.push_rax();
-                }
-                let registradores = [7u8, 6, 2, 1, 8, 9];
-                for registrador in registradores.iter().take(argumentos.len()).rev() {
-                    self.pop_rax(); // recupera argumento
-                    self.mover_rax_registrador(*registrador);
-                }
+                self.preparar_argumentos(argumentos)?;
                 if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
                 self.codigo.push(0xE8);
                 let posicao = self.codigo.len();
@@ -503,18 +494,7 @@ impl Emissor {
             }
             ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
                 let nome_completo = format!("{modulo}::{nome}");
-                if argumentos.len() > 6 {
-                    return Err("O ABI x86-64 inicial aceita até seis argumentos.".into());
-                }
-                for argumento in argumentos {
-                    self.expressao(argumento)?;
-                    self.push_rax();
-                }
-                let registradores = [7u8, 6, 2, 1, 8, 9];
-                for registrador in registradores.iter().take(argumentos.len()).rev() {
-                    self.pop_rax();
-                    self.mover_rax_registrador(*registrador);
-                }
+                self.preparar_argumentos(argumentos)?;
                 if self.pilha % 2 == 1 {
                     self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
                 }
@@ -846,6 +826,39 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
     }
 
+    fn preparar_argumentos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
+        let registradores = [7u8, 6, 2, 1, 8, 9];
+        let quantidade = argumentos.iter().map(|argumento| {
+            if inteiro_128_expressao(argumento) { 2usize } else { 1usize }
+        }).sum::<usize>();
+        if quantidade > registradores.len() {
+            return Err("Os argumentos excedem os seis registradores inteiros do ABI x86-64.".into());
+        }
+        for argumento in argumentos {
+            self.expressao(argumento)?;
+            self.push_rax();
+            if inteiro_128_expressao(argumento) {
+                self.codigo.extend_from_slice(&[0x52]); // push rdx
+                self.pilha += 1;
+            }
+        }
+        let mut indice = quantidade;
+        for argumento in argumentos.iter().rev() {
+            if inteiro_128_expressao(argumento) {
+                indice -= 2;
+                self.pop_rax();
+                self.mover_rax_registrador(registradores[indice + 1]);
+                self.pop_rax();
+                self.mover_rax_registrador(registradores[indice]);
+            } else {
+                indice -= 1;
+                self.pop_rax();
+                self.mover_rax_registrador(registradores[indice]);
+            }
+        }
+        Ok(())
+    }
+
     fn push_rax(&mut self) {
         self.codigo.push(0x50);
         self.pilha += 1;
@@ -1016,6 +1029,18 @@ fn eh_inteiro_sem_sinal(expressao: &ExpressaoIr) -> bool {
         ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } =>
             matches!(tipo, Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte),
         ExpressaoIr::Unaria { valor, .. } => eh_inteiro_sem_sinal(valor),
+        _ => false,
+    }
+}
+
+fn tipo_inteiro_128(tipo: &Tipo) -> bool {
+    matches!(tipo, Tipo::Inteiro128 | Tipo::InteiroU128)
+}
+
+fn inteiro_128_expressao(expressao: &ExpressaoIr) -> bool {
+    match expressao {
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo_inteiro_128(tipo),
+        ExpressaoIr::Unaria { valor, .. } => inteiro_128_expressao(valor),
         _ => false,
     }
 }
