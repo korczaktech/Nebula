@@ -295,7 +295,7 @@ fn main() {
                 }
             };
             if argumentos.next().is_some() {
-                eprintln!("Erro: o comando 'verificar' aceita somente --json como opção.");
+                eprintln!("Erro: o comando 'verificar' aceita somente um arquivo e a opção --json.");
                 eprintln!("Uso: nebula verificar <arquivo.nbx> [--json]");
                 std::process::exit(2);
             }
