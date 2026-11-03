@@ -1094,7 +1094,17 @@ mod testes {
         .unwrap();
 
         compilar_arquivo(&origem, &saida).expect("conversão de u64 acima de i64::MAX");
-        let status = Command::new(&saida).status().expect("executável de conversão");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável de conversão não pôde ser iniciado: {erro}"),
+            }
+        };
         assert_eq!(status.code(), Some(42));
         std::fs::remove_dir_all(diretorio).unwrap();
     }
