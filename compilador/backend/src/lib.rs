@@ -41,6 +41,7 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
 
 struct LayoutAgregado {
     tamanho: u64,
+    alinhamento: u64,
     campos: HashMap<String, (u64, u64)>,
 }
 
@@ -89,7 +90,7 @@ impl Emissor {
             let campos = layout.campos.iter().map(|campo| {
                 (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
             }).collect();
-            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, campos })
+            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, alinhamento: layout.alinhamento, campos })
         }).collect();
     }
 
@@ -111,8 +112,25 @@ impl Emissor {
                     return Err(format!("A estrutura '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
                 }
                 for (campo, (deslocamento, tamanho)) in &layout.campos {
-                    if !matches!(*deslocamento, 0 | 8) || *tamanho == 0 || *tamanho > 8 {
+                    let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
+                    let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
+                    if !campo_em_dois_registros && !campo_escalar {
                         return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores da ABI inicial."));
+                    }
+                }
+                Ok(())
+            }
+            Tipo::Tupla(tipos) => {
+                let (tamanho, campos) = self.layout_tupla(tipos)
+                    .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
+                if tamanho == 0 || tamanho > 16 {
+                    return Err("Tupla excede o limite inicial de 16 bytes da ABI nativa.".into());
+                }
+                for (deslocamento, tamanho_campo) in campos {
+                    let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
+                    let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
+                    if !campo_em_dois_registros && !campo_escalar {
+                        return Err("Elemento de tupla não cabe nos dois registradores da ABI inicial.".into());
                     }
                 }
                 Ok(())
@@ -120,6 +138,44 @@ impl Emissor {
             _ if validar_tipo(tipo).is_ok() => Ok(()),
             _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
         }
+    }
+
+    fn alinhar_layout(valor: u64, alinhamento: u64) -> Option<u64> {
+        valor.checked_add(alinhamento.checked_sub(1)?)
+            .map(|v| v & !(alinhamento - 1))
+    }
+
+    fn tamanho_alinhamento_tipo(&self, tipo: &Tipo) -> Option<(u64, u64)> {
+        match tipo {
+            Tipo::Vazio => Some((0, 1)),
+            Tipo::Logico | Tipo::Byte | Tipo::Inteiro8 | Tipo::InteiroU8 => Some((1, 1)),
+            Tipo::Inteiro16 | Tipo::InteiroU16 => Some((2, 2)),
+            Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
+            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
+            | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
+            Tipo::Estrutura(nome) => self.layouts_tipos.get(nome)
+                .map(|layout| (layout.tamanho, layout.alinhamento)),
+            Tipo::Tupla(tipos) => {
+                let (tamanho, _) = self.layout_tupla(tipos)?;
+                Some((tamanho, 8))
+            }
+            _ => None,
+        }
+    }
+
+    fn layout_tupla(&self, tipos: &[Tipo]) -> Option<(u64, Vec<(u64, u64)>)> {
+        let mut deslocamento = 0u64;
+        let mut alinhamento_maximo = 1u64;
+        let mut campos = Vec::with_capacity(tipos.len());
+        for tipo in tipos {
+            let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+            deslocamento = Self::alinhar_layout(deslocamento, alinhamento)?;
+            campos.push((deslocamento, tamanho));
+            deslocamento = deslocamento.checked_add(tamanho)?;
+            alinhamento_maximo = alinhamento_maximo.max(alinhamento);
+        }
+        Some((Self::alinhar_layout(deslocamento, alinhamento_maximo)?, campos))
     }
 
     fn largura_abi_tipo(&self, tipo: &Tipo) -> Result<usize, String> {
