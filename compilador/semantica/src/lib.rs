@@ -2547,6 +2547,38 @@ mod testes {
     }
 
     #[test]
+    fn move_posicao_de_tupla_sem_invalidar_outras_posicoes() {
+        let r = analisar_codigo(
+            "variavel par = (\"Lia\", 20)\nvariavel nome = par[0]\nexibir(par[1])",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_reuso_de_posicao_movida_de_tupla() {
+        let r = analisar_codigo(
+            "variavel par = (\"Lia\", 20)\nvariavel nome = par[0]\nexibir(par[0])",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn reatribuir_posicao_reinicializa_movimento_de_tupla() {
+        let r = analisar_codigo(
+            "variavel par = (\"Lia\", 20)\nvariavel nome = par[0]\npar[0] = \"Bia\"\nexibir(par[0])",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn mover_elemento_de_lista_move_a_lista_inteira() {
+        let r = analisar_codigo(
+            "variavel indice = 0\nvariavel nomes = [\"Lia\", \"Bia\"]\nvariavel nome = nomes[indice]\nexibir(nomes[1])",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn movimento_parcial_e_mesclado_entre_ramos() {
         let r = analisar_codigo(
             "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro { variavel nome = conta.nome } senao {}\nexibir(conta.nome)",
