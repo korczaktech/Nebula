@@ -236,7 +236,11 @@ impl<'a> Lexer<'a> {
         }
     }
     fn fechar_delimitador(&mut self, abertura: u8) {
-        if let Some(posicao) = self.delimitadores.iter().rposition(|aberto| *aberto == abertura) {
+        if let Some(posicao) = self
+            .delimitadores
+            .iter()
+            .rposition(|aberto| *aberto == abertura)
+        {
             // Remove também aberturas internas sem fechamento. Isso restabelece
             // a emissão de quebras de linha após um fechamento cruzado.
             self.delimitadores.truncate(posicao);
