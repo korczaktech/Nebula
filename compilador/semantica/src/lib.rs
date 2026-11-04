@@ -714,6 +714,18 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Chamada { alvo, argumentos } => {
+                if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome == "copiar") {
+                    if argumentos.len() != 1 {
+                        self.erro("N3058", "'copiar' exige exatamente um argumento.");
+                        for argumento in argumentos { self.expressao(argumento); }
+                        return Tipo::Desconhecido;
+                    }
+                    let tipo = self.expressao(&argumentos[0]);
+                    if !self.tipo_copiavel(&tipo) {
+                        self.erro("N3058", format!("O tipo '{}' não implementa cópia.", tipo.nome()));
+                    }
+                    return tipo;
+                }
                 if let Expressao::Membro { alvo: tipo_expr, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
                     if let Expressao::Nome(tipo_base) = tipo_expr.as_ref() {
                         if !self.variantes_enumeracoes.contains_key(tipo_base) {
@@ -2786,6 +2798,27 @@ mod testes {
             r.tipos_globais.get("par"),
             Some(&Tipo::Tupla(vec![Tipo::Inteiro8, Tipo::Logico])),
         );
+    }
+
+    #[test]
+    fn copiar_explicita_valores_com_derivacao_de_copia() {
+        let r = analisar_codigo(
+            "estrutura Ponto { x: inteiro8 }\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("origem"), Some(&Tipo::Estrutura("Ponto".into())));
+        assert_eq!(r.tipos_globais.get("destino"), Some(&Tipo::Estrutura("Ponto".into())));
+    }
+
+    #[test]
+    fn copiar_rejeita_tipos_move_only_e_aridade_invalida() {
+        let texto = analisar_codigo(
+            "variavel original: texto = \"conteudo\"\nvariavel copia = copiar(original)",
+        );
+        assert!(texto.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", texto.diagnosticos);
+
+        let aridade = analisar_codigo("variavel valor = copiar()");
+        assert!(aridade.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", aridade.diagnosticos);
     }
 
     #[test]
