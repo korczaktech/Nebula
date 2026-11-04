@@ -2715,6 +2715,10 @@ mod testes {
         for codigo in [
             "variavel valor = 1)",
             "variavel valor = [1]]",
+            "variavel tupla = (1, 2]",
+            "variavel lista = [1, 2)",
+            "estrutura Pessoa { nome: inteiro)",
+            "enumeracao Estado { Ativo(inteiro]",
             "funcao principal() { exibir(1) fim",
             "funcao principal()\n exibir(1)\n}",
         ] {
@@ -2732,6 +2736,15 @@ mod testes {
         for codigo in [
             "variavel valor = calcular(1, 2",
             "variavel valores = [1, 2",
+            "variavel tupla = (1, 2",
+            "variavel chamada = calcular(1, 2",
+            "variavel indice = valores[0",
+            "estrutura Pessoa { nome: texto",
+            "enumeracao Estado { Ativo(inteiro)",
+            "escolha valor { caso Resultado::Ok { exibir(1) }",
+            "variavel pessoa = Pessoa { nome: \"Ana\"",
+            "tipo Lista = [inteiro",
+            "tipo Acao = funcao(inteiro",
             "funcao principal() { exibir(1)",
             "funcao principal()\n exibir(1)",
         ] {
