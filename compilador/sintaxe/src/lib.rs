@@ -3282,7 +3282,7 @@ mod testes {
 }
 
 pub use ast::{
-    AliasTipoAst, CampoAst, CasoEscolha, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado,
+    AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado,
     OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico, TipoAst, TipoLocalizado,
     VarianteAst, Visibilidade,
 };
