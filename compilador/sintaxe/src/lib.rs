@@ -769,6 +769,7 @@ impl Parser {
                     let mut campos = Vec::new();
                     self.separadores();
                     while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+                        let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
                         let campo = match self.consumir_nome("Esperado nome do campo na construção da estrutura.") {
                             Some(campo) => campo,
                             None => {
@@ -803,7 +804,7 @@ impl Parser {
                             }
                         };
                         if campos.iter().any(|(existente, _)| existente == &campo) {
-                            self.erro_atual("N2037", "Campo informado mais de uma vez na construção.");
+                            self.erro_intervalo("N2037", "Campo informado mais de uma vez na construção.", intervalo_campo);
                         } else {
                             campos.push((campo, valor));
                         }
