@@ -3194,7 +3194,7 @@ mod testes {
 
     #[test]
     fn recupera_estrutura_e_enumeracao_malformadas_sem_perder_declaracoes_sequenciais() {
-        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo(, inteiro), Pronto(inteiro) }\nvariavel depois = 1";
+        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo(inteiro,), Pronto(inteiro) }\nvariavel depois = 1";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"));
