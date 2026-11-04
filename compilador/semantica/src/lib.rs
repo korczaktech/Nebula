@@ -765,6 +765,26 @@ impl<'a> Analisador<'a> {
                         }
                         return destino;
                     }
+                    if nome == "gerar" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", "'gerar' exige um valor e uma quantidade inteira.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let tipo_valor = self.expressao(&argumentos[0]);
+                        let tipo_quantidade = self.expressao(&argumentos[1]);
+                        if tipo_valor == Tipo::Desconhecido {
+                            self.erro("N3016", "Não foi possível inferir o tipo do valor passado a 'gerar'.");
+                        }
+                        if !matches!(tipo_quantidade,
+                            Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                            | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
+                            | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
+                        ) {
+                            self.erro("N3016", "'gerar' exige quantidade inteira e não negativa.");
+                        }
+                        return Tipo::Lista(Box::new(tipo_valor));
+                    }
                     if nome == "exibir" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", "A função 'exibir' exige exatamente um argumento.");
@@ -1420,6 +1440,8 @@ impl<'a> Analisador<'a> {
                         ("Opcional" | "opcional", [interno]) => Tipo::Opcional(Box::new(interno.clone())),
                         ("Resultado" | "resultado", [sucesso, falha]) => Tipo::Resultado(Box::new(sucesso.clone()), Box::new(falha.clone())),
                         ("Tupla" | "tupla", elementos) if !elementos.is_empty() => Tipo::Tupla(elementos.to_vec()),
+                        ("Vetor" | "vetor", [elemento]) => Tipo::Lista(Box::new(elemento.clone())),
+                        ("Matriz" | "matriz", [elemento]) => Tipo::Lista(Box::new(Tipo::Lista(Box::new(elemento.clone())))),
                         _ => Tipo::Desconhecido,
                     }
                 }
@@ -2936,6 +2958,18 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     fn rejeita_cada_sobre_valor_nao_iteravel() {
         let invalido = analisar_codigo("cada item em 42 { exibir(item) }");
         assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", invalido.diagnosticos);
+    }
+
+
+    #[test]
+    fn reconhece_tipos_vetor_matriz_e_gerar() {
+        let r = analisar_codigo(
+            "variavel numeros: Vetor<inteiro> = [1, 2]\nvariavel grade: Matriz<inteiro> = [[1, 2], [3, 4]]\nvariavel repetidos = gerar(7, 3)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("numeros"), Some(&Tipo::Lista(Box::new(Tipo::Inteiro))));
+        assert_eq!(r.tipos_globais.get("grade"), Some(&Tipo::Lista(Box::new(Tipo::Lista(Box::new(Tipo::Inteiro))))));
+        assert_eq!(r.tipos_globais.get("repetidos"), Some(&Tipo::Lista(Box::new(Tipo::Inteiro))));
     }
 
     #[test]
