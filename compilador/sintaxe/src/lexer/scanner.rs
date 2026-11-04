@@ -22,7 +22,7 @@ struct Lexer<'a> {
     bytes: &'a [u8],
     inicio: usize,
     atual: usize,
-    profundidade_continuacao: usize,
+    delimitadores: Vec<u8>,
     tokens: Vec<Token>,
     diagnosticos: Vec<Diagnostico>,
 }
@@ -34,7 +34,7 @@ impl<'a> Lexer<'a> {
             bytes: texto.as_bytes(),
             inicio: 0,
             atual: 0,
-            profundidade_continuacao: 0,
+            delimitadores: Vec::new(),
             tokens: Vec::new(),
             diagnosticos: Vec::new(),
         }
@@ -50,6 +50,10 @@ impl<'a> Lexer<'a> {
             tokens: self.tokens,
             diagnosticos: self.diagnosticos,
         }
+    }
+
+    fn continuacao_ativa(&self) -> bool {
+        !self.delimitadores.is_empty()
     }
 
     fn fim(&self) -> bool {
@@ -94,7 +98,7 @@ impl<'a> Lexer<'a> {
         match b {
             b' ' | b'\t' => {}
             b'\n' => {
-                if self.profundidade_continuacao == 0 {
+                if !self.continuacao_ativa() {
                     self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual);
                 }
             }
@@ -106,7 +110,7 @@ impl<'a> Lexer<'a> {
                         self.inicio,
                         self.atual,
                     );
-                } else if self.profundidade_continuacao == 0 {
+                } else if !self.continuacao_ativa() {
                     self.adicionar(TipoToken::NovaLinha, self.inicio, self.atual);
                 }
             }
@@ -119,13 +123,13 @@ impl<'a> Lexer<'a> {
                         fechado = true;
                         break;
                     }
-                    if self.byte(0) == Some(b'\n') && self.profundidade_continuacao == 0 {
+                    if self.byte(0) == Some(b'\n') && !self.continuacao_ativa() {
                         let pos = self.atual;
                         self.atual += 1;
                         self.adicionar(TipoToken::NovaLinha, pos, self.atual);
                     } else if self.byte(0) == Some(b'\r')
                         && self.byte(1) == Some(b'\n')
-                        && self.profundidade_continuacao == 0
+                        && !self.continuacao_ativa()
                     {
                         let pos = self.atual;
                         self.atual += 2;
@@ -156,21 +160,25 @@ impl<'a> Lexer<'a> {
             b'\'' => self.literal_caractere(),
             b'0'..=b'9' => self.numero(),
             b'(' => {
-                self.profundidade_continuacao = self.profundidade_continuacao.saturating_add(1);
+                self.delimitadores.push(b'(');
                 self.simples(TipoToken::AbrePar);
             }
             b')' => {
-                self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1);
+                if self.delimitadores.last() == Some(&b'(') {
+                    self.delimitadores.pop();
+                }
                 self.simples(TipoToken::FechaPar);
             }
             b'{' => self.simples(TipoToken::AbreChave),
             b'}' => self.simples(TipoToken::FechaChave),
             b'[' => {
-                self.profundidade_continuacao = self.profundidade_continuacao.saturating_add(1);
+                self.delimitadores.push(b'[');
                 self.simples(TipoToken::AbreColchete);
             }
             b']' => {
-                self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1);
+                if self.delimitadores.last() == Some(&b'[') {
+                    self.delimitadores.pop();
+                }
                 self.simples(TipoToken::FechaColchete);
             }
             b',' => self.simples(TipoToken::Virgula),
