@@ -628,7 +628,7 @@ pub(super) fn iniciar() {
 
 #[cfg(test)]
 mod tests {
-    use super::{Document, Json, JsonParser, Server, completion, declaration_locations, handle, object, offset, position, quote, read_message, references, s};
+    use super::{Document, Json, JsonParser, Server, completion, declaration_locations, handle, object, offset, position, quote, read_message, references, s, signature_help};
     use nebula_fonte::ArquivoFonte;
     use nebula_sintaxe::analisar;
     use std::io::Cursor;
@@ -669,6 +669,7 @@ mod tests {
         let capabilities = output[0].get("result").and_then(|value| value.get("capabilities"));
         assert!(capabilities.and_then(|value| value.get("completionProvider")).is_some());
         assert!(capabilities.and_then(|value| value.get("definitionProvider")).is_some());
+        assert!(capabilities.and_then(|value| value.get("signatureHelpProvider")).is_some());
     }
 
     #[test]
@@ -695,6 +696,18 @@ mod tests {
         let found = references("variavel valor = 1\n// valor\nexibir(valor)", "file:///teste.nbx", "valor");
         let Json::Array(items) = found else { panic!("resultado deveria ser uma lista"); };
         assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn signature_help_returns_function_parameters_and_active_argument() {
+        let text = "funcao somar(a: inteiro, b: inteiro) { devolver a }\\nvariavel resultado = somar(1, ";
+        let document = Document { text: text.to_owned(), version: 1 };
+        let result = signature_help(&document, "file:///teste.nbx", 1, text.lines().last().unwrap().encode_utf16().count());
+        let Json::Array(signatures) = result.get("signatures").expect("assinatura") else {
+            panic!("assinaturas deveriam ser uma lista");
+        };
+        assert_eq!(signatures.len(), 1);
+        assert_eq!(result.get("activeParameter").and_then(Json::number), Some(1));
     }
 
     #[test]
