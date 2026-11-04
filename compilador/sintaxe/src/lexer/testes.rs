@@ -432,7 +432,7 @@ fn reconhece_crlf_dentro_de_comentario_de_bloco() {
 
 #[test]
 fn marcadores_de_comentario_dentro_de_literal_sao_texto() {
-    let resultado = analisar_lexico(&fonte(r#""// texto /* literal */" '/*'"#));
+    let resultado = analisar_lexico(&fonte(r#""// texto /* literal */" '/' *"#));
     assert!(
         resultado.diagnosticos.is_empty(),
         "{:?}",
@@ -440,6 +440,7 @@ fn marcadores_de_comentario_dentro_de_literal_sao_texto() {
     );
     assert_eq!(resultado.tokens[0].tipo, TipoToken::Texto);
     assert_eq!(resultado.tokens[1].tipo, TipoToken::Caractere);
+    assert_eq!(resultado.tokens[2].tipo, TipoToken::Vezes);
 }
 
 #[test]
@@ -449,12 +450,12 @@ fn diagnostica_comentario_de_bloco_nao_terminado() {
 
 #[test]
 fn preserva_intervalos_em_bytes_para_unicode() {
-    let resultado = analisar_lexico(&fonte("ação 🚀"));
+    let resultado = analisar_lexico(&fonte("ação '🚀'"));
     assert_eq!(resultado.tokens[0].intervalo.inicio, 0);
     assert_eq!(resultado.tokens[0].intervalo.fim, "ação".len());
     assert_eq!(resultado.tokens[0].lexema, "ação");
     assert_eq!(resultado.tokens[1].intervalo.inicio, "ação ".len());
-    assert_eq!(resultado.tokens[1].intervalo.fim, "ação 🚀".len());
+    assert_eq!(resultado.tokens[1].intervalo.fim, "ação '🚀'".len());
 }
 
 #[test]
