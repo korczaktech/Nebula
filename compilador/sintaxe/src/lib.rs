@@ -2203,7 +2203,7 @@ mod testes {
             "variavel b = 1 < (2 < 3)",
             "variavel c = (1..2)..3",
             "variavel d = 1..(2..3)",
-            "variavel e = 1 < 2 e 3 < 4",
+            "variavel independente = 1 < 2 e 3 < 4",
             "variavel f = 1..2 ou 3..4",
         ] {
             let resultado = analisar(&fonte(codigo));
