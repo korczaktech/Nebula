@@ -2789,7 +2789,7 @@ mod testes {
     #[test]
     fn deriva_copia_para_tuplas_estruturas_e_enumeracoes() {
         let r = analisar_codigo(
-            "estrutura Ponto { x: inteiro8, ativo: logico }\nenumeracao Estado { Inativo, Codigo(inteiro8) }\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
+            "estrutura Ponto { x: inteiro8, ativo: logico }\nenumeracao Estado { Inativo, Codigo(inteiro8) }\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nvariavel opcional: Opcional<inteiro8> = Opcional::Algum(7)\nvariavel outro_opcional = opcional\nvariavel resultado: Resultado<inteiro8,inteiro8> = Resultado::Sucesso(7)\nvariavel outro_resultado = resultado\nvariavel faixa: Intervalo<inteiro8> = inteiro8(1)..inteiro8(3)\nvariavel outra_faixa = faixa\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("ponto"), Some(&Tipo::Estrutura("Ponto".into())));
