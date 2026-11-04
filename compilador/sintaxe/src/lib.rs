@@ -1728,7 +1728,7 @@ mod testes {
             "tipo CaminhoMultilinha = Modulo\n::Interno\n::Tipo",
             "estrutura Separadores { a: inteiro\nb: texto,\nc: logico; }",
             "enumeracao Variantes { A\nB(), C(inteiro, texto), }",
-            "incluir Modulo\n::Interno\ncomo Alias",
+            "incluir Modulo\n::Interno como Alias",
             "funcao sem_retorno() {}",
             "funcao sem_parametros(): vazio {}",
             "funcao multiplos(a: inteiro, b: texto, c: [logico]) {}",
