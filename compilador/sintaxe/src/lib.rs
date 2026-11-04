@@ -1787,6 +1787,43 @@ mod testes {
         assert!(matches!(generico.programa.itens.first(), Some(NoAst::Funcao { .. })));
     }
 
+
+    #[test]
+    fn recupera_assinatura_de_funcao_com_retorno_ou_fechamento_ausente() {
+        for codigo in [
+            "funcao principal(): { exibir(1) }\nvariavel depois = 1",
+            "funcao principal(a: inteiro { exibir(a) }\nvariavel depois = 1",
+            "funcao principal(a: ) { exibir(1) }\nvariavel depois = 1",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                !resultado.diagnosticos.is_empty(),
+                "assinatura incompleta deveria gerar diagnóstico: {codigo:?}"
+            );
+            assert!(
+                resultado.programa.itens.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")),
+                "o Parser deveria preservar itens posteriores: {codigo:?}; {:?}",
+                resultado.programa.itens
+            );
+        }
+    }
+
+    #[test]
+    fn recupera_caso_sem_bloco_e_continua_escolha() {
+        let resultado = analisar(&fonte(
+            "escolha x { caso Resultado::Ok caso _ {} }"
+        ));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2007"),
+            "caso sem bloco deveria ser diagnosticado"
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("a instrução escolha deveria ser preservada");
+        };
+        assert_eq!(casos.len(), 1, "o caso válido posterior deveria ser preservado");
+        assert!(casos[0].enumeracao.is_none() && casos[0].variante.is_none());
+    }
+
 }
 
 }
