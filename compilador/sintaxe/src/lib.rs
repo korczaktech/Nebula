@@ -454,20 +454,24 @@ impl Parser {
                 continue;
             }
             let mut padrao_valido = true;
+            let mut intervalo_padrao = None;
             let (enumeracao, variante, vinculacoes, curinga) =
                 if self.verifica(TipoToken::Identificador)
                     && self.tokens.get(self.atual).is_some_and(|token| token.lexema == "_")
                 {
+                    intervalo_padrao = self.tokens.get(self.atual).map(|token| token.intervalo);
                     self.avancar();
                     (None, None, Vec::new(), true)
-                } else if self.corresponde(TipoToken::Identificador) {
-                    let primeiro = self.tokens[self.atual - 1].lexema.nfc().collect::<String>();
+                } else if self.verifica(TipoToken::Identificador) {
+                    intervalo_padrao = self.tokens.get(self.atual).map(|token| token.intervalo);
+                    let primeiro = self.avancar().lexema.nfc().collect::<String>();
                     if self.corresponde(TipoToken::Escopo) {
                         if let Some(variante) = self.consumir_nome("Esperado variante após '::'.") {
                             let mut vinculacoes = Vec::new();
                             if self.corresponde(TipoToken::AbrePar) {
                                 if !self.verifica(TipoToken::FechaPar) {
                                     loop {
+                                        let intervalo_vinculacao = self.tokens.get(self.atual).map(|token| token.intervalo);
                                         let vinculacao = if self.verifica(TipoToken::Identificador) {
                                             Some(self.avancar().lexema.nfc().collect::<String>())
                                         } else if matches!(self.tipo(), TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao) {
@@ -479,7 +483,7 @@ impl Parser {
                                         };
                                         if let Some(nome) = vinculacao {
                                             if vinculacoes.contains(&nome) {
-                                                self.erro_atual("N2046", "Vínculo repetido no payload do padrão.");
+                                                self.erro_intervalo("N2046", "Vínculo repetido no payload do padrão.", intervalo_vinculacao);
                                                 padrao_valido = false;
                                             } else {
                                                 vinculacoes.push(nome);
@@ -535,7 +539,7 @@ impl Parser {
 
             if curinga {
                 if possui_curinga {
-                    self.erro_atual("N2043", "Caso curinga duplicado.");
+                    self.erro_intervalo("N2043", "Caso curinga duplicado.", intervalo_padrao);
                     padrao_valido = false;
                 }
                 possui_curinga = true;
@@ -552,7 +556,7 @@ impl Parser {
             if let (Some(enumeracao), Some(variante)) = (&enumeracao, &variante) {
                 let identidade = (enumeracao.clone(), variante.clone());
                 if padrao_valido && padroes_vistos.contains(&identidade) {
-                    self.erro_atual("N2048", "Padrão de enumeração duplicado em escolha.");
+                    self.erro_intervalo("N2048", "Padrão de enumeração duplicado em escolha.", intervalo_padrao);
                     padrao_valido = false;
                 } else if padrao_valido {
                     padroes_vistos.push(identidade);
