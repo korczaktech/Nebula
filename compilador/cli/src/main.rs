@@ -2331,6 +2331,24 @@ mod fixtures_conformidade_tipos {
     }
 
     #[test]
+    fn valida_fixture_de_copia_derivada_de_agregados() {
+        let resultado = validar_fixture(
+            include_str!("../fixtures/tipos/copia-derivada.nbx"),
+            "copia-derivada.nbx",
+        );
+        assert!(resultado.is_ok(), "{resultado:?}");
+    }
+
+    #[test]
+    fn rejeita_fixture_de_tipos_desconhecidos_aninhados() {
+        let resultado = validar_fixture(
+            include_str!("../fixtures/tipos/tipos-aninhados-invalidos.nbx"),
+            "tipos-aninhados-invalidos.nbx",
+        );
+        assert!(resultado.is_err(), "tipo desconhecido aninhado foi aceito.");
+    }
+
+    #[test]
     fn valida_fixture_de_inferencia_generica_com_tipo_funcao() {
         let resultado = validar_fixture(
             include_str!("../fixtures/tipos/genericos-funcao.nbx"),
