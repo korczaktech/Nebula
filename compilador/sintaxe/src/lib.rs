@@ -604,7 +604,22 @@ impl Parser {
                     while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
                         let campo = self.consumir_nome("Esperado nome do campo na construção da estrutura.")?;
                         self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
-                        let valor = self.expressao(0)?;
+                        let valor = match self.expressao(0) {
+                            Some(valor) => valor,
+                            None => {
+                                self.sincronizar_ate(&[
+                                    TipoToken::Virgula,
+                                    TipoToken::NovaLinha,
+                                    TipoToken::PontoVirgula,
+                                    TipoToken::FechaChave,
+                                ]);
+                                if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                                    self.separadores();
+                                    continue;
+                                }
+                                break;
+                            }
+                        };
                         if campos.iter().any(|(existente, _)| existente == &campo) {
                             self.erro_atual("N2037", "Campo informado mais de uma vez na construção.");
                         } else {
@@ -629,11 +644,25 @@ impl Parser {
                 if self.corresponde(TipoToken::FechaPar) {
                     Expressao::Tupla(Vec::new())
                 } else {
-                    let primeiro = self.expressao(0)?;
+                    let primeiro = match self.expressao(0) {
+                        Some(primeiro) => primeiro,
+                        None => {
+                            self.sincronizar_ate(&[TipoToken::FechaPar]);
+                            self.corresponde(TipoToken::FechaPar);
+                            return None;
+                        }
+                    };
                     if self.corresponde(TipoToken::Virgula) {
                         let mut elementos = vec![primeiro];
                         while !self.verifica(TipoToken::FechaPar) && !self.verifica(TipoToken::Fim) {
-                            elementos.push(self.expressao(0)?);
+                            match self.expressao(0) {
+                                Some(elemento) => elementos.push(elemento),
+                                None => {
+                                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::FechaPar]);
+                                    if self.corresponde(TipoToken::Virgula) { continue; }
+                                    break;
+                                }
+                            }
                             if !self.corresponde(TipoToken::Virgula) { break; }
                         }
                         self.esperar(TipoToken::FechaPar, "Esperado ')' após elementos da tupla.");
@@ -645,11 +674,23 @@ impl Parser {
                 }
             }
             TipoToken::AbreColchete => {
-                self.avancar(); let mut valores = Vec::new();
+                self.avancar();
+                let mut valores = Vec::new();
                 if !self.verifica(TipoToken::FechaColchete) {
-                    loop { valores.push(self.expressao(0)?); if !self.corresponde(TipoToken::Virgula) { break; } }
+                    loop {
+                        match self.expressao(0) {
+                            Some(valor) => valores.push(valor),
+                            None => {
+                                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::FechaColchete]);
+                                if self.corresponde(TipoToken::Virgula) { continue; }
+                                break;
+                            }
+                        }
+                        if !self.corresponde(TipoToken::Virgula) { break; }
+                    }
                 }
-                self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista."); Expressao::Lista(valores)
+                self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista.");
+                Expressao::Lista(valores)
             }
             TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao => {
                 let token = self.avancar();
@@ -680,14 +721,37 @@ impl Parser {
             }
             let tipo = self.tipo();
             if tipo == TipoToken::AbrePar && 14 >= minimo {
-                self.avancar(); let mut args = Vec::new();
-                if !self.verifica(TipoToken::FechaPar) { loop { args.push(self.expressao(0)?); if !self.corresponde(TipoToken::Virgula) { break; } } }
+                self.avancar();
+                let mut args = Vec::new();
+                if !self.verifica(TipoToken::FechaPar) {
+                    loop {
+                        match self.expressao(0) {
+                            Some(argumento) => args.push(argumento),
+                            None => {
+                                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::FechaPar]);
+                                if self.corresponde(TipoToken::Virgula) { continue; }
+                                break;
+                            }
+                        }
+                        if !self.corresponde(TipoToken::Virgula) { break; }
+                    }
+                }
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
                 esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args }; continue;
             }
             if tipo == TipoToken::AbreColchete && 14 >= minimo {
-                self.avancar(); let indice = self.expressao(0)?; self.esperar(TipoToken::FechaColchete, "Esperado ']' após índice.");
-                esquerda = Expressao::Indexacao { alvo: Box::new(esquerda), indice: Box::new(indice) }; continue;
+                self.avancar();
+                let indice = match self.expressao(0) {
+                    Some(indice) => indice,
+                    None => {
+                        self.sincronizar_ate(&[TipoToken::FechaColchete]);
+                        self.corresponde(TipoToken::FechaColchete);
+                        continue;
+                    }
+                };
+                self.esperar(TipoToken::FechaColchete, "Esperado ']' após índice.");
+                esquerda = Expressao::Indexacao { alvo: Box::new(esquerda), indice: Box::new(indice) };
+                continue;
             }
             if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo) && 14 >= minimo {
                 let operador = self.avancar().tipo;
