@@ -9,7 +9,6 @@ use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use nebula_sintaxe::{analisar, NoAst};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Json {
@@ -187,7 +186,7 @@ impl<'a> JsonParser<'a> {
 #[derive(Clone)]
 struct Document { text: String, version: i64 }
 #[derive(Default)]
-struct Server { documents: BTreeMap<String, Document>, shutdown: bool }
+struct Server { documents: BTreeMap<String, Document>, shutdown: bool, exit: bool }
 
 fn object(entries: impl IntoIterator<Item = (String, Json)>) -> Json {
     Json::Object(entries.into_iter().collect())
@@ -412,7 +411,7 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
             server.shutdown = true;
             if let Some(id) = id { output.push(response(id, Json::Null)); }
         }
-        "exit" => { server.shutdown = true; }
+        "exit" => { server.exit = true; }
         _ => {
             if let Some(id) = id {
                 output.push(object([
@@ -468,7 +467,7 @@ fn run() -> io::Result<()> {
             }
         };
         for reply in handle(&mut server, message) { write_message(&mut output, &reply)?; }
-        if server.shutdown { break; }
+        if server.exit { break; }
     }
     Ok(())
 }
