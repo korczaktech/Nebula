@@ -1595,7 +1595,7 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC2]); // mov rdx, r8
             self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // mov rax, r9
             if !sem_sinal {
-                self.codigo.extend_from_slice(&[0x41, 0xF7, 0xC3, 0x01]); // test r11d, 1
+                self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x01]); // test r11d, 1
                 let quociente_positivo = self.emitir_jcc(0x84);
                 self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
                 self.mov_rax(i64::MIN);
@@ -1616,7 +1616,7 @@ impl Emissor {
                 self.aplicar_salto(fim_negativo, self.codigo.len());
             }
         } else if !sem_sinal {
-            self.codigo.extend_from_slice(&[0x41, 0xF7, 0xC3, 0x02]); // test r11d, 2
+            self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x02]); // test r11d, 2
             let resto_positivo = self.emitir_jcc(0x84);
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
             let fim_negativo = self.emitir_jmp();
