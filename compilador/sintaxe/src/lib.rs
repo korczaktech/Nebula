@@ -198,7 +198,7 @@ impl<'a> Lexer<'a> {
             "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
             "tipo" => TipoToken::Tipo, "estrutura" => TipoToken::Estrutura,
             "enumeracao" => TipoToken::Enumeracao,
-            "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" => TipoToken::ReservadaFutura,
+            "tentar" | "capturar" | "finalmente" | "assinc" => TipoToken::ReservadaFutura,
             _ => TipoToken::Identificador,
         };
         self.adicionar(tipo, self.inicio, self.atual);
