@@ -388,7 +388,7 @@ fn signature_help(document: &Document, uri: &str, line: usize, character: usize)
     let parsed = analisar(&file);
     let Some((parameters, return_type)) = parsed.programa.itens.iter().find_map(|node| {
         if let NoAst::Funcao { nome, parametros, retorno, .. } = node {
-            (nome == &function_name).then(|| (parametros, retorno))
+            (nome == &function_name).then_some((parametros, retorno))
         } else {
             None
         }
