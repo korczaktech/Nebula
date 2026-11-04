@@ -96,8 +96,14 @@ impl PartialEq for Valor {
                 },
             ) => ai == bi && af == bf,
             (
-                Self::IntervaloSemSinal { inicio: ai, fim: af },
-                Self::IntervaloSemSinal { inicio: bi, fim: bf },
+                Self::IntervaloSemSinal {
+                    inicio: ai,
+                    fim: af,
+                },
+                Self::IntervaloSemSinal {
+                    inicio: bi,
+                    fim: bf,
+                },
             ) => ai == bi && af == bf,
             (
                 Self::IntervaloDecimal {
