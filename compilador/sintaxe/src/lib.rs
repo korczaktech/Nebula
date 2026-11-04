@@ -295,6 +295,7 @@ impl Parser {
         self.separadores();
         let mut campos = Vec::new();
         while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+            let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
                 Some(campo) => campo,
                 None => {
@@ -329,7 +330,7 @@ impl Parser {
                 }
             };
             if campos.iter().any(|(existente, _)| existente == &campo) {
-                self.erro_atual("N2031", "Campo declarado mais de uma vez na estrutura.");
+                self.erro_intervalo("N2031", "Campo declarado mais de uma vez na estrutura.", intervalo_campo);
             } else {
                 campos.push((campo, tipo));
             }
@@ -354,6 +355,7 @@ impl Parser {
         self.separadores();
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
         while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+            let intervalo_variante = self.tokens.get(self.atual).map(|token| token.intervalo);
             let variante = match self.consumir_nome("Esperado nome da variante.") {
                 Some(variante) => variante,
                 None => {
@@ -392,7 +394,7 @@ impl Parser {
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após tipos da variante.");
             }
             if variantes.iter().any(|(existente, _)| existente == &variante) {
-                self.erro_atual("N2034", "Variante declarada mais de uma vez na enumeração.");
+                self.erro_intervalo("N2034", "Variante declarada mais de uma vez na enumeração.", intervalo_variante);
             } else {
                 variantes.push((variante, payload));
             }
