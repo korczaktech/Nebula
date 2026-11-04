@@ -3123,7 +3123,7 @@ mod testes {
 
     #[test]
     fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
-        let codigo = "variavel pessoa = Pessoa {\n nome: "Ana",\n endereco: Endereco { cidade: "Sao Paulo", numero: 10 },\n ativo: verdadeiro,\n}";
+        let codigo = r#"variavel pessoa = Pessoa {\n nome: "Ana",\n endereco: Endereco { cidade: "Sao Paulo", numero: 10 },\n ativo: verdadeiro,\n}"#;
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } =
@@ -3166,7 +3166,7 @@ mod testes {
     #[test]
     fn campo_sem_dois_pontos_em_construcao_nao_e_inserido_na_ast() {
         let resultado = analisar(&fonte(
-            "variavel pessoa = Pessoa { nome "Ana", idade: 20 }"
+            r#"variavel pessoa = Pessoa { nome "Ana", idade: 20 }"#
         ));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2038"),
