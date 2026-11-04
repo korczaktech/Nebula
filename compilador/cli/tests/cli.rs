@@ -453,7 +453,12 @@ fn aliases_de_entrada_e_espera_executam() {
         .stderr(Stdio::piped())
         .spawn()
         .expect("a CLI deve iniciar");
-    processo.stdin.take().unwrap().write_all(b"Ada\n42\n").unwrap();
+    processo
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"Ada\n42\n")
+        .unwrap();
     let saida = processo.wait_with_output().unwrap();
     let _ = std::fs::remove_file(caminho);
     assert!(
