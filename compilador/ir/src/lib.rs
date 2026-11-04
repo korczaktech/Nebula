@@ -67,6 +67,7 @@ pub enum InstrucaoIr {
     Se { condicao: ExpressaoIr, entao: Vec<InstrucaoIr>, senao: Vec<InstrucaoIr> },
     Escolha { valor: ExpressaoIr, casos: Vec<CasoEscolhaIr> },
     Enquanto { condicao: ExpressaoIr, corpo: Vec<InstrucaoIr> },
+    Cada { nome: String, iteravel: ExpressaoIr, corpo: Vec<InstrucaoIr> },
     Para { inicial: Option<Box<InstrucaoIr>>, condicao: Option<ExpressaoIr>, atualizacao: Option<ExpressaoIr>, corpo: Vec<InstrucaoIr> },
     Devolver(Option<ExpressaoIr>),
     Parar,
@@ -380,6 +381,11 @@ impl Lowerer {
             }),
             NoAst::Enquanto { condicao, corpo } => Some(InstrucaoIr::Enquanto {
                 condicao: self.expressao(condicao)?, corpo: self.bloco(corpo),
+            }),
+            NoAst::Cada { nome, iteravel, corpo } => Some(InstrucaoIr::Cada {
+                nome: nome.clone(),
+                iteravel: self.expressao(iteravel)?,
+                corpo: self.bloco(corpo),
             }),
             NoAst::Para { inicial, condicao, atualizacao, corpo } => Some(InstrucaoIr::Para {
                 inicial: inicial.as_deref().and_then(|i| self.item(i)).map(Box::new),
@@ -1449,6 +1455,37 @@ impl Maquina<'_> {
                     let condicao = self.expressao(condicao)?;
                     if !self.logico(condicao)? { break; }
                     match self.bloco(corpo)? {
+                        Fluxo::Normal | Fluxo::Seguir => {}
+                        Fluxo::Parar => break,
+                        retorno @ Fluxo::Retorno(_) => return Ok(retorno),
+                    }
+                }
+                Ok(Fluxo::Normal)
+            }
+            InstrucaoIr::Cada { nome, iteravel, corpo } => {
+                let valores = match self.expressao(iteravel)? {
+                    ValorIr::Lista(valores) => valores,
+                    ValorIr::Texto(texto) => texto.chars().map(ValorIr::Caractere).collect(),
+                    ValorIr::Intervalo(inicio, fim) if inicio <= fim => (inicio..=fim).map(ValorIr::Inteiro).collect(),
+                    ValorIr::Intervalo(inicio, fim) => (fim..=inicio).rev().map(ValorIr::Inteiro).collect(),
+                    _ => return Err("O laço 'cada' exige lista, texto ou intervalo inteiro.".into()),
+                };
+                for valor in valores {
+                    self.memoria_mutavel()?.abrir_escopo();
+                    let resultado = (|| {
+                        self.memoria_mutavel()?
+                            .declarar(nome.clone(), converter_para_runtime(valor), false)
+                            .map_err(formatar_erro_runtime)?;
+                        self.bloco(corpo)
+                    })();
+                    let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
+                    let fluxo = match (resultado, fechamento) {
+                        (Err(erro), _) => return Err(erro),
+                        (Ok(_), Err(erro)) => return Err(erro),
+                        (Ok(fluxo), Ok(())) => fluxo,
+                    };
+                    self.passo()?;
+                    match fluxo {
                         Fluxo::Normal | Fluxo::Seguir => {}
                         Fluxo::Parar => break,
                         retorno @ Fluxo::Retorno(_) => return Ok(retorno),
