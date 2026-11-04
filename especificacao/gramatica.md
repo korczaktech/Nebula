@@ -149,9 +149,9 @@ tupla                   = "(", ")" | "(", expressao, ",",
                           [ expressao, { ",", expressao }, [ "," ] ], ")"
                         | "(", expressao, ")" ;
 lista                   = "[", [ lista_argumentos ], "]" ;
-construcao_estrutura    = IDENTIFICADOR, "{",
+construcao_estrutura    = IDENTIFICADOR, "{", { separador },
                           [ campo_valor, { separador_membro, campo_valor },
-                            [ separador_membro ] ], "}" ;
+                            [ separador_membro ] ], { separador }, "}" ;
 campo_valor             = IDENTIFICADOR, ":", expressao ;
 ~~~
 
