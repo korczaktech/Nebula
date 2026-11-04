@@ -443,7 +443,7 @@ fn aliases_de_entrada_e_espera_executam() {
     let caminho = std::env::temp_dir().join(format!("nebula-perguntar-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel nome = perguntar(\"Nome: \")\naguardar(0)\nexibir(nome)",
+        "variavel nome = perguntar(\"Nome: \")\nvariavel codigo = ler_texto()\naguardar(0)\nexibir(nome + codigo)",
     )
     .unwrap();
     let mut processo = Command::new(env!("CARGO_BIN_EXE_nebula"))
@@ -453,7 +453,7 @@ fn aliases_de_entrada_e_espera_executam() {
         .stderr(Stdio::piped())
         .spawn()
         .expect("a CLI deve iniciar");
-    processo.stdin.take().unwrap().write_all(b"Ada\n").unwrap();
+    processo.stdin.take().unwrap().write_all(b"Ada\n42\n").unwrap();
     let saida = processo.wait_with_output().unwrap();
     let _ = std::fs::remove_file(caminho);
     assert!(
@@ -461,7 +461,7 @@ fn aliases_de_entrada_e_espera_executam() {
         "{}",
         String::from_utf8_lossy(&saida.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada\n");
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada42\n");
 }
 
 #[test]
