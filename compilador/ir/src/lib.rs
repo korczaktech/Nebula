@@ -68,6 +68,7 @@ pub enum InstrucaoIr {
     Escolha { valor: ExpressaoIr, casos: Vec<CasoEscolhaIr> },
     Enquanto { condicao: ExpressaoIr, corpo: Vec<InstrucaoIr> },
     Cada { nome: String, iteravel: ExpressaoIr, corpo: Vec<InstrucaoIr> },
+    Pulso { intervalo: ExpressaoIr, corpo: Vec<InstrucaoIr> },
     Para { inicial: Option<Box<InstrucaoIr>>, condicao: Option<ExpressaoIr>, atualizacao: Option<ExpressaoIr>, corpo: Vec<InstrucaoIr> },
     Devolver(Option<ExpressaoIr>),
     Parar,
@@ -400,6 +401,10 @@ impl Lowerer {
                     corpo: corpo_ir,
                 })
             },
+            NoAst::Pulso { intervalo, corpo } => Some(InstrucaoIr::Pulso {
+                intervalo: self.expressao(intervalo)?,
+                corpo: self.bloco(corpo),
+            }),
             NoAst::Para { inicial, condicao, atualizacao, corpo } => Some(InstrucaoIr::Para {
                 inicial: inicial.as_deref().and_then(|i| self.item(i)).map(Box::new),
                 condicao: condicao.as_ref().and_then(|e| self.expressao(e)),
@@ -1530,6 +1535,23 @@ impl Maquina<'_> {
                     self.passo()?;
                     match fluxo {
                         Fluxo::Normal | Fluxo::Seguir => {}
+                        Fluxo::Parar => break,
+                        retorno @ Fluxo::Retorno(_) => return Ok(retorno),
+                    }
+                }
+                Ok(Fluxo::Normal)
+            }
+            InstrucaoIr::Pulso { intervalo, corpo } => {
+                let intervalo = match self.expressao(intervalo)? {
+                    ValorIr::Inteiro(valor) => u64::try_from(valor),
+                    ValorIr::InteiroSemSinal(valor) => u64::try_from(valor),
+                    _ => return Err("'pulso' exige um intervalo inteiro não negativo.".into()),
+                }
+                .map_err(|_| "Intervalo de 'pulso' fora do limite suportado.")?;
+                loop {
+                    self.passo()?;
+                    match self.bloco(corpo)? {
+                        Fluxo::Normal | Fluxo::Seguir => dormir_milisegundos(intervalo),
                         Fluxo::Parar => break,
                         retorno @ Fluxo::Retorno(_) => return Ok(retorno),
                     }
