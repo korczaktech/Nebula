@@ -1053,6 +1053,6 @@ mod testes {
 
 }
 
-pub use lexer::{analisar_lexico, ResultadoLexico, TipoToken, Token};
+pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
 pub use implementacao::*;
