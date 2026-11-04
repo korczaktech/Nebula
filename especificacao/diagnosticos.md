@@ -67,6 +67,18 @@ Os códigos `N2000`–`N2099` pertencem ao Parser. O código é estável e a men
 | N2049 | Limite de aninhamento sintático excedido |
 | N2050 | Parâmetro de função duplicado |
 
+## Garantias dos diagnósticos sintáticos
+
+- Os diagnósticos léxicos e sintáticos são preservados em uma única lista.
+- A lista final é ordenada pela posição inicial no arquivo-fonte, independentemente da etapa que produziu o diagnóstico; diagnósticos sem intervalo ficam ao final.
+- Todo erro sintático associado a um token aponta para o intervalo desse token, com offsets em bytes, início inclusivo e fim exclusivo.
+- Quando um token esperado está ausente no fim do arquivo, o diagnóstico usa um intervalo vazio na posição final da fonte. Isso permite que editores apresentem o cursor exatamente onde a construção deveria continuar.
+- Intervalos devem respeitar limites UTF-8 e permanecer dentro do conteúdo da fonte.
+- Códigos são estáveis e mensagens são em português, específicas à regra violada ou à construção esperada.
+- O Parser não descarta diagnósticos léxicos ao recuperar erros sintáticos; ambos permanecem disponíveis para a ferramenta chamadora.
+
+Essas garantias são verificadas por testes de regressão que cobrem códigos documentados, severidade, mensagem, limites de intervalos, UTF-8, posição de EOF e ordenação combinada entre Lexer e Parser.
+
 ## Exemplo de apresentação futura
 
 ~~~text
