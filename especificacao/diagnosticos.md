@@ -76,6 +76,9 @@ Os códigos `N2000`–`N2099` pertencem ao Parser. O código é estável e a men
 - Quando um token esperado está ausente no fim do arquivo, o diagnóstico usa um intervalo vazio na posição final da fonte. Isso permite que editores apresentem o cursor exatamente onde a construção deveria continuar.
 - Intervalos devem respeitar limites UTF-8 e permanecer dentro do conteúdo da fonte.
 - Fechamentos `)`, `]`, `}` e `fim` devem corresponder ao agrupamento ou bloco aberto; um fechamento incompatível ou sem abertura gera `N2051`, enquanto uma abertura sem fechamento gera `N2009`.
+- Declarações de estrutura preservam somente campos com nome, `:` e tipo válidos; campos duplicados geram `N2031`, e separadores ou campos malformados geram `N2032`.
+- Enumerações precisam conter ao menos uma variante; payloads entre parênteses não podem ser vazios. Variantes duplicadas geram `N2034`, payloads ou separadores inválidos geram `N2035`, e enumerações vazias geram `N2036`.
+- Construções de estrutura preservam somente campos com nome, `:` e expressão válidos; campos duplicados geram `N2037`, e campos ou separadores malformados geram `N2038`.
 - A recuperação após um fechamento cruzado descarta apenas o agrupamento interno inválido e restabelece a emissão de quebras de linha quando o delimitador externo correspondente é fechado.
 - Códigos são estáveis e mensagens são em português, específicas à regra violada ou à construção esperada.
 - O Parser não descarta diagnósticos léxicos ao recuperar erros sintáticos; ambos permanecem disponíveis para a ferramenta chamadora.
