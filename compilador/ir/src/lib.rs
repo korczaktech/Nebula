@@ -558,7 +558,9 @@ impl Lowerer {
             },
             Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
                 Expressao::Nome(nome) => {
-                    if let Some(Tipo::Funcao(_, retorno)) = self.escopos_tipos.iter().rev()
+                    if nome == "copiar" && argumentos.len() == 1 {
+                        self.inferir_tipo_ast(&argumentos[0])
+                    } else if let Some(Tipo::Funcao(_, retorno)) = self.escopos_tipos.iter().rev()
                         .find_map(|escopo| escopo.get(nome))
                     {
                         (**retorno).clone()
@@ -800,7 +802,13 @@ impl Lowerer {
                 let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
                 match alvo.as_ref() {
                     Expressao::Nome(nome) => {
-                        if self.escopos_tipos.iter().rev()
+                        if nome == "copiar" {
+                            if args.len() != 1 {
+                                self.diagnosticos.push("'copiar' exige exatamente um argumento.".into());
+                                return None;
+                            }
+                            args.into_iter().next()
+                        } else if self.escopos_tipos.iter().rev()
                             .find_map(|escopo| escopo.get(nome))
                             .is_some_and(|tipo| matches!(tipo, Tipo::Funcao(_, _)))
                         {
