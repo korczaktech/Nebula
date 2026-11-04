@@ -17,7 +17,7 @@ use unicode_normalization::UnicodeNormalization;
 pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
     Variavel, Definir, Mutavel, Alterar, Constante, Funcao, Quando, Senao, Escolha, Avaliar, Caso,
-    Para, Cada, Enquanto, Durante, Repetir, Devolver,
+    Para, Cada, Em, Enquanto, Durante, Repetir, Devolver,
     Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Encerrar, Seguir,
     E, Ou, Nao, Publico, Privado, Tipo, Estrutura, Enumeracao, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
@@ -186,7 +186,8 @@ impl<'a> Lexer<'a> {
             "escolha" => TipoToken::Escolha, "avaliar" => TipoToken::Avaliar,
             "caso" => TipoToken::Caso,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
-            "cada" => TipoToken::Cada, "enquanto" => TipoToken::Enquanto,
+            "cada" => TipoToken::Cada, "em" => TipoToken::Em,
+            "enquanto" => TipoToken::Enquanto,
             "durante" => TipoToken::Durante, "repetir" => TipoToken::Repetir,
             "devolver" => TipoToken::Devolver,
             "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
@@ -346,6 +347,7 @@ pub enum NoAst {
     Expressao(Expressao), Quando { condicao: Expressao, entao: Vec<NoAst>, senao: Vec<NoAst> },
     Escolha { valor: Expressao, casos: Vec<CasoEscolha> },
     Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
+    Cada { nome: String, iteravel: Expressao, corpo: Vec<NoAst> },
     Para { inicial: Option<Box<NoAst>>, condicao: Option<Expressao>, atualizacao: Option<Expressao>, corpo: Vec<NoAst> },
     Devolver(Option<Expressao>), Parar, Seguir,
 }
@@ -427,7 +429,8 @@ impl Parser {
             TipoToken::Quando => self.quando(),
             TipoToken::Escolha | TipoToken::Avaliar => self.escolha(),
             TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir => self.enquanto(),
-            TipoToken::Para | TipoToken::Cada => self.para(),
+            TipoToken::Para => self.para(),
+            TipoToken::Cada => self.cada(),
             TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
             TipoToken::Parar | TipoToken::Encerrar => { self.avancar(); Some(NoAst::Parar) }
             TipoToken::Seguir => { self.avancar(); Some(NoAst::Seguir) }
@@ -630,6 +633,15 @@ impl Parser {
         self.avancar(); let condicao = self.expressao(0)?; let corpo = self.bloco()?;
         Some(NoAst::Enquanto { condicao, corpo })
     }
+    fn cada(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let nome = self.consumir_nome("Esperado nome da variável após 'cada'.")?;
+        self.esperar(TipoToken::Em, "Esperado 'em' após o nome da variável de 'cada'.");
+        let iteravel = self.expressao(0)?;
+        let corpo = self.bloco()?;
+        Some(NoAst::Cada { nome, iteravel, corpo })
+    }
+
     fn para(&mut self) -> Option<NoAst> {
         self.avancar(); self.esperar(TipoToken::AbrePar, "Esperado '(' após 'para'.");
         let inicial = if self.verifica(TipoToken::PontoVirgula) { None } else if self.verifica(TipoToken::Variavel) { self.declaracao_variavel(false).map(Box::new) } else { self.expressao(0).map(|e| Box::new(NoAst::Expressao(e))) };
@@ -1174,6 +1186,14 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
     }
+
+    #[test]
+    fn analisa_laco_cada_com_colecao() {
+        let r = analisar(&fonte("cada item em [1, 2, 3] { exibir(item) }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Cada { nome, .. } if nome == "item"));
+    }
+
     #[test]
     fn condicional_sem_senao_preserva_separador_da_proxima_instrucao() {
         let r = analisar(&fonte("quando verdadeiro { exibir(1) }\nvariavel depois = 2"));
@@ -1292,7 +1312,7 @@ mod testes {
     }
     #[test]
     fn reconhece_aliases_de_declaracao_e_controle() {
-        let codigo = "definir a = 1\nmutável b = 2\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada (variavel i = 0; i < 1; i = i + 1) { exibir(i) }";
+        let codigo = "definir a = 1\nmutável b = 2\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 7);
