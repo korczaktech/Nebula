@@ -1194,7 +1194,10 @@ impl Parser {
                         break;
                     }
                 }
-                TipoToken::FimBloco if delimitadores.is_empty() => break,
+                TipoToken::FimBloco => {
+                    delimitadores.clear();
+                    break;
+                }
                 _ => {}
             }
             self.avancar();
