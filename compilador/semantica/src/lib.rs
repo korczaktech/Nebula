@@ -783,6 +783,29 @@ impl<'a> Analisador<'a> {
                         }
                         return destino;
                     }
+                    if nome == "em_paralelo" {
+                        if argumentos.is_empty() {
+                            self.erro("N3060", "'em_paralelo' exige pelo menos uma função sem parâmetros.");
+                            return Tipo::Desconhecido;
+                        }
+                        let mut retorno_comum: Option<Tipo> = None;
+                        for argumento in argumentos {
+                            let tipo = self.expressao(argumento);
+                            match tipo {
+                                Tipo::Funcao(parametros, retorno) if parametros.is_empty() => {
+                                    if let Some(anterior) = retorno_comum.as_ref() {
+                                        if **retorno != *anterior {
+                                            self.erro("N3061", "'em_paralelo' exige funções com o mesmo tipo de retorno.");
+                                        }
+                                    } else {
+                                        retorno_comum = Some(*retorno);
+                                    }
+                                }
+                                _ => self.erro("N3060", "'em_paralelo' aceita apenas referências a funções sem parâmetros."),
+                            }
+                        }
+                        return Tipo::Lista(Box::new(retorno_comum.unwrap_or(Tipo::Desconhecido)));
+                    }
                     if nome == "gerar" {
                         if argumentos.len() != 2 {
                             self.erro("N3015", "'gerar' exige um valor e uma quantidade inteira.");
@@ -3001,6 +3024,23 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     fn rejeita_pulso_com_intervalo_nao_inteiro() {
         let r = analisar_codigo("pulso(\"um segundo\") { encerrar }");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3059"), "{:?}", r.diagnosticos);
+    }
+
+
+    #[test]
+    fn valida_em_paralelo_com_funcoes_sem_parametros_e_retorno_igual() {
+        let r = analisar_codigo(
+            "funcao um(): inteiro { devolver 1 }\nfuncao dois(): inteiro { devolver 2 }\nvariavel resultados = em_paralelo(um, dois)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_em_paralelo_com_retorno_incompativel() {
+        let r = analisar_codigo(
+            "funcao um(): inteiro { devolver 1 }\nfuncao dois(): texto { devolver \"dois\" }\nvariavel resultados = em_paralelo(um, dois)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3061"), "{:?}", r.diagnosticos);
     }
 
     #[test]
