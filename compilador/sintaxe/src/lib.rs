@@ -1937,6 +1937,57 @@ mod testes {
         assert!(casos[0].enumeracao.is_none() && casos[0].variante.is_none());
     }
 
+
+    #[test]
+    fn diagnosticos_de_duplicidade_apontam_o_token_repetido() {
+        fn verifica(codigo: &str, diagnostico: &str, alvo: &str, ocorrencia: usize) {
+            let resultado = analisar(&fonte(codigo));
+            let inicio = codigo.match_indices(alvo).nth(ocorrencia)
+                .map(|(indice, _)| indice)
+                .unwrap_or_else(|| panic!("ocorrência {ocorrencia} de {alvo:?} não encontrada em {codigo:?}"));
+            let esperado = Some(IntervaloFonte { inicio, fim: inicio + alvo.len() });
+            let encontrado = resultado.diagnosticos.iter().find(|d| d.codigo == diagnostico)
+                .unwrap_or_else(|| panic!("diagnóstico {diagnostico} ausente: {:?}", resultado.diagnosticos));
+            assert_eq!(
+                encontrado.intervalo, esperado,
+                "{diagnostico} deveria apontar para {alvo:?} na ocorrência {ocorrencia}"
+            );
+        }
+
+        verifica(
+            "funcao duplicar(a: inteiro, a: texto) {}",
+            "N2050", "a", 1
+        );
+        verifica(
+            "funcao generica<T, T>() {}",
+            "N2014", "T", 1
+        );
+        verifica(
+            "estrutura Pessoa { nome: texto, nome: inteiro }",
+            "N2031", "nome", 1
+        );
+        verifica(
+            "enumeracao Estado { Ativo, Ativo }",
+            "N2034", "Ativo", 1
+        );
+        verifica(
+            "variavel pessoa = Pessoa { nome: 1, nome: 2 }",
+            "N2037", "nome", 1
+        );
+        verifica(
+            "escolha x { caso _ {} caso _ {} }",
+            "N2043", "_", 1
+        );
+        verifica(
+            "escolha x { caso Resultado::Ok {} caso Resultado::Ok {} }",
+            "N2048", "Resultado", 1
+        );
+        verifica(
+            "escolha x { caso Resultado::Ok(item, item) {} }",
+            "N2046", "item", 1
+        );
+    }
+
 }
 
 }
