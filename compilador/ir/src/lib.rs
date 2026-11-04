@@ -3145,6 +3145,24 @@ mod testes {
     }
 
     #[test]
+    fn normaliza_intervalo_inteiro_u128_sem_perda_de_sinal() {
+        let maximo = u128::MAX;
+        let tipo = Tipo::Intervalo(Box::new(Tipo::InteiroU128));
+        assert_eq!(
+            normalizar_valor(&tipo, ValorIr::IntervaloSemSinal(maximo - 2, maximo)).unwrap(),
+            ValorIr::IntervaloSemSinal(maximo - 2, maximo),
+        );
+        assert!(normalizar_valor(
+            &tipo,
+            ValorIr::IntervaloSemSinal(0, maximo),
+        ).is_ok());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::InteiroU64)),
+            ValorIr::IntervaloSemSinal(0, u64::MAX as u128 + 1),
+        ).is_err());
+    }
+
+    #[test]
     fn normalizacao_de_intervalos_respeita_tipo_interno() {
         assert!(normalizar_valor(
             &Tipo::Intervalo(Box::new(Tipo::Texto)),
