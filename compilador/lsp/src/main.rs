@@ -521,7 +521,7 @@ fn run() -> io::Result<()> {
     }
     Ok(())
 }
-fn main() {
+pub(super) fn iniciar() {
     if let Err(error) = run() {
         eprintln!("Nebula LSP: {error}");
         std::process::exit(1);
@@ -565,5 +565,5 @@ mod tests {
 }
 
 fn main() {
-    implementacao::main();
+    implementacao::iniciar();
 }
