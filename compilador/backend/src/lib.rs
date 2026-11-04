@@ -2667,8 +2667,8 @@ mod testes {
         para_decimal
             .converter_tipo_explicito(&Tipo::Decimal64, &Tipo::Inteiro128)
             .unwrap();
-        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5E, 0xC1]));
         assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x59, 0xD3]));
+        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x58, 0xC2]));
 
         let mut para_inteiro = Emissor::novo(HashMap::new());
         para_inteiro.converter_decimal_para_inteiro(&Tipo::Inteiro128).unwrap();
