@@ -17,7 +17,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "declaracoes variaveis",
-            "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutável d: texto <- \"Nebula\"\nconstante e = verdadeiro",
+            "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutável d: texto <- \"Nebula\"\nconstante ativo = verdadeiro",
         ),
         (
             "funcao publica generica",
@@ -197,7 +197,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "payload malformado",
             "N2035",
-            "enumeracao Estado { Ativo(, texto) }",
+            "enumeracao Estado { Ativo(inteiro,) }",
         ),
         ("enumeracao vazia", "N2036", "enumeracao Estado {}"),
         (
