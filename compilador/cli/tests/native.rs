@@ -129,6 +129,15 @@ fn compila_funcoes_parametros_e_chamadas() {
 }
 
 #[test]
+fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
+    let resultado = compilar_e_executar(
+        "copia-explicita",
+        "estrutura Ponto { x: inteiro, y: inteiro }\nfuncao principal(): inteiro { variavel original = Ponto { x: 40, y: 2 }\nvariavel copia = copiar(original)\nquando original.x + original.y == copia.x + copia.y { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro128",
