@@ -510,4 +510,4 @@ mod tests {
         assert_eq!(JsonParser::parse(&encoded), Ok(Json::String("linha\n\"Nebula\"".into())));
     }
 }
-\n}\n
+\n}\n\nfn main() {\n    implementacao::main();\n}\n
