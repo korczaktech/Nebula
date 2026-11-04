@@ -1200,7 +1200,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC2]); // addsd xmm0, xmm2
 
         if origem_assinada {
-            self.codigo.extend_from_slice(&[0x41, 0x85, 0xDB]); // test r11d, r11d
+            self.codigo.extend_from_slice(&[0x45, 0x85, 0xDB]); // test r11d, r11d
             let positivo = self.emitir_jcc(0x84);
             self.mov_rax(i64::MIN);
             self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
