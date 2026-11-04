@@ -333,17 +333,26 @@ fn declared_name(node: &NoAst) -> Option<(&str, usize)> {
         _ => None,
     }
 }
+fn find_identifier(fragment: &str, name: &str) -> Option<usize> {
+    fragment.match_indices(name).find_map(|(start, matched)| {
+        let before = fragment[..start].chars().next_back();
+        let after = fragment[start + matched.len()..].chars().next();
+        let valid_before = before.is_none_or(|ch| ch != '_' && !ch.is_alphanumeric());
+        let valid_after = after.is_none_or(|ch| ch != '_' && !ch.is_alphanumeric());
+        (valid_before && valid_after).then_some(start)
+    })
+}
 fn declaration_locations(program: &Programa, text: &str, uri: &str) -> Vec<(String, usize, usize, usize)> {
     let mut locations = Vec::new();
     for located in &program.nos_localizados {
         let Some((name, kind)) = declared_name(&located.no) else { continue; };
         let Some(fragment) = text.get(located.intervalo.inicio..located.intervalo.fim) else { continue; };
-        let Some(relative) = fragment.find(name) else { continue; };
+        let Some(relative) = find_identifier(fragment, name) else { continue; };
         let start = located.intervalo.inicio + relative;
         locations.push((name.to_owned(), start, start + name.len(), kind));
         if let NoAst::Funcao { parametros, .. } = &located.no {
             for (parameter, _) in parametros {
-                if let Some(relative) = fragment.find(parameter) {
+                if let Some(relative) = find_identifier(fragment, parameter) {
                     let start = located.intervalo.inicio + relative;
                     locations.push((parameter.clone(), start, start + parameter.len(), 6));
                 }
