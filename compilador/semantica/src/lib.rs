@@ -1833,9 +1833,7 @@ impl<'a> Analisador<'a> {
                 let campos = self.campos_estruturas.get(nome).cloned();
                 let copiavel = campos.is_some_and(|campos| {
                     campos.values().all(|tipo_campo| {
-                        let tipo_campo = self.resolver_tipo(tipo_campo);
-                        tipo_campo != Tipo::Desconhecido
-                            && self.tipo_copiavel_interno(&tipo_campo, ativos)
+                        self.tipo_copiavel_interno(tipo_campo, ativos)
                     })
                 });
                 ativos.remove(&chave);
@@ -1849,9 +1847,7 @@ impl<'a> Analisador<'a> {
                 let variantes = self.variantes_enumeracoes.get(nome).cloned();
                 let copiavel = variantes.is_some_and(|variantes| {
                     variantes.values().flatten().all(|tipo_payload| {
-                        let tipo_payload = self.resolver_tipo(tipo_payload);
-                        tipo_payload != Tipo::Desconhecido
-                            && self.tipo_copiavel_interno(&tipo_payload, ativos)
+                        self.tipo_copiavel_interno(tipo_payload, ativos)
                     })
                 });
                 ativos.remove(&chave);
