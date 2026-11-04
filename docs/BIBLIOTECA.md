@@ -32,6 +32,19 @@ O banco local grava um snapshot JSON por substituição de arquivo e detecta con
 
 As APIs estão organizadas no crate `nebula-biblioteca` e possuem testes Rust. A integração delas como módulos importáveis de Nebula (`incluir Segurança`, `incluir Dados` etc.), as assinaturas da linguagem, o encaminhamento de erros e o suporte no backend ELF ainda precisam ser implementados e testados. Por isso, os módulos da tabela não são declarados como biblioteca padrão completa ou estável.
 
-## Integração com o interpretador
+## Builtins disponíveis no interpretador
 
-As funções `json_valido(texto)` e `json_canonico(texto)` estão disponíveis no interpretador Rust de referência. A primeira valida a entrada JSON estrita; a segunda devolve uma serialização determinística com chaves ordenadas. O backend ELF nativo ainda não liga essas funções ao runtime, portanto não são anunciadas como disponíveis em executáveis nativos.
+| Função | Comportamento |
+|---|---|
+| `exibir(...)` | Converte argumentos em texto e os envia para a saída do interpretador |
+| `ler_texto()`, `receber([prompt])`, `perguntar([prompt])` | Lê uma linha da entrada padrão; quando há prompt, exibe-o e descarrega a saída antes de ler |
+| `dormir(ms)`, `aguardar(ms)` | Suspende a execução pelo número de milissegundos |
+| `gerar(valor, quantidade)` | Cria uma lista com cópias do valor, limitada a 1.000.000 itens |
+| `comprimento(valor)` | Retorna quantidade de caracteres Unicode em texto ou número de itens em lista |
+| `json_valido(texto)` | Valida JSON estrito e retorna lógico |
+| `json_canonico(texto)` | Analisa e serializa JSON com chaves ordenadas |
+| `em_paralelo(funções...)` | Executa referências a funções sem parâmetros em threads independentes; devolve resultados na ordem recebida |
+
+Os laços `cada` e `pulso` também são executados pelo interpretador de referência. `cada item em coleção` aceita listas, textos e intervalos; `pulso(ms)` repete o bloco com pausa em milissegundos até receber `parar`/`encerrar` ou retorno de função.
+
+Esses recursos ainda não significam que o backend ELF nativo inclua a biblioteca/runtime: recursos não suportados por esse backend devem produzir erro explícito. As funções `json_valido`, `json_canonico`, `gerar` e `em_paralelo` não são anunciadas como disponíveis em executáveis nativos.
