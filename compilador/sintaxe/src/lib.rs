@@ -2387,7 +2387,7 @@ mod testes {
     fn recupera_item_malformado_sem_consumir_declaracao_seguinte() {
         for codigo in [
             "variavel quebrada = ) variavel preservada = 42",
-            "variavel quebrada = )\\nvariavel preservada = 42",
+            "variavel quebrada = )\nvariavel preservada = 42",
             "funcao principal() { variavel quebrada = ) variavel preservada = 42 }",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -2408,7 +2408,7 @@ mod testes {
 
     #[test]
     fn recupera_apos_erros_consecutivos_preservando_todos_os_itens_validos() {
-        let codigo = "variavel a = ) variavel b = ] variavel c = 3\\nfuncao depois() { devolver c }";
+        let codigo = "variavel a = ) variavel b = ] variavel c = 3\nfuncao depois() { devolver c }";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.len() >= 2,
             "cada região inválida deve ser diagnosticada: {:?}", resultado.diagnosticos);
