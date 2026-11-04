@@ -579,6 +579,9 @@ impl Lowerer {
     }
 
     fn inferir_tipo_chamada(&mut self, nome: &str, argumentos: &[Expressao]) -> Tipo {
+        if nome == "gerar" && argumentos.len() == 2 {
+            return Tipo::Lista(Box::new(self.inferir_tipo_ast(&argumentos[0])));
+        }
         if let Some(modelo) = self.genericas.get(nome).cloned() {
             if argumentos.len() != modelo.parametros.len() { return Tipo::Desconhecido; }
             let mut substituicoes = HashMap::new();
@@ -1468,9 +1471,36 @@ impl Maquina<'_> {
                 let valores = match self.expressao(iteravel)? {
                     ValorIr::Lista(valores) => valores,
                     ValorIr::Texto(texto) => texto.chars().map(ValorIr::Caractere).collect(),
-                    ValorIr::Intervalo(inicio, fim) if inicio <= fim => (inicio..=fim).map(ValorIr::Inteiro).collect(),
-                    ValorIr::Intervalo(inicio, fim) => (fim..=inicio).rev().map(ValorIr::Inteiro).collect(),
-                    _ => return Err("O laço 'cada' exige lista, texto ou intervalo inteiro.".into()),
+                    ValorIr::Intervalo(inicio, fim) => {
+                        let quantidade = inicio.abs_diff(fim).saturating_add(1);
+                        if quantidade > 1_000_000 {
+                            return Err("O intervalo de 'cada' excede o limite de 1.000.000 elementos.".into());
+                        }
+                        if inicio <= fim {
+                            (inicio..=fim).map(ValorIr::Inteiro).collect()
+                        } else {
+                            (fim..=inicio).rev().map(ValorIr::Inteiro).collect()
+                        }
+                    }
+                    ValorIr::IntervaloDecimal(inicio, fim) => {
+                        if !inicio.is_finite() || !fim.is_finite() {
+                            return Err("O intervalo decimal de 'cada' precisa ter limites finitos.".into());
+                        }
+                        let mut valores = Vec::new();
+                        let passo = if inicio <= fim { 1.0 } else { -1.0 };
+                        let mut atual = inicio;
+                        while if passo > 0.0 { atual <= fim } else { atual >= fim } {
+                            if valores.len() == 1_000_000 {
+                                return Err("O intervalo decimal de 'cada' excede o limite de 1.000.000 elementos.".into());
+                            }
+                            valores.push(ValorIr::Decimal(atual));
+                            let proximo = atual + passo;
+                            if proximo == atual { break; }
+                            atual = proximo;
+                        }
+                        valores
+                    }
+                    _ => return Err("O laço 'cada' exige lista, texto ou intervalo.".into()),
                 };
                 for valor in valores {
                     self.memoria_mutavel()?.abrir_escopo();
