@@ -509,7 +509,7 @@ fn normaliza_palavras_reservadas_unicode_em_nfc() {
 
 #[test]
 fn reconhece_pontuacao_e_operadores_de_um_caractere() {
-    let resultado = analisar_lexico(&fonte("(){}[],;:+-*/%!=<>"));
+    let resultado = analisar_lexico(&fonte("(){}[],;:+-*/% ! = < >"));
     assert!(
         resultado.diagnosticos.is_empty(),
         "{:?}",
