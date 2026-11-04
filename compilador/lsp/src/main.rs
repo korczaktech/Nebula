@@ -646,7 +646,7 @@ mod tests {
     #[test]
     fn lsp_framing_reads_utf8_content_length() {
         let body = r#"{"jsonrpc":"2.0","params":{"emoji":"😀"}}"#;
-        let frame = format!("Content-Length: {}\\r\\n\\r\\n{body}", body.len());
+        let frame = format!("Content-Length: {}\r\n\r\n{body}", body.len());
         let mut reader = Cursor::new(frame.into_bytes());
         assert_eq!(read_message(&mut reader).expect("frame válido").as_deref(), Some(body));
     }
