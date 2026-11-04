@@ -16,8 +16,9 @@ use unicode_normalization::UnicodeNormalization;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
-    Variavel, Constante, Funcao, Quando, Senao, Escolha, Caso, Para, Enquanto, Devolver,
-    Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Seguir,
+    Variavel, Definir, Mutavel, Alterar, Constante, Funcao, Quando, Senao, Escolha, Avaliar, Caso,
+    Para, Cada, Enquanto, Durante, Repetir, Devolver,
+    Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Encerrar, Seguir,
     E, Ou, Nao, Publico, Privado, Tipo, Estrutura, Enumeracao, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
     Virgula, PontoVirgula, DoisPontos, Ponto,
@@ -143,6 +144,7 @@ impl<'a> Lexer<'a> {
             b'!' if self.corresponde(b'=') => self.simples(TipoToken::Diferente),
             b'!' => self.simples(TipoToken::Negacao),
             b'<' if self.corresponde(b'=') => self.simples(TipoToken::MenorIgual),
+            b'<' if self.corresponde(b'-') => self.simples(TipoToken::Atribui),
             b'<' => self.simples(TipoToken::Menor),
             b'>' if self.corresponde(b'=') => self.simples(TipoToken::MaiorIgual),
             b'>' => self.simples(TipoToken::Maior),
@@ -177,20 +179,26 @@ impl<'a> Lexer<'a> {
         let palavra_original = &self.texto[self.inicio..self.atual];
         let palavra = palavra_original.nfc().collect::<String>();
         let tipo = match palavra.as_str() {
-            "variavel" => TipoToken::Variavel, "constante" => TipoToken::Constante,
+            "variavel" => TipoToken::Variavel, "definir" => TipoToken::Definir,
+            "mutavel" | "mutável" => TipoToken::Mutavel, "alterar" => TipoToken::Alterar,
+            "constante" => TipoToken::Constante,
             "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
-            "escolha" => TipoToken::Escolha, "caso" => TipoToken::Caso,
+            "escolha" => TipoToken::Escolha, "avaliar" => TipoToken::Avaliar,
+            "caso" => TipoToken::Caso,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
-            "enquanto" => TipoToken::Enquanto, "devolver" => TipoToken::Devolver,
+            "cada" => TipoToken::Cada, "enquanto" => TipoToken::Enquanto,
+            "durante" => TipoToken::Durante, "repetir" => TipoToken::Repetir,
+            "devolver" => TipoToken::Devolver,
             "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
             "verdadeiro" => TipoToken::Verdadeiro, "falso" => TipoToken::Falso,
             "nulo" => TipoToken::Nulo, "fim" => TipoToken::FimBloco,
-            "parar" => TipoToken::Parar, "seguir" => TipoToken::Seguir,
+            "parar" => TipoToken::Parar, "encerrar" => TipoToken::Encerrar,
+            "seguir" => TipoToken::Seguir,
             "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" => TipoToken::Nao,
             "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
             "tipo" => TipoToken::Tipo, "estrutura" => TipoToken::Estrutura,
             "enumeracao" => TipoToken::Enumeracao,
-            "cada" | "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" => TipoToken::ReservadaFutura,
+            "tentar" | "capturar" | "finalmente" | "assinc" | "aguardar" => TipoToken::ReservadaFutura,
             _ => TipoToken::Identificador,
         };
         self.adicionar(tipo, self.inicio, self.atual);
@@ -378,8 +386,16 @@ impl Parser {
     }
     fn item(&mut self) -> Option<NoAst> {
         match self.tipo() {
-            TipoToken::Variavel => self.declaracao_variavel(false),
+            TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel => self.declaracao_variavel(false),
             TipoToken::Constante => self.declaracao_variavel(true),
+            TipoToken::Alterar => {
+                self.avancar();
+                let expressao = self.expressao(0)?;
+                if !matches!(expressao, Expressao::Atribuicao { .. }) {
+                    self.erro_atual("N2047", "'alterar' exige uma atribuição, por exemplo: alterar total <- 10.");
+                }
+                Some(NoAst::Expressao(expressao))
+            }
             TipoToken::Funcao => self.funcao(),
             TipoToken::Publico | TipoToken::Privado => {
                 let visibilidade = if self.avancar().tipo == TipoToken::Publico {
@@ -409,11 +425,11 @@ impl Parser {
             }
             TipoToken::Incluir => self.incluir(),
             TipoToken::Quando => self.quando(),
-            TipoToken::Escolha => self.escolha(),
-            TipoToken::Enquanto => self.enquanto(),
-            TipoToken::Para => self.para(),
+            TipoToken::Escolha | TipoToken::Avaliar => self.escolha(),
+            TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir => self.enquanto(),
+            TipoToken::Para | TipoToken::Cada => self.para(),
             TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
-            TipoToken::Parar => { self.avancar(); Some(NoAst::Parar) }
+            TipoToken::Parar | TipoToken::Encerrar => { self.avancar(); Some(NoAst::Parar) }
             TipoToken::Seguir => { self.avancar(); Some(NoAst::Seguir) }
             _ => self.expressao(0).map(NoAst::Expressao),
         }
@@ -1274,6 +1290,21 @@ mod testes {
         let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
+    #[test]
+    fn reconhece_aliases_de_declaracao_e_controle() {
+        let codigo = "definir a = 1\nmutável b = 2\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada (variavel i = 0; i < 1; i = i + 1) { exibir(i) }";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.programa.itens.len(), 7);
+    }
+
+    #[test]
+    fn operador_seta_esquerda_e_aceito_como_atribuicao() {
+        let r = analisar(&fonte("variavel total = 1\ntotal <- 2"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[1], NoAst::Expressao(Expressao::Atribuicao { .. })));
+    }
+
 }
 
 }
