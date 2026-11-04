@@ -1510,6 +1510,36 @@ mod testes {
     }
 
     #[test]
+    fn sincroniza_formas_alternativas_e_tipos_normativos_da_gramatica() {
+        let exemplos = [
+            "tipo FuncaoSimples = funcao(inteiro): texto",
+            "tipo FuncaoAninhada = funcao([inteiro], Resultado<texto>): [Resultado<inteiro>]",
+            "tipo CaminhoQuebrado = Biblioteca\n::\nInterna::Tipo",
+            "incluir Biblioteca\n::\nTexto como Texto",
+            "privado funcao sem_retorno() {}",
+            "publico funcao com_retorno(): vazio { devolver }",
+            "para (variavel i = 0; i < 2; i = i + 1) { exibir(i) }",
+            "para (i = 0; ; i = i + 1) { parar }",
+            "para (; verdadeiro; ) { parar }",
+            "quando verdadeiro\n{ exibir(1) }\nsenão\n{ exibir(0) }",
+            "escolha valor { caso Resultado::Vazio {} }",
+            "avaliar valor { caso Resultado::Unico(item) { exibir(item) } }",
+            "variavel agrupada = (1)",
+            "variavel tupla = (1, 2, 3,)",
+            "variavel acesso = modulo::objeto.campo[0](1)",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "forma normativa deveria ser aceita: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
     fn rejeita_formas_invalidas_das_producoes_normativas() {
         let exemplos = [
             "variavel = 1",
