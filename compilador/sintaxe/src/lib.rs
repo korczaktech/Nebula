@@ -541,14 +541,17 @@ impl Parser {
                 };
 
             if curinga {
-                if possui_curinga {
-                    self.erro_intervalo("N2043", "Caso curinga duplicado.", intervalo_padrao);
-                    padrao_valido = false;
-                }
-                possui_curinga = true;
                 if self.verifica(TipoToken::AbrePar) {
                     self.erro_atual("N2042", "O padrão curinga '_' não aceita payload.");
                     padrao_valido = false;
+                }
+                if padrao_valido {
+                    if possui_curinga {
+                        self.erro_intervalo("N2043", "Caso curinga duplicado.", intervalo_padrao);
+                        padrao_valido = false;
+                    } else {
+                        possui_curinga = true;
+                    }
                 }
             }
 
@@ -1812,6 +1815,84 @@ mod testes {
                 resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
                 "{codigo:?}: esperado {esperado}; recebido {:?}",
                 resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn padroes_escolha_validam_limites_e_isolamento_de_vinculos() {
+        let codigo = "escolha valor {\n caso A::Mesmo(item) {}\n caso B::Mesmo(item) {}\n caso A::Outro(primeiro, segundo) {}\n caso _ {}\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "vínculos podem se repetir em casos distintos e variantes de enums diferentes não colidem: {:?}",
+            resultado.diagnosticos
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("esperada instrução escolha");
+        };
+        assert_eq!(casos.len(), 4);
+        assert_eq!(casos[0].vinculacoes, ["item"]);
+        assert_eq!(casos[1].vinculacoes, ["item"]);
+        assert_eq!(casos[2].vinculacoes, ["primeiro", "segundo"]);
+    }
+
+    #[test]
+    fn curinga_invalido_nao_reserva_o_unico_curinga() {
+        for codigo in [
+            "escolha x { caso _() {} caso _ {} }",
+            "escolha x { caso _ {} caso _() {} }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2042"),
+                "payload em curinga deve ser rejeitado: {codigo:?}; {:?}",
+                resultado.diagnosticos
+            );
+            assert!(
+                !resultado.diagnosticos.iter().any(|d| d.codigo == "N2043"),
+                "padrão curinga inválido não deve participar da contagem de duplicidade: {codigo:?}; {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn escolha_rejeita_ausencia_de_casos_e_recupera_casos_sequenciais() {
+        let vazio = analisar(&fonte("escolha valor {}"));
+        assert!(
+            vazio.diagnosticos.iter().any(|d| d.codigo == "N2044"),
+            "escolha vazia precisa ser rejeitada: {:?}",
+            vazio.diagnosticos
+        );
+
+        let codigo = "escolha valor { caso Estado::Erro(1) {} caso Estado::Ok(item) {} caso _ {} }";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2045"),
+            "payload inválido precisa gerar diagnóstico"
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("a escolha parcial deveria ser preservada");
+        };
+        assert_eq!(casos.len(), 2, "casos válidos posteriores devem ser preservados");
+        assert_eq!(casos[0].variante.as_deref(), Some("Ok"));
+        assert!(casos[1].enumeracao.is_none() && casos[1].variante.is_none());
+    }
+
+    #[test]
+    fn padroes_escolha_rejeitam_quebras_e_caminhos_qualificados_extras() {
+        for codigo in [
+            "escolha x { caso Estado\n::Erro {} }",
+            "escolha x { caso Estado::Erro\n() {} }",
+            "escolha x { caso Estado::Erro::Interno {} }",
+            "escolha x { caso Estado:: {} }",
+            "escolha x { caso ::Erro {} }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                !resultado.diagnosticos.is_empty(),
+                "padrão fora da produção Enum::Variante foi aceito: {codigo:?}"
             );
         }
     }
