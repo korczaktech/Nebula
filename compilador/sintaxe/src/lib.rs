@@ -1563,6 +1563,42 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
+        let codigo = "funcao principal() {\n variavel pessoa = Pessoa { nome: , idade: 20 }\n variavel valores = [1, , 3]\n variavel chamada = calcular(1, , 3)\n variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n variavel depois = 99\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
+            "erros nas expressões internas deveriam ser diagnosticados"
+        );
+        let Some(NoAst::Funcao { corpo, .. }) = resultado.programa.itens.first() else {
+            panic!("a função deveria ser preservada na AST parcial");
+        };
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")),
+            "o Parser deveria continuar até a declaração posterior: {corpo:?}"
+        );
+        assert_eq!(corpo.len(), 5, "itens válidos posteriores não podem desaparecer: {corpo:?}");
+    }
+
+    #[test]
+    fn recupera_delimitadores_aninhados_sem_perder_o_fechamento_externo() {
+        let codigo = "funcao principal() {\n variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n variavel final = 7\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
+            "o erro interno deveria ser reportado"
+        );
+        let Some(NoAst::Funcao { corpo, .. }) = resultado.programa.itens.first() else {
+            panic!("a função deveria ser preservada");
+        };
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "final")),
+            "o fechamento da estrutura interna não pode consumir o bloco externo"
+        );
+    }
+
 }
 
 }
