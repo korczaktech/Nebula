@@ -1381,6 +1381,85 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn respeita_associatividade_e_precedencia_em_todos_os_niveis() {
+        let codigo = "variavel esquerda = 10 - 3 - 2\nvariavel direita = a = b = 1\nvariavel prioridade = 1 + 2 * 3\nvariavel comparacao = 1 < 2 == verdadeiro";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+
+        let NoAst::Variavel { valor: Expressao::Binaria { esquerda, operador: TipoToken::Menos, .. }, .. } =
+            &resultado.programa.itens[0] else { panic!("esperada subtração"); };
+        assert!(matches!(**esquerda, Expressao::Binaria { operador: TipoToken::Menos, .. }));
+
+        let NoAst::Variavel { valor: Expressao::Atribuicao { valor, .. }, .. } =
+            &resultado.programa.itens[1] else { panic!("esperada atribuição"); };
+        assert!(matches!(**valor, Expressao::Atribuicao { .. }));
+
+        let NoAst::Variavel { valor: Expressao::Binaria { operador: TipoToken::Mais, direita, .. }, .. } =
+            &resultado.programa.itens[2] else { panic!("esperada adição"); };
+        assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::Vezes, .. }));
+
+        let NoAst::Variavel { valor: Expressao::Binaria { operador: TipoToken::Igual, esquerda, .. }, .. } =
+            &resultado.programa.itens[3] else { panic!("esperada igualdade"); };
+        assert!(matches!(**esquerda, Expressao::Binaria { operador: TipoToken::Menor, .. }));
+    }
+
+    #[test]
+    fn diagnostica_operadores_sem_operando() {
+        for codigo in [
+            "variavel a = 1 +",
+            "variavel b = 2 **",
+            "variavel c = !",
+            "variavel d = (1 + )",
+            "variavel e = 1..",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                !resultado.diagnosticos.is_empty(),
+                "operador sem operando foi aceito: {codigo:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn limita_recursao_de_expressoes_tipos_e_blocos() {
+        let expressoes = format!(
+            "variavel profunda = {}1{}",
+            "(".repeat(300),
+            ")".repeat(300)
+        );
+        let resultado = analisar(&fonte(&expressoes));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "aninhamento de expressão deveria atingir o limite: {:?}",
+            resultado.diagnosticos
+        );
+
+        let tipo = format!(
+            "tipo Profundo = {}inteiro{}",
+            "[".repeat(300),
+            "]".repeat(300)
+        );
+        let resultado = analisar(&fonte(&tipo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "aninhamento de tipo deveria atingir o limite: {:?}",
+            resultado.diagnosticos
+        );
+
+        let mut blocos = "exibir(1)".to_string();
+        for _ in 0..150 {
+            blocos = format!("quando verdadeiro {{ {blocos} }}");
+        }
+        let resultado = analisar(&fonte(&blocos));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "aninhamento de blocos deveria atingir o limite: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
 }
 
 }
