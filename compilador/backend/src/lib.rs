@@ -2336,7 +2336,10 @@ mod testes {
             }),
         };
         let comparacao = ExpressaoIr::Binaria {
-            esquerda: Box::new(subtracao),
+            esquerda: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Inteiro128,
+                valor: Box::new(subtracao),
+            }),
             operador: OperadorIr::Igual,
             direita: Box::new(ExpressaoIr::Normalizar {
                 tipo: Tipo::Inteiro128,
