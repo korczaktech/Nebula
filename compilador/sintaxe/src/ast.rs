@@ -1,3 +1,8 @@
+//! Estruturas públicas da Árvore Sintática Abstrata da linguagem Nebula.
+
+use crate::lexer::TipoToken;
+use nebula_diagnosticos::Diagnostico;
+
 /// Tipos de nós da AST, independentes de detalhes de formatação.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expressao {
