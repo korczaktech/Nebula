@@ -1920,6 +1920,39 @@ mod testes {
     }
 
     #[test]
+    fn alias_avaliar_e_blocos_fim_cobrem_formas_normativas_de_escolha() {
+        let codigo = "avaliar resultado {\n caso Estado::Vazio\n exibir(0)\n fim\n caso Estado::Valor(item) { exibir(item) }\n caso _ { exibir(1) }\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "alias avaliar, bloco fim e bloco com chaves devem ser aceitos: {:?}",
+            resultado.diagnosticos
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("avaliar deve produzir a mesma AST de escolha");
+        };
+        assert_eq!(casos.len(), 3);
+        assert_eq!(casos[0].variante.as_deref(), Some("Vazio"));
+        assert_eq!(casos[1].vinculacoes, ["item"]);
+        assert!(casos[2].enumeracao.is_none() && casos[2].variante.is_none());
+    }
+
+    #[test]
+    fn escolha_permite_curinga_antes_ou_depois_de_variantes_sem_repeticao() {
+        for codigo in [
+            "escolha x { caso _ {} caso Estado::Ok {} }",
+            "escolha x { caso Estado::Ok {} caso _ {} }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "a posição do curinga não altera a validade sintática: {codigo:?}; {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
     fn aceita_todas_as_formas_validas_de_padroes_escolha() {
         let codigo = "escolha resultado {\n caso Resultado::Vazio {}\n caso Resultado::Unico() {}\n caso Resultado::Um(valor) {}\n caso Resultado::Dois(primeiro, segundo) {}\n caso _ {}\n}";
         let resultado = analisar(&fonte(codigo));
