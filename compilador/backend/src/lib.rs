@@ -1281,8 +1281,10 @@ impl Emissor {
         if assinado {
             self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x01]); // test r11b, 1
             let positivo = self.emitir_jcc(0x84);
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
             self.mov_rax(i64::MIN);
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // restore low in rax
             self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
             let acima_limite_negativo = self.emitir_jcc(0x87); // ja
             let abaixo_limite_negativo = self.emitir_jcc(0x82); // jb
@@ -1292,8 +1294,10 @@ impl Emissor {
 
             let positivo_inicio = self.codigo.len();
             self.aplicar_salto(positivo, positivo_inicio);
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
             self.mov_rax(i64::MIN);
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // restore low in rax
             self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
             let positivo_fora_faixa = self.emitir_jcc(0x83); // jae
             let fim_positivo = self.emitir_jmp();
