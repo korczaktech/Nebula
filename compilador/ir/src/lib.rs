@@ -300,6 +300,8 @@ impl Lowerer {
                     ("Intervalo" | "intervalo", [tipo]) => Tipo::Intervalo(Box::new(tipo.clone())),
                     ("Resultado" | "resultado", [ok, erro]) => Tipo::Resultado(Box::new(ok.clone()), Box::new(erro.clone())),
                     ("Tupla" | "tupla", tipos) if !tipos.is_empty() => Tipo::Tupla(tipos.to_vec()),
+                    ("Vetor" | "vetor", [elemento]) => Tipo::Lista(Box::new(elemento.clone())),
+                    ("Matriz" | "matriz", [elemento]) => Tipo::Lista(Box::new(Tipo::Lista(Box::new(elemento.clone())))),
                     _ => Tipo::Desconhecido,
                 }
             }
@@ -1599,6 +1601,21 @@ impl Maquina<'_> {
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 let valores = argumentos.iter().map(|a| self.expressao(a)).collect::<Result<Vec<_>,_>>()?;
+                if nome == "gerar" {
+                    let [valor, quantidade] = valores.as_slice() else {
+                        return Err("'gerar' exige um valor e uma quantidade.".into());
+                    };
+                    let quantidade = match quantidade {
+                        ValorIr::Inteiro(valor) => usize::try_from(*valor),
+                        ValorIr::InteiroSemSinal(valor) => usize::try_from(*valor),
+                        _ => return Err("'gerar' exige quantidade inteira.".into()),
+                    }.map_err(|_| "Quantidade negativa ou fora do limite suportado em 'gerar'.")?;
+                    const LIMITE_GERAR: usize = 1_000_000;
+                    if quantidade > LIMITE_GERAR {
+                        return Err(format!("'gerar' aceita no máximo {LIMITE_GERAR} elementos por chamada."));
+                    }
+                    return Ok(ValorIr::Lista(vec![valor.clone(); quantidade]));
+                }
                 if nome == "exibir" {
                     self.saida.push(valores.iter().map(formatar).collect::<Vec<_>>().join(" "));
                     return Ok(ValorIr::Vazio);
