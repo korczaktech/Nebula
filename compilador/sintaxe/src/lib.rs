@@ -69,9 +69,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, diagnosticos: Vec<Diagnostico> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, diagnosticos: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
@@ -424,7 +424,7 @@ impl Parser {
         self.com_profundidade(|parser| parser.quando_interno())
     }
     fn quando_interno(&mut self) -> Option<NoAst> {
-        self.avancar(); let condicao = self.expressao(0)?; let entao = self.bloco()?;
+        self.avancar(); let condicao = self.expressao_antes_de_bloco()?; let entao = self.bloco()?;
         let mut senao = Vec::new();
         let proximo_significativo = self.tokens.iter().skip(self.atual)
             .find(|token| token.tipo != TipoToken::NovaLinha)
@@ -440,7 +440,7 @@ impl Parser {
     }
     fn escolha(&mut self) -> Option<NoAst> {
         self.avancar();
-        let valor = self.expressao(0)?;
+        let valor = self.expressao_antes_de_bloco()?;
         if !self.corresponde(TipoToken::AbreChave) {
             self.erro_atual("N2040", "Esperado '{' após expressão de escolha.");
             return None;
@@ -599,14 +599,14 @@ impl Parser {
         Some(NoAst::Escolha { valor, casos })
     }
     fn enquanto(&mut self) -> Option<NoAst> {
-        self.avancar(); let condicao = self.expressao(0)?; let corpo = self.bloco()?;
+        self.avancar(); let condicao = self.expressao_antes_de_bloco()?; let corpo = self.bloco()?;
         Some(NoAst::Enquanto { condicao, corpo })
     }
     fn cada(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome da variável após 'cada'.")?;
         self.esperar(TipoToken::Em, "Esperado 'em' após o nome da variável de 'cada'.");
-        let iteravel = self.expressao(0)?;
+        let iteravel = self.expressao_antes_de_bloco()?;
         let corpo = self.bloco()?;
         Some(NoAst::Cada { nome, iteravel, corpo })
     }
@@ -747,6 +747,13 @@ impl Parser {
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
         self.com_profundidade(|parser| parser.expressao_interna(minimo))
     }
+    fn expressao_antes_de_bloco(&mut self) -> Option<Expressao> {
+        let anterior = self.bloquear_construcao_vazia;
+        self.bloquear_construcao_vazia = true;
+        let resultado = self.expressao(0);
+        self.bloquear_construcao_vazia = anterior;
+        resultado
+    }
     fn expressao_interna(&mut self, minimo: u8) -> Option<Expressao> {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
@@ -765,9 +772,11 @@ impl Parser {
                         .find(|proximo| self.tokens[*proximo].tipo != TipoToken::NovaLinha)
                 });
                 let parece_construcao = self.tokens.get(indice_abertura).is_some_and(|t| t.tipo == TipoToken::AbreChave)
-                    && indice_campo.is_some_and(|indice| self.tokens[indice].tipo == TipoToken::FechaChave
-                        || self.tokens[indice].tipo == TipoToken::Identificador
-                            && indice_dois_pontos.is_some_and(|proximo| self.tokens[proximo].tipo == TipoToken::DoisPontos));
+                    && indice_campo.is_some_and(|indice| {
+                        (self.tokens[indice].tipo == TipoToken::FechaChave && !self.bloquear_construcao_vazia)
+                            || self.tokens[indice].tipo == TipoToken::Identificador
+                                && indice_dois_pontos.is_some_and(|proximo| self.tokens[proximo].tipo == TipoToken::DoisPontos)
+                    });
                 if parece_construcao && self.corresponde(TipoToken::AbreChave) {
                     let mut campos = Vec::new();
                     self.separadores();
@@ -830,7 +839,11 @@ impl Parser {
                 if self.corresponde(TipoToken::FechaPar) {
                     Expressao::Tupla(Vec::new())
                 } else {
-                    let primeiro = match self.expressao(0) {
+                    let bloqueio_anterior = self.bloquear_construcao_vazia;
+                    self.bloquear_construcao_vazia = false;
+                    let primeiro_resultado = self.expressao(0);
+                    self.bloquear_construcao_vazia = bloqueio_anterior;
+                    let primeiro = match primeiro_resultado {
                         Some(primeiro) => primeiro,
                         None => {
                             self.sincronizar_ate(&[TipoToken::FechaPar]);
