@@ -1162,7 +1162,16 @@ impl Parser {
         let mut delimitadores = Vec::new();
         while !self.verifica(TipoToken::Fim) {
             let atual = self.tipo();
-            if delimitadores.is_empty() && finais.contains(&atual) {
+            if delimitadores.is_empty()
+                && (finais.contains(&atual)
+                    || matches!(
+                        atual,
+                        TipoToken::FechaPar
+                            | TipoToken::FechaColchete
+                            | TipoToken::FechaChave
+                            | TipoToken::FimBloco
+                    ))
+            {
                 break;
             }
             match atual {
@@ -1172,14 +1181,20 @@ impl Parser {
                 TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave => {
                     if delimitadores.last() == Some(&atual) {
                         delimitadores.pop();
-                    } else if let Some(posicao) = delimitadores.iter().rposition(|esperado| *esperado == atual) {
+                    } else if let Some(posicao) =
+                        delimitadores.iter().rposition(|esperado| *esperado == atual)
+                    {
                         // Um fechamento cruzado invalida também os agrupamentos
                         // internos ainda abertos; não deixe a recuperação presa neles.
                         delimitadores.truncate(posicao);
-                    } else if delimitadores.is_empty() && finais.contains(&atual) {
+                    } else {
+                        // Preserve o fechamento para que o contexto chamador
+                        // possa emitir o diagnóstico correto e recuperar o bloco.
+                        delimitadores.clear();
                         break;
                     }
                 }
+                TipoToken::FimBloco if delimitadores.is_empty() => break,
                 _ => {}
             }
             self.avancar();
