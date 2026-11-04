@@ -428,6 +428,24 @@ impl<'a> Analisador<'a> {
                 let depois_corpo = self.snapshot_movidos();
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
             }
+            NoAst::Pulso { intervalo, corpo } => {
+                let tipo = self.expressao(intervalo);
+                if !matches!(
+                    tipo,
+                    Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                        | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8
+                        | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64
+                        | Tipo::InteiroU128 | Tipo::Byte
+                ) {
+                    self.erro("N3059", "'pulso' exige intervalo inteiro em milissegundos.");
+                }
+                let antes_corpo = self.snapshot_movidos();
+                self.profundidade_laco += 1;
+                self.bloco(corpo);
+                self.profundidade_laco -= 1;
+                let depois_corpo = self.snapshot_movidos();
+                self.mesclar_movidos(&antes_corpo, &depois_corpo);
+            }
             NoAst::Para { inicial, condicao, atualizacao, corpo } => {
                 self.abrir_escopo();
                 if let Some(inicial) = inicial { self.item(inicial); }
@@ -2970,6 +2988,19 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
         assert_eq!(r.tipos_globais.get("numeros"), Some(&Tipo::Lista(Box::new(Tipo::Inteiro))));
         assert_eq!(r.tipos_globais.get("grade"), Some(&Tipo::Lista(Box::new(Tipo::Lista(Box::new(Tipo::Inteiro))))));
         assert_eq!(r.tipos_globais.get("repetidos"), Some(&Tipo::Lista(Box::new(Tipo::Inteiro))));
+    }
+
+
+    #[test]
+    fn valida_pulso_com_intervalo_inteiro() {
+        let r = analisar_codigo("pulso(10) { encerrar }");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_pulso_com_intervalo_nao_inteiro() {
+        let r = analisar_codigo("pulso(\"um segundo\") { encerrar }");
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3059"), "{:?}", r.diagnosticos);
     }
 
     #[test]
