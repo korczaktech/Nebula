@@ -98,7 +98,10 @@ impl Parser {
                 && self.inicia_item();
             if let Some(no) = no { itens.push(no); }
             if self.atual == antes { self.avancar(); }
-            if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave)
+            if self.fechamento_sem_contexto() {
+                self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
+                self.avancar();
+            } else if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave)
                 && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao)
                 && !self.separador_atual() && !bloco_recuperado {
                 self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções.");
@@ -672,7 +675,10 @@ impl Parser {
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() && !bloco_recuperado {
+                if self.fechamento_sem_contexto() {
+                    self.erro_atual("N2051", "Delimitador de fechamento incompatível com o bloco aberto.");
+                    self.avancar();
+                } else if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() && !bloco_recuperado {
                     self.erro_atual("N2001", "Esperado separador dentro do bloco.");
                     self.sincronizar_item();
                 }
@@ -691,7 +697,10 @@ impl Parser {
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) && !bloco_recuperado {
+                if self.fechamento_sem_contexto() {
+                    self.erro_atual("N2051", "Delimitador de fechamento incompatível com o bloco iniciado por quebra de linha.");
+                    self.avancar();
+                } else if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) && !bloco_recuperado {
                     self.erro_atual("N2001", "Esperado separador dentro do bloco.");
                     self.sincronizar();
                 }
@@ -1100,6 +1109,12 @@ impl Parser {
             self.erro_atual("N2010", mensagem);
             None
         }
+    }
+    fn fechamento_sem_contexto(&self) -> bool {
+        matches!(
+            self.tipo(),
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+        )
     }
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
