@@ -595,6 +595,22 @@ impl Lowerer {
     }
 
     fn inferir_tipo_chamada(&mut self, nome: &str, argumentos: &[Expressao]) -> Tipo {
+        if nome == "em_paralelo" && !argumentos.is_empty() {
+            let mut retorno_comum: Option<Tipo> = None;
+            for argumento in argumentos {
+                let Tipo::Funcao(parametros, retorno) = self.inferir_tipo_ast(argumento) else {
+                    return Tipo::Desconhecido;
+                };
+                if !parametros.is_empty() {
+                    return Tipo::Desconhecido;
+                }
+                if retorno_comum.as_ref().is_some_and(|anterior| **retorno != *anterior) {
+                    return Tipo::Desconhecido;
+                }
+                retorno_comum = Some(*retorno);
+            }
+            return Tipo::Lista(Box::new(retorno_comum.unwrap_or(Tipo::Desconhecido)));
+        }
         if nome == "gerar" && argumentos.len() == 2 {
             return Tipo::Lista(Box::new(self.inferir_tipo_ast(&argumentos[0])));
         }
@@ -1664,6 +1680,56 @@ impl Maquina<'_> {
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 let valores = argumentos.iter().map(|a| self.expressao(a)).collect::<Result<Vec<_>,_>>()?;
+                if nome == "em_paralelo" {
+                    if valores.is_empty() {
+                        return Err("'em_paralelo' exige pelo menos uma função sem parâmetros.".into());
+                    }
+                    let nomes = valores.iter().map(|valor| {
+                        if let ValorIr::Funcao(nome) = valor {
+                            Ok(nome.clone())
+                        } else {
+                            Err("'em_paralelo' aceita apenas referências a funções.".to_owned())
+                        }
+                    }).collect::<Result<Vec<_>, _>>()?;
+                    let programa = self.programa;
+                    let memoria = self.contexto.memoria().clone();
+                    let limite = self.limite;
+                    let resultados = std::thread::scope(|escopo| {
+                        let tarefas = nomes.into_iter().map(|nome| {
+                            let memoria = memoria.clone();
+                            escopo.spawn(move || -> Result<(ValorIr, Vec<String>), String> {
+                                let funcao = programa.funcoes.get(&nome).cloned()
+                                    .ok_or_else(|| format!("Função paralela '{nome}' não encontrada."))?;
+                                if !funcao.parametros.is_empty() {
+                                    return Err(format!("A função paralela '{nome}' precisa não receber parâmetros."));
+                                }
+                                let mut contexto = ContextoRuntime::novo();
+                                *contexto.memoria_mutavel().map_err(formatar_erro_runtime)? = memoria;
+                                let mut maquina = Maquina {
+                                    programa,
+                                    contexto,
+                                    saida: Vec::new(),
+                                    passos: 0,
+                                    limite,
+                                    profundidade_chamada: 0,
+                                };
+                                let retorno = maquina.chamar_funcao(&nome, funcao, Vec::new())?;
+                                let saida = maquina.saida.clone();
+                                maquina.contexto.finalizar().map_err(formatar_erro_runtime)?;
+                                Ok((retorno, saida))
+                            })
+                        }).collect::<Vec<_>>();
+                        tarefas.into_iter().map(|tarefa| {
+                            tarefa.join().map_err(|_| "Uma tarefa de 'em_paralelo' falhou inesperadamente.".to_owned())?
+                        }).collect::<Result<Vec<_>, String>>()
+                    })?;
+                    let mut retornos = Vec::with_capacity(resultados.len());
+                    for (retorno, saida) in resultados {
+                        retornos.push(retorno);
+                        self.saida.extend(saida);
+                    }
+                    return Ok(ValorIr::Lista(retornos));
+                }
                 if nome == "gerar" {
                     let [valor, quantidade] = valores.as_slice() else {
                         return Err("'gerar' exige um valor e uma quantidade.".into());
