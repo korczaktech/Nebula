@@ -328,7 +328,20 @@ impl Parser {
                     break;
                 }
             };
-            self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
+            if !self.corresponde(TipoToken::DoisPontos) {
+                self.erro_atual("N2032", "Esperado ':' após nome do campo da estrutura.");
+                self.sincronizar_ate(&[
+                    TipoToken::Virgula,
+                    TipoToken::NovaLinha,
+                    TipoToken::PontoVirgula,
+                    TipoToken::FechaChave,
+                ]);
+                if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                    self.separadores();
+                    continue;
+                }
+                break;
+            }
             let tipo = match self.caminho_tipo() {
                 Some(tipo) => tipo,
                 None => {
@@ -390,7 +403,9 @@ impl Parser {
             };
             let mut payload = Vec::new();
             if self.corresponde(TipoToken::AbrePar) {
-                if !self.verifica(TipoToken::FechaPar) {
+                if self.verifica(TipoToken::FechaPar) {
+                    self.erro_atual("N2035", "Payload entre parênteses precisa declarar ao menos um tipo.");
+                } else {
                     loop {
                         match self.caminho_tipo() {
                             Some(tipo) => payload.push(tipo),
@@ -832,7 +847,20 @@ impl Parser {
                                 break;
                             }
                         };
-                        self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
+                        if !self.corresponde(TipoToken::DoisPontos) {
+                            self.erro_atual("N2038", "Esperado ':' após nome do campo na construção.");
+                            self.sincronizar_ate(&[
+                                TipoToken::Virgula,
+                                TipoToken::NovaLinha,
+                                TipoToken::PontoVirgula,
+                                TipoToken::FechaChave,
+                            ]);
+                            if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                                self.separadores();
+                                continue;
+                            }
+                            break;
+                        }
                         let valor = match self.expressao(0) {
                             Some(valor) => valor,
                             None => {
@@ -3059,6 +3087,123 @@ mod testes {
             !resultado.diagnosticos.is_empty(),
             "ponto e vírgula não deve ser tratado como continuação de 'senao'"
         );
+    }
+
+
+    #[test]
+    fn analisa_campos_de_estrutura_com_todas_as_formas_de_tipo() {
+        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: modulo::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
+            panic!("a declaração de estrutura deveria produzir AST");
+        };
+        assert_eq!(campos.len(), 6);
+        assert_eq!(campos[1].1, "modulo::Identidade");
+        assert_eq!(campos[2].1, "[texto]");
+        assert_eq!(campos[3].1, "Mapa<texto,[inteiro]>");
+        assert_eq!(campos[4].1, "funcao(inteiro,texto):logico");
+        assert_eq!(campos[5].1, "funcao(funcao(inteiro):logico):vazio");
+    }
+
+    #[test]
+    fn analisa_variantes_com_payloads_unitarios_e_multiplos() {
+        let codigo = "enumeracao Resultado {\n Vazio,\n Texto(texto),\n Par(inteiro, texto),\n Complexo(Mapa<texto, [inteiro]>, funcao(inteiro): logico),\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let Some(NoAst::Enumeracao { variantes, .. }) = resultado.programa.itens.first() else {
+            panic!("a enumeração deveria produzir AST");
+        };
+        assert_eq!(variantes.len(), 4);
+        assert!(variantes[0].1.is_empty());
+        assert_eq!(variantes[1].1, ["texto"]);
+        assert_eq!(variantes[2].1, ["inteiro", "texto"]);
+        assert_eq!(variantes[3].1, ["Mapa<texto,[inteiro]>", "funcao(inteiro):logico"]);
+    }
+
+    #[test]
+    fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
+        let codigo = "variavel pessoa = Pessoa {\n nome: "Ana",\n endereco: Endereco { cidade: "Sao Paulo", numero: 10 },\n ativo: verdadeiro,\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } =
+            &resultado.programa.itens[0] else { panic!("construção deveria produzir AST"); };
+        assert_eq!(nome, "Pessoa");
+        assert_eq!(campos.len(), 3);
+        assert!(matches!(&campos[1].1, Expressao::ConstrucaoEstrutura { nome, campos }
+            if nome == "Endereco" && campos.len() == 2));
+    }
+
+    #[test]
+    fn rejeita_payload_de_enum_vazio_entre_parenteses() {
+        let resultado = analisar(&fonte("enumeracao Estado { Ativo() }"));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"),
+            "payload vazio deve ser rejeitado: {:?}",
+            resultado.diagnosticos
+        );
+        assert!(matches!(
+            resultado.programa.itens.first(),
+            Some(NoAst::Enumeracao { variantes, .. }) if variantes.iter().any(|(nome, _)| nome == "Ativo")
+        ));
+    }
+
+    #[test]
+    fn campo_sem_dois_pontos_nao_e_inserido_na_ast() {
+        let resultado = analisar(&fonte(
+            "estrutura Pessoa { nome texto, idade: inteiro }"
+        ));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"),
+            "campo sem ':' precisa gerar diagnóstico"
+        );
+        let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
+            panic!("estrutura deveria ser preservada");
+        };
+        assert_eq!(campos, &[("idade".into(), "inteiro".into())]);
+    }
+
+    #[test]
+    fn campo_sem_dois_pontos_em_construcao_nao_e_inserido_na_ast() {
+        let resultado = analisar(&fonte(
+            "variavel pessoa = Pessoa { nome "Ana", idade: 20 }"
+        ));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2038"),
+            "campo malformado precisa gerar diagnóstico"
+        );
+        let Some(NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { campos, .. }, .. }) =
+            resultado.programa.itens.first() else {
+                panic!("construção parcial deveria ser preservada");
+            };
+        assert_eq!(campos, &[("idade".into(), Expressao::Literal("20".into()))]);
+    }
+
+    #[test]
+    fn campos_e_variantes_normalizados_em_unicode_detectam_duplicidade() {
+        let estrutura = analisar(&fonte(
+            "estrutura Pessoa { ação: texto, ação: inteiro }"
+        ));
+        assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
+
+        let enumeracao = analisar(&fonte(
+            "enumeracao Estado { Ação, Ação }"
+        ));
+        assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
+    }
+
+    #[test]
+    fn recupera_estrutura_e_enumeracao_malformadas_sem_perder_declaracoes_sequenciais() {
+        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo(), Inativo(inteiro) }\nvariavel depois = 1";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"));
+        assert!(resultado.programa.itens.iter().any(|item|
+            matches!(item, NoAst::Estrutura { campos, .. } if campos.iter().any(|(nome, _)| nome == "idade"))));
+        assert!(resultado.programa.itens.iter().any(|item|
+            matches!(item, NoAst::Enumeracao { variantes, .. } if variantes.iter().any(|(nome, _)| nome == "Inativo"))));
+        assert!(resultado.programa.itens.iter().any(|item|
+            matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")));
     }
 
 }
