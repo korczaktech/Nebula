@@ -1596,13 +1596,13 @@ mod testes {
     #[test]
     fn lexer_e_parser_resistem_a_entradas_malformadas_deterministicas() {
         let alfabeto = [
-            "a", "z", "0", "9", "_", " ", "\n", "\t", "{", "}", "(", ")",
+            "a", "z", "0", "9", "_", " ", "\\n", "\\t", "{", "}", "(", ")",
             "[", "]", ";", ":", ".", ",", "+", "-", "*", "/", "=", "<", ">",
-            "\"", "'", "#", "🌌", "ç", "ã",
+            "\\\"", "'", "#", "🌌", "ç", "ã",
         ];
         let mut estado = 0x5eed_u64;
-        for caso in 0..512 {
-            let tamanho = (caso % 97) + 1;
+        for caso in 0..2_048 {
+            let tamanho = (caso % 257) + 1;
             let mut codigo = String::new();
             for _ in 0..tamanho {
                 estado = estado
@@ -1610,10 +1610,56 @@ mod testes {
                     .wrapping_add(1_442_695_040_888_963_407);
                 codigo.push_str(alfabeto[(estado as usize) % alfabeto.len()]);
             }
-            let _ = analisar(&fonte(&codigo));
+            let resultado = analisar(&fonte(&codigo));
+            let mut ultima_posicao = 0;
+            for diagnostico in resultado.diagnosticos {
+                if let Some(intervalo) = diagnostico.intervalo {
+                    assert!(intervalo.inicio <= intervalo.fim);
+                    assert!(intervalo.fim <= codigo.len());
+                    assert!(codigo.is_char_boundary(intervalo.inicio));
+                    assert!(codigo.is_char_boundary(intervalo.fim));
+                    assert!(intervalo.inicio >= ultima_posicao);
+                    ultima_posicao = intervalo.inicio;
+                }
+            }
         }
     }
 
+    #[test]
+    fn parser_mantem_estabilidade_em_arquivos_extensos() {
+        let mut codigo = String::with_capacity(160_000);
+        for indice in 0..4_096 {
+            codigo.push_str(&format!("variavel valor_{indice} = {indice}\\n"));
+        }
+
+        let resultado = analisar(&fonte(&codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "arquivo extenso válido produziu diagnósticos: {:?}",
+            resultado.diagnosticos
+        );
+        assert_eq!(resultado.programa.itens.len(), 4_096);
+    }
+
+    #[test]
+    fn parser_recupera_apos_grande_sequencia_de_delimitadores_invalidos() {
+        let codigo = format!(
+            "{}\\nvariavel recuperada = 42",
+            "}".repeat(2_048)
+        );
+        let resultado = analisar(&fonte(&codigo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
+            "fechamentos sem abertura devem ser diagnosticados"
+        );
+        assert!(
+            resultado.programa.itens.iter().any(|item| matches!(
+                item,
+                NoAst::Variavel { nome, .. } if nome == "recuperada"
+            )),
+            "a recuperação deve preservar a declaração válida seguinte"
+        );
+    }
     #[test]
     fn reconhece_lista_chamada_indexacao_e_membro() {
         let r = analisar(&fonte("variavel x = sistema::somar([1, 2][0], objeto.nome)"));
