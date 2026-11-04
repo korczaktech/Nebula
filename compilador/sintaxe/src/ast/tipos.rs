@@ -168,12 +168,7 @@ fn separar_nivel_superior(texto: &str, separador: char) -> Vec<&str> {
             ')' => parenteses = parenteses.saturating_sub(1),
             '[' => colchetes += 1,
             ']' => colchetes = colchetes.saturating_sub(1),
-            atual
-                if atual == separador
-                    && angulo == 0
-                    && parenteses == 0
-                    && colchetes == 0 =>
-            {
+            atual if atual == separador && angulo == 0 && parenteses == 0 && colchetes == 0 => {
                 partes.push(texto[inicio..indice].trim());
                 inicio = indice + atual.len_utf8();
             }
