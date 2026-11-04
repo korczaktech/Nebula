@@ -2163,6 +2163,83 @@ mod testes {
     }
 
     #[test]
+    fn valida_precedencia_e_associatividade_completas_das_expressoes() {
+        let codigo = "variavel potencia = -2 ** 3 ** 2\nvariavel produto = 2 + 3 * 4 % 5\nvariavel logica = verdadeiro ou falso e nao falso\nvariavel cadeia = objeto.metodo(1)[0]::campo\nvariavel atribuicao = a <- b = c";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+
+        let NoAst::Variavel { valor: Expressao::Unaria { valor, .. }, .. } =
+            &resultado.programa.itens[0] else { panic!("unário deve envolver a potência"); };
+        let Expressao::Binaria { operador: TipoToken::Potencia, direita, .. } = &**valor
+            else { panic!("potência deve ter precedência sobre o unário"); };
+        assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::Potencia, .. }),
+            "potência deve associar à direita");
+
+        let NoAst::Variavel { valor: Expressao::Binaria { operador: TipoToken::Mais, direita, .. }, .. } =
+            &resultado.programa.itens[1] else { panic!("adição deve ser a raiz"); };
+        assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::Resto, .. }),
+            "multiplicação e resto devem preceder a adição");
+
+        let NoAst::Variavel { valor: Expressao::Binaria { operador: TipoToken::Ou, direita, .. }, .. } =
+            &resultado.programa.itens[2] else { panic!("OU deve ser a raiz"); };
+        assert!(matches!(**direita, Expressao::Binaria { operador: TipoToken::E, .. }),
+            "E deve preceder OU");
+
+        let NoAst::Variavel { valor: Expressao::Membro { operador: TipoToken::Escopo, alvo, .. }, .. } =
+            &resultado.programa.itens[3] else { panic!("acesso qualificado deve ser a raiz"); };
+        assert!(matches!(**alvo, Expressao::Indexacao { .. }),
+            "indexação deve integrar a cadeia pós-fixa");
+
+        let NoAst::Variavel { valor: Expressao::Atribuicao { valor, .. }, .. } =
+            &resultado.programa.itens[4] else { panic!("atribuição deve ser reconhecida"); };
+        assert!(matches!(**valor, Expressao::Atribuicao { .. }),
+            "atribuição deve associar à direita");
+    }
+
+    #[test]
+    fn valida_limites_de_comparacao_e_intervalo_com_agrupamento() {
+        for codigo in [
+            "variavel a = (1 < 2) < 3",
+            "variavel b = 1 < (2 < 3)",
+            "variavel c = (1..2)..3",
+            "variavel d = 1..(2..3)",
+            "variavel e = 1 < 2 e 3 < 4",
+            "variavel f = 1..2 ou 3..4",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(resultado.diagnosticos.is_empty(),
+                "agrupamento ou expressões independentes deveriam ser aceitos: {codigo:?}: {:?}",
+                resultado.diagnosticos);
+        }
+
+        for (codigo, diagnostico) in [
+            ("variavel a = 1 < 2 < 3", "N2012"),
+            ("variavel b = 1 <= 2 > 3", "N2012"),
+            ("variavel c = 1..2..3", "N2013"),
+            ("variavel d = 1..2 + 3..4", "N2013"),
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(resultado.diagnosticos.iter().any(|d| d.codigo == diagnostico),
+                "encadeamento inválido deveria emitir {diagnostico}: {codigo:?}: {:?}",
+                resultado.diagnosticos);
+        }
+    }
+
+    #[test]
+    fn recupera_operadores_sem_operando_em_expressoes_aninhadas() {
+        let codigo = "funcao principal() {\n variavel quebrada = calcular(1 + , 2)\n variavel outra = [3 * , 4]\n variavel final = 99\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
+            "operandos ausentes precisam gerar diagnóstico: {:?}", resultado.diagnosticos);
+        let Some(NoAst::Funcao { corpo, .. }) = resultado.programa.itens.first() else {
+            panic!("a função deve permanecer na AST parcial");
+        };
+        assert!(corpo.iter().any(|item|
+            matches!(item, NoAst::Variavel { nome, .. } if nome == "final")),
+            "a recuperação deve preservar a declaração posterior: {corpo:?}");
+    }
+
+    #[test]
     fn limita_recursao_de_expressoes_tipos_e_blocos() {
         let expressoes = format!(
             "variavel profunda = {}1{}",
