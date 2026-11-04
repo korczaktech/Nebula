@@ -13,7 +13,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
-use crate::ast::{CasoEscolha, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
+use crate::ast::{CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
 use unicode_normalization::UnicodeNormalization;
 
 /// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
@@ -34,9 +34,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
@@ -75,11 +75,13 @@ impl Parser {
         self.nos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
         self.expressoes_localizadas.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
         self.tipos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
+        self.casos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
         Programa {
             itens,
             nos_localizados: std::mem::take(&mut self.nos_localizados),
             expressoes_localizadas: std::mem::take(&mut self.expressoes_localizadas),
             tipos_localizados: std::mem::take(&mut self.tipos_localizados),
+            casos_localizados: std::mem::take(&mut self.casos_localizados),
         }
     }
     fn item(&mut self) -> Option<NoAst> {
@@ -467,6 +469,7 @@ impl Parser {
                 self.separadores();
                 continue;
             }
+            let inicio_caso = self.tokens.get(self.atual - 1).map(|token| token.intervalo.inicio);
             let mut padrao_valido = true;
             let mut intervalo_padrao = None;
             let (enumeracao, variante, vinculacoes, curinga) =
@@ -609,7 +612,16 @@ impl Parser {
                 }
             };
             if padrao_valido {
-                casos.push(CasoEscolha { enumeracao, variante, vinculacoes, corpo });
+                let caso = CasoEscolha { enumeracao, variante, vinculacoes, corpo };
+                if let (Some(inicio), Some(token)) = (inicio_caso, self.tokens.get(self.atual.saturating_sub(1))) {
+                    if let Some(intervalo) = IntervaloFonte::novo(inicio, token.intervalo.fim) {
+                        self.casos_localizados.push(CasoEscolhaLocalizado {
+                            caso: caso.clone(),
+                            intervalo,
+                        });
+                    }
+                }
+                casos.push(caso);
             }
             self.separadores();
         }
