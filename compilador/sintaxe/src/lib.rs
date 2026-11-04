@@ -570,6 +570,11 @@ impl Parser {
                 }
             }
             if !self.verifica(TipoToken::AbreChave) && !self.verifica(TipoToken::NovaLinha) {
+                self.erro_atual(
+                    "N2042",
+                    "Esperado bloco imediatamente após o padrão do caso; tokens extras não são permitidos.",
+                );
+                padrao_valido = false;
                 while !self.verifica(TipoToken::Fim)
                     && !self.verifica(TipoToken::AbreChave)
                     && !self.verifica(TipoToken::NovaLinha)
@@ -1871,6 +1876,48 @@ mod testes {
         }
     }
 
+
+    #[test]
+    fn rejeita_tokens_extras_entre_padrao_e_bloco_de_escolha() {
+        for codigo in [
+            "escolha x { caso Estado::Ok extra {} }",
+            "escolha x { caso Estado::Ok( valor ) inesperado {} }",
+            "escolha x { caso _ 123 {} }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2042"),
+                "tokens entre padrão e bloco devem ser rejeitados: {codigo:?}; {:?}",
+                resultado.diagnosticos
+            );
+            let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+                panic!("a escolha deve permanecer na AST parcial");
+            };
+            assert!(
+                casos.is_empty(),
+                "um caso com tokens extras não pode ser inserido na AST: {casos:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn padroes_invalidos_nao_contaminam_duplicidade_de_variantes() {
+        let resultado = analisar(&fonte(
+            "escolha x { caso Estado::Ok(valor, valor) {} caso Estado::Ok(item) {} caso _ {} }"
+        ));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2046"));
+        assert!(
+            !resultado.diagnosticos.iter().any(|d| d.codigo == "N2048"),
+            "padrão inválido não deve reservar a identidade da variante: {:?}",
+            resultado.diagnosticos
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("esperada escolha parcial");
+        };
+        assert_eq!(casos.len(), 2);
+        assert_eq!(casos[0].variante.as_deref(), Some("Ok"));
+        assert!(casos[1].enumeracao.is_none());
+    }
 
     #[test]
     fn aceita_todas_as_formas_validas_de_padroes_escolha() {
