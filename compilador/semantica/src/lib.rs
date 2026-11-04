@@ -1569,18 +1569,18 @@ impl<'a> Analisador<'a> {
                     true
                 }
             }
-            Tipo::Lista(a) => matches!(obtido, Tipo::Lista(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
-            Tipo::Intervalo(a) => matches!(obtido, Tipo::Intervalo(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
-            Tipo::Opcional(a) => matches!(obtido, Tipo::Opcional(b) if Self::inferir_genericos(a, b, genericos, inferidos)),
+            Tipo::Lista(a) => matches!(obtido, Tipo::Lista(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
+            Tipo::Intervalo(a) => matches!(obtido, Tipo::Intervalo(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
+            Tipo::Opcional(a) => matches!(obtido, Tipo::Opcional(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
             Tipo::Resultado(a, b) => matches!(obtido, Tipo::Resultado(c, d)
-                if Self::inferir_genericos(a, c, genericos, inferidos)
-                    && Self::inferir_genericos(b, d, genericos, inferidos)),
+                if Self::inferir_genericos_interno(a, c, genericos, inferidos)
+                    && Self::inferir_genericos_interno(b, d, genericos, inferidos)),
             Tipo::Tupla(a) => matches!(obtido, Tipo::Tupla(b) if a.len() == b.len()
-                && a.iter().zip(b).all(|(a, b)| Self::inferir_genericos(a, b, genericos, inferidos))),
+                && a.iter().zip(b).all(|(a, b)| Self::inferir_genericos_interno(a, b, genericos, inferidos))),
             Tipo::Funcao(parametros, retorno) => matches!(obtido, Tipo::Funcao(outros, outro_retorno)
                 if parametros.len() == outros.len()
-                    && parametros.iter().zip(outros).all(|(a, b)| Self::inferir_genericos(a, b, genericos, inferidos))
-                    && Self::inferir_genericos(retorno, outro_retorno, genericos, inferidos)),
+                    && parametros.iter().zip(outros).all(|(a, b)| Self::inferir_genericos_interno(a, b, genericos, inferidos))
+                    && Self::inferir_genericos_interno(retorno, outro_retorno, genericos, inferidos)),
             _ => Self::tipos_compativeis(obtido, esperado),
         }
     }
@@ -3282,6 +3282,60 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             "O mesmo parâmetro genérico deve unificar com um único tipo concreto: {:?}",
             r.diagnosticos
         );
+    }
+
+    #[test]
+    fn inferencia_generica_resolve_tipos_aninhados_em_resultados_e_funcoes() {
+        let esperado = Tipo::Resultado(
+            Box::new(Tipo::Lista(Box::new(Tipo::Parametro("T".into())))),
+            Box::new(Tipo::Funcao(
+                vec![Tipo::Parametro("T".into())],
+                Box::new(Tipo::Opcional(Box::new(Tipo::Parametro("T".into())))),
+            )),
+        );
+        let obtido = Tipo::Resultado(
+            Box::new(Tipo::Lista(Box::new(Tipo::Inteiro128))),
+            Box::new(Tipo::Funcao(
+                vec![Tipo::Inteiro128],
+                Box::new(Tipo::Opcional(Box::new(Tipo::Inteiro128))),
+            )),
+        );
+        let mut inferidos = HashMap::new();
+
+        assert!(Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &["T".into()],
+            &mut inferidos,
+        ));
+        assert_eq!(inferidos.get("T"), Some(&Tipo::Inteiro128));
+    }
+
+    #[test]
+    fn inferencia_generica_rejeita_conflito_aninhado_sem_vazar_vinculos() {
+        let esperado = Tipo::Resultado(
+            Box::new(Tipo::Lista(Box::new(Tipo::Parametro("T".into())))),
+            Box::new(Tipo::Funcao(
+                vec![Tipo::Parametro("T".into())],
+                Box::new(Tipo::Vazio),
+            )),
+        );
+        let obtido = Tipo::Resultado(
+            Box::new(Tipo::Lista(Box::new(Tipo::Inteiro))),
+            Box::new(Tipo::Funcao(
+                vec![Tipo::Texto],
+                Box::new(Tipo::Vazio),
+            )),
+        );
+        let mut inferidos = HashMap::new();
+
+        assert!(!Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &["T".into()],
+            &mut inferidos,
+        ));
+        assert!(inferidos.is_empty());
     }
 
     #[test]
