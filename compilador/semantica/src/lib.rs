@@ -2734,6 +2734,51 @@ mod testes {
     }
 
     #[test]
+    fn deriva_copia_de_estruturas_com_todos_os_campos_copiaveis() {
+        let r = analisar_codigo(
+            "estrutura Ponto { x: inteiro, y: inteiro }\nvariavel original = Ponto { x: 10, y: 20 }\nvariavel copia = original\nexibir(original.x)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn estrutura_com_campo_move_only_nao_e_copiavel() {
+        let r = analisar_codigo(
+            "estrutura Caixa { conteudo: texto, codigo: inteiro }\nvariavel original = Caixa { conteudo: \"Nebula\", codigo: 42 }\nvariavel copia = original\nexibir(original.codigo)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn deriva_copia_de_enumeracoes_e_tuplas_recursivamente() {
+        let r = analisar_codigo(
+            "enumeracao Estado { Codigo(inteiro), Vazio }\nvariavel estado = Estado::Codigo(42)\nvariavel estado_copia = estado\nvariavel tupla = (42, verdadeiro)\nvariavel tupla_copia = tupla\nexibir(estado)\nexibir(tupla)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn enum_e_tupla_com_payload_move_only_nao_sao_copiaveis() {
+        let r = analisar_codigo(
+            "enumeracao Resposta { Texto(texto), Vazia }\nvariavel resposta = Resposta::Texto(\"ok\")\nvariavel resposta_copia = resposta\nvariavel tupla = (\"Nebula\", 42)\nvariavel tupla_copia = tupla\nexibir(resposta)\nexibir(tupla)",
+        );
+        assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3030").count() >= 2, "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn deriva_copia_de_opcional_e_resultado_apenas_quando_payloads_sao_copiaveis() {
+        let copiaveis = analisar_codigo(
+            "variavel opcional = Opcional::Algum(42)\nvariavel opcional_copia = opcional\nvariavel resultado = Resultado::Sucesso(42)\nvariavel resultado_copia = resultado\nexibir(opcional)\nexibir(resultado)",
+        );
+        assert!(copiaveis.diagnosticos.is_empty(), "{:?}", copiaveis.diagnosticos);
+
+        let move_only = analisar_codigo(
+            "variavel opcional = Opcional::Algum(\"texto\")\nvariavel opcional_copia = opcional\nexibir(opcional)",
+        );
+        assert!(move_only.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", move_only.diagnosticos);
+    }
+
+    #[test]
     fn deriva_copia_para_tuplas_estruturas_e_enumeracoes() {
         let r = analisar_codigo(
             "estrutura Ponto { x: inteiro8, ativo: logico }\nenumeracao Estado { Inativo, Codigo(inteiro8) }\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
