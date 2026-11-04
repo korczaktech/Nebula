@@ -283,6 +283,7 @@ impl Parser {
         self.separadores();
         let mut casos = Vec::new();
         let mut possui_curinga = false;
+        let mut padroes_vistos: Vec<(String, String)> = Vec::new();
         while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
             if !self.corresponde(TipoToken::Caso) {
                 self.erro_atual("N2041", "Esperado 'caso' dentro de escolha.");
@@ -385,6 +386,15 @@ impl Parser {
             if self.verifica(TipoToken::Escopo) {
                 self.erro_atual("N2042", "Um padrão deve conter exatamente Enum::Variante.");
                 padrao_valido = false;
+            }
+            if let (Some(enumeracao), Some(variante)) = (&enumeracao, &variante) {
+                let identidade = (enumeracao.clone(), variante.clone());
+                if padrao_valido && padroes_vistos.contains(&identidade) {
+                    self.erro_atual("N2048", "Padrão de enumeração duplicado em escolha.");
+                    padrao_valido = false;
+                } else if padrao_valido {
+                    padroes_vistos.push(identidade);
+                }
             }
             if !self.verifica(TipoToken::AbreChave) && !self.verifica(TipoToken::NovaLinha) {
                 while !self.verifica(TipoToken::Fim)
