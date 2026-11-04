@@ -1,0 +1,19 @@
+estrutura Ponto { x: inteiro, y: inteiro }
+enumeracao Estado { Codigo(inteiro), Vazio }
+
+variavel original = Ponto { x: 10, y: 20 }
+variavel copia = original
+variavel estado = Estado::Codigo(42)
+variavel estado_copia = estado
+variavel tupla = (42, verdadeiro)
+variavel tupla_copia = tupla
+variavel opcional = Opcional::Algum(42)
+variavel opcional_copia = opcional
+variavel resultado = Resultado::Sucesso(42)
+variavel resultado_copia = resultado
+
+exibir(original.x)
+exibir(estado)
+exibir(tupla)
+exibir(opcional)
+exibir(resultado)
