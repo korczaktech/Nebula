@@ -759,6 +759,18 @@ fn qualificar_chamadas_modulo(
                 qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
+        InstrucaoIr::Cada { iteravel, corpo, .. } => {
+            qualificar_expressao_modulo(iteravel, caminho, funcoes, caminhos_canonicos);
+            for item in corpo {
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
+            }
+        }
+        InstrucaoIr::Pulso { intervalo, corpo } => {
+            qualificar_expressao_modulo(intervalo, caminho, funcoes, caminhos_canonicos);
+            for item in corpo {
+                qualificar_chamadas_modulo(item, caminho, funcoes, caminhos_canonicos);
+            }
+        }
         InstrucaoIr::Para {
             inicial,
             condicao,
