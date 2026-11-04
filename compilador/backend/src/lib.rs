@@ -255,7 +255,7 @@ impl Emissor {
             return Ok(2);
         }
         if tipo_decimal(tipo) {
-            return Err("Parâmetros decimais ainda não possuem classificação de registradores na ABI nativa.".into());
+            return Ok(1);
         }
         Ok(1)
     }
@@ -481,11 +481,6 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
-                if tipo_decimal(tipo)
-                    && matches!(valor.as_ref(), ExpressaoIr::Membro { .. } | ExpressaoIr::Indexacao { .. })
-                {
-                    return Err("Campos decimais em agregados ainda não possuem classificação de registradores no ABI nativo.".into());
-                }
                 if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.validar_tipo_abi(tipo)?;
                     self.expressao(valor)?;
@@ -631,9 +626,6 @@ impl Emissor {
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
-                if campos.iter().any(|(_, valor)| tipo_expressao_ir(valor).is_some_and(tipo_decimal)) {
-                    return Err("Campos decimais ainda não possuem classificação de registradores no ABI nativo.".into());
-                }
                 let primeiro = campos.iter().find(|(campo, _)| {
                     layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 0)
                 }).ok_or_else(|| format!("Estrutura '{nome}' não possui campo inicializável no primeiro registrador."))?;
@@ -659,9 +651,6 @@ impl Emissor {
                     return Err("A ABI inicial de enumerações aceita no máximo um valor de payload por variante.".into());
                 }
                 if let Some(valor) = valores.first() {
-                    if tipo_expressao_ir(valor).is_some_and(tipo_decimal) {
-                        return Err("Payload decimal ainda não possui classificação de registradores no ABI nativo.".into());
-                    }
                     if self.largura_abi_expressao(valor)? > 1 {
                         return Err("Payload de enumeração não pode ocupar mais de um registrador na ABI inicial.".into());
                     }
@@ -1565,9 +1554,6 @@ impl Emissor {
     fn construir_tupla(&mut self, tipos: &[Tipo], valores: &[ExpressaoIr]) -> Result<(), String> {
         if tipos.len() != valores.len() {
             return Err("Quantidade de elementos da tupla não corresponde ao tipo declarado.".into());
-        }
-        if tipos.iter().any(tipo_decimal) {
-            return Err("Elementos decimais ainda não possuem classificação de registradores no ABI nativo.".into());
         }
         let (_, campos) = self.layout_tupla(tipos)
             .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
