@@ -3036,7 +3036,7 @@ mod testes {
     #[test]
     fn executa_intervalo_u128_acima_do_limite_de_i128() {
         let ir = compilar(
-            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel fim: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..fim\ncada numero em faixa { exibir(numero) }",
+            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel limite: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..limite\ncada numero em faixa { exibir(numero) }",
         );
         let resultado = executar(&ir, 100).expect("intervalo u128 válido");
         assert_eq!(
