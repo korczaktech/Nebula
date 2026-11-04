@@ -1635,10 +1635,9 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x49, 0xD1, 0xD0]); // rcl r8, 1
         let sem_overflow_deslocamento = self.emitir_jcc(0x83); // jnc
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
-        let multiplicador_vazio = self.emitir_jcc(0x84);
+        falhas.push(self.emitir_jcc(0x85)); // jnz
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
         falhas.push(self.emitir_jcc(0x85)); // jnz
-        self.aplicar_salto(multiplicador_vazio, self.codigo.len());
         self.aplicar_salto(sem_overflow_deslocamento, self.codigo.len());
 
         self.codigo.extend_from_slice(&[0x41, 0xFF, 0xCA]); // dec r10d
