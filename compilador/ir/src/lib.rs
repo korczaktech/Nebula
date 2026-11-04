@@ -1960,13 +1960,14 @@ impl Maquina<'_> {
                         .map_err(|_| "Relógio excedeu a faixa inteira da Nebula.".into());
                 }
                 if nome == "dormir" || nome == "aguardar" {
-                    if let [ValorIr::Inteiro(milissegundos)] = valores.as_slice() {
-                        let milissegundos = u64::try_from(*milissegundos)
-                            .map_err(|_| "Duração inválida para 'dormir'.")?;
-                        dormir_milisegundos(milissegundos);
-                        return Ok(ValorIr::Vazio);
+                    let milissegundos = match valores.as_slice() {
+                        [ValorIr::Inteiro(valor)] => u64::try_from(*valor),
+                        [ValorIr::InteiroSemSinal(valor)] => u64::try_from(*valor),
+                        _ => return Err(format!("'{nome}' exige um inteiro não negativo.")),
                     }
-                    return Err("'dormir' exige um inteiro não negativo.".into());
+                    .map_err(|_| format!("Duração inválida para '{nome}'."))?;
+                    dormir_milisegundos(milissegundos);
+                    return Ok(ValorIr::Vazio);
                 }
                 if matches!(
                     nome.as_str(),
