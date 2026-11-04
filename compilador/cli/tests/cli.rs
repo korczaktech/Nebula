@@ -436,6 +436,71 @@ fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
     assert_eq!(String::from_utf8_lossy(&saida.stdout), "11\n22\n");
 }
 
+
+#[test]
+fn aliases_de_entrada_e_espera_executam() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let caminho = std::env::temp_dir().join(format!("nebula-perguntar-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "variavel nome = perguntar(\"Nome: \")\naguardar(0)\nexibir(nome)",
+    )
+    .unwrap();
+    let mut processo = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .args(["interpretar", caminho.to_str().unwrap()])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("a CLI deve iniciar");
+    processo.stdin.take().unwrap().write_all(b"Ada\n").unwrap();
+    let saida = processo.wait_with_output().unwrap();
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada\n");
+}
+
+#[test]
+fn tipos_vetor_e_matriz_sao_utilizaveis_no_runtime() {
+    let caminho = std::env::temp_dir().join(format!("nebula-vetores-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "variavel numeros: Vetor<inteiro> = [4, 5, 6]\nvariavel grade: Matriz<inteiro> = [[1, 2], [3, 4]]\nexibir(numeros[1])\nexibir(grade[1][0])",
+    )
+    .unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "5\n3\n");
+}
+
+#[test]
+fn funcao_do_usuario_pode_se_chamar_receber() {
+    let caminho = std::env::temp_dir().join(format!("nebula-receber-funcao-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "funcao receber<T>(valor: Resultado<Opcional<T>,texto>) { exibir(\"funcao\") }\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
+    )
+    .unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "funcao\n");
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
