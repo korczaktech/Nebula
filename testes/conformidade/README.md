@@ -21,7 +21,10 @@ A suíte de integração `compilador/sintaxe/tests/conformidade.rs` executa:
 
 Os testes unitários do Lexer e do Parser complementam o corpus com casos de
 fronteira, precedência, associatividade, recuperação de erros, delimitadores,
-separadores, Unicode e estabilidade sob entradas adversariais.
+separadores, Unicode e estabilidade sob entradas adversariais. A suíte de
+resistência gera 2.048 entradas determinísticas para Lexer/Parser, JSON e
+manifestos; também verifica arquivos com 4.096 declarações e recuperação após
+2.048 delimitadores inválidos, além de limites de aninhamento e intervalos UTF-8.
 
 Os arquivos `.nbx` desta pasta são fixtures de referência e também são
 carregados pela suíte automatizada. A CI executa os testes do workspace em
