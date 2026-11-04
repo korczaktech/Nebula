@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Estruturas genéricas da biblioteca padrão Nebula.
 use nebula_runtime::{Canal, ErroRuntime, Resultado};
 use std::sync::{Arc, RwLock};

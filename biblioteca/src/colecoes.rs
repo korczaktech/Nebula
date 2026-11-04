@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Coleções tipadas da biblioteca padrão Nebula.
 use std::collections::{BTreeMap, VecDeque};
 
