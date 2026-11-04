@@ -1302,6 +1302,22 @@ fn converter_valor_explicito(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, Str
     }
 }
 
+fn normalizar_limite_inteiro_intervalo(tipo: &Tipo, valor: i128) -> Result<i128, String> {
+    match normalizar_valor(tipo, ValorIr::Inteiro(valor))? {
+        ValorIr::Inteiro(valor) => Ok(valor),
+        ValorIr::InteiroSemSinal(valor) => i128::try_from(valor)
+            .map_err(|_| "Limite de intervalo sem sinal excede a representação interna.".into()),
+        _ => Err("Tipo de limite de intervalo inteiro inválido.".into()),
+    }
+}
+
+fn normalizar_limite_decimal_intervalo(tipo: &Tipo, valor: f64) -> Result<f64, String> {
+    match normalizar_valor(tipo, ValorIr::Decimal(valor))? {
+        ValorIr::Decimal(valor) => Ok(valor),
+        _ => Err("Tipo de limite de intervalo decimal inválido.".into()),
+    }
+}
+
 fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
     match (tipo, valor.clone()) {
         (Tipo::Inteiro | Tipo::Inteiro64, ValorIr::Inteiro(v)) =>
@@ -1378,7 +1394,21 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 Ok(ValorIr::Estrutura { nome, campos: vec![("0".into(), valor)] })
             }
         (Tipo::Funcao(_, _), valor @ ValorIr::Funcao(_)) => Ok(valor),
-        (Tipo::Intervalo(_), valor @ (ValorIr::Intervalo(_, _) | ValorIr::IntervaloDecimal(_, _))) => Ok(valor),
+        (Tipo::Intervalo(interno), ValorIr::Intervalo(inicio, fim))
+            if matches!(interno,
+                Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
+                | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte) => {
+                let inicio = normalizar_limite_inteiro_intervalo(interno, inicio)?;
+                let fim = normalizar_limite_inteiro_intervalo(interno, fim)?;
+                Ok(ValorIr::Intervalo(inicio, fim))
+            }
+        (Tipo::Intervalo(interno), ValorIr::IntervaloDecimal(inicio, fim))
+            if matches!(interno, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => {
+                let inicio = normalizar_limite_decimal_intervalo(interno, inicio)?;
+                let fim = normalizar_limite_decimal_intervalo(interno, fim)?;
+                Ok(ValorIr::IntervaloDecimal(inicio, fim))
+            }
         (Tipo::Desconhecido, valor) => Ok(valor),
         _ => Err(format!("Valor IR incompatível com o tipo '{}'.", tipo.nome())),
     }
@@ -3017,6 +3047,41 @@ mod testes {
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. }
                 if modulo.as_str() == "Matematica" && nome.as_str() == "somar"
         ));
+    }
+
+    #[test]
+    fn normalizacao_de_intervalos_respeita_tipo_interno() {
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::Texto)),
+            ValorIr::Intervalo(1, 2),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::Inteiro8)),
+            ValorIr::Intervalo(-129, 2),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::InteiroU8)),
+            ValorIr::Intervalo(-1, 2),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::InteiroU8)),
+            ValorIr::Intervalo(0, 256),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::Decimal)),
+            ValorIr::Intervalo(1, 2),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Intervalo(Box::new(Tipo::Inteiro)),
+            ValorIr::IntervaloDecimal(1.0, 2.0),
+        ).is_err());
+        assert_eq!(
+            normalizar_valor(
+                &Tipo::Intervalo(Box::new(Tipo::Decimal32)),
+                ValorIr::IntervaloDecimal(0.1, 0.2),
+            ).unwrap(),
+            ValorIr::IntervaloDecimal((0.1f64 as f32) as f64, (0.2f64 as f32) as f64),
+        );
     }
 
     #[test]
