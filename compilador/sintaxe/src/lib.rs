@@ -771,10 +771,16 @@ impl Parser {
                 let nome = self.avancar().lexema.nfc().collect::<String>();
                 let indice_abertura = self.atual;
                 let indice_campo = (indice_abertura + 1..self.tokens.len())
-                    .find(|indice| self.tokens[*indice].tipo != TipoToken::NovaLinha);
+                    .find(|indice| !matches!(
+                        self.tokens[*indice].tipo,
+                        TipoToken::NovaLinha | TipoToken::PontoVirgula
+                    ));
                 let indice_dois_pontos = indice_campo.and_then(|indice| {
                     (indice + 1..self.tokens.len())
-                        .find(|proximo| self.tokens[*proximo].tipo != TipoToken::NovaLinha)
+                        .find(|proximo| !matches!(
+                            self.tokens[*proximo].tipo,
+                            TipoToken::NovaLinha | TipoToken::PontoVirgula
+                        ))
                 });
                 let parece_construcao = self.tokens.get(indice_abertura).is_some_and(|t| t.tipo == TipoToken::AbreChave)
                     && indice_campo.is_some_and(|indice| {
