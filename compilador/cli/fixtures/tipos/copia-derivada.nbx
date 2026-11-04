@@ -9,7 +9,7 @@ variavel tupla = (42, verdadeiro)
 variavel tupla_copia = tupla
 variavel opcional = Opcional::Algum(42)
 variavel opcional_copia = opcional
-variavel resultado = Resultado::Sucesso(42)
+variavel resultado: Resultado<inteiro, inteiro> = Resultado::Sucesso(42)
 variavel resultado_copia = resultado
 
 exibir(original.x)
