@@ -26,7 +26,8 @@ O processo usa **stdin/stdout** para o protocolo LSP. Não execute comandos de s
 - Sincronização completa de documentos por `didOpen`, `didChange` e `didClose`.
 - Diagnósticos léxicos, sintáticos e semânticos provenientes dos crates oficiais do compilador.
 - Conclusão de palavras-chave, declarações, funções e parâmetros do documento.
-- Hover com identificação de palavras-chave e identificadores.
+- Hover com tipos, declarações e assinaturas de funções.
+- Ajuda de assinatura durante a digitação de chamadas.
 - Ir para definição usando declarações encontradas na AST.
 - Referências baseadas nos tokens identificadores do lexer.
 - Símbolos do documento.
