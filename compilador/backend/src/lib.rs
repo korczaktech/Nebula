@@ -1705,7 +1705,7 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
             let rhs_positivo = self.emitir_jcc(0x89);
             self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // divisor negativo inverte sinal do quociente
-            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD9, 0x48, 0xF7, 0xD6, 0x48, 0x83, 0xD6, 0x00]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD9, 0xF5, 0x48, 0xF7, 0xD6, 0x48, 0x83, 0xD6, 0x00]);
             self.aplicar_salto(rhs_positivo, self.codigo.len());
         }
 
