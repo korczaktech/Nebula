@@ -1352,9 +1352,33 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 .map(|(valor, tipo)| normalizar_valor(tipo, valor))
                 .collect::<Result<_, _>>()?))
         }
+        (Tipo::Estrutura(nome), valor @ ValorIr::Estrutura { ref nome as nome_valor, .. })
+            if nome == nome_valor => Ok(valor),
+        (Tipo::Enumeracao(nome), valor @ ValorIr::Estrutura { ref nome as nome_valor, .. })
+            if nome_valor.starts_with(&format!("{nome}::")) => Ok(valor),
+        (Tipo::Opcional(interno), ValorIr::Estrutura { nome, campos })
+            if nome == "Opcional::Nenhum" && campos.is_empty() => {
+                Ok(ValorIr::Estrutura { nome, campos })
+            }
+        (Tipo::Opcional(interno), ValorIr::Estrutura { nome, campos })
+            if nome == "Opcional::Algum" && campos.len() == 1 => {
+                let valor = normalizar_valor(interno, campos.into_iter().next().expect("um payload").1)?;
+                Ok(ValorIr::Estrutura { nome, campos: vec![("0".into(), valor)] })
+            }
+        (Tipo::Resultado(sucesso, _), ValorIr::Estrutura { nome, campos })
+            if nome == "Resultado::Sucesso" && campos.len() == 1 => {
+                let valor = normalizar_valor(sucesso, campos.into_iter().next().expect("um payload").1)?;
+                Ok(ValorIr::Estrutura { nome, campos: vec![("0".into(), valor)] })
+            }
+        (Tipo::Resultado(_, erro), ValorIr::Estrutura { nome, campos })
+            if nome == "Resultado::Falha" && campos.len() == 1 => {
+                let valor = normalizar_valor(erro, campos.into_iter().next().expect("um payload").1)?;
+                Ok(ValorIr::Estrutura { nome, campos: vec![("0".into(), valor)] })
+            }
+        (Tipo::Funcao(_, _), valor @ ValorIr::Funcao(_)) => Ok(valor),
         (Tipo::Intervalo(_), valor @ (ValorIr::Intervalo(_, _) | ValorIr::IntervaloDecimal(_, _))) => Ok(valor),
-        (_, valor) if *tipo == Tipo::Desconhecido => Ok(valor),
-        _ => Ok(valor),
+        (Tipo::Desconhecido, valor) => Ok(valor),
+        _ => Err(format!("Valor IR incompatível com o tipo '{}'.", tipo.nome())),
     }
 }
 
@@ -2419,6 +2443,17 @@ mod testes {
         );
         let resultado = executar(&ir, 100).expect("operações decimal32 válidas");
         assert_eq!(resultado.saida, vec!["16777216"]);
+    }
+
+    #[test]
+    fn normalizacao_da_ir_rejeita_valores_de_tipo_incompativel() {
+        assert!(normalizar_valor(&Tipo::Inteiro, ValorIr::Texto("42".into())).is_err());
+        assert!(normalizar_valor(&Tipo::Logico, ValorIr::Inteiro(1)).is_err());
+        assert!(normalizar_valor(&Tipo::Texto, ValorIr::Caractere('a')).is_err());
+        assert!(normalizar_valor(&Tipo::Estrutura("Pessoa".into()), ValorIr::Estrutura {
+            nome: "Endereco".into(),
+            campos: Vec::new(),
+        }).is_err());
     }
 
     #[test]
