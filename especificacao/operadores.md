@@ -3,6 +3,7 @@
 ## Atribuição e comparação
 
 - `=`: atribuição e inicialização.
+- `<-`: alias de atribuição, por exemplo `total <- 10`.
 - `==`: igualdade.
 - `!=`: diferença.
 - `<`, `<=`, `>`, `>=`: comparação.
