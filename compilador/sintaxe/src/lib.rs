@@ -1763,6 +1763,24 @@ mod testes {
     }
 
     #[test]
+    fn aceita_separadores_no_inicio_e_fim_de_construcoes_de_estrutura() {
+        let exemplos = [
+            "variavel pessoa = Pessoa {\n nome: \"Ana\"\n}",
+            "variavel pessoa = Pessoa {\n\n nome: \"Ana\",\n idade: 20;\n\n}",
+            "variavel pessoa = Pessoa { ; nome: \"Ana\"; }",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "separadores permitidos em construção foram rejeitados: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
     fn rejeita_formas_invalidas_das_producoes_normativas() {
         let exemplos = [
             "variavel = 1",
