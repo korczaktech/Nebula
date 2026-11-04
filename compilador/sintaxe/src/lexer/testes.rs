@@ -644,3 +644,30 @@ fn entrada_extensa_nao_causa_pane() {
     );
     assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
 }
+
+
+#[test]
+fn restabelece_quebras_apos_fechamento_de_delimitador_externo() {
+    let resultado = analisar_lexico(&fonte("calcular([1)\\nvariavel depois = 2"));
+    assert!(
+        resultado.tokens.iter().any(|token| token.tipo == TipoToken::NovaLinha),
+        "um fechamento cruzado não pode suprimir as quebras seguintes"
+    );
+    assert!(
+        resultado.tokens.iter().any(|token| token.lexema == "depois"),
+        "a varredura deve continuar após o fechamento cruzado"
+    );
+}
+
+#[test]
+fn fechamento_sem_abertura_nao_corrompe_estado_de_continuacao() {
+    let resultado = analisar_lexico(&fonte("calcular(1))\\nvariavel depois = 2"));
+    assert!(
+        resultado.tokens.iter().any(|token| token.tipo == TipoToken::NovaLinha),
+        "fechamento extra não pode manter a continuação ativa"
+    );
+    assert!(
+        resultado.tokens.iter().any(|token| token.lexema == "depois"),
+        "tokens posteriores devem continuar disponíveis"
+    );
+}
