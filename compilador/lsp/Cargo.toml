@@ -13,6 +13,7 @@ path = "src/main.rs"
 nebula-diagnosticos = { path = "../diagnosticos" }
 nebula-fonte = { path = "../fonte" }
 nebula-sintaxe = { path = "../sintaxe" }
+nebula-semantica = { path = "../semantica" }
 
 [lints]
 workspace = true
