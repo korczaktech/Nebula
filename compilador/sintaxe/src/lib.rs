@@ -1344,6 +1344,19 @@ mod testes {
         assert!(casos[0].enumeracao.is_none() && casos[0].variante.is_none());
     }
 
+
+    #[test]
+    fn rejeita_variante_repetida_em_escolha() {
+        let resultado = analisar(&fonte(
+            "escolha x { caso Resultado::Ok(valor) {} caso Resultado::Ok(outro) {} }"
+        ));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2048"),
+            "padrão repetido deveria ser diagnosticado: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
 }
 
 }
