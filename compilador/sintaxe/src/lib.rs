@@ -172,10 +172,11 @@ impl Parser {
                 self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
             } else {
                 loop {
+                    let intervalo_parametro = self.tokens.get(self.atual).map(|token| token.intervalo);
                     match self.consumir_nome("Esperado nome de parâmetro genérico.") {
                         Some(parametro) => {
                             if genericos.contains(&parametro) {
-                                self.erro_atual("N2014", "Parâmetro genérico duplicado.");
+                                self.erro_intervalo("N2014", "Parâmetro genérico duplicado.", intervalo_parametro);
                             } else {
                                 genericos.push(parametro);
                             }
@@ -209,6 +210,7 @@ impl Parser {
         let mut parametros = Vec::new();
         if !self.verifica(TipoToken::FechaPar) && !self.verifica(TipoToken::AbreChave) {
             loop {
+                let intervalo_parametro = self.tokens.get(self.atual).map(|token| token.intervalo);
                 let n = match self.consumir_nome("Esperado nome do parâmetro.") {
                     Some(nome) => nome,
                     None => {
@@ -247,7 +249,7 @@ impl Parser {
                     }
                 };
                 if parametros.iter().any(|(existente, _)| existente == &n) {
-                    self.erro_atual("N2050", "Parâmetro declarado mais de uma vez na função.");
+                    self.erro_intervalo("N2050", "Parâmetro declarado mais de uma vez na função.", intervalo_parametro);
                 } else {
                     parametros.push((n, t));
                 }
