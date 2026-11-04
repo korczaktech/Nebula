@@ -45,19 +45,13 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "enumeracao com variantes",
             "enumeracao Estado { Vazio, Unidade(), Valor(inteiro, texto) }",
         ),
-        (
-            "inclusao com alias",
-            "incluir Biblioteca::Texto como Texto",
-        ),
+        ("inclusao com alias", "incluir Biblioteca::Texto como Texto"),
         ("inclusao sem alias", "incluir Biblioteca::Interna"),
         (
             "quando e senao",
             "quando verdadeiro { exibir(1) } senao { exibir(0) }",
         ),
-        (
-            "quando encadeado",
-            "quando a {} senao quando b {} senao {}",
-        ),
+        ("quando encadeado", "quando a {} senao quando b {} senao {}"),
         (
             "escolha e padroes",
             "escolha valor { caso Resultado::Sucesso(texto) { exibir(texto) } caso Resultado::Falha(codigo) {} caso _ {} }",
