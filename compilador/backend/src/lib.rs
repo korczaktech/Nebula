@@ -1279,73 +1279,39 @@ impl Emissor {
         let assinado = matches!(destino, Tipo::Inteiro128);
         self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // r11d = sinal
         if assinado {
-            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax (bit de sinal do double)
-            let positivo = self.emitir_jcc(0x89);
-            self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
-            self.aplicar_salto(positivo, self.codigo.len());
-        } else {
-            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
-            let nao_negativo = self.emitir_jcc(0x89);
-            self.encerrar_com_erro(2);
-            self.aplicar_salto(nao_negativo, self.codigo.len());
-        }
-
-        // Usa a magnitude; a entrada já foi validada como finita pelo chamador.
-        self.mov_rax(i64::MAX);
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
-        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x54, 0xC1]); // andpd xmm0, xmm1
-        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x28, 0xD0]); // movapd xmm2, xmm0
-
-        // high = trunc(magnitude / 2^64), sempre dentro de unsigned64 ou falha.
-        self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
-        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5E, 0xC1]); // divsd xmm0, xmm1
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
-        self.converter_decimal_para_inteiro(&Tipo::InteiroU64)?;
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // high -> rdx
-
-        // Reconstrói high como double unsigned64 para obter o resto sem erro de sinal.
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD8]); // movq xmm3, rax
-        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD8]); // cvtsi2sd xmm3, rax
-        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xDB]); // addsd xmm3, xmm3
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xE1]); // movq xmm4, rcx
-        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xE1]); // cvtsi2sd xmm4, rcx
-        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xDC]); // addsd xmm3, xmm4
-        self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
-        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x59, 0xD9]); // mulsd xmm3, xmm1
-        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5C, 0xD3]); // subsd xmm2, xmm3
-        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x28, 0xC2]); // movapd xmm0, xmm2
-        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
-        self.converter_decimal_para_inteiro(&Tipo::InteiroU64)?;
-
-        if assinado {
             self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x01]); // test r11b, 1
             let positivo = self.emitir_jcc(0x84);
             self.mov_rax(i64::MIN);
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
-            self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp rdx, rcx
-            let magnitude_menor = self.emitir_jcc(0x85); // jne
-            let acima = self.emitir_jcc(0x87); // ja
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
+            let acima_limite_negativo = self.emitir_jcc(0x87); // ja
+            let abaixo_limite_negativo = self.emitir_jcc(0x82); // jb
             self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test low, low
-            let baixo_nao_zero = self.emitir_jcc(0x85);
-            let limite_valido = self.emitir_jmp();
-            let verificar_menor = self.codigo.len();
-            self.aplicar_salto(magnitude_menor, verificar_menor);
-            self.aplicar_salto(acima, verificar_menor);
-            // Quando high < 2^63, a magnitude é válida.
-            let negacao = self.emitir_jmp();
-            let verificar_limite = self.codigo.len();
-            self.aplicar_salto(baixo_nao_zero, verificar_limite);
-            self.aplicar_salto(limite_valido, verificar_limite);
-            let fim = self.emitir_jmp();
-            let erro = self.codigo.len();
-            self.encerrar_com_erro(2);
-            self.aplicar_salto(fim, self.codigo.len());
-            self.aplicar_salto(positivo, self.codigo.len());
+            let baixo_nao_zero = self.emitir_jcc(0x85); // jnz
+            let limite_negativo_valido = self.emitir_jmp();
+
+            let positivo_inicio = self.codigo.len();
+            self.aplicar_salto(positivo, positivo_inicio);
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
+            let positivo_fora_faixa = self.emitir_jcc(0x83); // jae
+            let fim_positivo = self.emitir_jmp();
+
+            let negativo_valido = self.codigo.len();
+            self.aplicar_salto(abaixo_limite_negativo, negativo_valido);
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
-            self.aplicar_salto(negacao, self.codigo.len());
+            let fim_negativo = self.emitir_jmp();
+
+            let erro = self.codigo.len();
+            self.aplicar_salto(acima_limite_negativo, erro);
+            self.aplicar_salto(baixo_nao_zero, erro);
+            self.aplicar_salto(positivo_fora_faixa, erro);
+            self.encerrar_com_erro(2);
+            let fim = self.codigo.len();
+            self.aplicar_salto(limite_negativo_valido, negativo_valido);
+            self.aplicar_salto(fim_positivo, fim);
+            self.aplicar_salto(fim_negativo, fim);
         } else {
             self.normalizar_tipo(destino)?;
             return Ok(());
