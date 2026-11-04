@@ -510,7 +510,11 @@ fn normaliza_palavras_reservadas_unicode_em_nfc() {
 #[test]
 fn reconhece_pontuacao_e_operadores_de_um_caractere() {
     let resultado = analisar_lexico(&fonte("(){}[],;:+-*/%!=<>"));
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     assert_eq!(
         resultado
             .tokens
@@ -544,7 +548,11 @@ fn reconhece_pontuacao_e_operadores_de_um_caractere() {
 #[test]
 fn preserva_quebras_em_chaves_e_suprime_em_parenteses() {
     let resultado = analisar_lexico(&fonte("{\n x\n}\n(\n y\n)\n"));
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     assert_eq!(
         resultado
             .tokens
@@ -558,7 +566,11 @@ fn preserva_quebras_em_chaves_e_suprime_em_parenteses() {
 #[test]
 fn comentario_de_bloco_fecha_no_primeiro_delimitador() {
     let resultado = analisar_lexico(&fonte("a /* externo /* interno */ b"));
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     assert_eq!(resultado.tokens[0].lexema, "a");
     assert_eq!(resultado.tokens[1].lexema, "b");
 }
