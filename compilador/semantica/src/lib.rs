@@ -794,7 +794,7 @@ impl<'a> Analisador<'a> {
                             match tipo {
                                 Tipo::Funcao(parametros, retorno) if parametros.is_empty() => {
                                     if let Some(anterior) = retorno_comum.as_ref() {
-                                        if **retorno != *anterior {
+                                        if *retorno != *anterior {
                                             self.erro("N3061", "'em_paralelo' exige funções com o mesmo tipo de retorno.");
                                         }
                                     } else {
