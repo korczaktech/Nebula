@@ -1187,7 +1187,7 @@ mod testes {
     }
     #[test]
     fn rejeita_palavras_reservadas_de_recursos_futuros() {
-        let r = analisar(&fonte("variavel cada = 1"));
+        let r = analisar(&fonte("variavel tentar = 1"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2011"));
     }
     #[test]
