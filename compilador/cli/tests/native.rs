@@ -84,6 +84,42 @@ fn compila_valor_de_funcao_e_chamada_indireta() {
 }
 
 #[test]
+fn compila_parametros_e_retornos_decimais_no_abi_proprio() {
+    let resultado = compilar_e_executar(
+        "abi-decimal",
+        "funcao ajustar(valor: decimal64): decimal64 { devolver valor + 1.0 }\nfuncao principal(): inteiro { variavel total = ajustar(41.0)\nquando total == 42.0 { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_campos_decimais_em_estruturas() {
+    let resultado = compilar_e_executar(
+        "estrutura-decimal",
+        "estrutura Medida { valor: decimal64, codigo: inteiro }\nfuncao principal(): inteiro { variavel medida = Medida { valor: 42.0, codigo: 7 }\nquando medida.valor == 42.0 { devolver medida.codigo + 35 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_elementos_decimais_em_tuplas() {
+    let resultado = compilar_e_executar(
+        "tupla-decimal",
+        "funcao principal(): inteiro { variavel medida = (42.0, 7)\nquando medida[0] == 42.0 { devolver medida[1] + 35 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn compila_payload_decimal_em_enumeracoes() {
+    let resultado = compilar_e_executar(
+        "enum-decimal",
+        "enumeracao Leitura { Numero(decimal64), Codigo(inteiro) }\nfuncao principal(): inteiro { variavel leitura = Leitura::Numero(42.0)\nescolha leitura { caso Leitura::Numero(valor) { quando valor == 42.0 { devolver 42 } } caso Leitura::Codigo(valor) { } }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_funcoes_parametros_e_chamadas() {
     let resultado = compilar_e_executar(
         "funcao",
