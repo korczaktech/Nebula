@@ -96,9 +96,9 @@ impl<'a> Lexer<'a> {
             b'"' => self.literal_texto(),
             b'\'' => self.literal_caractere(),
             b'0'..=b'9' => self.numero(),
-            b'(' => { self.profundidade_continuacao += 1; self.simples(TipoToken::AbrePar); }, b')' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaPar); },
+            b'(' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_add(1); self.simples(TipoToken::AbrePar); }, b')' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaPar); },
             b'{' => self.simples(TipoToken::AbreChave), b'}' => self.simples(TipoToken::FechaChave),
-            b'[' => { self.profundidade_continuacao += 1; self.simples(TipoToken::AbreColchete); }, b']' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaColchete); },
+            b'[' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_add(1); self.simples(TipoToken::AbreColchete); }, b']' => { self.profundidade_continuacao = self.profundidade_continuacao.saturating_sub(1); self.simples(TipoToken::FechaColchete); },
             b',' => self.simples(TipoToken::Virgula), b';' => self.simples(TipoToken::PontoVirgula),
             b':' if self.corresponde(b':') => self.simples(TipoToken::Escopo),
             b':' => self.simples(TipoToken::DoisPontos),
@@ -232,15 +232,25 @@ impl<'a> Lexer<'a> {
     }
     fn literal_texto(&mut self) {
         let mut fechado = false;
+        let mut interrompido_por_quebra = false;
         while !self.fim() {
             match self.avancar() {
                 b'"' => { fechado = true; break; }
-                b'\n' | b'\r' => { self.atual -= 1; self.erro("N1006", "Texto não pode atravessar uma quebra de linha.", self.inicio, self.atual + 1); break; }
-                b'\\' => { if !self.escape_valido() { self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual); } }
+                b'\n' | b'\r' => {
+                    self.atual -= 1;
+                    self.erro("N1006", "Texto não pode atravessar uma quebra de linha.", self.inicio, self.atual + 1);
+                    interrompido_por_quebra = true;
+                    break;
+                }
+                b'\\' => {
+                    if !self.escape_valido() {
+                        self.erro("N1007", "Escape inválido em literal.", self.atual.saturating_sub(2), self.atual);
+                    }
+                }
                 _ => {}
             }
         }
-        if !fechado && !self.diagnosticos.iter().any(|d| d.codigo == "N1006" && d.intervalo.is_some_and(|i| i.inicio == self.inicio)) {
+        if !fechado && !interrompido_por_quebra {
             self.erro("N1008", "Literal de texto não terminado.", self.inicio, self.atual);
         }
         self.adicionar(TipoToken::Texto, self.inicio, self.atual);
@@ -271,7 +281,7 @@ impl<'a> Lexer<'a> {
         self.adicionar(TipoToken::Caractere, self.inicio, self.atual);
     }
     fn escape_valido(&mut self) -> bool {
-        if self.fim() { return false; }
+        if self.fim() || matches!(self.byte(0), Some(b'\n' | b'\r')) { return false; }
         match self.avancar() {
             b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' | b'0' => true,
             b'u' if self.corresponde(b'{') => {

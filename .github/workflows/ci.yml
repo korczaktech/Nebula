@@ -48,3 +48,38 @@ jobs:
       - name: Executar benchmark inicial
         if: runner.os == 'Linux'
         run: bash benchmarks/executar.sh
+
+  validar-debian:
+    name: Validar workspace Rust (Debian 12)
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm-slim
+    timeout-minutes: 30
+    steps:
+      - name: Instalar dependências do sistema
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl build-essential pkg-config git
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Obter código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Instalar Rust 1.85.0
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Verificar formatação
+        run: cargo fmt --all -- --check
+
+      - name: Analisar código
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: Executar testes
+        run: cargo test --locked --workspace --all-targets
+
+      - name: Validar documentação da API
+        run: cargo doc --locked --workspace --no-deps

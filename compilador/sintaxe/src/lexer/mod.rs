@@ -3,7 +3,6 @@
 //! A API pública deste módulo recebe um arquivo-fonte e devolve tokens e
 //! diagnósticos. Os detalhes de varredura permanecem privados.
 
-#[rustfmt::skip]
 mod scanner;
 pub mod token;
 
