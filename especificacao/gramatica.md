@@ -99,7 +99,7 @@ instrucao_quando        = "quando", expressao, bloco,
                             ( instrucao_quando | bloco ) ] ;
 instrucao_escolha       = ("escolha" | "avaliar"), expressao, "{",
                           { separador }, caso_escolha,
-                          { separador, caso_escolha },
+                          { { separador }, caso_escolha },
                           { separador }, "}" ;
 caso_escolha            = "caso", padrao_escolha, bloco ;
 padrao_escolha          = "_" | caminho_variante, [ "(", [ lista_vinculos ], ")" ] ;
