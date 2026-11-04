@@ -121,7 +121,7 @@ Blocos podem usar chaves ou o terminador fim. Cada bloco iniciado na forma fim e
 
 ~~~ebnf
 expressao           = atribuicao ;
-atribuicao          = logica_ou, [ "=", atribuicao ] ;
+atribuicao          = logica_ou, [ ("=" | "<-"), atribuicao ] ;
 logica_ou           = logica_e, { "ou", logica_e } ;
 logica_e            = igualdade, { "e", igualdade } ;
 igualdade           = comparacao, { ( "==" | "!=" ), comparacao } ;
