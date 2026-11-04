@@ -2335,15 +2335,21 @@ mod testes {
                 valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1i128 << 64))),
             }),
         };
+        let comparacao = ExpressaoIr::Binaria {
+            esquerda: Box::new(subtracao),
+            operador: OperadorIr::Igual,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Inteiro128,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(4096))),
+            }),
+        };
         let mut programa = programa_com_retorno(0);
         let principal = programa.funcoes.get_mut("principal").unwrap();
         principal.retorno = Tipo::Inteiro64;
-        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
-            tipo: Tipo::Inteiro64,
-            origem: Tipo::Inteiro128,
-            valor: Box::new(subtracao),
-        }))];
-        assert_eq!(executar_elf_de_teste(&programa), 4096);
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(comparacao))];
+        // O processo só expõe os oito bits inferiores do código de saída;
+        // compare o valor completo dentro do programa gerado.
+        assert_eq!(executar_elf_de_teste(&programa), 1);
     }
 
     #[cfg(target_os = "linux")]
