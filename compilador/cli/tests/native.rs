@@ -129,6 +129,42 @@ fn compila_funcoes_parametros_e_chamadas() {
 }
 
 #[test]
+fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-inteiro128",
+        "funcao transportar(valor: inteiro128): inteiro128 { devolver valor }\nfuncao principal(): inteiro { variavel original: inteiro128 = 1267650600228229401496703205376\nvariavel recebido = transportar(original)\nquando recebido == original { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_inteiro_u128_com_parte_alta_em_parametro_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-inteiro-u128",
+        "funcao transportar(valor: inteiro_u128): inteiro_u128 { devolver valor }\nfuncao principal(): inteiro { variavel original: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel recebido = transportar(original)\nquando recebido == original { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn executa_aritmetica_signed128_acima_de_64_bits() {
+    let resultado = compilar_e_executar(
+        "aritmetica-signed128",
+        "funcao principal(): inteiro { variavel base: inteiro128 = 1267650600228229401496703205376\nvariavel dobro = base * 2\nquando dobro / 2 == base { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn executa_aritmetica_unsigned128_acima_de_64_bits() {
+    let resultado = compilar_e_executar(
+        "aritmetica-unsigned128",
+        "funcao principal(): inteiro { variavel base: inteiro_u128 = 18446744073709551619\nvariavel produto = base * 3\nquando produto / 3 == base { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn monomorfiza_funcao_generica_no_backend_nativo() {
     let resultado = compilar_e_executar(
         "generica",
