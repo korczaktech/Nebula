@@ -341,6 +341,14 @@ fn declaration_locations(program: &Programa, text: &str, uri: &str) -> Vec<(Stri
         let Some(relative) = fragment.find(name) else { continue; };
         let start = located.intervalo.inicio + relative;
         locations.push((name.to_owned(), start, start + name.len(), kind));
+        if let NoAst::Funcao { parametros, .. } = &located.no {
+            for (parameter, _) in parametros {
+                if let Some(relative) = fragment.find(parameter) {
+                    let start = located.intervalo.inicio + relative;
+                    locations.push((parameter.clone(), start, start + parameter.len(), 6));
+                }
+            }
+        }
     }
     let _ = uri;
     locations
