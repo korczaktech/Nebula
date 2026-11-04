@@ -1748,7 +1748,7 @@ impl Maquina<'_> {
                         .map(ValorIr::Inteiro)
                         .map_err(|_| "Relógio excedeu a faixa inteira da Nebula.".into());
                 }
-                if nome == "dormir" {
+                if nome == "dormir" || nome == "aguardar" {
                     if let [ValorIr::Inteiro(milissegundos)] = valores.as_slice() {
                         let milissegundos = u64::try_from(*milissegundos)
                             .map_err(|_| "Duração inválida para 'dormir'.")?;
@@ -1830,9 +1830,18 @@ impl Maquina<'_> {
                         .map_err(formatar_erro_runtime)?;
                     return converter_para_ir(valor);
                 }
-                if nome == "ler_texto" {
-                    if !argumentos.is_empty() {
-                        return Err("'ler_texto' não aceita argumentos.".into());
+                if matches!(nome.as_str(), "ler_texto" | "receber" | "perguntar") {
+                    if valores.len() > 1 {
+                        return Err(format!("'{nome}' aceita no máximo um texto de prompt."));
+                    }
+                    if let Some(prompt) = valores.first() {
+                        let ValorIr::Texto(prompt) = prompt else {
+                            return Err(format!("O prompt de '{nome}' precisa ser texto."));
+                        };
+                        print!("{prompt}");
+                        let mut stdout = std::io::stdout();
+                        std::io::Write::flush(&mut stdout)
+                            .map_err(|erro| format!("Falha ao exibir prompt: {erro}"))?;
                     }
                     let mut texto = String::new();
                     std::io::stdin()
