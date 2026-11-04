@@ -496,6 +496,62 @@ fn delimitador_de_fechamento_errado_nao_fecha_outro_tipo() {
     );
 }
 
+
+#[test]
+fn normaliza_palavras_reservadas_unicode_em_nfc() {
+    let resultado = analisar_lexico(&fonte("função"));
+    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert_eq!(resultado.tokens[0].tipo, TipoToken::Funcao);
+}
+
+#[test]
+fn reconhece_pontuacao_e_operadores_de_um_caractere() {
+    let resultado = analisar_lexico(&fonte("(){}[],;:+-*/%!=<>"));
+    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert_eq!(
+        resultado.tokens.iter().map(|token| token.tipo).collect::<Vec<_>>(),
+        vec![
+            TipoToken::AbrePar,
+            TipoToken::FechaPar,
+            TipoToken::AbreChave,
+            TipoToken::FechaChave,
+            TipoToken::AbreColchete,
+            TipoToken::FechaColchete,
+            TipoToken::Virgula,
+            TipoToken::PontoVirgula,
+            TipoToken::DoisPontos,
+            TipoToken::Mais,
+            TipoToken::Menos,
+            TipoToken::Vezes,
+            TipoToken::Divide,
+            TipoToken::Resto,
+            TipoToken::Negacao,
+            TipoToken::Atribui,
+            TipoToken::Menor,
+            TipoToken::Maior,
+            TipoToken::Fim,
+        ]
+    );
+}
+
+#[test]
+fn preserva_quebras_em_chaves_e_suprime_em_parenteses() {
+    let resultado = analisar_lexico(&fonte("{\n x\n}\n(\n y\n)\n"));
+    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert_eq!(
+        resultado.tokens.iter().filter(|token| token.tipo == TipoToken::NovaLinha).count(),
+        4
+    );
+}
+
+#[test]
+fn comentario_de_bloco_fecha_no_primeiro_delimitador() {
+    let resultado = analisar_lexico(&fonte("a /* externo /* interno */ b"));
+    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert_eq!(resultado.tokens[0].lexema, "a");
+    assert_eq!(resultado.tokens[1].lexema, "b");
+}
+
 #[test]
 fn entrada_extensa_nao_causa_pane() {
     let codigo = format!("{}\n", "variavel x = 1234567890 ".repeat(10_000));
