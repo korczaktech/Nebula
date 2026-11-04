@@ -1352,11 +1352,13 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 .map(|(valor, tipo)| normalizar_valor(tipo, valor))
                 .collect::<Result<_, _>>()?))
         }
-        (Tipo::Estrutura(nome), valor @ ValorIr::Estrutura { ref nome as nome_valor, .. })
-            if nome == nome_valor => Ok(valor),
-        (Tipo::Enumeracao(nome), valor @ ValorIr::Estrutura { ref nome as nome_valor, .. })
-            if nome_valor.starts_with(&format!("{nome}::")) => Ok(valor),
-        (Tipo::Opcional(interno), ValorIr::Estrutura { nome, campos })
+        (Tipo::Estrutura(nome), ValorIr::Estrutura { nome: nome_valor, campos })
+            if nome == &nome_valor => Ok(ValorIr::Estrutura { nome: nome_valor, campos }),
+        (Tipo::Enumeracao(nome), ValorIr::Estrutura { nome: nome_valor, campos })
+            if nome_valor.starts_with(&format!("{nome}::")) => {
+                Ok(ValorIr::Estrutura { nome: nome_valor, campos })
+            }
+        (Tipo::Opcional(_), ValorIr::Estrutura { nome, campos })
             if nome == "Opcional::Nenhum" && campos.is_empty() => {
                 Ok(ValorIr::Estrutura { nome, campos })
             }
