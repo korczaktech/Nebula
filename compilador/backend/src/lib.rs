@@ -739,6 +739,8 @@ impl Emissor {
                             if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
                         }
                         OperadorIr::Vezes => self.multiplicar_inteiro_128(sem_sinal)?,
+                        OperadorIr::Divide | OperadorIr::Resto =>
+                            self.dividir_inteiro_128(*operador == OperadorIr::Resto, sem_sinal)?,
                         OperadorIr::Menos => {
                             self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
                             self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
@@ -1513,6 +1515,113 @@ impl Emissor {
             self.aplicar_salto(resultado_positivo, verificar_positivo);
             self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
             falhas.push(self.emitir_jcc(0x88)); // js
+            self.aplicar_salto(fim_negativo, self.codigo.len());
+        }
+
+        let fim = self.emitir_jmp();
+        let erro = self.codigo.len();
+        for salto in falhas {
+            self.aplicar_salto(salto, erro);
+        }
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(fim, self.codigo.len());
+        Ok(())
+    }
+
+    fn dividir_inteiro_128(&mut self, resto: bool, sem_sinal: bool) -> Result<(), String> {
+        let mut falhas = Vec::new();
+
+        // Divisão restauradora binária: o dividendo deslocado também se torna o quociente.
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
+        let divisor_alto_zero = self.emitir_jcc(0x84);
+        let divisor_valido = self.emitir_jmp();
+        self.aplicar_salto(divisor_alto_zero, self.codigo.len());
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
+        falhas.push(self.emitir_jcc(0x84)); // divisor zero
+        self.aplicar_salto(divisor_valido, self.codigo.len());
+
+        self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // r11d = flags de sinal
+        if !sem_sinal {
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+            let lhs_positivo = self.emitir_jcc(0x89);
+            self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x03]); // lhs negativo: quociente e resto negativos
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            self.aplicar_salto(lhs_positivo, self.codigo.len());
+
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
+            let rhs_positivo = self.emitir_jcc(0x89);
+            self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // divisor negativo inverte sinal do quociente
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD9, 0x48, 0xF7, 0xD6, 0x48, 0x83, 0xD6, 0x00]);
+            self.aplicar_salto(rhs_positivo, self.codigo.len());
+        }
+
+        // r8:r9 recebe o dividendo e será transformado no quociente.
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xD0]); // mov r8, rdx
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // mov r9, rax
+        self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2, 0x48, 0x31, 0xC0]); // resto = 0
+        self.codigo.extend_from_slice(&[0x41, 0xBA, 128, 0, 0, 0]); // r10d = 128
+        let inicio = self.codigo.len();
+
+        self.codigo.extend_from_slice(&[0x49, 0xD1, 0xE1]); // shl r9, 1
+        self.codigo.extend_from_slice(&[0x49, 0xD1, 0xD0]); // rcl r8, 1
+        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xD0]); // rcl rax, 1
+        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xD2]); // rcl rdx, 1
+        let subtrair_carry = self.emitir_jcc(0x82); // carry do bit 129 do resto
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2]); // cmp rdx, rsi
+        let subtrair_alto = self.emitir_jcc(0x87); // ja
+        let manter_alto = self.emitir_jcc(0x82); // jb
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+        let subtrair_baixo = self.emitir_jcc(0x83); // jae
+        let manter_baixo = self.emitir_jmp();
+
+        let subtracao = self.codigo.len();
+        self.aplicar_salto(subtrair_carry, subtracao);
+        self.aplicar_salto(subtrair_alto, subtracao);
+        self.aplicar_salto(subtrair_baixo, subtracao);
+        self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
+        self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
+        self.codigo.extend_from_slice(&[0x49, 0x83, 0xC9, 0x01]); // or r9, 1
+        let proxima = self.emitir_jmp();
+
+        let sem_subtracao = self.codigo.len();
+        self.aplicar_salto(manter_alto, sem_subtracao);
+        self.aplicar_salto(manter_baixo, sem_subtracao);
+        self.aplicar_salto(proxima, sem_subtracao);
+        self.codigo.extend_from_slice(&[0x41, 0xFF, 0xCA]); // dec r10d
+        let repetir = self.emitir_jcc(0x85);
+        self.aplicar_salto(repetir, inicio);
+
+        if !resto {
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xD0]); // mov r8, rdx? rdx recebe quociente alto abaixo
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC2]); // mov rdx, r8
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // mov rax, r9
+            if !sem_sinal {
+                self.codigo.extend_from_slice(&[0x41, 0xF7, 0xC3, 0x01]); // test r11d, 1
+                let quociente_positivo = self.emitir_jcc(0x84);
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
+                self.mov_rax(i64::MIN);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = 2^127
+                self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // restore low
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2]); // cmp high, 2^127
+                falhas.push(self.emitir_jcc(0x87)); // ja
+                let magnitude_menor = self.emitir_jcc(0x85); // jne
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test low, low
+                falhas.push(self.emitir_jcc(0x85)); // jnz
+                self.aplicar_salto(magnitude_menor, self.codigo.len());
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+                let fim_negativo = self.emitir_jmp();
+                let positivo = self.codigo.len();
+                self.aplicar_salto(quociente_positivo, positivo);
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test high
+                falhas.push(self.emitir_jcc(0x88)); // js
+                self.aplicar_salto(fim_negativo, self.codigo.len());
+            }
+        } else if !sem_sinal {
+            self.codigo.extend_from_slice(&[0x41, 0xF7, 0xC3, 0x02]); // test r11d, 2
+            let resto_positivo = self.emitir_jcc(0x84);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            let fim_negativo = self.emitir_jmp();
+            self.aplicar_salto(resto_positivo, self.codigo.len());
             self.aplicar_salto(fim_negativo, self.codigo.len());
         }
 
