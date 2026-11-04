@@ -161,32 +161,112 @@ impl Parser {
         let nome = self.consumir_nome("Esperado nome da função.")?;
         let mut genericos = Vec::new();
         if self.corresponde(TipoToken::Menor) {
-            loop {
-                let parametro = self.consumir_nome("Esperado nome de parâmetro genérico.")?;
-                if genericos.contains(&parametro) {
-                    self.erro_atual("N2014", "Parâmetro genérico duplicado.");
-                } else {
-                    genericos.push(parametro);
+            if self.verifica(TipoToken::Maior) {
+                self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
+            } else {
+                loop {
+                    match self.consumir_nome("Esperado nome de parâmetro genérico.") {
+                        Some(parametro) => {
+                            if genericos.contains(&parametro) {
+                                self.erro_atual("N2014", "Parâmetro genérico duplicado.");
+                            } else {
+                                genericos.push(parametro);
+                            }
+                        }
+                        None => {
+                            self.sincronizar_ate(&[
+                                TipoToken::Virgula,
+                                TipoToken::Maior,
+                                TipoToken::AbrePar,
+                                TipoToken::AbreChave,
+                            ]);
+                        }
+                    }
+                    if !self.corresponde(TipoToken::Virgula) { break; }
+                    if self.verifica(TipoToken::Maior) {
+                        self.erro_atual("N2015", "Esperado parâmetro genérico após vírgula.");
+                        break;
+                    }
                 }
-                if !self.corresponde(TipoToken::Virgula) { break; }
             }
             self.esperar(TipoToken::Maior, "Esperado '>' após parâmetros genéricos.");
-            if genericos.is_empty() {
+            if genericos.is_empty() && !self.diagnosticos.iter().any(|d| d.codigo == "N2015") {
                 self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
             }
         }
-        if !self.corresponde(TipoToken::AbrePar) { self.erro_atual("N2004", "Esperado '(' após nome da função."); return None; }
+        if !self.corresponde(TipoToken::AbrePar) {
+            self.erro_atual("N2004", "Esperado '(' após nome da função.");
+            self.sincronizar_ate(&[TipoToken::AbrePar, TipoToken::AbreChave, TipoToken::NovaLinha]);
+            self.corresponde(TipoToken::AbrePar);
+        }
         let mut parametros = Vec::new();
-        if !self.verifica(TipoToken::FechaPar) {
+        if !self.verifica(TipoToken::FechaPar) && !self.verifica(TipoToken::AbreChave) {
             loop {
-                let n = self.consumir_nome("Esperado nome do parâmetro.")?;
-                if !self.corresponde(TipoToken::DoisPontos) { self.erro_atual("N2005", "Esperado ':' no parâmetro."); return None; }
-                let t = self.caminho_tipo()?; parametros.push((n,t));
+                let n = match self.consumir_nome("Esperado nome do parâmetro.") {
+                    Some(nome) => nome,
+                    None => {
+                        self.sincronizar_ate(&[
+                            TipoToken::Virgula,
+                            TipoToken::FechaPar,
+                            TipoToken::AbreChave,
+                            TipoToken::NovaLinha,
+                        ]);
+                        if self.corresponde(TipoToken::Virgula) { continue; }
+                        break;
+                    }
+                };
+                if !self.corresponde(TipoToken::DoisPontos) {
+                    self.erro_atual("N2005", "Esperado ':' no parâmetro.");
+                    self.sincronizar_ate(&[
+                        TipoToken::Virgula,
+                        TipoToken::FechaPar,
+                        TipoToken::AbreChave,
+                        TipoToken::NovaLinha,
+                    ]);
+                    if self.corresponde(TipoToken::Virgula) { continue; }
+                    break;
+                }
+                let t = match self.caminho_tipo() {
+                    Some(tipo) => tipo,
+                    None => {
+                        self.sincronizar_ate(&[
+                            TipoToken::Virgula,
+                            TipoToken::FechaPar,
+                            TipoToken::AbreChave,
+                            TipoToken::NovaLinha,
+                        ]);
+                        if self.corresponde(TipoToken::Virgula) { continue; }
+                        break;
+                    }
+                };
+                if parametros.iter().any(|(existente, _)| existente == &n) {
+                    self.erro_atual("N2050", "Parâmetro declarado mais de uma vez na função.");
+                } else {
+                    parametros.push((n, t));
+                }
                 if !self.corresponde(TipoToken::Virgula) { break; }
+                if self.verifica(TipoToken::FechaPar) {
+                    self.erro_atual("N2005", "Esperado parâmetro após vírgula.");
+                    break;
+                }
             }
         }
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
-        let retorno = if self.corresponde(TipoToken::DoisPontos) { Some(self.caminho_tipo()?) } else { None };
+        let retorno = if self.corresponde(TipoToken::DoisPontos) {
+            match self.caminho_tipo() {
+                Some(tipo) => Some(tipo),
+                None => {
+                    self.sincronizar_ate(&[
+                        TipoToken::AbreChave,
+                        TipoToken::NovaLinha,
+                        TipoToken::Fim,
+                    ]);
+                    None
+                }
+            }
+        } else {
+            None
+        };
         let corpo = self.bloco()?;
         Some(NoAst::Funcao { visibilidade, nome, genericos, parametros, retorno, corpo })
     }
