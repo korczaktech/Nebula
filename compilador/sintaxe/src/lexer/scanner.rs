@@ -164,9 +164,7 @@ impl<'a> Lexer<'a> {
                 self.simples(TipoToken::AbrePar);
             }
             b')' => {
-                if self.delimitadores.last() == Some(&b'(') {
-                    self.delimitadores.pop();
-                }
+                self.fechar_delimitador(b'(');
                 self.simples(TipoToken::FechaPar);
             }
             b'{' => self.simples(TipoToken::AbreChave),
@@ -176,9 +174,7 @@ impl<'a> Lexer<'a> {
                 self.simples(TipoToken::AbreColchete);
             }
             b']' => {
-                if self.delimitadores.last() == Some(&b'[') {
-                    self.delimitadores.pop();
-                }
+                self.fechar_delimitador(b'[');
                 self.simples(TipoToken::FechaColchete);
             }
             b',' => self.simples(TipoToken::Virgula),
@@ -239,6 +235,14 @@ impl<'a> Lexer<'a> {
             }
         }
     }
+    fn fechar_delimitador(&mut self, abertura: u8) {
+        if let Some(posicao) = self.delimitadores.iter().rposition(|aberto| *aberto == abertura) {
+            // Remove também aberturas internas sem fechamento. Isso restabelece
+            // a emissão de quebras de linha após um fechamento cruzado.
+            self.delimitadores.truncate(posicao);
+        }
+    }
+
     fn simples(&mut self, tipo: TipoToken) {
         self.adicionar(tipo, self.inicio, self.atual);
     }
