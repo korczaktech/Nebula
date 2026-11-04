@@ -290,38 +290,129 @@ impl Parser {
                 self.separadores();
                 continue;
             }
-            let (enumeracao, variante, vinculacoes) = if self.verifica(TipoToken::Identificador)
-                && self.tokens.get(self.atual).is_some_and(|token| token.lexema == "_") {
-                self.avancar();
-                (None, None, Vec::new())
-            } else if self.corresponde(TipoToken::Identificador) {
-                let primeiro = self.tokens[self.atual - 1].lexema.nfc().collect::<String>();
-                if self.corresponde(TipoToken::Escopo) {
-                    let variante = self.consumir_nome("Esperado variante após '::'.")?;
-                    let mut vinculacoes = Vec::new();
-                    if self.corresponde(TipoToken::AbrePar) {
-                        if !self.verifica(TipoToken::FechaPar) {
-                            loop {
-                                vinculacoes.push(self.consumir_nome("Esperado nome para payload.")?);
-                                if !self.corresponde(TipoToken::Virgula) { break; }
+            let mut padrao_valido = true;
+            let (enumeracao, variante, vinculacoes, curinga) =
+                if self.verifica(TipoToken::Identificador)
+                    && self.tokens.get(self.atual).is_some_and(|token| token.lexema == "_")
+                {
+                    self.avancar();
+                    (None, None, Vec::new(), true)
+                } else if self.corresponde(TipoToken::Identificador) {
+                    let primeiro = self.tokens[self.atual - 1].lexema.nfc().collect::<String>();
+                    if self.corresponde(TipoToken::Escopo) {
+                        if let Some(variante) = self.consumir_nome("Esperado variante após '::'.") {
+                            let mut vinculacoes = Vec::new();
+                            if self.corresponde(TipoToken::AbrePar) {
+                                if !self.verifica(TipoToken::FechaPar) {
+                                    loop {
+                                        let vinculacao = if self.verifica(TipoToken::Identificador) {
+                                            Some(self.avancar().lexema.nfc().collect::<String>())
+                                        } else if matches!(self.tipo(), TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao) {
+                                            self.consumir_nome("Esperado nome para payload.");
+                                            None
+                                        } else {
+                                            self.erro_atual("N2045", "Esperado identificador no payload do padrão.");
+                                            None
+                                        };
+                                        if let Some(nome) = vinculacao {
+                                            if vinculacoes.contains(&nome) {
+                                                self.erro_atual("N2046", "Vínculo repetido no payload do padrão.");
+                                                padrao_valido = false;
+                                            } else {
+                                                vinculacoes.push(nome);
+                                            }
+                                        } else {
+                                            padrao_valido = false;
+                                            while !self.verifica(TipoToken::Fim)
+                                                && !self.verifica(TipoToken::Virgula)
+                                                && !self.verifica(TipoToken::FechaPar)
+                                                && !self.verifica(TipoToken::AbreChave)
+                                            {
+                                                self.avancar();
+                                            }
+                                        }
+                                        if !self.corresponde(TipoToken::Virgula) {
+                                            break;
+                                        }
+                                        if self.verifica(TipoToken::FechaPar) {
+                                            self.erro_atual("N2045", "Esperado identificador após vírgula no payload.");
+                                            padrao_valido = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if !self.corresponde(TipoToken::FechaPar) {
+                                    self.erro_atual("N2009", "Esperado ')' após vínculos do caso.");
+                                    padrao_valido = false;
+                                    while !self.verifica(TipoToken::Fim)
+                                        && !self.verifica(TipoToken::FechaPar)
+                                        && !self.verifica(TipoToken::AbreChave)
+                                        && !self.verifica(TipoToken::FechaChave)
+                                    {
+                                        self.avancar();
+                                    }
+                                    self.corresponde(TipoToken::FechaPar);
+                                }
                             }
+                            (Some(primeiro), Some(variante), vinculacoes, false)
+                        } else {
+                            padrao_valido = false;
+                            (Some(primeiro), None, Vec::new(), false)
                         }
-                        self.esperar(TipoToken::FechaPar, "Esperado ')' após vínculos do caso.");
+                    } else {
+                        self.erro_atual("N2042", "Padrão deve ser uma variante Enum::Variante ou '_'.");
+                        padrao_valido = false;
+                        (None, None, Vec::new(), false)
                     }
-                    (Some(primeiro), Some(variante), vinculacoes)
                 } else {
-                    self.erro_atual("N2042", "Padrão deve ser uma variante Enum::Variante ou '_'.");
-                    (None, None, Vec::new())
+                    self.erro_atual("N2042", "Esperado padrão de enumeração ou '_'.");
+                    padrao_valido = false;
+                    (None, None, Vec::new(), false)
+                };
+
+            if curinga {
+                if possui_curinga {
+                    self.erro_atual("N2043", "Caso curinga duplicado.");
+                    padrao_valido = false;
                 }
-            } else {
-                self.erro_atual("N2042", "Esperado padrão de enumeração ou '_'.");
-                (None, None, Vec::new())
+                possui_curinga = true;
+                if self.verifica(TipoToken::AbrePar) {
+                    self.erro_atual("N2042", "O padrão curinga '_' não aceita payload.");
+                    padrao_valido = false;
+                }
+            }
+
+            if self.verifica(TipoToken::Escopo) {
+                self.erro_atual("N2042", "Um padrão deve conter exatamente Enum::Variante.");
+                padrao_valido = false;
+            }
+            if !self.verifica(TipoToken::AbreChave) && !self.verifica(TipoToken::NovaLinha) {
+                while !self.verifica(TipoToken::Fim)
+                    && !self.verifica(TipoToken::AbreChave)
+                    && !self.verifica(TipoToken::NovaLinha)
+                    && !self.verifica(TipoToken::FechaChave)
+                    && !self.verifica(TipoToken::Caso)
+                {
+                    self.avancar();
+                }
+            }
+            let corpo = match self.bloco() {
+                Some(corpo) => corpo,
+                None => {
+                    if !self.separador_atual()
+                        && !self.verifica(TipoToken::FechaChave)
+                        && !self.verifica(TipoToken::Fim)
+                        && !self.verifica(TipoToken::Caso)
+                    {
+                        self.sincronizar();
+                    }
+                    self.separadores();
+                    continue;
+                }
             };
-            let curinga = enumeracao.is_none() && variante.is_none();
-            if curinga && possui_curinga { self.erro_atual("N2043", "Caso curinga duplicado."); }
-            if curinga { possui_curinga = true; }
-            let corpo = self.bloco()?;
-            casos.push(CasoEscolha { enumeracao, variante, vinculacoes, corpo });
+            if padrao_valido {
+                casos.push(CasoEscolha { enumeracao, variante, vinculacoes, corpo });
+            }
             self.separadores();
         }
         self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
