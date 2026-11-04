@@ -422,6 +422,25 @@ fn pulso_executa_ciclos_ate_encerrar() {
     assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "2");
 }
 
+
+#[test]
+fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
+    let caminho = std::env::temp_dir().join(format!("nebula-paralelo-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "funcao um(): inteiro { devolver 11 }\nfuncao dois(): inteiro { devolver 22 }\nvariavel resultados = em_paralelo(um, dois)\nexibir(resultados[0])\nexibir(resultados[1])",
+    )
+    .unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "11\n22\n");
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
