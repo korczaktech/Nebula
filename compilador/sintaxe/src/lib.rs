@@ -675,7 +675,7 @@ impl Parser {
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if self.fechamento_sem_contexto() {
+                if self.fechamento_incompativel_com_chaves() {
                     self.erro_atual("N2051", "Delimitador de fechamento incompatível com o bloco aberto.");
                     self.avancar();
                 } else if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() && !bloco_recuperado {
@@ -697,7 +697,7 @@ impl Parser {
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if self.fechamento_sem_contexto() {
+                if self.fechamento_incompativel_com_fim() {
                     self.erro_atual("N2051", "Delimitador de fechamento incompatível com o bloco iniciado por quebra de linha.");
                     self.avancar();
                 } else if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) && !bloco_recuperado {
@@ -1114,6 +1114,18 @@ impl Parser {
         matches!(
             self.tipo(),
             TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+        )
+    }
+    fn fechamento_incompativel_com_chaves(&self) -> bool {
+        matches!(
+            self.tipo(),
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FimBloco
+        )
+    }
+    fn fechamento_incompativel_com_fim(&self) -> bool {
+        matches!(
+            self.tipo(),
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave
         )
     }
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
