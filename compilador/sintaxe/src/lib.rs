@@ -2640,7 +2640,7 @@ mod testes {
     #[test]
     fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
         let valido = analisar(&fonte(
-            "funcao principal() {\\n variavel valor = montar([1, (2, 3)], Pessoa { nome: \\"Ana\\" })\\n variavel final = 9\\n}",
+            "funcao principal() {\n variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n variavel final = 9\n}",
         ));
         assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
@@ -2649,7 +2649,7 @@ mod testes {
         assert!(corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "final")));
 
         let quebrado = analisar(&fonte(
-            "funcao principal() {\\n variavel quebrada = calcular([1, 2)\\n variavel preservada = 7\\n}",
+            "funcao principal() {\n variavel quebrada = calcular([1, 2)\n variavel preservada = 7\n}",
         ));
         assert!(
             quebrado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
@@ -2671,7 +2671,7 @@ mod testes {
             "variavel valor = 1)",
             "variavel valor = [1]]",
             "funcao principal() { exibir(1) fim",
-            "funcao principal()\\n exibir(1)\\n}",
+            "funcao principal()\n exibir(1)\n}",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2688,7 +2688,7 @@ mod testes {
             "variavel valor = calcular(1, 2",
             "variavel valores = [1, 2",
             "funcao principal() { exibir(1)",
-            "funcao principal()\\n exibir(1)",
+            "funcao principal()\n exibir(1)",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2703,8 +2703,8 @@ mod testes {
     fn aceita_blocos_aninhados_com_chaves_e_terminadores_fim() {
         for codigo in [
             "funcao principal() { quando verdadeiro { exibir(1) } }",
-            "funcao principal()\\n quando verdadeiro\\n  enquanto verdadeiro\\n   exibir(1)\\n  fim\\n fim\\nfim",
-            "funcao principal() { quando verdadeiro\\n exibir(1)\\n fim\\n variavel depois = 2 }",
+            "funcao principal()\n quando verdadeiro\n  enquanto verdadeiro\n   exibir(1)\n  fim\n fim\nfim",
+            "funcao principal() { quando verdadeiro\n exibir(1)\n fim\n variavel depois = 2 }",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
