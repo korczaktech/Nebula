@@ -1761,6 +1761,32 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn recupera_parametros_de_funcao_e_preserva_o_corpo() {
+        let codigo = "funcao principal(a: , b: inteiro) { devolver b }\nfuncao outra(a inteiro, b: texto) {}\nvariavel depois = 1";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2010" || d.codigo == "N2005"),
+            "parâmetros inválidos precisam gerar diagnóstico: {:?}",
+            resultado.diagnosticos
+        );
+        assert_eq!(resultado.programa.itens.len(), 3, "declarações posteriores devem ser preservadas: {:?}", resultado.programa.itens);
+        assert!(matches!(&resultado.programa.itens[0], NoAst::Funcao { parametros, corpo, .. }
+            if parametros.iter().any(|(nome, _)| nome == "b") && !corpo.is_empty()));
+        assert!(matches!(&resultado.programa.itens[2], NoAst::Variavel { nome, .. } if nome == "depois"));
+    }
+
+    #[test]
+    fn rejeita_parametros_duplicados_e_genericos_malformados_sem_perder_funcao() {
+        let duplicado = analisar(&fonte("funcao repetir(a: inteiro, a: texto) {}"));
+        assert!(duplicado.diagnosticos.iter().any(|d| d.codigo == "N2050"));
+
+        let generico = analisar(&fonte("funcao combinar<T,>(valor: T) { devolver valor }"));
+        assert!(generico.diagnosticos.iter().any(|d| d.codigo == "N2015"));
+        assert!(matches!(generico.programa.itens.first(), Some(NoAst::Funcao { .. })));
+    }
+
 }
 
 }
