@@ -3270,7 +3270,9 @@ mod testes {
 }
 
 pub use ast::{
-    CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade,
+    AliasTipoAst, CampoAst, CasoEscolha, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado,
+    OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico, TipoAst, TipoLocalizado,
+    VarianteAst, Visibilidade,
 };
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
