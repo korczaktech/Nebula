@@ -2979,6 +2979,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_intervalo_com_tipo_generico_explicito() {
+        let ir = compilar(
+            "variavel faixa: Intervalo<inteiro> = 1..3\ncada numero em faixa { exibir(numero) }",
+        );
+        let resultado = executar(&ir, 100).expect("intervalo tipado explícito");
+        assert_eq!(resultado.saida, vec!["1", "2", "3"]);
+    }
+
+    #[test]
     fn executa_intervalo_decimal() {
         let ir = compilar("variavel faixa = 1.5..3.5");
         let r = executar(&ir, 100).expect("execução válida");
