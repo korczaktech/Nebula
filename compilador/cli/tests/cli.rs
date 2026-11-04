@@ -436,7 +436,6 @@ fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
     assert_eq!(String::from_utf8_lossy(&saida.stdout), "11\n22\n");
 }
 
-
 #[test]
 fn aliases_de_entrada_e_espera_executam() {
     use std::io::Write;
@@ -485,7 +484,8 @@ fn tipos_vetor_e_matriz_sao_utilizaveis_no_runtime() {
 
 #[test]
 fn funcao_do_usuario_pode_se_chamar_receber() {
-    let caminho = std::env::temp_dir().join(format!("nebula-receber-funcao-{}.nbx", std::process::id()));
+    let caminho =
+        std::env::temp_dir().join(format!("nebula-receber-funcao-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
         "funcao receber<T>(valor: Resultado<Opcional<T>,texto>) { exibir(\"funcao\") }\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
