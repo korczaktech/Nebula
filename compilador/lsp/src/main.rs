@@ -8,7 +8,7 @@
 #[rustfmt::skip]
 mod implementacao {
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
-use nebula_sintaxe::{analisar, NoAst};
+use nebula_sintaxe::{analisar, analisar_lexico, NoAst, Programa, TipoToken};
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
 
@@ -301,28 +301,51 @@ fn completion(document: &Document, uri: &str, line: usize, character: usize) -> 
     visit(&parsed.programa.itens, &mut items, &prefix);
     object([("isIncomplete".into(), Json::Bool(false)), ("items".into(), Json::Array(items))])
 }
-fn symbols(nodes: &[NoAst], text: &str) -> Json {
-    let mut result = Vec::new();
-    for node in nodes {
-        let (name, kind) = match node {
-            NoAst::Variavel { nome, .. } => (Some(nome.as_str()), 13),
-            NoAst::Funcao { nome, .. } => (Some(nome.as_str()), 12),
-            NoAst::Tipo { nome, .. } | NoAst::Estrutura { nome, .. } => (Some(nome.as_str()), 23),
-            NoAst::Enumeracao { nome, .. } => (Some(nome.as_str()), 10),
-            _ => (None, 13),
-        };
-        if let Some(name) = name {
-            let start = text.find(name).unwrap_or(0);
-            let end = start + name.len();
-            result.push(object([
-                ("name".into(), s(name)),
-                ("kind".into(), n(kind)),
-                ("range".into(), range(IntervaloFonte::novo(start, end), text)),
-                ("selectionRange".into(), range(IntervaloFonte::novo(start, end), text)),
-            ]));
-        }
+fn declared_name(node: &NoAst) -> Option<(&str, usize)> {
+    match node {
+        NoAst::Variavel { nome, .. } => Some((nome, 13)),
+        NoAst::Funcao { nome, .. } => Some((nome, 12)),
+        NoAst::Tipo { nome, .. } | NoAst::Estrutura { nome, .. } => Some((nome, 23)),
+        NoAst::Enumeracao { nome, .. } => Some((nome, 10)),
+        NoAst::Incluir { apelido: Some(nome), .. } => Some((nome, 2)),
+        _ => None,
     }
-    Json::Array(result)
+}
+fn declaration_locations(program: &Programa, text: &str, uri: &str) -> Vec<(String, usize, usize, usize)> {
+    let mut locations = Vec::new();
+    for located in &program.nos_localizados {
+        let Some((name, kind)) = declared_name(&located.no) else { continue; };
+        let Some(fragment) = text.get(located.intervalo.inicio..located.intervalo.fim) else { continue; };
+        let Some(relative) = fragment.find(name) else { continue; };
+        let start = located.intervalo.inicio + relative;
+        locations.push((name.to_owned(), start, start + name.len(), kind));
+    }
+    let _ = uri;
+    locations
+}
+fn location_json(uri: &str, text: &str, start: usize, end: usize) -> Json {
+    object([
+        ("uri".into(), s(uri)),
+        ("range".into(), range(IntervaloFonte::novo(start, end), text)),
+    ])
+}
+fn symbols(program: &Programa, text: &str, uri: &str) -> Json {
+    Json::Array(declaration_locations(program, text, uri).into_iter().map(|(name, start, end, kind)| {
+        object([
+            ("name".into(), s(name)),
+            ("kind".into(), n(kind)),
+            ("range".into(), range(IntervaloFonte::novo(start, end), text)),
+            ("selectionRange".into(), range(IntervaloFonte::novo(start, end), text)),
+        ])
+    }).collect())
+}
+fn references(text: &str, uri: &str, word: &str) -> Json {
+    let file = ArquivoFonte::novo(uri, text.to_owned());
+    let lexical = analisar_lexico(&file);
+    Json::Array(lexical.tokens.into_iter()
+        .filter(|token| token.tipo == TipoToken::Identificador && token.lexema == word)
+        .map(|token| location_json(uri, text, token.intervalo.inicio, token.intervalo.fim))
+        .collect())
 }
 fn handle(server: &mut Server, message: Json) -> Vec<Json> {
     let method = message.get("method").and_then(Json::string).unwrap_or("");
@@ -380,7 +403,7 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
                 }
                 "textDocument/documentSymbol" => {
                     let file = ArquivoFonte::novo(uri, doc.text.clone());
-                    symbols(&analisar(&file).programa.itens, &doc.text)
+                    symbols(&analisar(&file).programa, &doc.text, uri)
                 }
                 "textDocument/hover" => {
                     let pos = params.get("position").unwrap_or(&Json::Null);
@@ -398,14 +421,16 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
                     let at = offset(&doc.text, pos.get("line").and_then(Json::number).unwrap_or(0) as usize,
                         pos.get("character").and_then(Json::number).unwrap_or(0) as usize);
                     let (_, _, word) = word_at(&doc.text, at);
-                    let found = doc.text.match_indices(&word).map(|(start, value)| {
-                        let end = start + value.len();
-                        object([
-                            ("uri".into(), s(uri)),
-                            ("range".into(), range(IntervaloFonte::novo(start, end), &doc.text)),
-                        ])
-                    }).collect();
-                    Json::Array(found)
+                    if word.is_empty() { Json::Null } else if method == "textDocument/references" {
+                        references(&doc.text, uri, &word)
+                    } else {
+                        let file = ArquivoFonte::novo(uri, doc.text.clone());
+                        let parsed = analisar(&file);
+                        declaration_locations(&parsed.programa, &doc.text, uri).into_iter()
+                            .find(|(name, _, _, _)| name == &word)
+                            .map(|(_, start, end, _)| Json::Array(vec![location_json(uri, &doc.text, start, end)]))
+                            .unwrap_or(Json::Null)
+                    }
                 }
                 _ => Json::Null,
             }).unwrap_or(Json::Null);
