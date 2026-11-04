@@ -125,13 +125,17 @@ impl Manifesto {
     /// Analisa o subconjunto estrito de nebula.toml suportado.
     ///
     /// Formato:
+    /// ```toml
     /// [pacote]
     /// nome = "aplicacao"
     /// versao = "1.0.0"
+    ///
     /// [dependencias]
     /// biblioteca = "../biblioteca"
+    ///
     /// [restricoes]
     /// biblioteca = "^1.2.0"
+    /// ```
     pub fn analisar(conteudo: &str) -> Result<Self, String> {
         let mut secao = "";
         let mut nome = None;
