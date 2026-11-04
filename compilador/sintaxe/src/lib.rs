@@ -1331,10 +1331,10 @@ mod testes {
     }
     #[test]
     fn reconhece_aliases_de_declaracao_e_controle() {
-        let codigo = "definir a = 1\nmutável b = 2\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
+        let codigo = "definir a = 1\nmutável b = 2\nmutavel c = 3\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-        assert_eq!(r.programa.itens.len(), 7);
+        assert_eq!(r.programa.itens.len(), 8);
     }
 
     #[test]
