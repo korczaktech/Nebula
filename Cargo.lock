@@ -62,6 +62,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nebula-lsp"
+version = "0.1.0"
+dependencies = [
+ "nebula-diagnosticos",
+ "nebula-fonte",
+ "nebula-sintaxe",
+]
+
+[[package]]
 name = "nebula-pacotes"
 version = "0.1.0"
 dependencies = [
