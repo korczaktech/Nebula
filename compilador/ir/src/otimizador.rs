@@ -195,8 +195,8 @@ fn propagar_constantes_lista(
                 let mut estado_laco = constantes.clone();
                 propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
             }
-            InstrucaoIr::Cada { iteravel, corpo, .. } => {
-                propagar_constantes_expressao(iteravel, constantes, relatorio);
+            InstrucaoIr::Pulso { intervalo, corpo } => {
+                propagar_constantes_expressao(intervalo, constantes, relatorio);
                 let mut estado_laco = constantes.clone();
                 propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
             }
@@ -304,8 +304,8 @@ fn otimizar_instrucao(
             otimizar_expressao(iteravel, relatorio);
             otimizar_lista(corpo, nivel, relatorio);
         }
-        InstrucaoIr::Cada { iteravel, corpo, .. } => {
-            otimizar_expressao(iteravel, relatorio);
+        InstrucaoIr::Pulso { intervalo, corpo } => {
+            otimizar_expressao(intervalo, relatorio);
             otimizar_lista(corpo, nivel, relatorio);
         }
         InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
