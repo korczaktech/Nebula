@@ -1,170 +1,198 @@
-# Gramática inicial da Nebula
+# Gramática da Nebula
 
-**Estado:** gramática normativa do subconjunto sintático inicial. O Lexer, a AST e o Parser estão implementados no crate `nebula-sintaxe`; os critérios e a validação da implementação estão em `especificacao/criterios-fase-2.md`.
+**Estado:** especificação normativa do frontend sintático. Esta gramática descreve o subconjunto aceito pelo Lexer e pelo Parser do crate `nebula-sintaxe`. Regras de tipos, nomes, mutabilidade e fluxo de controle que dependam de contexto pertencem à análise semântica.
 
 ## 1. Notação
 
-- = define uma produção; | representa alternativa.
-- [ ... ] indica elemento opcional; { ... } indica zero ou mais repetições.
+- `=` define uma produção; `|` representa alternativas.
+- `[ ... ]` indica elemento opcional; `{ ... }` indica zero ou mais repetições.
 - Terminais aparecem entre aspas.
-- Nomes em maiúsculas representam classes de tokens descritas em tokens.md.
-- EOF representa fim de arquivo.
-- A gramática descreve sintaxe, não validação de tipos, nomes, alvos de atribuição ou fluxo de controle.
+- Nomes em maiúsculas representam categorias de tokens de `tokens.md`.
+- `EOF` representa o fim do arquivo.
+- `NOVA_LINHA` é o token de quebra lógica preservado pelo Lexer.
 
-## 2. Arquivo e separadores
-
-~~~ebnf
-arquivo          = { separador }, [ item, { separador, item } ], { separador }, EOF ;
-item             = declaracao | instrucao ;
-separador        = NOVA_LINHA | ";" ;
-~~~
-
-Um separador é obrigatório entre dois itens independentes. Separadores repetidos e linhas em branco são permitidos. Um separador imediatamente antes de }, fim ou EOF é permitido.
-
-A quebra de linha pode ser tratada como continuação, e não como separador, quando a expressão ainda estiver incompleta: depois de operador binário, vírgula ou antes de um operador que complete a expressão anterior. Dentro de () e [], quebras são espaços. A indentação não tem significado sintático.
-
-Uma quebra de linha imediatamente antes de senao continua a estrutura condicional anterior; não separa o senao do bloco que o antecede.
-
-## 3. Declarações
+## 2. Arquivo e itens
 
 ~~~ebnf
-declaracao           = declaracao_variavel
-                     | declaracao_constante
-                     | declaracao_funcao
-                     | declaracao_tipo
-                     | declaracao_estrutura
-                     | declaracao_enumeracao
-                     | declaracao_modulo ;
+arquivo                 = { separador }, [ item, { separador, item } ],
+                          { separador }, EOF ;
+item                    = declaracao | instrucao ;
+separador               = NOVA_LINHA | ";" ;
 
-declaracao_variavel  = ("variavel" | "definir" | "mutavel" | "mutável"),
-                       IDENTIFICADOR, [ ":", tipo ], "=", expressao ;
-declaracao_constante = "constante", IDENTIFICADOR,
-                       [ ":", tipo ], "=", expressao ;
+declaracao              = declaracao_variavel
+                        | declaracao_constante
+                        | declaracao_funcao
+                        | declaracao_tipo
+                        | declaracao_estrutura
+                        | declaracao_enumeracao
+                        | declaracao_modulo ;
 
-declaracao_funcao    = [ "publico" | "privado" ], "funcao",
-                       IDENTIFICADOR, [ "<", lista_genericos, ">" ],
-                       "(", [ lista_parametros ], ")",
-                       [ ":", tipo ], bloco ;
-lista_genericos      = IDENTIFICADOR, { ",", IDENTIFICADOR } ;
-lista_parametros     = parametro, { ",", parametro } ;
-parametro            = IDENTIFICADOR, ":", tipo ;
+declaracao_variavel     = ("variavel" | "definir" | "mutavel" | "mutável"),
+                          IDENTIFICADOR, [ ":", tipo ], ("=" | "<-"), expressao ;
+declaracao_constante    = "constante", IDENTIFICADOR,
+                          [ ":", tipo ], ("=" | "<-"), expressao ;
+declaracao_funcao       = [ "publico" | "privado" ], "funcao",
+                          IDENTIFICADOR, [ "<", lista_genericos, ">" ],
+                          "(", [ lista_parametros ], ")",
+                          [ ":", tipo ], bloco ;
+lista_genericos         = IDENTIFICADOR, { ",", IDENTIFICADOR } ;
+lista_parametros        = parametro, { ",", parametro } ;
+parametro               = IDENTIFICADOR, ":", tipo ;
+declaracao_tipo         = "tipo", IDENTIFICADOR, ("=" | "<-"), tipo ;
+declaracao_estrutura    = "estrutura", IDENTIFICADOR, "{",
+                          { campo_estrutura, { separador_membro } }, "}" ;
+campo_estrutura         = IDENTIFICADOR, ":", tipo ;
+declaracao_enumeracao   = "enumeracao", IDENTIFICADOR, "{",
+                          variante, { separador_membro, variante },
+                          [ separador_membro ], "}" ;
+variante                = IDENTIFICADOR, [ "(", [ lista_tipos ], ")" ] ;
+lista_tipos             = tipo, { ",", tipo } ;
+separador_membro        = "," | NOVA_LINHA | ";" ;
 
-declaracao_tipo      = "tipo", IDENTIFICADOR, "=", tipo ;
-declaracao_estrutura = "estrutura", IDENTIFICADOR, "{",
-                       { campo_estrutura, { separador_campo } }, "}" ;
-campo_estrutura     = IDENTIFICADOR, ":", tipo ;
-separador_campo     = "," | NOVA_LINHA | ";" ;
-declaracao_enumeracao = "enumeracao", IDENTIFICADOR, "{",
-                        variante, { separador_variante, variante }, "}" ;
-variante            = IDENTIFICADOR, [ "(", lista_tipos, ")" ] ;
-lista_tipos         = tipo, { ",", tipo } ;
-separador_variante  = "," | NOVA_LINHA | ";" ;
-tipo                 = caminho_tipo | "[", tipo, "]" ;
-caminho_tipo         = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
+declaracao_modulo       = "incluir", caminho_modulo, [ "como", IDENTIFICADOR ] ;
+caminho_modulo          = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
 
-declaracao_modulo    = "incluir", caminho_modulo,
-                       [ "como", IDENTIFICADOR ] ;
-caminho_modulo       = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
+tipo                    = tipo_funcao | tipo_lista | tipo_generico ;
+tipo_funcao             = "funcao", "(", [ lista_tipos ], ")",
+                          [ ":", tipo ] ;
+tipo_lista              = "[", tipo, "]" ;
+tipo_generico           = caminho_qualificado, [ "<", lista_tipos, ">" ] ;
+caminho_qualificado     = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
 ~~~
 
-O tipo de retorno de uma função é vazio quando omitido. A gramática admite nomes de tipos como identificadores; a existência e compatibilidade de cada tipo serão verificadas semanticamente em fase posterior.
+O retorno de função omitido equivale ao tipo `vazio`. Tipos genéricos, tipos de função e listas podem ser aninhados. Os nomes e a compatibilidade dos tipos são verificados semanticamente.
 
-## 4. Blocos e instruções
+## 3. Instruções e blocos
 
 ~~~ebnf
-bloco                = bloco_chaves | bloco_fim ;
-bloco_chaves         = { NOVA_LINHA }, "{", { separador }, [ item, { separador, item } ],
-                       { separador }, "}" ;
-bloco_fim            = NOVA_LINHA, { separador },
-                       [ item, { separador, item } ],
-                       { separador }, "fim" ;
+instrucao               = declaracao_variavel
+                        | declaracao_constante
+                        | instrucao_alterar
+                        | declaracao_funcao
+                        | declaracao_tipo
+                        | declaracao_estrutura
+                        | declaracao_enumeracao
+                        | declaracao_modulo
+                        | instrucao_quando
+                        | instrucao_escolha
+                        | instrucao_enquanto
+                        | instrucao_cada
+                        | instrucao_pulso
+                        | instrucao_para
+                        | instrucao_devolver
+                        | instrucao_controle
+                        | expressao ;
 
-instrucao            = declaracao_variavel
-                     | declaracao_constante
-                     | expressao
-                     | instrucao_quando
-                     | instrucao_avaliar
-                     | instrucao_enquanto
-                     | instrucao_para
-                     | instrucao_cada
-                     | instrucao_pulso
-                     | instrucao_alterar
-                     | instrucao_devolver
-                     | instrucao_controle ;
+bloco                   = bloco_chaves | bloco_fim ;
+bloco_chaves            = { NOVA_LINHA }, "{", { separador },
+                          { item, { separador } }, "}" ;
+bloco_fim               = NOVA_LINHA, { separador },
+                          { item, { separador } }, "fim" ;
 
-instrucao_quando     = "quando", condicao, bloco,
-                       [ { NOVA_LINHA }, "senao",
-                         ( bloco | instrucao_quando ) ] ;
-instrucao_avaliar    = ("avaliar" | "escolha"), expressao,
-                       "{", { "caso", (expressao | "_"), bloco }, "}" ;
-condicao             = expressao ;
+instrucao_quando        = "quando", expressao, bloco,
+                          [ { NOVA_LINHA }, "senao",
+                            ( instrucao_quando | bloco ) ] ;
+instrucao_escolha       = ("escolha" | "avaliar"), expressao, "{",
+                          { separador }, caso_escolha,
+                          { { separador }, caso_escolha },
+                          { separador }, "}" ;
+caso_escolha            = "caso", padrao_escolha, bloco ;
+padrao_escolha          = "_" | caminho_variante, [ "(", [ lista_vinculos ], ")" ] ;
+caminho_variante        = IDENTIFICADOR, "::", IDENTIFICADOR ;
+lista_vinculos          = IDENTIFICADOR, { ",", IDENTIFICADOR } ;
 
-instrucao_enquanto   = ("enquanto" | "durante" | "repetir"),
-                       condicao, bloco ;
-instrucao_cada       = "cada", IDENTIFICADOR, "em", expressao, bloco ;
-instrucao_pulso      = "pulso", "(", expressao, ")", bloco ;
-instrucao_alterar    = "alterar", atribuicao ;
-instrucao_para       = "para", "(",
-                       [ declaracao_variavel | expressao ], ";",
-                       [ expressao ], ";",
-                       [ expressao ], ")", bloco ;
-
-instrucao_devolver   = "devolver", [ expressao ] ;
-instrucao_controle   = ("parar" | "encerrar") | "seguir" ;
+instrucao_enquanto      = ("enquanto" | "durante" | "repetir"),
+                          expressao, bloco ;
+instrucao_cada          = "cada", IDENTIFICADOR, "em", expressao, bloco ;
+instrucao_pulso         = "pulso", "(", expressao, ")", bloco ;
+instrucao_para          = "para", "(",
+                          [ declaracao_variavel | expressao ], ";",
+                          [ expressao ], ";", [ expressao ], ")", bloco ;
+instrucao_alterar       = "alterar", atribuicao ;
+instrucao_devolver      = "devolver", [ expressao ] ;
+instrucao_controle      = ("parar" | "encerrar") | "seguir" ;
 ~~~
 
-Para quando e enquanto, parênteses ao redor da condição são opcionais quando o início do bloco delimita a expressão sem ambiguidade. A forma com parênteses continua válida e recomendada quando melhora a leitura. O cabeçalho de para mantém parênteses e dois pontos e vírgulas obrigatórios para separar inicialização, condição e atualização.
+O Parser também aceita `definir` e `mutavel`/`mutável` como aliases de declaração de variável; `avaliar` como alias de `escolha`; `durante` e `repetir` como aliases de `enquanto`; e `encerrar` como alias de `parar`. `alterar` exige uma expressão de atribuição. A validação de que o destino é modificável e de que os comandos de controle estão em contexto válido é semântica.
 
-Blocos podem usar chaves ou o terminador fim. Cada bloco iniciado na forma fim exige seu próprio fim; blocos aninhados são fechados do mais interno para o mais externo. O senao associa-se ao quando aberto mais próximo que ainda não tenha senao.
+Os blocos podem usar chaves ou terminador `fim`. Um bloco iniciado por quebra de linha exige seu próprio `fim`. Blocos aninhados são fechados do mais interno para o mais externo. O `senao` associa-se ao `quando` aberto mais próximo que ainda não tenha alternativa.
 
-## 5. Expressões
+## 4. Expressões
 
 ~~~ebnf
-expressao           = atribuicao ;
-atribuicao          = logica_ou, [ ("=" | "<-"), atribuicao ] ;
-logica_ou           = logica_e, { "ou", logica_e } ;
-logica_e            = igualdade, { "e", igualdade } ;
-igualdade           = comparacao, { ( "==" | "!=" ), comparacao } ;
-comparacao          = intervalo,
-                      [ ( "<" | "<=" | ">" | ">=" ), intervalo ] ;
-intervalo           = aditiva, [ "..", aditiva ] ;
-aditiva             = multiplicativa, { ( "+" | "-" ), multiplicativa } ;
-multiplicativa      = unaria, { ( "*" | "/" | "%" ), unaria } ;
-unaria              = ( "!" | "nao" | "-" | "+" ), unaria | potencia ;
-potencia            = posfixa, [ "**", unaria ] ;
-posfixa             = primaria, { chamada | indexacao | acesso_membro } ;
-chamada             = "(", [ lista_argumentos ], ")" ;
-lista_argumentos    = expressao, { ",", expressao } ;
-indexacao           = "[", expressao, "]" ;
-acesso_membro       = ( "." | "::" ), IDENTIFICADOR ;
-primaria             = IDENTIFICADOR | literal | tupla_literal
-                     | "(", expressao, ")" | lista_literal ;
-tupla_literal        = "(", expressao, ",", [ lista_argumentos ], ")" ;
-lista_literal       = "[", [ lista_argumentos ], "]" ;
+expressao               = atribuicao ;
+atribuicao              = logica_ou, [ ("=" | "<-"), atribuicao ] ;
+logica_ou               = logica_e, { "ou", logica_e } ;
+logica_e                = igualdade, { "e", igualdade } ;
+igualdade               = comparacao, { ("==" | "!="), comparacao } ;
+comparacao              = intervalo, [ ("<" | "<=" | ">" | ">="), intervalo ] ;
+intervalo               = aditiva, [ "..", aditiva ] ;
+aditiva                 = multiplicativa, { ("+" | "-"), multiplicativa } ;
+multiplicativa          = unaria, { ("*" | "/" | "%"), unaria } ;
+unaria                  = ("!" | "nao" | "-" | "+"), unaria | potencia ;
+potencia                = posfixa, [ "**", unaria ] ;
+posfixa                 = primaria, { chamada | indexacao | acesso_membro } ;
+chamada                 = "(", [ lista_argumentos ], ")" ;
+lista_argumentos        = expressao, { ",", expressao } ;
+indexacao               = "[", expressao, "]" ;
+acesso_membro           = ("." | "::"), IDENTIFICADOR ;
+primaria                = IDENTIFICADOR | literal | tupla | lista
+                        | construcao_estrutura ;
+tupla                   = "(", ")" | "(", expressao, ",",
+                          [ lista_argumentos ], ")" | "(", expressao, ")" ;
+lista                   = "[", [ lista_argumentos ], "]" ;
+construcao_estrutura    = IDENTIFICADOR, "{",
+                          [ campo_valor, { separador_membro, campo_valor },
+                            [ separador_membro ] ], "}" ;
+campo_valor             = IDENTIFICADOR, ":", expressao ;
 ~~~
 
-A atribuição e a potência associam à direita. "alterar" exige uma atribuição válida. "definir" e "mutavel"/"mutável" são aliases de declaração de variável. "avaliar" é alias de "escolha"; "durante" e "repetir" são aliases de "enquanto"; "encerrar" é alias de "parar". "cada nome em coleção" percorre listas, textos e intervalos. "pulso(ms)" repete o bloco com uma pausa em milissegundos entre execuções. O operador de atribuição "<-" é equivalente a "=". Operadores aritméticos, lógicos e de igualdade em sequência associam à esquerda. Comparações relacionais encadeadas não são permitidas: uma produção de comparação contém no máximo um operador relacional. A análise semântica validará se o lado esquerdo de uma atribuição é modificável.
+A atribuição e a potência associam à direita. Os operadores aritméticos, lógicos e de igualdade associam à esquerda. Comparações relacionais e operadores de intervalo não podem ser encadeados sem agrupamento explícito. A análise semântica valida o destino da atribuição.
 
-Precedência da maior para a menor: chamada/indexação/acesso; potência; unários; multiplicação/divisão/resto; adição/subtração; intervalo; comparação; igualdade; E; OU; atribuição.
+Precedência, da maior para a menor: chamada/indexação/acesso a membro; potência; unários; multiplicação/divisão/resto; adição/subtração; intervalo; comparação; igualdade; E; OU; atribuição. O Parser usa precedência Pratt equivalente a essa ordem.
 
-## 6. Literais
+## 5. Literais
 
 ~~~ebnf
-literal = INTEIRO | DECIMAL | TEXTO | CARACTERE
-        | "verdadeiro" | "falso" | "nulo" ;
+literal                  = INTEIRO | DECIMAL | TEXTO | CARACTERE
+                         | "verdadeiro" | "falso" | "nulo" ;
 ~~~
 
-As formas numéricas, escapes e restrições de texto/caractere estão definidas em tokens.md.
+As bases numéricas, escapes, normalização de identificadores, comentários e restrições de texto/caractere estão definidos em `tokens.md`.
 
-## 7. Escopo desta gramática
+## 6. Quebras de linha e separadores
 
-Fazem parte do subconjunto sintático inicial: variáveis, constantes, funções, parâmetros tipados, aliases de tipo, declarações de estruturas e enumerações, inclusão de módulos, blocos, condicionais, laços enquanto e para, retorno, controle de laço, chamadas, listas, indexação, acesso a membros, operadores e literais descritos acima.
+- Um separador é obrigatório entre itens independentes.
+- Separadores repetidos e linhas em branco são permitidos.
+- Um separador imediatamente antes de `}`, `fim` ou `EOF` é permitido.
+- Dentro de parênteses e colchetes, quebras de linha não separam itens.
+- Quebras depois de operadores que ainda precisam de operando continuam a expressão.
+- Quebras antes de operadores que podem completar a expressão anterior continuam a expressão.
+- Quebras após vírgulas continuam listas de argumentos, parâmetros, tipos, tuplas e vínculos.
+- Uma quebra imediatamente antes de `senao` não separa a alternativa do `quando`.
+- A indentação não cria nem fecha blocos.
+- Dentro de chaves, quebras de linha continuam podendo separar itens.
 
-As declarações de estruturas e enumerações já possuem produções sintáticas. A construção e o uso de valores desses tipos, incluindo acesso a campos, variantes com payload e padrões, ainda dependem da implementação semântica, da IR e do runtime. Tratamento de exceções, funções assíncronas, interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita permanecem fora do subconjunto atual.
+## 7. Restrições sintáticas e semânticas
 
-## 8. Casos de referência
+O Parser rejeita:
+- Uso de palavras reservadas para recursos futuros como construções ou identificadores.
+- Comparações relacionais encadeadas.
+- Operadores de intervalo encadeados.
+- Parâmetros genéricos repetidos.
+- Campos repetidos em uma estrutura.
+- Variantes repetidas ou enumerações sem variantes.
+- Campos repetidos em uma construção de estrutura.
+- Mais de um caso curinga em uma instrução `escolha`.
+- Instruções `alterar` cujo conteúdo não seja uma atribuição.
 
-Forma com delimitadores explícitos:
+A existência de nomes, tipos, campos, variantes, mutabilidade do destino e validade contextual de `devolver`, `parar` e `seguir` pertence à análise semântica.
+
+## 8. Fora do subconjunto sintático
+
+Tratamento de exceções (`tentar`, `capturar`, `finalmente`), funções assíncronas (`assinc`), interpolação, strings multilinha, chamadas sem parênteses e declarações de função sem lista de parâmetros explícita permanecem fora desta gramática. Palavras reservadas futuras não habilitam esses recursos.
+
+## 9. Exemplos de referência
 
 ~~~nebula
 funcao principal(): vazio {
@@ -176,12 +204,28 @@ funcao principal(): vazio {
         exibir("vazio")
     }
 }
+
+estrutura Pessoa {
+    nome: texto,
+    idade: inteiro
+}
+
+enumeracao Resultado {
+    Sucesso(texto),
+    Falha(inteiro)
+}
+
+escolha resultado {
+    caso Resultado::Sucesso(mensagem) { exibir(mensagem) }
+    caso Resultado::Falha(codigo) { exibir(codigo) }
+    caso _ { exibir("desconhecido") }
+}
 ~~~
 
 Forma de bloco com terminador:
 
 ~~~nebula
-funcao principal(): vazio
+funcao executar()
     variavel ativo = verdadeiro
     enquanto ativo
         ativo = falso
@@ -194,5 +238,3 @@ Forma com separadores explícitos:
 ~~~nebula
 variavel total = 10; constante taxa = 2; exibir(total * taxa)
 ~~~
-
-Esses exemplos são casos de referência; a CLI `nebula verificar` permite executá-los contra a implementação do Parser.
