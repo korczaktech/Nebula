@@ -155,7 +155,7 @@ construcao_estrutura    = IDENTIFICADOR, "{",
 campo_valor             = IDENTIFICADOR, ":", expressao ;
 ~~~
 
-A atribuição e a potência associam à direita. Os operadores aritméticos, lógicos e de igualdade associam à esquerda. Comparações relacionais e operadores de intervalo não podem ser encadeados sem agrupamento explícito. A análise semântica valida o destino da atribuição.
+A atribuição e a potência associam à direita. Os operadores aritméticos, lógicos e de igualdade associam à esquerda. Comparações relacionais e operadores de intervalo não podem ser encadeados sem agrupamento explícito. A análise semântica valida o destino da atribuição. Em cabeçalhos que exigem bloco (`quando`, `escolha`, `enquanto` e `cada`), `{}` imediatamente após um identificador inicia o bloco, não uma construção de estrutura vazia. Para usar uma construção vazia como expressão do cabeçalho, agrupe-a: `quando (Pessoa {}) { ... }`.
 
 Precedência, da maior para a menor: chamada/indexação/acesso a membro; potência; unários; multiplicação/divisão/resto; adição/subtração; intervalo; comparação; igualdade; E; OU; atribuição. O Parser usa precedência Pratt equivalente a essa ordem.
 
