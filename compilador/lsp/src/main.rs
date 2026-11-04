@@ -432,10 +432,46 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
                     let at = offset(&doc.text, pos.get("line").and_then(Json::number).unwrap_or(0) as usize,
                         pos.get("character").and_then(Json::number).unwrap_or(0) as usize);
                     let (_, _, word) = word_at(&doc.text, at);
-                    if word.is_empty() { Json::Null } else {
-                        let detail = if keywords().contains(&word.as_str()) { format!("Palavra-chave da linguagem Nebula: `{word}`.") }
-                            else { format!("Identificador `{word}` no documento atual.") };
-                        object([("contents".into(), object([("kind".into(), s("markdown")), ("value".into(), s(detail))]))])
+                    if word.is_empty() {
+                        Json::Null
+                    } else {
+                        let file = ArquivoFonte::novo(uri, doc.text.clone());
+                        let parsed = analisar(&file);
+                        let mut detail = if keywords().contains(&word.as_str()) {
+                            format!("Palavra-chave da linguagem Nebula: `{word}`.")
+                        } else {
+                            format!("Identificador `{word}` no documento atual.")
+                        };
+                        if let Some(node) = parsed.programa.itens.iter().find(|node| {
+                            declared_name(node).is_some_and(|(name, _)| name == word)
+                        }) {
+                            match node {
+                                NoAst::Funcao { parametros, retorno, .. } => {
+                                    let args = parametros.iter().map(|(name, tipo)| format!("{name}: {tipo}"))
+                                        .collect::<Vec<_>>().join(", ");
+                                    let result = retorno.as_deref().unwrap_or("vazio");
+                                    detail = format!("**Função Nebula**\n\n`funcao {word}({args}): {result}`");
+                                }
+                                NoAst::Variavel { tipo: Some(tipo), .. } => {
+                                    detail = format!("**Variável Nebula**\n\n`{word}: {tipo}`");
+                                }
+                                NoAst::Tipo { destino, .. } => {
+                                    detail = format!("**Alias de tipo**\n\n`tipo {word} = {destino}`");
+                                }
+                                NoAst::Estrutura { .. } => detail = format!("**Estrutura Nebula**\n\n`estrutura {word}`"),
+                                NoAst::Enumeracao { .. } => detail = format!("**Enumeração Nebula**\n\n`enumeracao {word}`"),
+                                _ => {}
+                            }
+                        } else {
+                            let semantica = nebula_semantica::analisar_semantica(&parsed.programa);
+                            if let Some(tipo) = semantica.tipos_globais.get(&word) {
+                                detail = format!("**Variável Nebula**\n\n`{word}: {tipo:?}`");
+                            }
+                        }
+                        object([("contents".into(), object([
+                            ("kind".into(), s("markdown")),
+                            ("value".into(), s(detail)),
+                        ]))])
                     }
                 }
                 "textDocument/definition" | "textDocument/references" => {
