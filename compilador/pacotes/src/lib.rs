@@ -945,9 +945,9 @@ mod testes {
 
     #[test]
     fn manifestos_resistem_a_entradas_adversariais_deterministicas() {
-        for semente_inicial in 0..512_u32 {
+        for semente_inicial in 0..2_048_u32 {
             let mut estado = semente_inicial.wrapping_add(0x85eb_ca6b);
-            let tamanho = semente_inicial as usize % 128 + 1;
+            let tamanho = semente_inicial as usize % 257 + 1;
             let mut entrada = String::with_capacity(tamanho);
             for _ in 0..tamanho {
                 estado = estado.wrapping_mul(1_103_515_245).wrapping_add(12_345);
