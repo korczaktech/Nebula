@@ -671,6 +671,7 @@ mod tests {
         assert!(capabilities.and_then(|value| value.get("completionProvider")).is_some());
         assert!(capabilities.and_then(|value| value.get("definitionProvider")).is_some());
         assert!(capabilities.and_then(|value| value.get("signatureHelpProvider")).is_some());
+        assert_eq!(capabilities.and_then(|value| value.get("textDocumentSync")).and_then(Json::number), Some(1));
     }
 
     #[test]
