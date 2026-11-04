@@ -1802,7 +1802,7 @@ impl<'a> Analisador<'a> {
 
     fn tipo_copiavel(tipo: &Tipo) -> bool {
         matches!(tipo,
-            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 |
+            Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 |
             Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 |
             Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 |
             Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte
@@ -2665,6 +2665,12 @@ mod testes {
     fn valores_primitivos_sao_copiados_e_nao_movidos() {
         let r = analisar_codigo("variavel origem = 42\nvariavel destino = origem\nexibir(origem)");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn valores_de_funcao_nao_sao_copiados_implicitamente() {
+        let tipo = Tipo::Funcao(vec![Tipo::Texto], Box::new(Tipo::Texto));
+        assert!(!Analisador::tipo_copiavel(&tipo));
     }
 
     #[test]
