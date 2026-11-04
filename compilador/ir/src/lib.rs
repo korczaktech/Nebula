@@ -25,7 +25,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
     Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char), Funcao(String),
-    Lista(Vec<ValorIr>), Estrutura { nome: String, campos: Vec<(String, ValorIr)> }, Intervalo(i128, i128), IntervaloDecimal(f64, f64), Nulo, Vazio,
+    Lista(Vec<ValorIr>), Estrutura { nome: String, campos: Vec<(String, ValorIr)> }, Intervalo(i128, i128), IntervaloSemSinal(u128, u128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
 /// Operadores normalizados da representação intermediária.
@@ -1319,6 +1319,13 @@ fn normalizar_limite_inteiro_intervalo(tipo: &Tipo, valor: i128) -> Result<i128,
     }
 }
 
+fn normalizar_limite_inteiro_sem_sinal_intervalo(tipo: &Tipo, valor: u128) -> Result<u128, String> {
+    match normalizar_valor(tipo, ValorIr::InteiroSemSinal(valor))? {
+        ValorIr::InteiroSemSinal(valor) => Ok(valor),
+        _ => Err("Tipo de limite de intervalo sem sinal inválido.".into()),
+    }
+}
+
 fn normalizar_limite_decimal_intervalo(tipo: &Tipo, valor: f64) -> Result<f64, String> {
     match normalizar_valor(tipo, ValorIr::Decimal(valor))? {
         ValorIr::Decimal(valor) => Ok(valor),
@@ -1425,11 +1432,18 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
         (Tipo::Intervalo(interno), ValorIr::Intervalo(inicio, fim))
             if matches!(interno.as_ref(),
                 Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
-                | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
-                | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte) => {
+                | Tipo::Inteiro64 | Tipo::Inteiro128) => {
                 let inicio = normalizar_limite_inteiro_intervalo(interno, inicio)?;
                 let fim = normalizar_limite_inteiro_intervalo(interno, fim)?;
                 Ok(ValorIr::Intervalo(inicio, fim))
+            }
+        (Tipo::Intervalo(interno), ValorIr::IntervaloSemSinal(inicio, fim))
+            if matches!(interno.as_ref(),
+                Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte) => {
+                let inicio = normalizar_limite_inteiro_sem_sinal_intervalo(interno, inicio)?;
+                let fim = normalizar_limite_inteiro_sem_sinal_intervalo(interno, fim)?;
+                Ok(ValorIr::IntervaloSemSinal(inicio, fim))
             }
         (Tipo::Intervalo(interno), ValorIr::IntervaloDecimal(inicio, fim))
             if matches!(interno.as_ref(), Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => {
@@ -1458,6 +1472,7 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
             campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
         )) },
         ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
+        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio, fim },
         ValorIr::IntervaloDecimal(inicio, fim) => {
             ValorRuntime::IntervaloDecimal { inicio, fim }
         }
@@ -1484,6 +1499,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
         }
         ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::IntervaloSemSinal { inicio, fim } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
         ValorRuntime::IntervaloDecimal { inicio, fim } => {
             Ok(ValorIr::IntervaloDecimal(inicio, fim))
         }
@@ -1618,6 +1634,17 @@ impl Maquina<'_> {
                             (inicio..=fim).map(ValorIr::Inteiro).collect()
                         } else {
                             (fim..=inicio).rev().map(ValorIr::Inteiro).collect()
+                        }
+                    }
+                    ValorIr::IntervaloSemSinal(inicio, fim) => {
+                        let quantidade = fim.abs_diff(inicio).saturating_add(1);
+                        if quantidade > 1_000_000 {
+                            return Err("O intervalo de 'cada' excede o limite de 1.000.000 elementos.".into());
+                        }
+                        if inicio <= fim {
+                            (inicio..=fim).map(ValorIr::InteiroSemSinal).collect()
+                        } else {
+                            (fim..=inicio).rev().map(ValorIr::InteiroSemSinal).collect()
                         }
                     }
                     ValorIr::IntervaloDecimal(inicio, fim) => {
@@ -2327,6 +2354,7 @@ fn binaria(a: ValorIr, op: OperadorIr, b: ValorIr) -> Result<ValorIr, String> {
         (ValorIr::Decimal(a), Maior, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a > b)),
         (ValorIr::Decimal(a), MaiorIgual, ValorIr::Decimal(b)) => Ok(ValorIr::Logico(a >= b)),
         (ValorIr::Inteiro(a), Intervalo, ValorIr::Inteiro(b)) => Ok(ValorIr::Intervalo(a,b)),
+        (ValorIr::InteiroSemSinal(a), Intervalo, ValorIr::InteiroSemSinal(b)) => Ok(ValorIr::IntervaloSemSinal(a,b)),
         _ => Err("Operandos incompatíveis para operação na IR.".into()),
     }
 }
@@ -2340,6 +2368,7 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
         ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
         ValorIr::Intervalo(a,b) => format!("{a}..{b}"),
+        ValorIr::IntervaloSemSinal(a,b) => format!("{a}..{b}"),
         ValorIr::IntervaloDecimal(a,b) => format!("{a}..{b}"),
         ValorIr::Nulo => "nulo".into(), ValorIr::Vazio => String::new(),
     }
