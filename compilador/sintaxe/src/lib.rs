@@ -10,7 +10,7 @@ mod implementacao {
 //! Lexer, AST e Parser do subconjunto inicial da linguagem Nebula.
 
 use nebula_diagnosticos::{Diagnostico, Severidade};
-use nebula_fonte::ArquivoFonte;
+use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
 use unicode_normalization::UnicodeNormalization;
 
@@ -991,8 +991,21 @@ impl Parser {
     fn corresponde(&mut self, t: TipoToken) -> bool { if self.verifica(t) { self.avancar(); true } else { false } }
     fn esperar(&mut self, t: TipoToken, mensagem: &str) { if !self.corresponde(t) { self.erro_atual("N2009", mensagem); } }
     fn erro_atual(&mut self, codigo: &'static str, mensagem: &str) {
-        let intervalo = self.tokens.get(self.atual).map(|t| t.intervalo);
-        self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, intervalo));
+        let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
+        self.erro_intervalo(codigo, mensagem, intervalo);
+    }
+    fn erro_intervalo(
+        &mut self,
+        codigo: &'static str,
+        mensagem: &str,
+        intervalo: Option<IntervaloFonte>,
+    ) {
+        self.diagnosticos.push(Diagnostico::novo(
+            codigo,
+            Severidade::Erro,
+            mensagem,
+            intervalo,
+        ));
     }
     fn consumir_nome(&mut self, mensagem: &str) -> Option<String> {
         if self.verifica(TipoToken::Identificador) {
