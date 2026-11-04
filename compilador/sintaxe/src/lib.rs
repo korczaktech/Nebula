@@ -1644,7 +1644,7 @@ mod testes {
     #[test]
     fn parser_recupera_apos_grande_sequencia_de_delimitadores_invalidos() {
         let codigo = format!(
-            "{}\\nvariavel recuperada = 42",
+            "{}\nvariavel recuperada = 42",
             "}".repeat(2_048)
         );
         let resultado = analisar(&fonte(&codigo));
