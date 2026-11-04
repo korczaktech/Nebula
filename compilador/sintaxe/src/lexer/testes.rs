@@ -297,7 +297,6 @@ fn texto_nao_pode_continuar_em_quebra_fisica_apos_escape() {
     );
 }
 
-
 #[test]
 fn rejeita_escape_nao_ascii_sem_perder_sincronia_utf8() {
     for literal in [r#""\é""#, r#"'\é'"#] {
