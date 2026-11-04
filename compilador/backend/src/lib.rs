@@ -2662,6 +2662,22 @@ mod testes {
     }
 
     #[test]
+    fn emite_conversoes_nativas_entre_inteiro128_e_decimal() {
+        let mut para_decimal = Emissor::novo(HashMap::new());
+        para_decimal
+            .converter_tipo_explicito(&Tipo::Decimal64, &Tipo::Inteiro128)
+            .unwrap();
+        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5E, 0xC1]));
+        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x59, 0xD3]));
+
+        let mut para_inteiro = Emissor::novo(HashMap::new());
+        para_inteiro.converter_decimal_para_inteiro(&Tipo::Inteiro128).unwrap();
+        assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5E, 0xC1]));
+        assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5C, 0xD3]));
+        assert!(para_inteiro.erro_salto.is_none());
+    }
+
+    #[test]
     fn codifica_saltos_condicionais_e_incondicionais() {
         let mut emissor = Emissor::novo(HashMap::new());
         let condicional = emissor.emitir_jcc(0x84);
