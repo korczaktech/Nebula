@@ -10,6 +10,7 @@ name = "nebula-lsp"
 path = "src/main.rs"
 
 [dependencies]
+nebula-diagnosticos = { path = "../diagnosticos" }
 nebula-fonte = { path = "../fonte" }
 nebula-sintaxe = { path = "../sintaxe" }
 
