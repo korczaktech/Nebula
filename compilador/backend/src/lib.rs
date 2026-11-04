@@ -1304,7 +1304,7 @@ impl Emissor {
 
             let negativo_valido = self.codigo.len();
             self.aplicar_salto(abaixo_limite_negativo, negativo_valido);
-            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0xF5, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
             let fim_negativo = self.emitir_jmp();
 
             let erro = self.codigo.len();
@@ -1651,7 +1651,7 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
             let lhs_positivo = self.emitir_jcc(0x89);
             self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x03]); // lhs negativo: quociente e resto negativos
-            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0xF5, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
             self.aplicar_salto(lhs_positivo, self.codigo.len());
 
             self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
@@ -1713,7 +1713,7 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test low, low
                 falhas.push(self.emitir_jcc(0x85)); // jnz
                 self.aplicar_salto(magnitude_menor, self.codigo.len());
-                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0xF5, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
                 let fim_negativo = self.emitir_jmp();
                 let positivo = self.codigo.len();
                 self.aplicar_salto(quociente_positivo, positivo);
@@ -1724,7 +1724,7 @@ impl Emissor {
         } else if !sem_sinal {
             self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x02]); // test r11d, 2
             let resto_positivo = self.emitir_jcc(0x84);
-            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0xF5, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
             let fim_negativo = self.emitir_jmp();
             self.aplicar_salto(resto_positivo, self.codigo.len());
             self.aplicar_salto(fim_negativo, self.codigo.len());
