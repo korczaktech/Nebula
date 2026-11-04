@@ -24,6 +24,49 @@ Diagnósticos sintéticos ou globais podem não possuir intervalo. Nesses casos,
 
 Códigos usam faixas por subsistema: N0001 para falhas de leitura; N1000–N1099 para entrada UTF-8 e Lexer; N2000–N2099 para Parser; N3000–N3099 para semântica e tipos; N4000–N4099 para memória e concorrência; N5000–N5099 para backend e ligação.
 
+## Diagnósticos sintáticos
+
+Os códigos `N2000`–`N2099` pertencem ao Parser. O código é estável e a mensagem deve identificar a construção esperada ou a regra sintática violada.
+
+| Código | Significado |
+|---|---|
+| N2001 | Separador ausente entre instruções ou itens de bloco |
+| N2002 | Modificador de visibilidade sem função |
+| N2003 | Operador de atribuição ausente em declaração |
+| N2004 | Parêntese de abertura ausente na função |
+| N2005 | Parâmetro sem anotação de tipo ou separador inválido |
+| N2006 | Atribuição ausente em alias de tipo |
+| N2007 | Bloco ausente ou malformado |
+| N2008 | Expressão ausente ou inválida |
+| N2009 | Token delimitador ou estrutural esperado não encontrado |
+| N2010 | Nome/identificador esperado |
+| N2011 | Palavra reservada futura usada em posição inválida |
+| N2012 | Comparação relacional encadeada |
+| N2013 | Operador de intervalo encadeado |
+| N2014 | Parâmetro genérico duplicado |
+| N2015 | Lista genérica vazia ou parâmetro genérico ausente |
+| N2016 | Construção reservada para versão futura |
+| N2030 | Chave de abertura ausente na estrutura |
+| N2031 | Campo duplicado na estrutura |
+| N2032 | Separador ausente entre campos da estrutura |
+| N2033 | Chave de abertura ausente na enumeração |
+| N2034 | Variante duplicada na enumeração |
+| N2035 | Separador ou tipo de payload ausente na enumeração |
+| N2036 | Enumeração sem variantes |
+| N2037 | Campo duplicado na construção de estrutura |
+| N2038 | Separador ausente entre campos da construção |
+| N2040 | Chave de abertura ausente em escolha |
+| N2041 | Caso ausente em escolha |
+| N2042 | Padrão de escolha inválido |
+| N2043 | Caso curinga duplicado |
+| N2044 | Escolha sem casos |
+| N2045 | Vínculo de payload ausente ou inválido |
+| N2046 | Vínculo duplicado no payload do padrão |
+| N2047 | Alteração sem expressão de atribuição |
+| N2048 | Padrão de enumeração duplicado em escolha |
+| N2049 | Limite de aninhamento sintático excedido |
+| N2050 | Parâmetro de função duplicado |
+
 ## Exemplo de apresentação futura
 
 ~~~text
