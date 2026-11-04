@@ -110,6 +110,10 @@ impl Parser {
     }
     fn item(&mut self) -> Option<NoAst> {
         match self.tipo() {
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco => {
+                self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
+                None
+            }
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel => self.declaracao_variavel(false),
             TipoToken::Constante => self.declaracao_variavel(true),
             TipoToken::Alterar => {
@@ -912,6 +916,13 @@ impl Parser {
                 self.esperar(TipoToken::FechaColchete, "Esperado ']' após lista.");
                 Expressao::Lista(valores)
             }
+            TipoToken::FechaPar | TipoToken::FechaColchete => {
+                self.erro_atual(
+                    "N2051",
+                    "Delimitador de fechamento sem abertura correspondente na expressão.",
+                );
+                return None;
+            }
             TipoToken::ReservadaFutura | TipoToken::Estrutura | TipoToken::Enumeracao => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
@@ -1035,7 +1046,27 @@ impl Parser {
     fn verifica(&self, t: TipoToken) -> bool { self.tipo() == t }
     fn avancar(&mut self) -> Token { let t = self.tokens[self.atual].clone(); if t.tipo != TipoToken::Fim { self.atual += 1; } t }
     fn corresponde(&mut self, t: TipoToken) -> bool { if self.verifica(t) { self.avancar(); true } else { false } }
-    fn esperar(&mut self, t: TipoToken, mensagem: &str) { if !self.corresponde(t) { self.erro_atual("N2009", mensagem); } }
+    fn esperar(&mut self, t: TipoToken, mensagem: &str) {
+        if self.corresponde(t) {
+            return;
+        }
+        let esperado_fechamento = matches!(
+            t,
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+        );
+        let atual_fechamento = matches!(
+            self.tipo(),
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+        );
+        if esperado_fechamento && atual_fechamento && !self.verifica(TipoToken::Fim) {
+            self.erro_atual(
+                "N2051",
+                "Delimitador de fechamento incompatível; verifique o par de abertura e fechamento.",
+            );
+        } else {
+            self.erro_atual("N2009", mensagem);
+        }
+    }
     fn erro_atual(&mut self, codigo: &'static str, mensagem: &str) {
         let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
         self.erro_intervalo(codigo, mensagem, intervalo);
@@ -1114,6 +1145,10 @@ impl Parser {
                 TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave => {
                     if delimitadores.last() == Some(&atual) {
                         delimitadores.pop();
+                    } else if let Some(posicao) = delimitadores.iter().rposition(|esperado| *esperado == atual) {
+                        // Um fechamento cruzado invalida também os agrupamentos
+                        // internos ainda abertos; não deixe a recuperação presa neles.
+                        delimitadores.truncate(posicao);
                     } else if delimitadores.is_empty() && finais.contains(&atual) {
                         break;
                     }
@@ -2600,6 +2635,85 @@ mod testes {
         );
     }
 
+
+
+    #[test]
+    fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
+        let valido = analisar(&fonte(
+            "funcao principal() {\\n variavel valor = montar([1, (2, 3)], Pessoa { nome: \\"Ana\\" })\\n variavel final = 9\\n}",
+        ));
+        assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
+        let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
+            panic!("a função válida deveria permanecer na AST");
+        };
+        assert!(corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "final")));
+
+        let quebrado = analisar(&fonte(
+            "funcao principal() {\\n variavel quebrada = calcular([1, 2)\\n variavel preservada = 7\\n}",
+        ));
+        assert!(
+            quebrado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
+            "fechamento incompatível deveria gerar N2051: {:?}",
+            quebrado.diagnosticos
+        );
+        let Some(NoAst::Funcao { corpo, .. }) = quebrado.programa.itens.first() else {
+            panic!("a função parcial deveria ser preservada");
+        };
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "preservada")),
+            "a recuperação perdeu a declaração posterior: {corpo:?}"
+        );
+    }
+
+    #[test]
+    fn diagnostica_fechamentos_sem_abertura_e_blocos_incompativeis() {
+        for codigo in [
+            "variavel valor = 1)",
+            "variavel valor = [1]]",
+            "funcao principal() { exibir(1) fim",
+            "funcao principal()\\n exibir(1)\\n}",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
+                "fechamento sem par ou bloco incompatível não foi diagnosticado: {codigo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn diagnostica_aberturas_nao_fechadas_de_parenteses_colchetes_e_blocos() {
+        for codigo in [
+            "variavel valor = calcular(1, 2",
+            "variavel valores = [1, 2",
+            "funcao principal() { exibir(1)",
+            "funcao principal()\\n exibir(1)",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+                "abertura não fechada deveria produzir N2009: {codigo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn aceita_blocos_aninhados_com_chaves_e_terminadores_fim() {
+        for codigo in [
+            "funcao principal() { quando verdadeiro { exibir(1) } }",
+            "funcao principal()\\n quando verdadeiro\\n  enquanto verdadeiro\\n   exibir(1)\\n  fim\\n fim\\nfim",
+            "funcao principal() { quando verdadeiro\\n exibir(1)\\n fim\\n variavel depois = 2 }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "blocos aninhados válidos foram rejeitados: {codigo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
 
     #[test]
     fn diagnosticos_sintaticos_tem_codigo_severidade_mensagem_e_intervalo_validos() {
