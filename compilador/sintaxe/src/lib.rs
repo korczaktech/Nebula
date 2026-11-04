@@ -17,7 +17,7 @@ use unicode_normalization::UnicodeNormalization;
 pub enum TipoToken {
     Fim, NovaLinha, Identificador, Inteiro, Decimal, Texto, Caractere,
     Variavel, Definir, Mutavel, Alterar, Constante, Funcao, Quando, Senao, Escolha, Avaliar, Caso,
-    Para, Cada, Em, Enquanto, Durante, Repetir, Devolver,
+    Para, Cada, Em, Pulso, Enquanto, Durante, Repetir, Devolver,
     Incluir, Como, Verdadeiro, Falso, Nulo, FimBloco, Parar, Encerrar, Seguir,
     E, Ou, Nao, Publico, Privado, Tipo, Estrutura, Enumeracao, ReservadaFutura,
     AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
@@ -187,7 +187,7 @@ impl<'a> Lexer<'a> {
             "caso" => TipoToken::Caso,
             "senao" => TipoToken::Senao, "para" => TipoToken::Para,
             "cada" => TipoToken::Cada, "em" => TipoToken::Em,
-            "enquanto" => TipoToken::Enquanto,
+            "pulso" => TipoToken::Pulso, "enquanto" => TipoToken::Enquanto,
             "durante" => TipoToken::Durante, "repetir" => TipoToken::Repetir,
             "devolver" => TipoToken::Devolver,
             "incluir" => TipoToken::Incluir, "como" => TipoToken::Como,
@@ -348,6 +348,7 @@ pub enum NoAst {
     Escolha { valor: Expressao, casos: Vec<CasoEscolha> },
     Enquanto { condicao: Expressao, corpo: Vec<NoAst> },
     Cada { nome: String, iteravel: Expressao, corpo: Vec<NoAst> },
+    Pulso { intervalo: Expressao, corpo: Vec<NoAst> },
     Para { inicial: Option<Box<NoAst>>, condicao: Option<Expressao>, atualizacao: Option<Expressao>, corpo: Vec<NoAst> },
     Devolver(Option<Expressao>), Parar, Seguir,
 }
@@ -429,6 +430,7 @@ impl Parser {
             TipoToken::Quando => self.quando(),
             TipoToken::Escolha | TipoToken::Avaliar => self.escolha(),
             TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir => self.enquanto(),
+            TipoToken::Pulso => self.pulso(),
             TipoToken::Para => self.para(),
             TipoToken::Cada => self.cada(),
             TipoToken::Devolver => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
@@ -640,6 +642,15 @@ impl Parser {
         let iteravel = self.expressao(0)?;
         let corpo = self.bloco()?;
         Some(NoAst::Cada { nome, iteravel, corpo })
+    }
+
+    fn pulso(&mut self) -> Option<NoAst> {
+        self.avancar();
+        self.esperar(TipoToken::AbrePar, "Esperado '(' após 'pulso'.");
+        let intervalo = self.expressao(0)?;
+        self.esperar(TipoToken::FechaPar, "Esperado ')' após o intervalo de 'pulso'.");
+        let corpo = self.bloco()?;
+        Some(NoAst::Pulso { intervalo, corpo })
     }
 
     fn para(&mut self) -> Option<NoAst> {
@@ -1185,6 +1196,14 @@ mod testes {
         let r = analisar(&fonte("incluir Matemática como Mat\npara (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
+    }
+
+
+    #[test]
+    fn analisa_pulso_com_intervalo() {
+        let r = analisar(&fonte("pulso(100) { encerrar }"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Pulso { .. }));
     }
 
     #[test]
