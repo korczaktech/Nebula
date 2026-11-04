@@ -221,6 +221,16 @@ executar(1)
     assert!(nos.iter().any(|no| matches!(no, NoAst::Incluir { .. })));
     assert!(nos.iter().any(|no| matches!(no, NoAst::Quando { .. })));
     assert!(nos.iter().any(|no| matches!(no, NoAst::Escolha { .. })));
+    assert!(
+        resultado.programa.iter_casos_localizados().next().is_some(),
+        "cada caso de escolha precisa de localização própria"
+    );
+    for localizado in resultado.programa.iter_casos_localizados() {
+        assert!(localizado.intervalo.inicio <= localizado.intervalo.fim);
+        assert!(localizado.intervalo.fim <= codigo.len());
+        assert!(codigo.is_char_boundary(localizado.intervalo.inicio));
+        assert!(codigo.is_char_boundary(localizado.intervalo.fim));
+    }
     assert!(nos.iter().any(|no| matches!(no, NoAst::Enquanto { .. })));
     assert!(nos.iter().any(|no| matches!(no, NoAst::Cada { .. })));
     assert!(nos.iter().any(|no| matches!(no, NoAst::Pulso { .. })));
