@@ -3,8 +3,8 @@
 #![forbid(unsafe_code)]
 #![allow(missing_docs)]
 
-pub mod lexer;
 pub mod ast;
+pub mod lexer;
 
 #[rustfmt::skip]
 mod implementacao {
@@ -3231,7 +3231,9 @@ mod testes {
 
 }
 
-pub use ast::{CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade};
+pub use ast::{
+    CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade,
+};
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
 pub use implementacao::*;
