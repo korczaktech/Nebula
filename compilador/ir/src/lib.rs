@@ -1415,7 +1415,7 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
             }
         (Tipo::Funcao(_, _), valor @ ValorIr::Funcao(_)) => Ok(valor),
         (Tipo::Intervalo(interno), ValorIr::Intervalo(inicio, fim))
-            if matches!(interno,
+            if matches!(interno.as_ref(),
                 Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
                 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
                 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte) => {
@@ -1424,7 +1424,7 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 Ok(ValorIr::Intervalo(inicio, fim))
             }
         (Tipo::Intervalo(interno), ValorIr::IntervaloDecimal(inicio, fim))
-            if matches!(interno, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => {
+            if matches!(interno.as_ref(), Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) => {
                 let inicio = normalizar_limite_decimal_intervalo(interno, inicio)?;
                 let fim = normalizar_limite_decimal_intervalo(interno, fim)?;
                 Ok(ValorIr::IntervaloDecimal(inicio, fim))
