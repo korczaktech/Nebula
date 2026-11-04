@@ -570,6 +570,7 @@ impl Emissor {
                 | ValorIr::Lista(_)
                 | ValorIr::Estrutura { .. }
                 | ValorIr::Intervalo(_, _)
+                | ValorIr::IntervaloSemSinal(_, _)
                 | ValorIr::IntervaloDecimal(_, _)
                 | ValorIr::Nulo
                 | ValorIr::Funcao(_)
