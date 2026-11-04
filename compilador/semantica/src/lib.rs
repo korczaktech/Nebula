@@ -1692,6 +1692,19 @@ impl<'a> Analisador<'a> {
                 tipo = tipo_campo;
             }
         }
+        if verificar_movidos && !prefixo.is_empty() {
+            let caminho = prefixo.join(".");
+            let descendente_movido = simbolo.campos_movidos.iter().any(|movido| {
+                movido.starts_with(&format!("{caminho}."))
+            });
+            if descendente_movido {
+                self.erro(
+                    "N3030",
+                    format!("O agregado '{raiz}.{caminho}' contém um campo movido e não pode ser utilizado integralmente."),
+                );
+                return Tipo::Desconhecido;
+            }
+        }
         tipo
     }
 
@@ -3014,6 +3027,22 @@ mod testes {
 
     #[test]
     fn move_campo_aninhado_preserva_campos_irmãos() {
+        let r = analisar_codigo(
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco.numero }",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_acesso_ao_agregado_que_contem_campo_movido() {
+        let r = analisar_codigo(
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco }",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn permite_irmao_apos_movimento_de_campo_aninhado() {
         let r = analisar_codigo(
             "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco.numero }",
         );
