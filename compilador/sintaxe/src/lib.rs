@@ -2917,14 +2917,14 @@ mod testes {
 
     #[test]
     fn quebras_em_parenteses_e_colchetes_nao_separam_elementos() {
-        let codigo = "variavel chamada = calcular(\n 1,\n\n 2\n)\nvariavel lista = [\n 3,\n\n 4\n]";
+        let codigo = "variavel chamada = calcular(\n 1,\n\n 2\n)\nvariavel lista = [\n 3,\n\n 4\n]\nvariavel tupla = (\n 5,\n 6\n)";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.is_empty(),
             "quebras internas de agrupamento não devem separar instruções: {:?}",
             resultado.diagnosticos
         );
-        assert_eq!(resultado.programa.itens.len(), 2);
+        assert_eq!(resultado.programa.itens.len(), 3);
         assert!(matches!(
             &resultado.programa.itens[0],
             NoAst::Variavel { valor: Expressao::Chamada { argumentos, .. }, .. }
@@ -2933,6 +2933,11 @@ mod testes {
         assert!(matches!(
             &resultado.programa.itens[1],
             NoAst::Variavel { valor: Expressao::Lista(valores), .. }
+                if valores.len() == 2
+        ));
+        assert!(matches!(
+            &resultado.programa.itens[2],
+            NoAst::Variavel { valor: Expressao::Tupla(valores), .. }
                 if valores.len() == 2
         ));
     }
