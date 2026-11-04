@@ -1354,6 +1354,26 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 Ok(ValorIr::Decimal(convertido as f64))
             }
         }
+        (Tipo::Decimal32, ValorIr::Inteiro(v)) => {
+            let convertido = v as f32;
+            if !convertido.is_finite() {
+                Err("Valor inteiro fora da faixa de decimal32.".into())
+            } else {
+                Ok(ValorIr::Decimal(convertido as f64))
+            }
+        }
+        (Tipo::Decimal32, ValorIr::InteiroSemSinal(v)) => {
+            let convertido = v as f32;
+            if !convertido.is_finite() {
+                Err("Valor inteiro sem sinal fora da faixa de decimal32.".into())
+            } else {
+                Ok(ValorIr::Decimal(convertido as f64))
+            }
+        }
+        (Tipo::Decimal | Tipo::Decimal64, ValorIr::Inteiro(v)) =>
+            Ok(ValorIr::Decimal(v as f64)),
+        (Tipo::Decimal | Tipo::Decimal64, ValorIr::InteiroSemSinal(v)) =>
+            Ok(ValorIr::Decimal(v as f64)),
         (Tipo::Decimal | Tipo::Decimal64, valor @ ValorIr::Decimal(_)) => Ok(valor),
         (Tipo::Logico, valor @ ValorIr::Logico(_))
         | (Tipo::Texto, valor @ ValorIr::Texto(_))
@@ -3047,6 +3067,26 @@ mod testes {
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. }
                 if modulo.as_str() == "Matematica" && nome.as_str() == "somar"
         ));
+    }
+
+    #[test]
+    fn normalizacao_numerica_promove_inteiros_para_decimais() {
+        assert_eq!(
+            normalizar_valor(&Tipo::Decimal64, ValorIr::Inteiro(2)).unwrap(),
+            ValorIr::Decimal(2.0),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Decimal64, ValorIr::InteiroSemSinal(u128::MAX)).unwrap(),
+            ValorIr::Decimal(u128::MAX as f64),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Decimal32, ValorIr::Inteiro(2)).unwrap(),
+            ValorIr::Decimal(2.0),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Decimal32, ValorIr::InteiroSemSinal(u128::MAX)).unwrap(),
+            ValorIr::Decimal((u128::MAX as f32) as f64),
+        );
     }
 
     #[test]
