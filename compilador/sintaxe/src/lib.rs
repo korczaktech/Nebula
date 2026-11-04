@@ -1849,7 +1849,7 @@ mod testes {
         );
 
         let vinculacoes = analisar(&fonte(
-            "escolha x { caso Estado::Ok(café, cafe\\u{301}) {} }"
+            "escolha x { caso Estado::Ok(café, cafe\u{301}) {} }"
         ));
         assert!(
             vinculacoes.diagnosticos.iter().any(|d| d.codigo == "N2046"),
