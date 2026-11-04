@@ -3231,7 +3231,7 @@ mod testes {
 
 }
 
-pub use ast::{CasoEscolha, Expressao, NoAst, Programa, ResultadoSintatico, Visibilidade};
+pub use ast::{CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade};
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
 pub use implementacao::*;
