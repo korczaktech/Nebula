@@ -822,9 +822,11 @@ impl Parser {
                 });
                 let parece_construcao = self.tokens.get(indice_abertura).is_some_and(|t| t.tipo == TipoToken::AbreChave)
                     && indice_campo.is_some_and(|indice| {
-                        (self.tokens[indice].tipo == TipoToken::FechaChave && !self.bloquear_construcao_vazia)
-                            || self.tokens[indice].tipo == TipoToken::Identificador
-                                && indice_dois_pontos.is_some_and(|proximo| self.tokens[proximo].tipo == TipoToken::DoisPontos)
+                        self.tokens[indice].tipo == TipoToken::Identificador
+                            && (!self.bloquear_construcao_vazia
+                                || indice_dois_pontos.is_some_and(|proximo| self.tokens[proximo].tipo == TipoToken::DoisPontos))
+                            || self.tokens[indice].tipo == TipoToken::FechaChave
+                                && !self.bloquear_construcao_vazia
                     });
                 if parece_construcao && self.corresponde(TipoToken::AbreChave) {
                     let mut campos = Vec::new();
