@@ -1276,6 +1276,64 @@ mod testes {
         }
     }
 
+
+    #[test]
+    fn aceita_todas_as_formas_validas_de_padroes_escolha() {
+        let codigo = "escolha resultado {\n caso Resultado::Vazio {}\n caso Resultado::Unico() {}\n caso Resultado::Um(valor) {}\n caso Resultado::Dois(primeiro, segundo) {}\n caso _ {}\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("esperada instrução escolha");
+        };
+        assert_eq!(casos.len(), 5);
+        assert!(casos[0].vinculacoes.is_empty());
+        assert!(casos[1].vinculacoes.is_empty());
+        assert_eq!(casos[2].vinculacoes, ["valor"]);
+        assert_eq!(casos[3].vinculacoes, ["primeiro", "segundo"]);
+        assert!(casos[4].enumeracao.is_none() && casos[4].variante.is_none());
+    }
+
+    #[test]
+    fn rejeita_padroes_escolha_malformados() {
+        let casos = [
+            ("escolha x { caso Variante {} }", "N2042"),
+            ("escolha x { caso Enum:: {} }", "N2010"),
+            ("escolha x { caso Enum::Variante(1) {} }", "N2045"),
+            ("escolha x { caso Enum::Variante(valor, valor) {} }", "N2046"),
+            ("escolha x { caso _() {} }", "N2042"),
+            ("escolha x { caso Enum::Variante(valor,) {} }", "N2045"),
+            ("escolha x { caso Enum::Variante::Aninhada {} }", "N2042"),
+            ("escolha x { caso _ {} caso _ {} }", "N2043"),
+        ];
+
+        for (codigo, esperado) in casos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
+                "{codigo:?}: esperado {esperado}; recebido {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn padrao_invalido_nao_e_confundido_com_curinga() {
+        let resultado = analisar(&fonte(
+            "escolha x { caso VarianteInvalida {} caso _ {} }"
+        ));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2042"));
+        assert!(
+            !resultado.diagnosticos.iter().any(|d| d.codigo == "N2043"),
+            "padrão inválido não pode contar como curinga: {:?}",
+            resultado.diagnosticos
+        );
+        let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
+            panic!("esperada instrução escolha parcial");
+        };
+        assert_eq!(casos.len(), 1);
+        assert!(casos[0].enumeracao.is_none() && casos[0].variante.is_none());
+    }
+
 }
 
 }
