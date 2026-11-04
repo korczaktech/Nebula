@@ -120,7 +120,7 @@ instrucao_devolver      = "devolver", [ expressao ] ;
 instrucao_controle      = ("parar" | "encerrar") | "seguir" ;
 ~~~
 
-O Parser também aceita `definir` e `mutavel`/`mutável` como aliases de declaração de variável; `avaliar` como alias de `escolha`; `durante` e `repetir` como aliases de `enquanto`; e `encerrar` como alias de `parar`. `alterar` exige uma expressão de atribuição. A validação de que o destino é modificável e de que os comandos de controle estão em contexto válido é semântica.
+O Parser também aceita `definir` e `mutavel`/`mutável` como aliases de declaração de variável; `avaliar` como alias de `escolha`; `durante` e `repetir` como aliases de `enquanto`; e `encerrar` como alias de `parar`. O Lexer unifica as grafias acentuadas `função`, `senão`, `enumeração`, `não` e `público` com, respectivamente, `funcao`, `senao`, `enumeracao`, `nao` e `publico`; portanto, elas seguem exatamente as mesmas produções sintáticas. `alterar` exige uma expressão de atribuição. A validação de que o destino é modificável e de que os comandos de controle estão em contexto válido é semântica.
 
 Os blocos podem usar chaves ou terminador `fim`. Um bloco iniciado por quebra de linha exige seu próprio `fim`. Blocos aninhados são fechados do mais interno para o mais externo. O `senao` associa-se ao `quando` aberto mais próximo que ainda não tenha alternativa.
 
