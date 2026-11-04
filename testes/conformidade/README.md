@@ -1,10 +1,28 @@
 # Testes de conformidade
 
-Esta pasta reúne casos de referência da especificação. Nesta fase, os arquivos são fixtures documentais; ainda não são executados por um Lexer ou Parser.
+A suíte de conformidade é executável e acompanha a gramática normativa em
+`especificacao/gramatica.md` e as regras léxicas em `especificacao/tokens.md`.
 
-Na Fase 2, cada recurso gramatical deverá receber casos válidos, inválidos e de borda. Os testes devem verificar especialmente:
-- separação de instruções por quebra de linha ou ponto e vírgula;
-- blocos com chaves e com o terminador `fim`;
-- equivalência semântica entre estilos de espaçamento;
-- precedência e associatividade de operadores;
-- mensagens e posições de erros.
+## Execução
+
+Na raiz do repositório:
+
+```sh
+cargo test --locked -p nebula-sintaxe
+```
+
+A suíte de integração `compilador/sintaxe/tests/conformidade.rs` executa:
+
+- corpus positivo cobrindo declarações, tipos, estruturas, enumerações,
+  módulos, instruções, blocos, padrões, expressões, operadores e literais;
+- corpus negativo que exige os códigos de diagnóstico sintático documentados;
+- validação de intervalos de origem em UTF-8;
+- programa integrado de referência para verificar a composição das produções.
+
+Os testes unitários do Lexer e do Parser complementam o corpus com casos de
+fronteira, precedência, associatividade, recuperação de erros, delimitadores,
+separadores, Unicode e estabilidade sob entradas adversariais.
+
+Os arquivos `.nbx` desta pasta são fixtures de referência e também são
+carregados pela suíte automatizada. A CI executa os testes do workspace em
+Linux, Debian 13 Trixie, macOS e Windows.
