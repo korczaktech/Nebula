@@ -310,7 +310,7 @@ impl<'a> Analisador<'a> {
                 // Pattern matching consome valores algébricos não copiáveis.
                 // Os vínculos de payload passam a representar propriedade independente
                 // dentro de cada braço; o enum original não pode ser reutilizado.
-                if !Self::tipo_copiavel(&tipo_valor) {
+                if !self.tipo_copiavel(&tipo_valor) {
                     self.mover_valor(valor);
                 }
                 let (nome_enum, variantes) = match tipo_valor {
@@ -1258,7 +1258,7 @@ impl<'a> Analisador<'a> {
             let obtido = self.expressao(argumento);
             if let Some(esperado) = esperados.get(indice) {
                 self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
-                if !Self::tipo_copiavel(&obtido) { self.mover_valor(argumento); }
+                if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
             }
         }
     }
@@ -1800,20 +1800,76 @@ impl<'a> Analisador<'a> {
         }
     }
 
-    fn tipo_copiavel(tipo: &Tipo) -> bool {
-        matches!(tipo,
-            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Logico | Tipo::Inteiro |
-            Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 |
-            Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 |
-            Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte
-        )
+    fn tipo_copiavel(&mut self, tipo: &Tipo) -> bool {
+        self.tipo_copiavel_interno(tipo, &mut std::collections::HashSet::new())
+    }
+
+    fn tipo_copiavel_interno(
+        &mut self,
+        tipo: &Tipo,
+        ativos: &mut std::collections::HashSet<String>,
+    ) -> bool {
+        match tipo {
+            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Logico | Tipo::Inteiro
+            | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64
+            | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+            | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Decimal | Tipo::Decimal32
+            | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte => true,
+            Tipo::Tupla(elementos) => elementos
+                .iter()
+                .all(|elemento| self.tipo_copiavel_interno(elemento, ativos)),
+            Tipo::Opcional(elemento) | Tipo::Intervalo(elemento) => {
+                self.tipo_copiavel_interno(elemento, ativos)
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                self.tipo_copiavel_interno(sucesso, ativos)
+                    && self.tipo_copiavel_interno(falha, ativos)
+            }
+            Tipo::Estrutura(nome) => {
+                let chave = format!("estrutura:{nome}");
+                if !ativos.insert(chave.clone()) {
+                    return false;
+                }
+                let campos = self.campos_estruturas.get(nome).cloned();
+                let copiavel = campos.is_some_and(|campos| {
+                    campos.values().all(|tipo_campo| {
+                        let tipo_campo = self.resolver_tipo(tipo_campo);
+                        tipo_campo != Tipo::Desconhecido
+                            && self.tipo_copiavel_interno(&tipo_campo, ativos)
+                    })
+                });
+                ativos.remove(&chave);
+                copiavel
+            }
+            Tipo::Enumeracao(nome) => {
+                let chave = format!("enumeracao:{nome}");
+                if !ativos.insert(chave.clone()) {
+                    return false;
+                }
+                let variantes = self.variantes_enumeracoes.get(nome).cloned();
+                let copiavel = variantes.is_some_and(|variantes| {
+                    variantes.values().flatten().all(|tipo_payload| {
+                        let tipo_payload = self.resolver_tipo(tipo_payload);
+                        tipo_payload != Tipo::Desconhecido
+                            && self.tipo_copiavel_interno(&tipo_payload, ativos)
+                    })
+                });
+                ativos.remove(&chave);
+                copiavel
+            }
+            // Texto e listas têm armazenamento próprio e continuam move-only.
+            _ => false,
+        }
     }
 
     fn mover_valor(&mut self, expressao: &Expressao) {
         match expressao {
             Expressao::Nome(nome) => {
-                if let Some(simbolo) = self.buscar_mutavel(nome) {
-                    if !Self::tipo_copiavel(&simbolo.tipo) { simbolo.movido = true; }
+                let tipo = self.buscar_mutavel(nome).map(|simbolo| simbolo.tipo.clone());
+                if tipo.is_some_and(|tipo| !self.tipo_copiavel(&tipo)) {
+                    if let Some(simbolo) = self.buscar_mutavel(nome) {
+                        simbolo.movido = true;
+                    }
                 }
             }
             Expressao::Lista(itens) | Expressao::Tupla(itens) => {
@@ -1826,7 +1882,7 @@ impl<'a> Analisador<'a> {
                 if let Some((raiz, mut caminho)) = Self::decompor_caminho_campo(alvo) {
                     caminho.push(nome.clone());
                     if self.resolver_tipo_caminho_puro(&raiz, &caminho)
-                        .is_some_and(|tipo| !Self::tipo_copiavel(&tipo))
+                        .is_some_and(|tipo| !self.tipo_copiavel(&tipo))
                     {
                         if let Some(simbolo) = self.buscar_mutavel(&raiz) {
                             simbolo.campos_movidos.insert(caminho.join("."));
@@ -1846,7 +1902,7 @@ impl<'a> Analisador<'a> {
                     }
                 } else if let Some((raiz, caminho_lista)) = Self::decompor_caminho_campo(alvo) {
                     if self.resolver_tipo_caminho_puro(&raiz, &caminho_lista)
-                        .is_some_and(|tipo| matches!(tipo, Tipo::Lista(ref elemento) if !Self::tipo_copiavel(elemento)))
+                        .is_some_and(|tipo| matches!(tipo, Tipo::Lista(ref elemento) if !self.tipo_copiavel(elemento)))
                     {
                         if let Some(simbolo) = self.buscar_mutavel(&raiz) {
                             if caminho_lista.is_empty() {
