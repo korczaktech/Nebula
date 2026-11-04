@@ -378,6 +378,42 @@ fn symbols(program: &Programa, text: &str, uri: &str) -> Json {
         ])
     }).collect())
 }
+fn signature_help(document: &Document, uri: &str, line: usize, character: usize) -> Json {
+    let at = offset(&document.text, line, character);
+    let Some(open) = document.text[..at].rfind('(') else { return Json::Null; };
+    let (_, _, function_name) = word_at(&document.text, open);
+    if function_name.is_empty() { return Json::Null; }
+    let active_parameter = document.text[open + 1..at].chars().filter(|ch| *ch == ',').count();
+    let file = ArquivoFonte::novo(uri, document.text.clone());
+    let parsed = analisar(&file);
+    let Some((parameters, return_type)) = parsed.programa.itens.iter().find_map(|node| {
+        if let NoAst::Funcao { nome, parametros, retorno, .. } = node {
+            (nome == &function_name).then(|| (parametros, retorno))
+        } else {
+            None
+        }
+    }) else { return Json::Null; };
+    let parameter_labels: Vec<String> = parameters.iter()
+        .map(|(name, tipo)| format!("{name}: {tipo}"))
+        .collect();
+    let label = format!(
+        "{}({}): {}",
+        function_name,
+        parameter_labels.join(", "),
+        return_type.as_deref().unwrap_or("vazio")
+    );
+    let parameters_json = parameter_labels.into_iter().map(|label| {
+        object([("label".into(), s(label))])
+    }).collect();
+    object([
+        ("signatures".into(), Json::Array(vec![object([
+            ("label".into(), s(label)),
+            ("parameters".into(), Json::Array(parameters_json)),
+        ])])),
+        ("activeSignature".into(), n(0)),
+        ("activeParameter".into(), n(active_parameter)),
+    ])
+}
 fn references(text: &str, uri: &str, word: &str) -> Json {
     let file = ArquivoFonte::novo(uri, text.to_owned());
     let lexical = analisar_lexico(&file);
@@ -396,7 +432,7 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
             let capabilities = object([
                 ("textDocumentSync".into(), n(2)),
                 ("completionProvider".into(), object([("resolveProvider".into(), Json::Bool(false))])),
-                ("hoverProvider".into(), Json::Bool(true)),
+                ("hoverProvider".into(), Json::Bool(true)),\n                ("signatureHelpProvider".into(), object([("triggerCharacters".into(), Json::Array(vec![s("("), s(",")]))])),
                 ("definitionProvider".into(), Json::Bool(true)),
                 ("referencesProvider".into(), Json::Bool(true)),
                 ("documentSymbolProvider".into(), Json::Bool(true)),
@@ -432,13 +468,22 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
                 ("uri".into(), s(uri)), ("diagnostics".into(), Json::Array(Vec::new())),
             ])));
         }
-        "textDocument/completion" | "textDocument/hover" | "textDocument/definition" | "textDocument/references" | "textDocument/documentSymbol" => {
+        "textDocument/completion" | "textDocument/hover" | "textDocument/definition" | "textDocument/references" | "textDocument/documentSymbol" | "textDocument/signatureHelp" => {
             let uri = params.get("textDocument").and_then(|v| v.get("uri")).and_then(Json::string).unwrap_or("");
             let result = server.documents.get(uri).map(|doc| match method {
                 "textDocument/completion" => {
                     let pos = params.get("position").unwrap_or(&Json::Null);
                     completion(doc, uri, pos.get("line").and_then(Json::number).unwrap_or(0) as usize,
                         pos.get("character").and_then(Json::number).unwrap_or(0) as usize)
+                }
+                "textDocument/signatureHelp" => {
+                    let pos = params.get("position").unwrap_or(&Json::Null);
+                    signature_help(
+                        doc,
+                        uri,
+                        pos.get("line").and_then(Json::number).unwrap_or(0) as usize,
+                        pos.get("character").and_then(Json::number).unwrap_or(0) as usize,
+                    )
                 }
                 "textDocument/documentSymbol" => {
                     let file = ArquivoFonte::novo(uri, doc.text.clone());
