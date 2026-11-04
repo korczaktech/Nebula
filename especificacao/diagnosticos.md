@@ -66,6 +66,7 @@ Os códigos `N2000`–`N2099` pertencem ao Parser. O código é estável e a men
 | N2048 | Padrão de enumeração duplicado em escolha |
 | N2049 | Limite de aninhamento sintático excedido |
 | N2050 | Parâmetro de função duplicado |
+| N2051 | Delimitador de fechamento incompatível, sem abertura ou fora do bloco esperado |
 
 ## Garantias dos diagnósticos sintáticos
 
@@ -74,10 +75,12 @@ Os códigos `N2000`–`N2099` pertencem ao Parser. O código é estável e a men
 - Todo erro sintático associado a um token aponta para o intervalo desse token, com offsets em bytes, início inclusivo e fim exclusivo.
 - Quando um token esperado está ausente no fim do arquivo, o diagnóstico usa um intervalo vazio na posição final da fonte. Isso permite que editores apresentem o cursor exatamente onde a construção deveria continuar.
 - Intervalos devem respeitar limites UTF-8 e permanecer dentro do conteúdo da fonte.
+- Fechamentos `)`, `]`, `}` e `fim` devem corresponder ao agrupamento ou bloco aberto; um fechamento incompatível ou sem abertura gera `N2051`, enquanto uma abertura sem fechamento gera `N2009`.
+- A recuperação após um fechamento cruzado descarta apenas o agrupamento interno inválido e restabelece a emissão de quebras de linha quando o delimitador externo correspondente é fechado.
 - Códigos são estáveis e mensagens são em português, específicas à regra violada ou à construção esperada.
 - O Parser não descarta diagnósticos léxicos ao recuperar erros sintáticos; ambos permanecem disponíveis para a ferramenta chamadora.
 
-Essas garantias são verificadas por testes de regressão que cobrem códigos documentados, severidade, mensagem, limites de intervalos, UTF-8, posição de EOF e ordenação combinada entre Lexer e Parser.
+Essas garantias são verificadas por testes de regressão que cobrem códigos documentados, severidade, mensagem, limites de intervalos, UTF-8, posição de EOF, ordenação combinada entre Lexer e Parser, pares de delimitadores, blocos aninhados e recuperação após fechamentos incompatíveis.
 
 ## Exemplo de apresentação futura
 
