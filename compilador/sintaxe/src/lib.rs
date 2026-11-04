@@ -756,10 +756,34 @@ impl Parser {
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
     fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao) }
     fn sincronizar(&mut self) {
-        while !self.verifica(TipoToken::Fim)
-            && !self.separador_atual()
-            && !matches!(self.tipo(), TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Senao)
-        {
+        self.sincronizar_ate(&[
+            TipoToken::NovaLinha,
+            TipoToken::PontoVirgula,
+            TipoToken::FechaChave,
+            TipoToken::FimBloco,
+            TipoToken::Senao,
+        ]);
+    }
+    fn sincronizar_ate(&mut self, finais: &[TipoToken]) {
+        let mut delimitadores = Vec::new();
+        while !self.verifica(TipoToken::Fim) {
+            let atual = self.tipo();
+            if delimitadores.is_empty() && finais.contains(&atual) {
+                break;
+            }
+            match atual {
+                TipoToken::AbrePar => delimitadores.push(TipoToken::FechaPar),
+                TipoToken::AbreColchete => delimitadores.push(TipoToken::FechaColchete),
+                TipoToken::AbreChave => delimitadores.push(TipoToken::FechaChave),
+                TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave => {
+                    if delimitadores.last() == Some(&atual) {
+                        delimitadores.pop();
+                    } else if delimitadores.is_empty() && finais.contains(&atual) {
+                        break;
+                    }
+                }
+                _ => {}
+            }
             self.avancar();
         }
     }
