@@ -20,7 +20,8 @@ A especificação normativa está em [linguagem-e-tipos.md](linguagem-e-tipos.md
 - inteiro_u8, inteiro_u16, inteiro_u32, inteiro_u64, inteiro_u128.
 - decimal, decimal32, decimal64.
 - byte, caractere, texto.
-- Listas homogêneas [T].
+- Listas homogêneas [T], também nomeadas por `vetor<T>`.
+- Matrizes como listas de listas homogêneas, por meio do alias `matriz<T>` (equivalente a `[[T]]`).
 - Tuplas heterogêneas Tupla<T1, T2, ...> e expressões tupla, incluindo () e (valor,).
 - Tipos nominais de estruturas e enumerações.
 - Opcional<T> e Resultado<T, E>.
@@ -31,7 +32,11 @@ Aliases são resolvidos antes da análise dos corpos. Ciclos e destinos desconhe
 
 ## Regras estáticas
 
-- Condições de quando, enquanto e para devem ser lógicas.
+- Condições de quando, enquanto, durante, repetir e para devem ser lógicas.
+- O laço `cada nome em coleção` percorre listas, textos (elementos caractere) e intervalos numéricos; a variável de iteração é imutável dentro do corpo.
+- `pulso(ms)` exige intervalo inteiro não negativo; o corpo é repetido até `parar`/`encerrar` ou retorno de função.
+- `gerar(valor, quantidade)` produz lista com o valor repetido; quantidade negativa ou maior que 1.000.000 é rejeitada pelo interpretador.
+- `em_paralelo(função1, função2, ...)` exige funções sem parâmetros e com tipo de retorno igual; executa com snapshots independentes da memória, devolvendo resultados na ordem dos argumentos. Não compartilha alterações entre as tarefas.
 - Aritmética exige operandos numéricos; texto + texto concatena.
 - Comparações relacionais exigem operandos numéricos.
 - Igualdade estrutural é verificada para listas, tuplas, estruturas, enumerações, opcionais e resultados quando seus componentes implementam igualdade.
@@ -52,7 +57,7 @@ Valores de função sem captura de ambiente podem ser armazenados, retornados e 
 
 ## Limites atuais e suporte por alvo
 
-O backend nativo implementado é Linux x86-64 / ELF64. Ele ainda não implementa ABI e geração nativa de agregados: estruturas, enumerações, tuplas, opcionais e resultados não podem ser passados ou retornados nativamente como agregados. A ABI nativa de inteiros de 128 bits também não está implementada.
+O backend nativo implementado é Linux x86-64 / ELF64. Os laços `cada` e `pulso` e os builtins `gerar` e `em_paralelo` estão disponíveis no interpretador de referência, mas ainda não estão integrados ao backend ELF nativo; construções não suportadas são rejeitadas. Ele ainda não implementa ABI e geração nativa de agregados: estruturas, enumerações, tuplas, opcionais e resultados não podem ser passados ou retornados nativamente como agregados. A ABI nativa de inteiros de 128 bits também não está implementada.
 
 O backend ELF x86-64 representa caracteres Unicode pelo ponto de código e valida o intervalo de escalares Unicode, excluindo a faixa de substitutos. Também possui operações SSE2 para decimal32 e decimal64 (aritmética básica, comparações e normalização binary32). Conversões explícitas entre inteiros de 8 a 64 bits e decimais são geradas nativamente: inteiro para decimal usa conversão SSE2, e decimal para inteiro verifica NaN e faixa antes de truncar em direção a zero. Conversões entre larguras inteiras também verificam sinal e faixa. A ABI de inteiros de 128 bits permanece indisponível no backend nativo. Recursos não suportados devem ser rejeitados pelo backend, nunca tratados como se estivessem implementados.
 
