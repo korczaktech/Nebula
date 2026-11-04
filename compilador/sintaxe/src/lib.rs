@@ -86,9 +86,16 @@ impl Parser {
         let mut itens = Vec::new(); self.separadores();
         while !self.verifica(TipoToken::Fim) {
             let antes = self.atual;
-            if let Some(no) = self.item() { itens.push(no); }
+            let diagnosticos_antes = self.diagnosticos.len();
+            let no = self.item();
+            let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+                && self.diagnosticos.len() > diagnosticos_antes
+                && self.inicia_item();
+            if let Some(no) = no { itens.push(no); }
             if self.atual == antes { self.avancar(); }
-            if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao) && !self.separador_atual() {
+            if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave)
+                && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao)
+                && !self.separador_atual() && !bloco_recuperado {
                 self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções.");
                 self.sincronizar();
             }
@@ -628,10 +635,17 @@ impl Parser {
         if self.corresponde(TipoToken::AbreChave) {
             self.separadores(); let mut itens = Vec::new();
             while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
-                let antes = self.atual; if let Some(n) = self.item() { itens.push(n); }
+                let antes = self.atual;
+                let diagnosticos_antes = self.diagnosticos.len();
+                let no = self.item();
+                let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+                    && self.diagnosticos.len() > diagnosticos_antes
+                    && self.inicia_item();
+                if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() {
-                    self.erro_atual("N2001", "Esperado separador dentro do bloco."); self.sincronizar();
+                if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() && !bloco_recuperado {
+                    self.erro_atual("N2001", "Esperado separador dentro do bloco.");
+                    self.sincronizar();
                 }
                 self.separadores();
             }
@@ -640,9 +654,18 @@ impl Parser {
         } else if self.corresponde(TipoToken::NovaLinha) {
             self.separadores(); let mut itens = Vec::new();
             while !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::Senao) {
-                let antes = self.atual; if let Some(n) = self.item() { itens.push(n); }
+                let antes = self.atual;
+                let diagnosticos_antes = self.diagnosticos.len();
+                let no = self.item();
+                let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+                    && self.diagnosticos.len() > diagnosticos_antes
+                    && self.inicia_item();
+                if let Some(no) = no { itens.push(no); }
                 if self.atual == antes { self.avancar(); }
-                if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) { self.erro_atual("N2001", "Esperado separador dentro do bloco."); self.sincronizar(); }
+                if !self.separador_atual() && !self.verifica(TipoToken::FimBloco) && !bloco_recuperado {
+                    self.erro_atual("N2001", "Esperado separador dentro do bloco.");
+                    self.sincronizar();
+                }
                 self.separadores();
             }
             self.esperar(TipoToken::FimBloco, "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
@@ -939,6 +962,28 @@ impl Parser {
             } else { Expressao::Binaria { esquerda: Box::new(esquerda), operador: op, direita: Box::new(valor) } };
         }
         Some(esquerda)
+    }
+    fn eh_bloco(&self, no: &NoAst) -> bool {
+        matches!(no,
+            NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
+            | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
+            | NoAst::Para { .. }
+        )
+    }
+    fn inicia_item(&self) -> bool {
+        matches!(self.tipo(),
+            TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
+            | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Publico | TipoToken::Privado
+            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::ReservadaFutura
+            | TipoToken::Incluir | TipoToken::Quando | TipoToken::Escolha | TipoToken::Avaliar
+            | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
+            | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Parar
+            | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
+            | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
+            | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos
+            | TipoToken::Mais
+        )
     }
     fn tipo(&self) -> TipoToken { self.tokens.get(self.atual).map_or(TipoToken::Fim, |t| t.tipo) }
     fn verifica(&self, t: TipoToken) -> bool { self.tipo() == t }
