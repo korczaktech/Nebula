@@ -176,9 +176,12 @@ As bases numéricas, escapes, normalização de identificadores, comentários e 
 - Dentro de parênteses e colchetes, quebras de linha não separam itens.
 - Quebras depois de operadores que ainda precisam de operando continuam a expressão.
 - Quebras antes de operadores que podem completar a expressão anterior continuam a expressão.
+- O acesso a membro permite quebra antes do operador e depois dele; o nome do membro vem após o operador.
+- Caminhos de tipos e módulos permitem quebra antes e depois de `::`; padrões de `escolha` exigem `Enum::Variante` sem quebra dentro do par.
 - Quebras após vírgulas continuam listas de argumentos, parâmetros, tipos, tuplas e vínculos.
 - Uma quebra imediatamente antes de `senao` não separa a alternativa do `quando`.
 - A indentação não cria nem fecha blocos.
+- A chave de abertura de blocos de funções e instruções pode ficar na linha seguinte ao cabeçalho; construções de estrutura em expressões exigem `{` imediatamente após o nome.
 - Dentro de chaves, quebras de linha continuam podendo separar itens.
 
 ## 7. Restrições sintáticas e semânticas
