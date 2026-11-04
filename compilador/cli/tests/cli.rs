@@ -381,10 +381,10 @@ fn receber_le_entrada_padrao_e_exibe_prompt() {
     assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada\n");
 }
 
-
 #[test]
 fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
-    let caminho = std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
+    let caminho =
+        std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
         "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\" { exibir(letra) }\ncada numero em 1..3 { exibir(numero) }",
@@ -397,12 +397,8 @@ fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
         "{}",
         String::from_utf8_lossy(&saida.stderr)
     );
-    assert_eq!(
-        String::from_utf8_lossy(&saida.stdout),
-        "3\na\nb\n1\n2\n3\n"
-    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "3\na\nb\n1\n2\n3\n");
 }
-
 
 #[test]
 fn pulso_executa_ciclos_ate_encerrar() {
@@ -421,7 +417,6 @@ fn pulso_executa_ciclos_ate_encerrar() {
     );
     assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "2");
 }
-
 
 #[test]
 fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
