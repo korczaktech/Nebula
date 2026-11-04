@@ -384,11 +384,22 @@ impl Lowerer {
             NoAst::Enquanto { condicao, corpo } => Some(InstrucaoIr::Enquanto {
                 condicao: self.expressao(condicao)?, corpo: self.bloco(corpo),
             }),
-            NoAst::Cada { nome, iteravel, corpo } => Some(InstrucaoIr::Cada {
-                nome: nome.clone(),
-                iteravel: self.expressao(iteravel)?,
-                corpo: self.bloco(corpo),
-            }),
+            NoAst::Cada { nome, iteravel, corpo } => {
+                let tipo_elemento = match self.inferir_tipo_ast(iteravel) {
+                    Tipo::Lista(tipo) | Tipo::Intervalo(tipo) => *tipo,
+                    Tipo::Texto => Tipo::Caractere,
+                    _ => Tipo::Desconhecido,
+                };
+                let iteravel_ir = self.expressao(iteravel)?;
+                self.escopos_tipos.push(HashMap::from([(nome.clone(), tipo_elemento)]));
+                let corpo_ir = self.bloco(corpo);
+                self.escopos_tipos.pop();
+                Some(InstrucaoIr::Cada {
+                    nome: nome.clone(),
+                    iteravel: iteravel_ir,
+                    corpo: corpo_ir,
+                })
+            },
             NoAst::Para { inicial, condicao, atualizacao, corpo } => Some(InstrucaoIr::Para {
                 inicial: inicial.as_deref().and_then(|i| self.item(i)).map(Box::new),
                 condicao: condicao.as_ref().and_then(|e| self.expressao(e)),
