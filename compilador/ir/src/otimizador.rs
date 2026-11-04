@@ -190,6 +190,11 @@ fn propagar_constantes_lista(
                 let mut estado_laco = constantes.clone();
                 propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
             }
+            InstrucaoIr::Cada { iteravel, corpo, .. } => {
+                propagar_constantes_expressao(iteravel, constantes, relatorio);
+                let mut estado_laco = constantes.clone();
+                propagar_constantes_lista(corpo, &mut estado_laco, relatorio);
+            }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
                 let mut estado_laco = constantes.clone();
                 if let Some(inicial) = inicial {
@@ -288,6 +293,10 @@ fn otimizar_instrucao(
         }
         InstrucaoIr::Enquanto { condicao, corpo } => {
             otimizar_expressao(condicao, relatorio);
+            otimizar_lista(corpo, nivel, relatorio);
+        }
+        InstrucaoIr::Cada { iteravel, corpo, .. } => {
+            otimizar_expressao(iteravel, relatorio);
             otimizar_lista(corpo, nivel, relatorio);
         }
         InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
