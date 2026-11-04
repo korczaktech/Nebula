@@ -426,10 +426,10 @@ mod testes {
 
     #[test]
     fn json_parser_resiste_a_entradas_adversariais_deterministicas() {
-        for semente_inicial in 0..512_u32 {
+        for semente_inicial in 0..2_048_u32 {
             let mut estado = semente_inicial.wrapping_add(0x9e37_79b9);
-            let mut bytes = Vec::with_capacity((semente_inicial as usize % 97) + 1);
-            let tamanho = semente_inicial as usize % 97 + 1;
+            let mut bytes = Vec::with_capacity((semente_inicial as usize % 257) + 1);
+            let tamanho = semente_inicial as usize % 257 + 1;
             for _ in 0..tamanho {
                 estado = estado.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
                 bytes.push((estado >> 24) as u8);
