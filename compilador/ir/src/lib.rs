@@ -1680,6 +1680,9 @@ impl Maquina<'_> {
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 let valores = argumentos.iter().map(|a| self.expressao(a)).collect::<Result<Vec<_>,_>>()?;
+                if let Some(funcao) = self.programa.funcoes.get(nome).cloned() {
+                    return self.chamar_funcao(nome, funcao, valores);
+                }
                 if nome == "em_paralelo" {
                     if valores.is_empty() {
                         return Err("'em_paralelo' exige pelo menos uma função sem parâmetros.".into());
