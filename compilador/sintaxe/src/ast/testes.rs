@@ -256,12 +256,36 @@ variavel construcao = Pessoa { nome: "Ana" }
         .iter_expressoes_localizadas()
         .map(|localizado| &localizado.expressao)
         .collect();
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Unaria { .. })));
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Binaria { .. })));
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Atribuicao { .. })));
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Chamada { .. })));
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Indexacao { .. })));
-    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Membro { .. })));
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Unaria { .. }))
+    );
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Binaria { .. }))
+    );
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Atribuicao { .. }))
+    );
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Chamada { .. }))
+    );
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Indexacao { .. }))
+    );
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::Membro { .. }))
+    );
     assert!(expressoes.iter().any(|e| matches!(e, Expressao::Lista(_))));
     assert!(expressoes.iter().any(|e| matches!(e, Expressao::Tupla(_))));
     assert!(
