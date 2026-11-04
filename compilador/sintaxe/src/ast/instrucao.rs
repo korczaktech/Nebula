@@ -78,12 +78,30 @@ pub struct NoLocalizado {
     pub intervalo: IntervaloFonte,
 }
 
-/// Programa analisado, incluindo a lista de nós e seus intervalos de origem.
+/// Expressão da AST acompanhada do intervalo de bytes que a originou.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpressaoLocalizada {
+    pub expressao: Expressao,
+    pub intervalo: IntervaloFonte,
+}
+
+/// Tipo da AST acompanhado do intervalo de bytes que o originou.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TipoLocalizado {
+    pub tipo: super::tipos::TipoAst,
+    pub intervalo: IntervaloFonte,
+}
+
+/// Programa analisado, incluindo nós, expressões e tipos com seus intervalos de origem.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Programa {
     pub itens: Vec<NoAst>,
     /// Nós localizados, incluindo instruções aninhadas nos blocos.
     pub nos_localizados: Vec<NoLocalizado>,
+    /// Expressões localizadas, incluindo subexpressões.
+    pub expressoes_localizadas: Vec<ExpressaoLocalizada>,
+    /// Tipos localizados, incluindo tipos genéricos aninhados.
+    pub tipos_localizados: Vec<TipoLocalizado>,
 }
 
 /// Resultado sintático com AST parcial e todos os diagnósticos coletados.
@@ -97,6 +115,16 @@ impl Programa {
     /// Itera sobre todos os nós com localização de origem.
     pub fn iter_localizados(&self) -> impl Iterator<Item = &NoLocalizado> {
         self.nos_localizados.iter()
+    }
+
+    /// Itera sobre todas as expressões com localização de origem.
+    pub fn iter_expressoes_localizadas(&self) -> impl Iterator<Item = &ExpressaoLocalizada> {
+        self.expressoes_localizadas.iter()
+    }
+
+    /// Itera sobre todos os tipos com localização de origem.
+    pub fn iter_tipos_localizados(&self) -> impl Iterator<Item = &TipoLocalizado> {
+        self.tipos_localizados.iter()
     }
 }
 
