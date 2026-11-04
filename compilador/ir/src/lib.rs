@@ -604,7 +604,7 @@ impl Lowerer {
                 if !parametros.is_empty() {
                     return Tipo::Desconhecido;
                 }
-                if retorno_comum.as_ref().is_some_and(|anterior| **retorno != *anterior) {
+                if retorno_comum.as_ref().is_some_and(|anterior| *retorno != *anterior) {
                     return Tipo::Desconhecido;
                 }
                 retorno_comum = Some(*retorno);
