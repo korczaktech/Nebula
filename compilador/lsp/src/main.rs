@@ -256,7 +256,7 @@ fn diagnostics(uri: &str, document: &Document) -> Json {
     ]))
 }
 fn keywords() -> &'static [&'static str] {
-    &["variavel", "definir", "mutavel", "constante", "alterar", "funcao", "quando", "senao", "escolha", "avaliar", "caso", "para", "cada", "em", "pulso", "enquanto", "durante", "repetir", "devolver", "incluir", "como", "verdadeiro", "falso", "nulo", "parar", "encerrar", "seguir", "e", "ou", "nao", "publico", "privado", "tipo", "estrutura", "enumeracao", "exibir"];
+    &["variavel", "definir", "mutavel", "constante", "alterar", "funcao", "quando", "senao", "escolha", "avaliar", "caso", "para", "cada", "em", "pulso", "enquanto", "durante", "repetir", "devolver", "incluir", "como", "verdadeiro", "falso", "nulo", "parar", "encerrar", "seguir", "e", "ou", "nao", "publico", "privado", "tipo", "estrutura", "enumeracao", "exibir"]
 }
 fn word_at(text: &str, at: usize) -> (usize, usize, String) {
     let at = at.min(text.len());
