@@ -1,6 +1,8 @@
 //! Coleções tipadas da biblioteca padrão Nebula.
 use std::collections::{BTreeMap, VecDeque};
 
+pub use nebula_runtime::{Memoria, Valor};
+
 /// Mapa ordenado de chaves únicas para valores.
 #[derive(Debug,Clone,PartialEq,Eq,Default)]
 pub struct Mapa<K:Ord,V>(BTreeMap<K,V>);
