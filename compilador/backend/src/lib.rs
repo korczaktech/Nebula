@@ -1106,7 +1106,10 @@ impl Emissor {
                 return self.normalizar_tipo(destino);
             }
             if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
-                return Err("Conversão de inteiro128 para decimal ainda não está implementada.".into());
+                return self.converter_inteiro128_para_decimal(
+                    origem_inteira.is_some_and(|(_, assinado)| assinado),
+                    destino,
+                );
             }
         }
 
@@ -1155,6 +1158,61 @@ impl Emissor {
             tipo_origem.nome(),
             destino.nome()
         ))
+    }
+
+    fn converter_inteiro128_para_decimal(
+        &mut self,
+        origem_assinada: bool,
+        destino: &Tipo,
+    ) -> Result<(), String> {
+        if origem_assinada {
+            self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // r11d = sinal
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+            let positivo = self.emitir_jcc(0x89); // jns
+            self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
+            self.aplicar_salto(positivo, self.codigo.len());
+        }
+
+        // Converte cada metade unsigned64 sem interpretar o bit 63 como sinal.
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC0]); // addsd xmm0, xmm0
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC9]); // movq xmm1, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC9]); // cvtsi2sd xmm1, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC1]); // addsd xmm0, xmm1
+
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD0]); // movq xmm2, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD0]); // cvtsi2sd xmm2, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xD2]); // addsd xmm2, xmm2
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD9]); // movq xmm3, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD9]); // cvtsi2sd xmm3, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xD3]); // addsd xmm2, xmm3
+        self.mov_rax(0x43F0_0000_0000_0000u64 as i64); // 2^64
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD8]); // movq xmm3, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x59, 0xD3]); // mulsd xmm2, xmm3
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC2]); // addsd xmm0, xmm2
+
+        if origem_assinada {
+            self.codigo.extend_from_slice(&[0x41, 0x85, 0xDB]); // test r11d, r11d
+            let positivo = self.emitir_jcc(0x84);
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x57, 0xC1]); // xorpd xmm0, xmm1
+            self.aplicar_salto(positivo, self.codigo.len());
+        }
+
+        if *destino == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss
+            self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd
+        }
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        Ok(())
     }
 
     fn converter_decimal_para_inteiro(&mut self, destino: &Tipo) -> Result<(), String> {
