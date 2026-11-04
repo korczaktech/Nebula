@@ -402,6 +402,32 @@ impl<'a> Analisador<'a> {
                 // que possa ocorrer em uma iteração.
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
             }
+            NoAst::Cada { nome, iteravel, corpo } => {
+                let tipo_iteravel = self.expressao(iteravel);
+                let tipo_elemento = match tipo_iteravel {
+                    Tipo::Lista(tipo) | Tipo::Intervalo(tipo) => *tipo,
+                    Tipo::Texto => Tipo::Caractere,
+                    Tipo::Desconhecido => Tipo::Desconhecido,
+                    outro => {
+                        self.erro("N3058", format!("'cada' exige lista, intervalo ou texto; recebeu '{}'.", outro.nome()));
+                        Tipo::Desconhecido
+                    }
+                };
+                let antes_corpo = self.snapshot_movidos();
+                self.abrir_escopo();
+                self.declarar(nome, Simbolo {
+                    tipo: tipo_elemento,
+                    mutavel: false,
+                    movido: false,
+                    campos_movidos: HashSet::new(),
+                });
+                self.profundidade_laco += 1;
+                self.bloco(corpo);
+                self.profundidade_laco -= 1;
+                self.fechar_escopo();
+                let depois_corpo = self.snapshot_movidos();
+                self.mesclar_movidos(&antes_corpo, &depois_corpo);
+            }
             NoAst::Para { inicial, condicao, atualizacao, corpo } => {
                 self.abrir_escopo();
                 if let Some(inicial) = inicial { self.item(inicial); }
@@ -2895,6 +2921,21 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
         let r = analisar_codigo("variavel nome = receber(\"Nome: \")\naguardar(1)");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("nome"), Some(&Tipo::Texto));
+    }
+
+
+    #[test]
+    fn valida_cada_sobre_lista_intervalo_e_texto() {
+        let valido = analisar_codigo(
+            "variavel total = 0\ncada numero em [1, 2, 3] { total = total + numero }\ncada caractere em \"abc\" { exibir(caractere) }\ncada indice em 1..3 { exibir(indice) }",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_cada_sobre_valor_nao_iteravel() {
+        let invalido = analisar_codigo("cada item em 42 { exibir(item) }");
+        assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", invalido.diagnosticos);
     }
 
     #[test]
