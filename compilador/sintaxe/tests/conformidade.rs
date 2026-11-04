@@ -89,7 +89,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "indexacao e membros",
             "itens[0]\nobjeto.campo\nModulo::valor\nmodulo::objeto.campo[0](1)",
         ),
-        ("tuplas", "variavel vazia = ()\nvariavel agrupada = (a)\nvariavel par = (a, b)\nvariavel final = (a, b,)"),
+        (\n            "tuplas",\n            "variavel vazia = ()\\nvariavel agrupada = (a)\\nvariavel par = (a, b)\\nvariavel final = (a, b,)",\n        ),
         ("listas", "[]\n[a, b]"),
         (
             "construcao de estrutura",
