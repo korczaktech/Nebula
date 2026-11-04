@@ -648,7 +648,7 @@ fn entrada_extensa_nao_causa_pane() {
 
 #[test]
 fn restabelece_quebras_apos_fechamento_de_delimitador_externo() {
-    let resultado = analisar_lexico(&fonte("calcular([1)\\nvariavel depois = 2"));
+    let resultado = analisar_lexico(&fonte("calcular([1)\nvariavel depois = 2"));
     assert!(
         resultado.tokens.iter().any(|token| token.tipo == TipoToken::NovaLinha),
         "um fechamento cruzado não pode suprimir as quebras seguintes"
@@ -661,7 +661,7 @@ fn restabelece_quebras_apos_fechamento_de_delimitador_externo() {
 
 #[test]
 fn fechamento_sem_abertura_nao_corrompe_estado_de_continuacao() {
-    let resultado = analisar_lexico(&fonte("calcular(1))\\nvariavel depois = 2"));
+    let resultado = analisar_lexico(&fonte("calcular(1))\nvariavel depois = 2"));
     assert!(
         resultado.tokens.iter().any(|token| token.tipo == TipoToken::NovaLinha),
         "fechamento extra não pode manter a continuação ativa"
