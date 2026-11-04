@@ -115,7 +115,7 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = "funcao principal() {\n variavel nome = \"Nebula\"\n quando verdadeiro { devolver nome }\n}";
+    let codigo = "funcao principal() {\n variavel nome: texto = \"Nebula\"\n quando verdadeiro { devolver nome }\n}";
     let resultado = analisar(&ArquivoFonte::novo("ast.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -133,18 +133,43 @@ fn parser_registra_intervalos_de_nos_aninhados() {
         resultado
             .programa
             .iter_localizados()
-            .any(|localizado| matches!(localizado.no, NoAst::Variavel { .. })),
+            .any(|localizado| matches!(&localizado.no, NoAst::Variavel { .. })),
         "variável aninhada precisa de localização própria"
     );
     assert!(
         resultado
             .programa
             .iter_localizados()
-            .any(|localizado| matches!(localizado.no, NoAst::Devolver(_))),
+            .any(|localizado| matches!(&localizado.no, NoAst::Devolver(_))),
         "retorno aninhado precisa de localização própria"
     );
+    assert!(
+        resultado
+            .programa
+            .iter_expressoes_localizadas()
+            .any(|localizado| matches!(&localizado.expressao, Expressao::Nome(_))),
+        "expressões precisam de localização própria"
+    );
+    assert!(
+        resultado
+            .programa
+            .iter_tipos_localizados()
+            .any(|localizado| localizado.tipo == TipoAst::Nome("texto".into())),
+        "tipos precisam de localização própria"
+    );
+
     for localizado in resultado.programa.iter_localizados() {
         assert!(localizado.intervalo.inicio <= localizado.intervalo.fim);
+        assert!(localizado.intervalo.fim <= codigo.len());
+        assert!(codigo.is_char_boundary(localizado.intervalo.inicio));
+        assert!(codigo.is_char_boundary(localizado.intervalo.fim));
+    }
+    for localizado in resultado.programa.iter_expressoes_localizadas() {
+        assert!(localizado.intervalo.fim <= codigo.len());
+        assert!(codigo.is_char_boundary(localizado.intervalo.inicio));
+        assert!(codigo.is_char_boundary(localizado.intervalo.fim));
+    }
+    for localizado in resultado.programa.iter_tipos_localizados() {
         assert!(localizado.intervalo.fim <= codigo.len());
         assert!(codigo.is_char_boundary(localizado.intervalo.inicio));
         assert!(codigo.is_char_boundary(localizado.intervalo.fim));
