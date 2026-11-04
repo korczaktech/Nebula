@@ -2895,6 +2895,167 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn separadores_repetidos_e_finais_sao_aceitos_em_todos_os_blocos() {
+        let exemplos = [
+            "\n;\nvariavel a = 1;;\n\nvariavel b = 2;\n",
+            "funcao principal() {\n;; variavel a = 1;;\n\nvariavel b = 2;;\n}",
+            "funcao principal()\n;; variavel a = 1;;\n\nvariavel b = 2;;\nfim",
+            "estrutura Pessoa { ; nome: texto;; idade: inteiro; }",
+            "enumeracao Estado { ; Ativo;; Inativo; }",
+        ];
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "separadores repetidos, linhas em branco ou separador final foram rejeitados: {codigo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn quebras_em_parenteses_e_colchetes_nao_separam_elementos() {
+        let codigo = "variavel chamada = calcular(\n 1,\n\n 2\n)\nvariavel lista = [\n 3,\n\n 4\n]";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "quebras internas de agrupamento não devem separar instruções: {:?}",
+            resultado.diagnosticos
+        );
+        assert_eq!(resultado.programa.itens.len(), 2);
+        assert!(matches!(
+            &resultado.programa.itens[0],
+            NoAst::Variavel { valor: Expressao::Chamada { argumentos, .. }, .. }
+                if argumentos.len() == 2
+        ));
+        assert!(matches!(
+            &resultado.programa.itens[1],
+            NoAst::Variavel { valor: Expressao::Lista(valores), .. }
+                if valores.len() == 2
+        ));
+    }
+
+    #[test]
+    fn ponto_e_virgula_nao_e_ignorado_dentro_de_agrupamentos() {
+        for codigo in [
+            "variavel chamada = calcular(1; 2)",
+            "variavel lista = [1; 2]",
+            "variavel tupla = (1; 2)",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                !resultado.diagnosticos.is_empty(),
+                "ponto e vírgula dentro de agrupamento foi aceito indevidamente: {codigo:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn quebras_antes_de_operadores_de_continuacao_preservam_a_expressao() {
+        let operadores = [
+            "+", "-", "*", "/", "%", "**", "..", "<", "<=", ">", ">=",
+            "==", "!=", "e", "ou", "=", "<-",
+        ];
+        for operador in operadores {
+            let codigo = format!("variavel resultado = 1\n\n {operador} 2");
+            let resultado = analisar(&fonte(&codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "quebra antes do operador {operador:?} encerrou a expressão: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn quebras_depois_de_operadores_de_continuacao_preservam_a_expressao() {
+        let operadores = [
+            "+", "-", "*", "/", "%", "**", "..", "<", "<=", ">", ">=",
+            "==", "!=", "e", "ou", "=", "<-",
+        ];
+        for operador in operadores {
+            let codigo = format!("variavel resultado = 1 {operador}\n\n 2");
+            let resultado = analisar(&fonte(&codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "quebra depois do operador {operador:?} encerrou a expressão: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn quebras_antes_de_posfixos_e_membros_continuam_a_expressao() {
+        for codigo in [
+            "variavel chamada = funcao_alvo\n(1, 2)",
+            "variavel indice = valores\n[0]",
+            "variavel membro = objeto\n.campo",
+            "variavel qualificado = objeto\n::interno",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "quebra antes de construção pós-fixa deveria continuar a expressão: {codigo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn quebra_antes_de_identificador_separa_instrucoes_independentes() {
+        let resultado = analisar(&fonte(
+            "variavel primeiro = 1\n\nvariavel segundo = 2"
+        ));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(resultado.programa.itens.len(), 2);
+        assert!(matches!(&resultado.programa.itens[0], NoAst::Variavel { nome, .. } if nome == "primeiro"));
+        assert!(matches!(&resultado.programa.itens[1], NoAst::Variavel { nome, .. } if nome == "segundo"));
+    }
+
+    #[test]
+    fn quebra_antes_de_senao_preserva_a_associacao_com_quando() {
+        let resultado = analisar(&fonte(
+            "quando verdadeiro {\n exibir(1)\n}\n\nsenao {\n exibir(2)\n}"
+        ));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert!(matches!(
+            resultado.programa.itens.first(),
+            Some(NoAst::Quando { entao, senao, .. }) if entao.len() == 1 && senao.len() == 1
+        ));
+    }
+
+    #[test]
+    fn indentacao_nao_abre_nem_fecha_blocos() {
+        let valido = analisar(&fonte(
+            "funcao principal()\n variavel primeiro = 1\n      variavel segundo = 2\nfim"
+        ));
+        assert!(
+            valido.diagnosticos.is_empty(),
+            "mudanças de indentação não devem alterar o escopo do bloco: {:?}",
+            valido.diagnosticos
+        );
+        let sem_fechamento = analisar(&fonte(
+            "funcao principal()\n variavel primeiro = 1\n"
+        ));
+        assert!(
+            sem_fechamento.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "bloco sem 'fim' deve continuar inválido mesmo com dedentação"
+        );
+    }
+
+    #[test]
+    fn ponto_e_virgula_nao_substitui_quebra_antes_de_senao() {
+        let resultado = analisar(&fonte(
+            "quando verdadeiro {} ; senao {}"
+        ));
+        assert!(
+            !resultado.diagnosticos.is_empty(),
+            "ponto e vírgula não deve ser tratado como continuação de 'senao'"
+        );
+    }
+
 }
 
 }
