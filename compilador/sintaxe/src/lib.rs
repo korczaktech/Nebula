@@ -1132,6 +1132,59 @@ mod testes {
         }
     }
 
+
+    #[test]
+    fn cobre_todos_os_literais_e_familias_de_operadores() {
+        let exemplos = [
+            "variavel inteiro = 42",
+            "variavel decimal = 3.14",
+            "variavel texto = \"Nebula\"",
+            "variavel caractere = 'á'",
+            "variavel verdadeiro = verdadeiro",
+            "variavel falso = falso",
+            "variavel nulo = nulo",
+            "variavel lista_vazia = []",
+            "variavel chamada_vazia = executar()",
+            "variavel agrupada = (1)",
+            "variavel unarios = !falso e nao falso e -1 < +2",
+            "variavel aritmetica = 1 + 2 - 3 * 4 / 5 % 2 ** 3",
+            "variavel logica = verdadeiro e falso ou nao nulo",
+            "variavel igualdade = 1 == 1 != 2",
+            "variavel relacional = 1 < 2 e 3 <= 4 e 5 > 4 e 6 >= 6",
+            "variavel intervalo = 1..10",
+            "variavel atribuicao = a = b <- 1",
+            "variavel membros = objeto.campo::subcampo[0](1)",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "expressão válida rejeitada: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn reconhece_blocos_vazios_e_construcoes_vazias() {
+        for codigo in [
+            "funcao vazia() {}",
+            "estrutura Vazia {}",
+            "variavel tupla_vazia = ()",
+            "variavel lista_vazia = []",
+            "variavel pessoa = Pessoa {}",
+            "escolha valor { caso _ {} }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "construção vazia válida rejeitada: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
 }
 
 }
