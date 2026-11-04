@@ -175,3 +175,98 @@ fn parser_registra_intervalos_de_nos_aninhados() {
         assert!(codigo.is_char_boundary(localizado.intervalo.fim));
     }
 }
+
+#[test]
+fn parser_produz_todos_os_nos_declarativos_e_de_controle() {
+    let codigo = r#"
+variavel valor = 1
+constante fixa = 2
+tipo Identificador = inteiro
+estrutura Pessoa { nome: texto }
+enumeracao Estado { Pronto, Falha(texto) }
+incluir Modulo::Texto como Texto
+funcao executar(item: inteiro): vazio {
+    quando verdadeiro { exibir(item) } senao {}
+    escolha Estado::Pronto {
+        caso Estado::Pronto {}
+        caso _ {}
+    }
+    enquanto falso {}
+    cada elemento em [1, 2] {}
+    pulso(10) {}
+    para (;; ) {}
+    devolver
+    parar
+    seguir
+}
+executar(1)
+"#;
+    let resultado = analisar(&ArquivoFonte::novo("nos.nbx", codigo));
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "programa com todos os nós deve ser válido: {:#?}",
+        resultado.diagnosticos
+    );
+
+    let nos: Vec<_> = resultado
+        .programa
+        .iter_localizados()
+        .map(|localizado| &localizado.no)
+        .collect();
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Variavel { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Funcao { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Tipo { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Estrutura { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Enumeracao { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Incluir { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Quando { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Escolha { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Enquanto { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Cada { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Pulso { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Para { .. })));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Devolver(_))));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Parar)));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Seguir)));
+    assert!(nos.iter().any(|no| matches!(no, NoAst::Expressao(_))));
+}
+
+#[test]
+fn parser_produz_todas_as_formas_de_expressao() {
+    let codigo = r#"
+variavel unaria = -1
+variavel binaria = 1 + 2
+variavel atribuicao = destino = 2
+variavel chamada = executar(1)
+variavel indexada = itens[0]
+variavel membro = pessoa.nome
+variavel lista = [1, 2]
+variavel tupla = (1, 2)
+variavel construcao = Pessoa { nome: "Ana" }
+"#;
+    let resultado = analisar(&ArquivoFonte::novo("expressoes.nbx", codigo));
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "expressões de referência devem ser válidas: {:#?}",
+        resultado.diagnosticos
+    );
+
+    let expressoes: Vec<_> = resultado
+        .programa
+        .iter_expressoes_localizadas()
+        .map(|localizado| &localizado.expressao)
+        .collect();
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Unaria { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Binaria { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Atribuicao { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Chamada { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Indexacao { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Membro { .. })));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Lista(_))));
+    assert!(expressoes.iter().any(|e| matches!(e, Expressao::Tupla(_))));
+    assert!(
+        expressoes
+            .iter()
+            .any(|e| matches!(e, Expressao::ConstrucaoEstrutura { .. }))
+    );
+}
