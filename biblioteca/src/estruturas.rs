@@ -23,7 +23,7 @@ impl<T> Vetor<T>{
     pub fn adicionar(&mut self,item:T){self.0.push(item)}
     pub fn obter(&self,i:usize)->Resultado<&T>{self.0.get(i).ok_or(ErroRuntime::IndiceForaDosLimites{indice:i,tamanho:self.0.len()})}
     pub fn remover(&mut self,i:usize)->Resultado<T>{if i>=self.0.len(){return Err(ErroRuntime::IndiceForaDosLimites{indice:i,tamanho:self.0.len()})} Ok(self.0.remove(i))}
-    #[must_use] pub fn iterar(&self)->impl Iterator<Item=&T>{self.0.iter()}
+    pub fn iterar(&self)->impl Iterator<Item=&T>{self.0.iter()}
     #[must_use] pub fn em_vetor(self)->Vec<T>{self.0}
 }
 
