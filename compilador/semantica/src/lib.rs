@@ -1538,6 +1538,23 @@ impl<'a> Analisador<'a> {
         genericos: &[String],
         inferidos: &mut HashMap<String, Tipo>,
     ) -> bool {
+        // A inferência é transacional: uma unificação composta que falha
+        // não pode deixar parâmetros parcialmente vinculados.
+        let mut tentativa = inferidos.clone();
+        if Self::inferir_genericos_interno(esperado, obtido, genericos, &mut tentativa) {
+            *inferidos = tentativa;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn inferir_genericos_interno(
+        esperado: &Tipo,
+        obtido: &Tipo,
+        genericos: &[String],
+        inferidos: &mut HashMap<String, Tipo>,
+    ) -> bool {
         // Não transforme lacunas de inferência em instâncias concretas.
         // Ex.: Opcional::Nenhum() não fornece informação suficiente para T.
         if Self::tipo_contem_desconhecido(obtido) {
@@ -3265,6 +3282,24 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             "O mesmo parâmetro genérico deve unificar com um único tipo concreto: {:?}",
             r.diagnosticos
         );
+    }
+
+    #[test]
+    fn inferencia_generica_composta_nao_deixa_vinculos_parciais_ao_falhar() {
+        let esperado = Tipo::Tupla(vec![
+            Tipo::Parametro("T".into()),
+            Tipo::Parametro("T".into()),
+        ]);
+        let obtido = Tipo::Tupla(vec![Tipo::Inteiro, Tipo::Texto]);
+        let mut inferidos = HashMap::new();
+
+        assert!(!Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &["T".into()],
+            &mut inferidos,
+        ));
+        assert!(inferidos.is_empty(), "inferência rejeitada não pode vazar vínculos parciais");
     }
 
     #[test]
