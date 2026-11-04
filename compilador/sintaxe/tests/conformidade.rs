@@ -45,13 +45,19 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "enumeracao com variantes",
             "enumeracao Estado { Vazio, Unidade(), Valor(inteiro, texto) }",
         ),
-        ("inclusao com alias", "incluir Biblioteca::Texto como Texto"),
+        (
+            "inclusao com alias",
+            "incluir Biblioteca::Texto como Texto",
+        ),
         ("inclusao sem alias", "incluir Biblioteca::Interna"),
         (
             "quando e senao",
             "quando verdadeiro { exibir(1) } senao { exibir(0) }",
         ),
-        ("quando encadeado", "quando a {} senao quando b {} senao {}"),
+        (
+            "quando encadeado",
+            "quando a {} senao quando b {} senao {}",
+        ),
         (
             "escolha e padroes",
             "escolha valor { caso Resultado::Sucesso(texto) { exibir(texto) } caso Resultado::Falha(codigo) {} caso _ {} }",
@@ -81,7 +87,10 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "a ou b\na e b\na == b\na != b\na < b\na <= b\na > b\na >= b\na..b\na + b\na - b\na * b\na / b\na % b\na ** b",
         ),
         ("expressoes unarias", "!a\nnao a\n-a\n+a"),
-        ("chamadas e argumentos", "executar()\nexecutar(a)\nexecutar(a, b)"),
+        (
+            "chamadas e argumentos",
+            "executar()\nexecutar(a)\nexecutar(a, b)",
+        ),
         (
             "indexacao e membros",
             "itens[0]\nobjeto.campo\nModulo::valor\nmodulo::objeto.campo[0](1)",
@@ -96,7 +105,10 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "construcao aninhada",
             "Pessoa { endereco: Endereco { cidade: \"São Paulo\" }, dados: ([1, 2], (3,)) }",
         ),
-        ("literais", "42\n3.14\n\"texto\"\n'x'\nverdadeiro\nfalso\nnulo"),
+        (
+            "literais",
+            "42\n3.14\n\"texto\"\n'x'\nverdadeiro\nfalso\nnulo",
+        ),
         (
             "precedencia e agrupamento",
             "variavel x = -2 ** 3 ** 2\nvariavel y = (1 < 2) e (3 >= 2) ou falso",
@@ -143,7 +155,11 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
 #[test]
 fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
     let casos = [
-        ("separador ausente", "N2001", "variavel a = 1 variavel b = 2"),
+        (
+            "separador ausente",
+            "N2001",
+            "variavel a = 1 variavel b = 2",
+        ),
         ("modificador sem funcao", "N2002", "publico variavel a = 1"),
         ("atribuicao ausente", "N2003", "variavel a 1"),
         ("abertura de parametros ausente", "N2004", "funcao f {}"),
@@ -179,8 +195,16 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2033",
             "enumeracao Estado Ativo }",
         ),
-        ("variante duplicada", "N2034", "enumeracao Estado { Ativo, Ativo }"),
-        ("payload malformado", "N2035", "enumeracao Estado { Ativo(, texto) }"),
+        (
+            "variante duplicada",
+            "N2034",
+            "enumeracao Estado { Ativo, Ativo }",
+        ),
+        (
+            "payload malformado",
+            "N2035",
+            "enumeracao Estado { Ativo(, texto) }",
+        ),
         ("enumeracao vazia", "N2036", "enumeracao Estado {}"),
         (
             "campo de construcao duplicado",
@@ -192,10 +216,22 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2038",
             "variavel p = Pessoa { nome: 1 idade: 2 }",
         ),
-        ("abertura de escolha ausente", "N2040", "escolha valor caso _ {}"),
+        (
+            "abertura de escolha ausente",
+            "N2040",
+            "escolha valor caso _ {}",
+        ),
         ("caso ausente", "N2041", "escolha valor { outro {} }"),
-        ("padrao invalido", "N2042", "escolha valor { caso Variante {} }"),
-        ("curinga duplicado", "N2043", "escolha valor { caso _ {} caso _ {} }"),
+        (
+            "padrao invalido",
+            "N2042",
+            "escolha valor { caso Variante {} }",
+        ),
+        (
+            "curinga duplicado",
+            "N2043",
+            "escolha valor { caso _ {} caso _ {} }",
+        ),
         ("escolha vazia", "N2044", "escolha valor {}"),
         (
             "vinculo de payload ausente",
