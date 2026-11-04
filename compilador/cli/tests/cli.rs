@@ -335,6 +335,40 @@ fn analisar_rejeita_nome_nao_declarado() {
     assert!(String::from_utf8_lossy(&saida.stderr).contains("N3007"));
 }
 
+
+#[test]
+fn interpreta_aliases_de_controle_e_operador_de_atribuicao() {
+    let caminho = std::env::temp_dir().join(format!("nebula-aliases-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "definir total = 0\ncada (variavel i = 0; i < 3; i = i + 1) { alterar total <- total + i }\ndurante falso { exibir(100) }\nrepetir verdadeiro { encerrar }\nalterar total <- total + 1\navaliar total { caso _ { exibir(total) } }",
+    ).unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "4");
+}
+
+#[test]
+fn receber_le_entrada_padrao_e_exibe_prompt() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let caminho = std::env::temp_dir().join(format!("nebula-receber-{}.nbx", std::process::id()));
+    std::fs::write(&caminho, "variavel nome = receber(\"Nome: \")\nexibir(nome)").unwrap();
+    let mut processo = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .args(["interpretar", caminho.to_str().unwrap()])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("a CLI deve iniciar");
+    processo.stdin.take().unwrap().write_all(b"Ada\n").unwrap();
+    let saida = processo.wait_with_output().unwrap();
+    let _ = std::fs::remove_file(caminho);
+    assert!(saida.status.success(), "{}", String::from_utf8_lossy(&saida.stderr));
+    assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada\n");
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
