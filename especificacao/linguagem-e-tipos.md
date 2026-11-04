@@ -96,7 +96,7 @@ escolha resultado {
 }
 ```
 
-Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todas as variantes restantes e, quando presente, deve ser o último caso. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência; o backend nativo só poderá aceitá-la após a implementação do layout/ABI de enumerações.
+Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todas as variantes restantes e, quando presente, deve ser o último caso. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência. O backend ELF x86-64 também gera construção e correspondência de enumerações, `Opcional` e `Resultado` quando o layout cabe na ABI própria: tag em um registrador e, no máximo, um payload escalar em outro. Payloads múltiplos ou maiores que um registrador continuam rejeitados.
 
 ### 3.5 Opcionais e resultados
 
@@ -125,7 +125,7 @@ A monomorfização gera uma instância concreta para cada conjunto distinto de a
 
 ### 4.1 Tipos de função
 
-A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter outros tipos de função e tipos genéricos. O retorno pode ser `vazio`. A assinatura preserva a ordem e a identidade dos tipos. O layout de um valor de função é um ponteiro de código de 8 bytes, alinhado a 8 bytes, no ABI inicial x86-64. Valores de função sem captura de ambiente são representados como ponteiros de código. A IR e o interpretador de referência suportam armazenamento, retorno e chamadas indiretas desses valores; o backend ELF x86-64 também gera referências e chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente não fazem parte do suporte atual. O armazenamento de ponteiros de função dentro de agregados ainda não pode ser compilado nativamente enquanto a ABI de agregados não estiver implementada.
+A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter outros tipos de função e tipos genéricos. O retorno pode ser `vazio`. A assinatura preserva a ordem e a identidade dos tipos. O layout de um valor de função é um ponteiro de código de 8 bytes, alinhado a 8 bytes, no ABI inicial x86-64. Valores de função sem captura de ambiente são representados como ponteiros de código. A IR e o interpretador de referência suportam armazenamento, retorno e chamadas indiretas desses valores; o backend ELF x86-64 também gera referências e chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente não fazem parte do suporte atual. Ponteiros de função podem ser armazenados em estruturas/tuplas de até 16 bytes quando ocupam os offsets de registrador suportados pela ABI própria; agregados maiores ou com layouts não classificados continuam rejeitados.
 
 ## 5. Conversões e promoção
 
