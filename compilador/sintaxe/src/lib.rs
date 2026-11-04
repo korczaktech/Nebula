@@ -13,7 +13,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
-use crate::ast::{CasoEscolha, Expressao, NoAst, Programa, ResultadoSintatico, Visibilidade};
+use crate::ast::{CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade};
 use unicode_normalization::UnicodeNormalization;
 
 /// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
@@ -34,9 +34,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
@@ -69,9 +69,24 @@ impl Parser {
             }
             self.separadores();
         }
-        Programa { itens }
+        self.nos_localizados.sort_by(|a, b| a.intervalo.inicio.cmp(&b.intervalo.inicio).then_with(|| b.intervalo.fim.cmp(&a.intervalo.fim)));
+        Programa { itens, nos_localizados: std::mem::take(&mut self.nos_localizados) }
     }
     fn item(&mut self) -> Option<NoAst> {
+        let inicio = self.tokens.get(self.atual).map(|token| token.intervalo.inicio);
+        let no = self.item_interno();
+        if let (Some(no), Some(inicio)) = (no.as_ref(), inicio) {
+            if self.atual > 0 {
+                if let Some(token) = self.tokens.get(self.atual - 1) {
+                    if let Some(intervalo) = IntervaloFonte::novo(inicio, token.intervalo.fim) {
+                        self.nos_localizados.push(NoLocalizado { no: no.clone(), intervalo });
+                    }
+                }
+            }
+        }
+        no
+    }
+    fn item_interno(&mut self) -> Option<NoAst> {
         match self.tipo() {
             TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco => {
                 self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
