@@ -1,9 +1,5 @@
 //! Estruturas públicas da Árvore Sintática Abstrata da linguagem Nebula.
 
-
-
-//! Estruturas públicas da Árvore Sintática Abstrata da linguagem Nebula.
-
 use crate::lexer::TipoToken;
 use nebula_diagnosticos::Diagnostico;
 
