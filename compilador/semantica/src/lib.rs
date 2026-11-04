@@ -2371,6 +2371,22 @@ mod testes {
     }
 
     #[test]
+    fn valida_intervalos_numericos_e_rejeita_limites_incompativeis() {
+        let valido = analisar_codigo("variavel faixa = 1..10");
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+        assert_eq!(
+            valido.tipos_globais.get("faixa"),
+            Some(&Tipo::Intervalo(Box::new(Tipo::Inteiro))),
+        );
+
+        let texto = analisar_codigo("variavel faixa = 1..\"10\"");
+        assert!(texto.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", texto.diagnosticos);
+
+        let decimal_misto = analisar_codigo("variavel faixa = 1..2.0");
+        assert!(decimal_misto.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", decimal_misto.diagnosticos);
+    }
+
+    #[test]
     fn infere_tipos_primitivos_e_variaveis() {
         let r = analisar_codigo("variavel total = 10\nvariavel nome: texto = \"Nebula\"");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
