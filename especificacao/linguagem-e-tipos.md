@@ -107,6 +107,14 @@ Cada caso nomeia a enumeração e a variante. Os identificadores entre parêntes
 - A propagação antecipada de falha só pode ser introduzida por sintaxe documentada e deve preservar o tipo de erro declarado.
 - Não existe conversão implícita entre `Opcional<T>` e `Resultado<T,E>`.
 
+### 3.6 Intervalos
+
+O operador `inicio..fim` cria um intervalo numérico fechado, incluindo os dois limites. O tipo do intervalo é inferido a partir do tipo dos limites, que devem ser numericamente compatíveis e possuir o mesmo tipo após a verificação semântica. Texto, caracteres, valores lógicos, agregados e tipos de função não podem ser limites.
+
+A forma interna é `Intervalo<T>`, em que `T` é o tipo numérico dos limites. A construção verifica a compatibilidade e a faixa dos dois valores; não pode reinterpretar um intervalo inteiro como decimal nem aceitar limites fora da faixa de `T`. Para `decimal32`, cada limite é arredondado para IEEE-754 binary32. Valores não finitos não podem ser usados por iteração que exija progressão finita.
+
+A instrução `cada` percorre os valores do intervalo em passos unitários, na direção do limite final, incluindo-o quando alcançável. Intervalos decimais usam passo de uma unidade da representação decimal e exigem limites finitos. A implementação não deve prometer precisão decimal exata além da representação IEEE-754 adotada.
+
 ## 4. Funções e genéricos
 
 Uma função possui nome, parâmetros tipados, retorno declarado ou inferido quando permitido, e corpo. Tipos de função são definidos pela sequência ordenada dos tipos dos parâmetros e pelo tipo de retorno. A aridade e cada tipo de argumento são verificados antes da execução.
