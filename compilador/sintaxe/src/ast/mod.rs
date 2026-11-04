@@ -10,7 +10,7 @@ pub mod tipos;
 pub use declaracao::{AliasTipoAst, CampoAst, ParametroAst, VarianteAst, Visibilidade};
 pub use expressao::Expressao;
 pub use instrucao::{
-    ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoLocalizado,
+    CasoEscolhaLocalizado, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoLocalizado,
 };
 pub use operadores::OperadorAst;
 pub use padroes::{CasoEscolha, PadraoAst};
