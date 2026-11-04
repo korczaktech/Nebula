@@ -2459,6 +2459,32 @@ mod testes {
     }
 
     #[test]
+    fn normalizacao_da_ir_valida_payloads_algebricos() {
+        let opcional_inteiro = Tipo::Opcional(Box::new(Tipo::Inteiro));
+        assert!(normalizar_valor(&opcional_inteiro, ValorIr::Estrutura {
+            nome: "Opcional::Algum".into(),
+            campos: vec![("0".into(), ValorIr::Inteiro(7))],
+        }).is_ok());
+        assert!(normalizar_valor(&opcional_inteiro, ValorIr::Estrutura {
+            nome: "Opcional::Algum".into(),
+            campos: vec![("0".into(), ValorIr::Texto("sete".into()))],
+        }).is_err());
+        let resultado = Tipo::Resultado(Box::new(Tipo::Inteiro), Box::new(Tipo::Texto));
+        assert!(normalizar_valor(&resultado, ValorIr::Estrutura {
+            nome: "Resultado::Falha".into(),
+            campos: vec![("0".into(), ValorIr::Texto("erro".into()))],
+        }).is_ok());
+        assert!(normalizar_valor(&Tipo::Enumeracao("Estado".into()), ValorIr::Estrutura {
+            nome: "Estado::Ativo".into(),
+            campos: Vec::new(),
+        }).is_ok());
+        assert!(normalizar_valor(&Tipo::Enumeracao("Estado".into()), ValorIr::Estrutura {
+            nome: "Outro::Ativo".into(),
+            campos: Vec::new(),
+        }).is_err());
+    }
+
+    #[test]
     fn executa_literal_inteiro_u128_acima_de_i128() {
         let ir = compilar(
             "variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455\nexibir(maximo)",
