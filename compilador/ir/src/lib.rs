@@ -2301,6 +2301,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_comandos_de_controle_e_colecoes_em_conjunto() {
+        let ir = compilar(
+            "funcao incrementar(valor: inteiro): inteiro { devolver valor + 1 }\ndefinir contador = 0\nalterar contador <- incrementar(contador)\nquando contador == 1 { exibir(\"quando\") } senao { exibir(\"senao\") }\navaliar Opcional::Algum(contador) { caso Opcional::Algum(valor) { exibir(valor) } caso Opcional::Nenhum { exibir(0) } }\nrepetir contador < 3 { alterar contador <- contador + 1 }\ndurante contador < 4 { alterar contador <- contador + 1 }\ncada item em gerar(2, 2) { alterar contador <- contador + item }\npulso(0) { alterar contador <- contador + 1\nquando contador >= 9 { parar } }\naguardar(0)\nexibir(contador)",
+        );
+        let resultado = executar(&ir, 500).expect("comandos de controle devem executar");
+        assert_eq!(resultado.saida, vec!["quando", "1", "9"]);
+    }
+
+    #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
             "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
