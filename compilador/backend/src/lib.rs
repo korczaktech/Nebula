@@ -2309,6 +2309,24 @@ mod testes {
             origem: Tipo::Decimal64,
             valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(18_446_744_073_709_555_712.0))),
         };
+        let divisao = ExpressaoIr::Binaria {
+            esquerda: Box::new(grande.clone()),
+            operador: OperadorIr::Divide,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Inteiro128,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1i128 << 64))),
+            }),
+        };
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro64;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro64,
+            origem: Tipo::Inteiro128,
+            valor: Box::new(divisao),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 1);
+
         let subtracao = ExpressaoIr::Binaria {
             esquerda: Box::new(grande),
             operador: OperadorIr::Menos,
