@@ -170,19 +170,20 @@ As bases numéricas, escapes, normalização de identificadores, comentários e 
 
 ## 6. Quebras de linha e separadores
 
-- Um separador é obrigatório entre itens independentes.
-- Separadores repetidos e linhas em branco são permitidos.
-- Um separador imediatamente antes de `}`, `fim` ou `EOF` é permitido.
-- Dentro de parênteses e colchetes, quebras de linha não separam itens.
-- Quebras depois de operadores que ainda precisam de operando continuam a expressão.
-- Quebras antes de operadores que podem completar a expressão anterior continuam a expressão.
-- O acesso a membro permite quebra antes do operador e depois dele; o nome do membro vem após o operador.
+- Entre itens independentes no arquivo e em blocos, é obrigatório ao menos um separador: quebra lógica de linha ou `;`.
+- Quebras lógicas repetidas, linhas em branco e pontos e vírgulas repetidos são aceitos entre itens.
+- Um separador final é permitido antes de `}`, `fim` e `EOF`; não é necessário inserir um item vazio.
+- Dentro de parênteses e colchetes, o Lexer suprime quebras físicas de linha: elas são continuação de linha e nunca encerram uma expressão ou separam argumentos/elementos. Isso vale também para quebras CRLF.
+- A supressão acima não se aplica a `;`: ponto e vírgula continua sendo token explícito e não pode substituir vírgula dentro de argumentos, listas, tuplas, parâmetros ou tipos.
+- Dentro de chaves, quebras de linha e `;` continuam sendo separadores de itens e membros. Isso vale para blocos, estruturas, enumerações e construções de estrutura.
+- Depois de um operador binário ou de atribuição que ainda exige operando, uma ou mais quebras de linha continuam a expressão; o operando pode começar na linha seguinte.
+- Antes de um operador binário/atribuição que pode completar a expressão anterior, uma ou mais quebras de linha continuam a expressão. Uma quebra antes de um novo identificador ou literal, sem operador de continuação, encerra o item.
+- Chamadas, indexações e acessos a membro/escopo podem continuar na linha seguinte ao alvo. Para acesso a membro, o nome vem depois do operador; quebras também são aceitas entre o operador e o nome.
 - Caminhos de tipos e módulos permitem quebra antes e depois de `::`; padrões de `escolha` exigem `Enum::Variante` sem quebra dentro do par.
-- Quebras após vírgulas continuam listas de argumentos, parâmetros, tipos, tuplas e vínculos.
-- Uma quebra imediatamente antes de `senao` não separa a alternativa do `quando`.
-- A indentação não cria nem fecha blocos.
+- Quebras após vírgulas continuam listas de argumentos, parâmetros, tipos, tuplas e vínculos quando a construção está dentro dos delimitadores correspondentes.
+- Uma quebra imediatamente antes de `senao` não separa a alternativa do `quando`; um ponto e vírgula, por ser separador explícito, não tem essa regra especial.
+- A indentação é ignorada sintaticamente: não cria, não fecha e não altera o aninhamento de blocos. Blocos na forma sem chaves precisam do seu próprio `fim`.
 - A chave de abertura de blocos de funções e instruções pode ficar na linha seguinte ao cabeçalho; construções de estrutura em expressões exigem `{` imediatamente após o nome.
-- Dentro de chaves, quebras de linha continuam podendo separar itens.
 
 ## 7. Restrições sintáticas e semânticas
 
