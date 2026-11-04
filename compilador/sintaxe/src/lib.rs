@@ -1655,6 +1655,32 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn recupera_campos_e_variantes_invalidos_sem_perder_declaracoes_sequenciais() {
+        let codigo = "funcao principal() {\n estrutura Pessoa { nome: , idade: inteiro }\n enumeracao Estado { Ativo(, texto), Inativo(inteiro) }\n variavel depois = 1\n}";
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            !resultado.diagnosticos.is_empty(),
+            "campos e payloads inválidos precisam gerar diagnósticos"
+        );
+        let Some(NoAst::Funcao { corpo, .. }) = resultado.programa.itens.first() else {
+            panic!("a função deveria ser preservada");
+        };
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Estrutura { nome, campos } if nome == "Pessoa" && campos.iter().any(|(campo, _)| campo == "idade"))),
+            "a estrutura deve preservar o campo válido após o campo inválido: {corpo:?}"
+        );
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Enumeracao { nome, variantes } if nome == "Estado" && variantes.iter().any(|(variante, _)| variante == "Inativo"))),
+            "a enumeração deve preservar a variante válida após o payload inválido: {corpo:?}"
+        );
+        assert!(
+            corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")),
+            "o Parser deve continuar após as declarações recuperadas"
+        );
+    }
+
 }
 
 }
