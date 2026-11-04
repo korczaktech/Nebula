@@ -1893,7 +1893,7 @@ impl<'a> Analisador<'a> {
             Expressao::Indexacao { alvo, indice } => {
                 if let Some((raiz, caminho)) = Self::decompor_caminho_campo(expressao) {
                     let tipo_elemento = self.resolver_tipo_caminho_puro(&raiz, &caminho);
-                    if tipo_elemento.is_some_and(|tipo| !Self::tipo_copiavel(&tipo)) {
+                    if tipo_elemento.is_some_and(|tipo| !self.tipo_copiavel(&tipo)) {
                         if let Some(simbolo) = self.buscar_mutavel(&raiz) {
                             // Um índice literal identifica um elemento independente.
                             // Índices dinâmicos não chegam aqui: continuam movendo a lista inteira.
@@ -2731,6 +2731,28 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("origem"), Some(&Tipo::Inteiro8));
         assert_eq!(r.tipos_globais.get("destino"), Some(&Tipo::Inteiro8));
+    }
+
+    #[test]
+    fn deriva_copia_para_tuplas_estruturas_e_enumeracoes() {
+        let r = analisar_codigo(
+            "estrutura Ponto { x: inteiro8, ativo: logico }\nenumeracao Estado { Inativo, Codigo(inteiro8) }\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("ponto"), Some(&Tipo::Estrutura("Ponto".into())));
+        assert_eq!(r.tipos_globais.get("estado"), Some(&Tipo::Enumeracao("Estado".into())));
+        assert_eq!(
+            r.tipos_globais.get("par"),
+            Some(&Tipo::Tupla(vec![Tipo::Inteiro8, Tipo::Logico])),
+        );
+    }
+
+    #[test]
+    fn estruturas_com_texto_continuam_move_only() {
+        let r = analisar_codigo(
+            "estrutura Documento { conteudo: texto }\nvariavel original = Documento { conteudo: \"texto\" }\nvariavel destino = original\nexibir(original.conteudo)",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3041"), "{:?}", r.diagnosticos);
     }
 
     #[test]
