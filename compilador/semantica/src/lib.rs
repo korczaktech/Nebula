@@ -214,7 +214,7 @@ impl<'a> Analisador<'a> {
                     self.exigir_expressao_tipo(valor, &inferido, &esperado, "inicialização da variável");
                     esperado
                 } else {
-                    if Self::tipo_contem_desconhecido(&inferido) {
+                    if matches!(&inferido, Tipo::Lista(elemento) if Self::tipo_contem_desconhecido(elemento)) {
                         self.erro("N3027", format!("Não foi possível inferir o tipo dos elementos da lista '{nome}'; anote seu tipo."));
                     }
                     inferido
