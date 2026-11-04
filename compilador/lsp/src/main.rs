@@ -230,6 +230,15 @@ fn range(interval: Option<IntervaloFonte>, text: &str) -> Json {
         ("end".into(), object([("line".into(), n(end.0)), ("character".into(), n(end.1))])),
     ])
 }
+fn diagnostic_interval(message: &str, text: &str) -> Option<IntervaloFonte> {
+    let first = message.find('\'')?;
+    let tail = &message[first + 1..];
+    let end = tail.find('\'')?;
+    let name = &tail[..end];
+    if name.is_empty() { return None; }
+    let start = text.find(name)?;
+    IntervaloFonte::novo(start, start + name.len())
+}
 fn diagnostics(uri: &str, document: &Document) -> Json {
     let file = ArquivoFonte::novo(uri, document.text.clone());
     let result = analisar(&file);
@@ -242,7 +251,7 @@ fn diagnostics(uri: &str, document: &Document) -> Json {
             nebula_diagnosticos::Severidade::Informacao => 3,
         };
         object([
-            ("range".into(), range(diag.intervalo, &document.text)),
+            ("range".into(), range(diag.intervalo.or_else(|| diagnostic_interval(&diag.mensagem, &document.text)), &document.text)),
             ("severity".into(), n(severity)),
             ("code".into(), s(diag.codigo)),
             ("source".into(), s("nebula")),
@@ -285,7 +294,7 @@ fn completion(document: &Document, uri: &str, line: usize, character: usize) -> 
                         items.push(object([("label".into(), s(nome)), ("kind".into(), n(6)), ("detail".into(), s("Símbolo do arquivo"))]));
                     }
                 }
-                NoAst::Funcao { nome, parametros, .. } => {
+                NoAst::Funcao { nome, parametros, corpo, .. } => {
                     if nome.starts_with(prefix) {
                         items.push(object([("label".into(), s(nome)), ("kind".into(), n(3)),
                             ("detail".into(), s(format!("Função Nebula — {} parâmetro(s)", parametros.len())))]));
@@ -293,7 +302,13 @@ fn completion(document: &Document, uri: &str, line: usize, character: usize) -> 
                 }
                 NoAst::Quando { entao, senao, .. } => { visit(entao, items, prefix); visit(senao, items, prefix); }
                 NoAst::Enquanto { corpo, .. } | NoAst::Cada { corpo, .. } | NoAst::Pulso { corpo, .. } => visit(corpo, items, prefix),
-                NoAst::Para { corpo, .. } => visit(corpo, items, prefix),
+                NoAst::Para { inicial, corpo, .. } => {
+                    if let Some(inicial) = inicial { visit(std::slice::from_ref(inicial), items, prefix); }
+                    visit(corpo, items, prefix);
+                }
+                NoAst::Escolha { casos, .. } => {
+                    for caso in casos { visit(&caso.corpo, items, prefix); }
+                }
                 _ => {}
             }
         }
