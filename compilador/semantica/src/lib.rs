@@ -172,7 +172,7 @@ impl<'a> Analisador<'a> {
                 }).collect();
                 let retorno = retorno.as_deref().map_or(Tipo::Vazio, |nome_tipo| {
                     let tipo = self.resolver_tipo(nome_tipo);
-                    if tipo == Tipo::Desconhecido {
+                    if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo de retorno '{nome_tipo}' da função '{nome}' não foi declarado."));
                     }
                     tipo
@@ -274,7 +274,7 @@ impl<'a> Analisador<'a> {
                         self.erro("N3036", format!("Variante '{variante}' duplicada na enumeração '{nome}'."));
                     }
                     for tipo in payload {
-                        if self.resolver_tipo(tipo) == Tipo::Desconhecido {
+                        if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
                             self.erro("N3037", format!("Tipo '{tipo}' do payload da variante '{variante}' não foi declarado."));
                         }
                     }
@@ -2712,6 +2712,9 @@ mod testes {
 
         let parametro = analisar_codigo("funcao receber(valor: [TipoAusente]) { exibir(1) }");
         assert!(parametro.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", parametro.diagnosticos);
+
+        let retorno = analisar_codigo("funcao produzir(): [TipoAusente] { devolver [] }");
+        assert!(retorno.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", retorno.diagnosticos);
 
         let variavel = analisar_codigo("variavel dados: [TipoAusente] = []");
         assert!(variavel.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", variavel.diagnosticos);
