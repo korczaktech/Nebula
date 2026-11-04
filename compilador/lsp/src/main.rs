@@ -233,7 +233,9 @@ fn range(interval: Option<IntervaloFonte>, text: &str) -> Json {
 fn diagnostics(uri: &str, document: &Document) -> Json {
     let file = ArquivoFonte::novo(uri, document.text.clone());
     let result = analisar(&file);
-    let items = result.diagnosticos.iter().map(|diag| {
+    let mut collected = result.diagnosticos;
+    collected.extend(nebula_semantica::analisar_semantica(&result.programa).diagnosticos);
+    let items = collected.iter().map(|diag| {
         let severity = match diag.severidade {
             nebula_diagnosticos::Severidade::Erro => 1,
             nebula_diagnosticos::Severidade::Aviso => 2,
