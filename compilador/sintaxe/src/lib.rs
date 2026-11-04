@@ -1629,7 +1629,7 @@ mod testes {
     fn parser_mantem_estabilidade_em_arquivos_extensos() {
         let mut codigo = String::with_capacity(160_000);
         for indice in 0..4_096 {
-            codigo.push_str(&format!("variavel valor_{indice} = {indice}\\n"));
+            codigo.push_str(&format!("variavel valor_{indice} = {indice}\n"));
         }
 
         let resultado = analisar(&fonte(&codigo));
