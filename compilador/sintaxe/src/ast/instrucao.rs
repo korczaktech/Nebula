@@ -52,3 +52,63 @@ impl Programa {
         self.nos_localizados.iter()
     }
 }
+
+impl NoAst {
+    /// Retorna o tipo declarado de uma variável, quando informado explicitamente.
+    pub fn tipo_variavel(&self) -> Option<super::tipos::TipoAst> {
+        match self {
+            Self::Variavel { tipo: Some(tipo), .. } => Some(super::tipos::TipoAst::analisar(tipo)),
+            _ => None,
+        }
+    }
+
+    /// Retorna o destino estruturado de um alias de tipo.
+    pub fn destino_alias(&self) -> Option<super::declaracao::AliasTipoAst> {
+        match self {
+            Self::Tipo { nome, destino } => Some(super::declaracao::AliasTipoAst {
+                nome: nome.clone(),
+                destino: super::tipos::TipoAst::analisar(destino),
+            }),
+            _ => None,
+        }
+    }
+
+    /// Retorna os parâmetros de função com seus tipos estruturados.
+    pub fn parametros_tipados(&self) -> Option<Vec<super::declaracao::ParametroAst>> {
+        match self {
+            Self::Funcao { parametros, .. } => Some(parametros.iter().map(|(nome, tipo)| {
+                super::declaracao::ParametroAst {
+                    nome: nome.clone(),
+                    tipo: super::tipos::TipoAst::analisar(tipo),
+                }
+            }).collect()),
+            _ => None,
+        }
+    }
+
+    /// Retorna os campos de uma estrutura com seus tipos estruturados.
+    pub fn campos_tipados(&self) -> Option<Vec<super::declaracao::CampoAst>> {
+        match self {
+            Self::Estrutura { campos, .. } => Some(campos.iter().map(|(nome, tipo)| {
+                super::declaracao::CampoAst {
+                    nome: nome.clone(),
+                    tipo: super::tipos::TipoAst::analisar(tipo),
+                }
+            }).collect()),
+            _ => None,
+        }
+    }
+
+    /// Retorna as variantes de uma enumeração com seus tipos estruturados.
+    pub fn variantes_tipadas(&self) -> Option<Vec<super::declaracao::VarianteAst>> {
+        match self {
+            Self::Enumeracao { variantes, .. } => Some(variantes.iter().map(|(nome, campos)| {
+                super::declaracao::VarianteAst {
+                    nome: nome.clone(),
+                    campos: campos.iter().map(|tipo| super::tipos::TipoAst::analisar(tipo)).collect(),
+                }
+            }).collect()),
+            _ => None,
+        }
+    }
+}
