@@ -2667,18 +2667,24 @@ mod testes {
 
     #[test]
     fn emite_conversoes_nativas_entre_inteiro128_e_decimal() {
-        let mut para_decimal = Emissor::novo(HashMap::new());
-        para_decimal
-            .converter_tipo_explicito(&Tipo::Decimal64, &Tipo::Inteiro128)
-            .unwrap();
-        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x59, 0xD3]));
-        assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x58, 0xC2]));
+        for (destino, origem) in [
+            (Tipo::Decimal64, Tipo::Inteiro128),
+            (Tipo::Decimal32, Tipo::InteiroU128),
+        ] {
+            let mut para_decimal = Emissor::novo(HashMap::new());
+            para_decimal.converter_tipo_explicito(&destino, &origem).unwrap();
+            assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x59, 0xD3]));
+            assert!(para_decimal.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x58, 0xC2]));
+            assert!(para_decimal.erro_salto.is_none());
+        }
 
-        let mut para_inteiro = Emissor::novo(HashMap::new());
-        para_inteiro.converter_decimal_para_inteiro(&Tipo::Inteiro128).unwrap();
-        assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5E, 0xC1]));
-        assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5C, 0xD3]));
-        assert!(para_inteiro.erro_salto.is_none());
+        for destino in [Tipo::Inteiro128, Tipo::InteiroU128] {
+            let mut para_inteiro = Emissor::novo(HashMap::new());
+            para_inteiro.converter_decimal_para_inteiro(&destino).unwrap();
+            assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5E, 0xC1]));
+            assert!(para_inteiro.codigo.windows(4).any(|janela| janela == [0xF2, 0x0F, 0x5C, 0xD3]));
+            assert!(para_inteiro.erro_salto.is_none());
+        }
     }
 
     #[test]
