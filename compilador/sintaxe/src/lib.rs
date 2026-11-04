@@ -1991,6 +1991,68 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn emite_todos_os_codigos_de_diagnostico_sintatico_documentados() {
+        let casos = [
+            ("N2001", "variavel a = 1 variavel b = 2"),
+            ("N2002", "publico variavel a = 1"),
+            ("N2003", "variavel a 1"),
+            ("N2004", "funcao f {}"),
+            ("N2005", "funcao f(a inteiro) {}"),
+            ("N2006", "tipo A inteiro"),
+            ("N2007", "funcao f() exibir(1)"),
+            ("N2008", "variavel a ="),
+            ("N2009", "funcao f() {"),
+            ("N2010", "variavel = 1"),
+            ("N2011", "variavel tentar = 1"),
+            ("N2012", "variavel a = 1 < 2 < 3"),
+            ("N2013", "variavel a = 1..2..3"),
+            ("N2014", "funcao f<T, T>() {}"),
+            ("N2015", "funcao f<>() {}"),
+            ("N2016", "assinc funcao f() {}"),
+            ("N2030", "estrutura Pessoa nome: texto }"),
+            ("N2031", "estrutura Pessoa { nome: texto, nome: inteiro }"),
+            ("N2032", "estrutura Pessoa { nome: texto idade: inteiro }"),
+            ("N2033", "enumeracao Estado Ativo }"),
+            ("N2034", "enumeracao Estado { Ativo, Ativo }"),
+            ("N2035", "enumeracao Estado { Ativo Inativo }"),
+            ("N2036", "enumeracao Estado {}"),
+            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
+            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
+            ("N2040", "escolha valor caso _ {}"),
+            ("N2041", "escolha valor { outro {} }"),
+            ("N2042", "escolha valor { caso Variante {} }"),
+            ("N2043", "escolha valor { caso _ {} caso _ {} }"),
+            ("N2044", "escolha valor {}"),
+            ("N2045", "escolha valor { caso Estado::Erro(1) {} }"),
+            ("N2046", "escolha valor { caso Estado::Erro(item, item) {} }"),
+            ("N2047", "alterar total"),
+            ("N2048", "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }"),
+            ("N2050", "funcao f(item: inteiro, item: texto) {}"),
+        ];
+
+        for (codigo, exemplo) in casos {
+            let resultado = analisar(&fonte(exemplo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == codigo),
+                "{codigo} não foi emitido para {exemplo:?}: {:?}",
+                resultado.diagnosticos
+            );
+        }
+
+        let profundo = format!(
+            "variavel aninhada = {}1{}",
+            "(".repeat(300),
+            ")".repeat(300)
+        );
+        let resultado = analisar(&fonte(&profundo));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "N2049 não foi emitido para aninhamento excessivo"
+        );
+    }
+
 }
 
 }
