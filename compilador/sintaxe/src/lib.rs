@@ -67,9 +67,21 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     ResultadoSintatico { programa, diagnosticos }
 }
 
-struct Parser { tokens: Vec<Token>, atual: usize, diagnosticos: Vec<Diagnostico> }
+const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
+
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, diagnosticos: Vec<Diagnostico> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, diagnosticos: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, diagnosticos: Vec::new() } }
+    fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
+        if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
+            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
+            return None;
+        }
+        self.profundidade += 1;
+        let resultado = analisar(self);
+        self.profundidade -= 1;
+        resultado
+    }
     fn programa(&mut self) -> Programa {
         let mut itens = Vec::new(); self.separadores();
         while !self.verifica(TipoToken::Fim) {
@@ -259,6 +271,9 @@ impl Parser {
         Some(NoAst::Incluir { caminho, apelido })
     }
     fn quando(&mut self) -> Option<NoAst> {
+        self.com_profundidade(|parser| parser.quando_interno())
+    }
+    fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar(); let condicao = self.expressao(0)?; let entao = self.bloco()?;
         let mut senao = Vec::new();
         let proximo_significativo = self.tokens.iter().skip(self.atual)
@@ -463,6 +478,9 @@ impl Parser {
         Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
     }
     fn bloco(&mut self) -> Option<Vec<NoAst>> {
+        self.com_profundidade(|parser| parser.bloco_interno())
+    }
+    fn bloco_interno(&mut self) -> Option<Vec<NoAst>> {
         if self.verifica(TipoToken::NovaLinha) {
             let proximo = self.tokens.iter().skip(self.atual)
                 .find(|token| token.tipo != TipoToken::NovaLinha)
@@ -496,6 +514,9 @@ impl Parser {
         } else { self.erro_atual("N2007", "Esperado bloco com '{' ou quebra de linha seguida de 'fim'."); None }
     }
     fn caminho_tipo(&mut self) -> Option<String> {
+        self.com_profundidade(|parser| parser.caminho_tipo_interno())
+    }
+    fn caminho_tipo_interno(&mut self) -> Option<String> {
         if self.corresponde(TipoToken::Funcao) {
             self.esperar(TipoToken::AbrePar, "Esperado '(' após 'funcao' em tipo de função.");
             let mut parametros = Vec::new();
@@ -554,6 +575,9 @@ impl Parser {
         Some(nome)
     }
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
+        self.com_profundidade(|parser| parser.expressao_interna(minimo))
+    }
+    fn expressao_interna(&mut self, minimo: u8) -> Option<Expressao> {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
