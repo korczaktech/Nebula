@@ -64,6 +64,11 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     let programa = parser.programa();
     let mut diagnosticos = lexico.diagnosticos;
     diagnosticos.extend(parser.diagnosticos);
+    // A ordem de apresentação acompanha a ordem da fonte, não a ordem em que
+    // Lexer e Parser executaram suas respectivas etapas.
+    diagnosticos.sort_by_key(|diagnostico| {
+        diagnostico.intervalo.map_or(usize::MAX, |intervalo| intervalo.inicio)
+    });
     ResultadoSintatico { programa, diagnosticos }
 }
 
@@ -2595,6 +2600,66 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn diagnosticos_sintaticos_tem_codigo_severidade_mensagem_e_intervalo_validos() {
+        let casos = [
+            "variavel = 1",
+            "funcao f(a inteiro) {}",
+            "estrutura Pessoa { nome: }",
+            "enumeracao Estado { Ativo(, texto) }",
+            "escolha valor { caso Estado::Erro(1) {} }",
+            "variavel resultado = 1 < 2 < 3",
+            "funcao f() {",
+        ];
+        for codigo in casos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(!resultado.diagnosticos.is_empty(),
+                "entrada inválida sem diagnóstico: {codigo:?}");
+            for diagnostico in &resultado.diagnosticos {
+                assert!(diagnostico.codigo.starts_with('N'),
+                    "código instável ou fora do padrão: {:?}", diagnostico);
+                assert_eq!(diagnostico.severidade, Severidade::Erro,
+                    "erro sintático deve ter severidade Erro: {:?}", diagnostico);
+                assert!(!diagnostico.mensagem.trim().is_empty(),
+                    "mensagem vazia: {:?}", diagnostico);
+                let intervalo = diagnostico.intervalo
+                    .unwrap_or_else(|| panic!("diagnóstico sem localização: {diagnostico:?}"));
+                assert!(intervalo.inicio <= intervalo.fim && intervalo.fim <= codigo.len(),
+                    "intervalo fora da fonte: {diagnostico:?}; fonte={codigo:?}");
+                assert!(codigo.is_char_boundary(intervalo.inicio)
+                    && codigo.is_char_boundary(intervalo.fim),
+                    "intervalo divide um caractere UTF-8: {diagnostico:?}; fonte={codigo:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn diagnosticos_combinados_sao_ordenados_pela_posicao_na_fonte() {
+        let codigo = "variavel a = )\nvariavel b = §";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo.starts_with("N1")),
+            "o erro léxico posterior deveria ser preservado: {:?}", resultado.diagnosticos);
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo.starts_with("N2")),
+            "o erro sintático anterior deveria ser preservado: {:?}", resultado.diagnosticos);
+        let posicoes: Vec<usize> = resultado.diagnosticos.iter()
+            .map(|d| d.intervalo.expect("diagnóstico deve ter intervalo").inicio)
+            .collect();
+        assert!(posicoes.windows(2).all(|par| par[0] <= par[1]),
+            "diagnósticos não estão em ordem de origem: {:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn diagnostico_de_fechamento_ausente_aponta_para_o_fim_da_fonte() {
+        let codigo = "funcao principal() {";
+        let resultado = analisar(&fonte(codigo));
+        let fechamento = resultado.diagnosticos.iter()
+            .find(|d| d.codigo == "N2009")
+            .expect("fechamento ausente deveria emitir N2009");
+        assert_eq!(fechamento.intervalo,
+            Some(IntervaloFonte { inicio: codigo.len(), fim: codigo.len() }),
+            "espera no EOF deve usar intervalo vazio na posição final");
+    }
 
     #[test]
     fn emite_todos_os_codigos_de_diagnostico_sintatico_documentados() {
