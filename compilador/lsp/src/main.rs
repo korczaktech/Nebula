@@ -574,7 +574,10 @@ pub(super) fn iniciar() {
 
 #[cfg(test)]
 mod tests {
-    use super::{Json, JsonParser, Server, handle, object, offset, position, quote, references, s};
+    use super::{Document, Json, JsonParser, Server, completion, declaration_locations, handle, object, offset, position, quote, read_message, references, s};
+    use nebula_fonte::ArquivoFonte;
+    use nebula_sintaxe::analisar;
+    use std::io::Cursor;
 
     #[test]
     fn json_roundtrip_handles_unicode_and_escapes() {
@@ -638,6 +641,30 @@ mod tests {
         let found = references("variavel valor = 1\n// valor\nexibir(valor)", "file:///teste.nbx", "valor");
         let Json::Array(items) = found else { panic!("resultado deveria ser uma lista"); };
         assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn lsp_framing_reads_utf8_content_length() {
+        let body = r#"{"jsonrpc":"2.0","params":{"emoji":"😀"}}"#;
+        let frame = format!("Content-Length: {}\\r\\n\\r\\n{body}", body.len());
+        let mut reader = Cursor::new(frame.into_bytes());
+        assert_eq!(read_message(&mut reader).expect("frame válido").as_deref(), Some(body));
+    }
+
+    #[test]
+    fn function_parameters_are_indexed_as_definitions_and_completions() {
+        let text = "funcao somar(a: inteiro, b: inteiro) { devolver a }";
+        let file = ArquivoFonte::novo("file:///teste.nbx", text);
+        let parsed = analisar(&file);
+        let declarations = declaration_locations(&parsed.programa, text, "file:///teste.nbx");
+        assert!(declarations.iter().any(|(name, _, _, _)| name == "a"));
+        assert!(declarations.iter().any(|(name, _, _, _)| name == "b"));
+        let document = Document { text: text.to_owned(), version: 1 };
+        let result = completion(&document, "file:///teste.nbx", 0, 0);
+        let Json::Array(items) = result.get("items").expect("lista de conclusões") else {
+            panic!("conclusões deveriam ser uma lista");
+        };
+        assert!(items.iter().any(|item| item.get("label").and_then(Json::string) == Some("a")));
     }
 
     #[test]
