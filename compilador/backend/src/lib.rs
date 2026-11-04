@@ -2279,6 +2279,57 @@ mod testes {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn executa_conversoes_nativas_decimal_inteiro128() {
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro128,
+            origem: Tipo::Decimal64,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(42.9))),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro64;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro64,
+            origem: Tipo::Decimal64,
+            valor: Box::new(ExpressaoIr::Conversao {
+                tipo: Tipo::Decimal64,
+                origem: Tipo::Inteiro128,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(-42))),
+            }),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 214);
+
+        let grande = ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro128,
+            origem: Tipo::Decimal64,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(18_446_744_073_709_555_712.0))),
+        };
+        let subtracao = ExpressaoIr::Binaria {
+            esquerda: Box::new(grande),
+            operador: OperadorIr::Menos,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo: Tipo::Inteiro128,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(1i128 << 64))),
+            }),
+        };
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro64;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro64,
+            origem: Tipo::Inteiro128,
+            valor: Box::new(subtracao),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 4096);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn rejeita_overflow_e_divisao_por_zero_em_inteiros_128_bits() {
         let casos = [
             (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(i128::MAX), ValorIr::Inteiro(2)),
