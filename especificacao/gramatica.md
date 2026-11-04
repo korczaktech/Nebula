@@ -36,8 +36,8 @@ declaracao           = declaracao_variavel
                      | declaracao_enumeracao
                      | declaracao_modulo ;
 
-declaracao_variavel  = "variavel", IDENTIFICADOR,
-                       [ ":", tipo ], "=", expressao ;
+declaracao_variavel  = ("variavel" | "definir" | "mutavel" | "mutável"),
+                       IDENTIFICADOR, [ ":", tipo ], "=", expressao ;
 declaracao_constante = "constante", IDENTIFICADOR,
                        [ ":", tipo ], "=", expressao ;
 
@@ -83,24 +83,34 @@ instrucao            = declaracao_variavel
                      | declaracao_constante
                      | expressao
                      | instrucao_quando
+                     | instrucao_avaliar
                      | instrucao_enquanto
                      | instrucao_para
+                     | instrucao_cada
+                     | instrucao_pulso
+                     | instrucao_alterar
                      | instrucao_devolver
                      | instrucao_controle ;
 
 instrucao_quando     = "quando", condicao, bloco,
                        [ { NOVA_LINHA }, "senao",
                          ( bloco | instrucao_quando ) ] ;
+instrucao_avaliar    = ("avaliar" | "escolha"), expressao,
+                       "{", { "caso", (expressao | "_"), bloco }, "}" ;
 condicao             = expressao ;
 
-instrucao_enquanto   = "enquanto", condicao, bloco ;
+instrucao_enquanto   = ("enquanto" | "durante" | "repetir"),
+                       condicao, bloco ;
+instrucao_cada       = "cada", IDENTIFICADOR, "em", expressao, bloco ;
+instrucao_pulso      = "pulso", "(", expressao, ")", bloco ;
+instrucao_alterar    = "alterar", atribuicao ;
 instrucao_para       = "para", "(",
                        [ declaracao_variavel | expressao ], ";",
                        [ expressao ], ";",
                        [ expressao ], ")", bloco ;
 
 instrucao_devolver   = "devolver", [ expressao ] ;
-instrucao_controle   = "parar" | "seguir" ;
+instrucao_controle   = ("parar" | "encerrar") | "seguir" ;
 ~~~
 
 Para quando e enquanto, parênteses ao redor da condição são opcionais quando o início do bloco delimita a expressão sem ambiguidade. A forma com parênteses continua válida e recomendada quando melhora a leitura. O cabeçalho de para mantém parênteses e dois pontos e vírgulas obrigatórios para separar inicialização, condição e atualização.
@@ -133,7 +143,7 @@ tupla_literal        = "(", expressao, ",", [ lista_argumentos ], ")" ;
 lista_literal       = "[", [ lista_argumentos ], "]" ;
 ~~~
 
-A atribuição e a potência associam à direita. Operadores aritméticos, lógicos e de igualdade em sequência associam à esquerda. Comparações relacionais encadeadas não são permitidas: uma produção de comparação contém no máximo um operador relacional. A análise semântica validará se o lado esquerdo de uma atribuição é modificável.
+A atribuição e a potência associam à direita. "alterar" exige uma atribuição válida. "definir" e "mutavel"/"mutável" são aliases de declaração de variável. "avaliar" é alias de "escolha"; "durante" e "repetir" são aliases de "enquanto"; "encerrar" é alias de "parar". "cada nome em coleção" percorre listas, textos e intervalos. "pulso(ms)" repete o bloco com uma pausa em milissegundos entre execuções. O operador de atribuição "<-" é equivalente a "=". Operadores aritméticos, lógicos e de igualdade em sequência associam à esquerda. Comparações relacionais encadeadas não são permitidas: uma produção de comparação contém no máximo um operador relacional. A análise semântica validará se o lado esquerdo de uma atribuição é modificável.
 
 Precedência da maior para a menor: chamada/indexação/acesso; potência; unários; multiplicação/divisão/resto; adição/subtração; intervalo; comparação; igualdade; E; OU; atribuição.
 
