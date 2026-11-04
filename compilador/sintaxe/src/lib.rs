@@ -602,7 +602,22 @@ impl Parser {
                     let mut campos = Vec::new();
                     self.separadores();
                     while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
-                        let campo = self.consumir_nome("Esperado nome do campo na construção da estrutura.")?;
+                        let campo = match self.consumir_nome("Esperado nome do campo na construção da estrutura.") {
+                            Some(campo) => campo,
+                            None => {
+                                self.sincronizar_ate(&[
+                                    TipoToken::Virgula,
+                                    TipoToken::NovaLinha,
+                                    TipoToken::PontoVirgula,
+                                    TipoToken::FechaChave,
+                                ]);
+                                if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                                    self.separadores();
+                                    continue;
+                                }
+                                break;
+                            }
+                        };
                         self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
                         let valor = match self.expressao(0) {
                             Some(valor) => valor,
