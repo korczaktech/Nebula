@@ -1716,6 +1716,53 @@ mod testes {
     }
 
     #[test]
+    fn cobre_combinacoes_restantes_das_producoes_gramaticais() {
+        let exemplos = [
+            "variavel seta <- 1",
+            "mutavel anotada: inteiro <- 2",
+            "constante anotada: inteiro <- 3",
+            "tipo FuncaoVazia = funcao()",
+            "tipo FuncaoVaziaComRetorno = funcao(): texto",
+            "tipo ListaAninhada = [[Resultado<inteiro>]]",
+            "tipo GenericoAninhado = Resultado<funcao(inteiro): [texto]>",
+            "tipo CaminhoMultilinha = Modulo\n::Interno\n::Tipo",
+            "estrutura Separadores { a: inteiro\nb: texto,\nc: logico; }",
+            "enumeracao Variantes { A\nB(), C(inteiro, texto), }",
+            "incluir Modulo\n::Interno\ncomo Alias",
+            "funcao sem_retorno() {}",
+            "funcao sem_parametros(): vazio {}",
+            "funcao multiplos(a: inteiro, b: texto, c: [logico]) {}",
+            "quando verdadeiro {}",
+            "quando falso {} senao quando verdadeiro {} senao {}",
+            "escolha valor { caso Enum::Vazio {} caso Enum::Unico() {} caso Enum::Par(a, b) {} caso _ {} }",
+            "para (inicial = 1; condicao; atualizacao = 2) {}",
+            "para (; condicao; atualizacao = 2) {}",
+            "para (inicial = 1; ; atualizacao = 2) {}",
+            "para (inicial = 1; condicao; ) {}",
+            "para (; ; ) {}",
+            "variavel encadeada = funcao_alvo(1, 2)[0].campo::interno",
+            "variavel tupla_unitaria = (valor,)",
+            "variavel construcao_multilinha = Pessoa {\n nome: \"Ana\",\n idade: 20,\n}",
+            "variavel expressao_multilinha = objeto\n .campo\n ::interno",
+            "variavel atribuicao_direita = primeiro <- segundo = terceiro",
+            "variavel potencia_direita = 2 ** 3 ** 4",
+            "variavel agrupamento_relacional = (1 < 2) e (3 > 2)",
+            "variavel separadores = 1; constante outro = 2",
+            "funcao bloco_com_separadores() {\n\n variavel a = 1;;\n variavel b = 2;\n}",
+            "funcao bloco_fim_vazio()\n fim",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "combinação gramatical válida rejeitada: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
     fn rejeita_formas_invalidas_das_producoes_normativas() {
         let exemplos = [
             "variavel = 1",
