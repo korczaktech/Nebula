@@ -1840,7 +1840,7 @@ mod testes {
     #[test]
     fn normaliza_nomes_de_padroes_e_vinculos_antes_de_validar_duplicidade() {
         let variantes = analisar(&fonte(
-            "escolha x { caso Estado::Café {} caso Estado::Cafe\\u{301} {} }"
+            "escolha x { caso Estado::Café {} caso Estado::Cafe\u{301} {} }"
         ));
         assert!(
             variantes.diagnosticos.iter().any(|d| d.codigo == "N2048"),
