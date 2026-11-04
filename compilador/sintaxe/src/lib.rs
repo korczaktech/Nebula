@@ -3194,14 +3194,14 @@ mod testes {
 
     #[test]
     fn recupera_estrutura_e_enumeracao_malformadas_sem_perder_declaracoes_sequenciais() {
-        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo(), Inativo(inteiro) }\nvariavel depois = 1";
+        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo(, inteiro), Pronto(inteiro) }\nvariavel depois = 1";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"));
         assert!(resultado.programa.itens.iter().any(|item|
             matches!(item, NoAst::Estrutura { campos, .. } if campos.iter().any(|(nome, _)| nome == "idade"))));
         assert!(resultado.programa.itens.iter().any(|item|
-            matches!(item, NoAst::Enumeracao { variantes, .. } if variantes.iter().any(|(nome, _)| nome == "Inativo"))));
+            matches!(item, NoAst::Enumeracao { variantes, .. } if variantes.iter().any(|(nome, _)| nome == "Pronto"))));
         assert!(resultado.programa.itens.iter().any(|item|
             matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")));
     }
