@@ -168,8 +168,10 @@ impl Parser {
         let nome = self.consumir_nome("Esperado nome da função.")?;
         let mut genericos = Vec::new();
         if self.corresponde(TipoToken::Menor) {
+            let mut generico_sem_parametro = false;
             if self.verifica(TipoToken::Maior) {
                 self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
+                generico_sem_parametro = true;
             } else {
                 loop {
                     let intervalo_parametro = self.tokens.get(self.atual).map(|token| token.intervalo);
@@ -193,12 +195,13 @@ impl Parser {
                     if !self.corresponde(TipoToken::Virgula) { break; }
                     if self.verifica(TipoToken::Maior) {
                         self.erro_atual("N2015", "Esperado parâmetro genérico após vírgula.");
+                        generico_sem_parametro = true;
                         break;
                     }
                 }
             }
             self.esperar(TipoToken::Maior, "Esperado '>' após parâmetros genéricos.");
-            if genericos.is_empty() && !self.diagnosticos.iter().any(|d| d.codigo == "N2015") {
+            if genericos.is_empty() && !generico_sem_parametro {
                 self.erro_atual("N2015", "Uma função genérica precisa declarar ao menos um parâmetro de tipo.");
             }
         }
