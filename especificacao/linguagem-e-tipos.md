@@ -103,6 +103,7 @@ Cada caso nomeia a enumeração e a variante. Os identificadores entre parêntes
 - `Opcional<T>` representa presença ou ausência de um valor: `Algum(valor)` e `Nenhum`.
 - `Resultado<T, E>` representa sucesso ou falha: `Sucesso(valor)` e `Falha(erro)`.
 - Os parâmetros genéricos devem ser preservados na construção, inferência, retorno, armazenamento e chamada.
+- A inferência de parâmetros genéricos é transacional: todos os componentes de uma unificação composta precisam concordar; se qualquer componente falhar ou permanecer sem tipo concreto, nenhuma vinculação parcial pode ser aproveitada. Lacunas de inferência não são convertidas silenciosamente em tipos concretos.
 - A extração de um valor exige correspondência de padrão ou operação explícita que trate o caso ausente/falho.
 - A propagação antecipada de falha só pode ser introduzida por sintaxe documentada e deve preservar o tipo de erro declarado.
 - Não existe conversão implícita entre `Opcional<T>` e `Resultado<T,E>`.
