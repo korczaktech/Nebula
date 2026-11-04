@@ -1,0 +1,17 @@
+[package]
+name = "nebula-lsp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "nebula-lsp"
+path = "src/main.rs"
+
+[dependencies]
+nebula-fonte = { path = "../fonte" }
+nebula-sintaxe = { path = "../sintaxe" }
+
+[lints]
+workspace = true
