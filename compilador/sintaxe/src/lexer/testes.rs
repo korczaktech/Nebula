@@ -2,7 +2,7 @@
 
 use nebula_fonte::ArquivoFonte;
 
-use super::{analisar_lexico, TipoToken};
+use super::{TipoToken, analisar_lexico};
 
 fn fonte(codigo: &str) -> ArquivoFonte {
     ArquivoFonte::novo("lexer_teste.nbx", codigo)
