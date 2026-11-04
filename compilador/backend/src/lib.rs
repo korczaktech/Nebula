@@ -1171,6 +1171,7 @@ impl Emissor {
             let positivo = self.emitir_jcc(0x89); // jns
             self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0xF5]); // cmc
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
             self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
             self.aplicar_salto(positivo, self.codigo.len());
@@ -1598,6 +1599,7 @@ impl Emissor {
             let lhs_positivo = self.emitir_jcc(0x89); // jns
             self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // xor r11d, 1
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0xF5]); // cmc
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
             self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
             self.aplicar_salto(lhs_positivo, self.codigo.len());
@@ -1606,6 +1608,7 @@ impl Emissor {
             let rhs_positivo = self.emitir_jcc(0x89); // jns
             self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // xor r11d, 1
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD9]); // neg rcx
+            self.codigo.extend_from_slice(&[0xF5]); // cmc
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD6]); // not rsi
             self.codigo.extend_from_slice(&[0x48, 0x83, 0xD6, 0x00]); // adc rsi, 0
             self.aplicar_salto(rhs_positivo, self.codigo.len());
@@ -1657,6 +1660,7 @@ impl Emissor {
             falhas.push(self.emitir_jcc(0x85)); // jnz
             self.aplicar_salto(magnitude_menor, self.codigo.len());
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0xF5]); // cmc
             self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
             self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
             let fim_negativo = self.emitir_jmp();
