@@ -193,6 +193,7 @@ impl Parser {
                         }
                     }
                     if !self.corresponde(TipoToken::Virgula) { break; }
+                    self.pular_novas_linhas();
                     if self.verifica(TipoToken::Maior) {
                         self.erro_atual("N2015", "Esperado parâmetro genérico após vírgula.");
                         generico_sem_parametro = true;
@@ -722,6 +723,7 @@ impl Parser {
         loop {
             argumentos.push(self.caminho_tipo()?);
             if !self.corresponde(TipoToken::Virgula) { break; }
+            self.pular_novas_linhas();
         }
         self.esperar(TipoToken::Maior, "Esperado '>' após argumentos genéricos do tipo.");
         Some(format!("{base}<{}>", argumentos.join(",")))
@@ -1689,6 +1691,25 @@ mod testes {
             assert!(
                 resultado.diagnosticos.is_empty(),
                 "produção/alternativa gramatical válida rejeitada: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn continua_listas_genericas_declaracoes_e_tipos_apos_virgula() {
+        let exemplos = [
+            "funcao converter<T,\nU>(valor: T): U { devolver valor }",
+            "tipo Mapa = Resultado<Texto,\n[inteiro]>",
+            "tipo Operacao = funcao(inteiro,\ntexto): Resultado<texto,\ninteiro>",
+            "funcao aninhada<T,\nU>(valor: Resultado<T,\nU>): Resultado<U,\nT> { devolver valor }",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "quebra após vírgula deveria continuar a lista: {codigo:?}; diagnósticos: {:?}",
                 resultado.diagnosticos
             );
         }
