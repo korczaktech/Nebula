@@ -2213,8 +2213,11 @@ mod testes {
     fn executar_elf_de_teste(programa: &ProgramaIr) -> i32 {
         use std::os::unix::fs::PermissionsExt;
         use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Mutex;
         static CONTADOR: AtomicUsize = AtomicUsize::new(0);
+        static EXECUCAO_ELF: Mutex<()> = Mutex::new(());
 
+        let _guarda = EXECUCAO_ELF.lock().unwrap();
         let caminho = std::env::temp_dir().join(format!(
             "nebula-backend-{}-{}.elf",
             std::process::id(),
