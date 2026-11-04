@@ -3057,6 +3057,72 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             r.diagnosticos
         );
     }
+
+    #[test]
+    fn matriz_de_tipos_primitivos_da_fase5_permanece_tipavel() {
+        let r = analisar_codigo(
+            "variavel logico_valor: logico = verdadeiro\n\
+             variavel i8: inteiro8 = -128\n\
+             variavel i16: inteiro16 = 32767\n\
+             variavel i32: inteiro32 = 2147483647\n\
+             variavel i64: inteiro64 = 42\n\
+             variavel i128: inteiro128 = 42\n\
+             variavel u8: inteiro_u8 = 255\n\
+             variavel u16: inteiro_u16 = 65535\n\
+             variavel u32: inteiro_u32 = 42\n\
+             variavel u64: inteiro_u64 = 42\n\
+             variavel u128: inteiro_u128 = 42\n\
+             variavel d32: decimal32 = 1.25\n\
+             variavel d64: decimal64 = 2.5\n\
+             variavel byte_valor: byte = 255\n\
+             variavel caractere_valor: caractere = 'Ω'\n\
+             variavel texto_valor: texto = \"Nebula\"\n\
+             funcao sem_retorno(): vazio {}",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("i128"), Some(&Tipo::Inteiro128));
+        assert_eq!(r.tipos_globais.get("u128"), Some(&Tipo::InteiroU128));
+        assert_eq!(r.tipos_globais.get("caractere_valor"), Some(&Tipo::Caractere));
+    }
+
+    #[test]
+    fn rejeita_coercao_implicita_entre_familias_de_tipos() {
+        let r = analisar_codigo(
+            "variavel texto_invalido: texto = 'a'\n\
+             variavel caractere_invalido: caractere = \"a\"\n\
+             variavel logico_invalido: logico = 1\n\
+             variavel decimal_invalido: decimal64 = 1\n\
+             variavel sinal_invalido: inteiro_u64 = -1",
+        );
+        assert!(
+            r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 5,
+            "{:?}",
+            r.diagnosticos
+        );
+    }
+
+    #[test]
+    fn preserva_limites_superiores_de_inteiros_de_128_bits() {
+        let r = analisar_codigo(
+            "variavel maximo: inteiro128 = 170141183460469231731687303715884105727\n\
+             variavel maximo_sem_sinal: inteiro_u128 = 340282366920938463463374607431768211455",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_inteiros_de_128_bits_acima_da_faixa() {
+        let r = analisar_codigo(
+            "variavel excedido: inteiro128 = 170141183460469231731687303715884105728\n\
+             variavel excedido_sem_sinal: inteiro_u128 = 340282366920938463463374607431768211456",
+        );
+        assert!(
+            r.diagnosticos.iter().filter(|d| d.codigo == "N3020").count() >= 2,
+            "{:?}",
+            r.diagnosticos
+        );
+    }
+
 }
 
 }
