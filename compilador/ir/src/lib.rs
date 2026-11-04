@@ -2408,6 +2408,15 @@ mod testes {
     }
 
     #[test]
+    fn executa_copia_explicita_de_estrutura_derivada() {
+        let ir = compilar(
+            "estrutura Ponto { x: inteiro8 }\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+        );
+        let resultado = executar(&ir, 100).expect("cópia explícita de estrutura");
+        assert_eq!(resultado.saida, vec!["7", "7"]);
+    }
+
+    #[test]
     fn rejeita_inferencia_generica_com_tipo_aninhado_desconhecido() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
