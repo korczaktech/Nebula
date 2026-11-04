@@ -575,7 +575,6 @@ fn comentario_de_bloco_fecha_no_primeiro_delimitador() {
     assert_eq!(resultado.tokens[1].lexema, "b");
 }
 
-
 #[test]
 fn identificadores_sao_sensiveis_a_maiusculas() {
     let resultado = analisar_lexico(&fonte("Variavel VARIAVEL variável"));
@@ -584,15 +583,17 @@ fn identificadores_sao_sensiveis_a_maiusculas() {
         "{:?}",
         resultado.diagnosticos
     );
-    assert!(resultado.tokens[..3].iter().all(|token| token.tipo == TipoToken::Identificador));
+    assert!(
+        resultado.tokens[..3]
+            .iter()
+            .all(|token| token.tipo == TipoToken::Identificador)
+    );
 }
 
 #[test]
 fn continua_a_varredura_apos_caractere_inesperado() {
     let resultado = analisar_lexico(&fonte("@ variavel x"));
-    assert!(
-        resultado.diagnosticos.iter().any(|d| d.codigo == "N1003")
-    );
+    assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N1003"));
     assert_eq!(resultado.tokens[0].tipo, TipoToken::Variavel);
 }
 
