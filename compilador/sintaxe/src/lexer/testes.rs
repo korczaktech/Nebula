@@ -645,7 +645,6 @@ fn entrada_extensa_nao_causa_pane() {
     assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
 }
 
-
 #[test]
 fn restabelece_quebras_apos_fechamento_de_delimitador_externo() {
     let resultado = analisar_lexico(&fonte("calcular([1)\nvariavel depois = 2"));
