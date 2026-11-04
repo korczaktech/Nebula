@@ -738,6 +738,7 @@ impl Emissor {
                             self.codigo.extend_from_slice(&[0x48, 0x11, 0xF2]); // adc rdx, rsi
                             if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
                         }
+                        OperadorIr::Vezes => self.multiplicar_inteiro_128(sem_sinal)?,
                         OperadorIr::Menos => {
                             self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
                             self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
@@ -1432,6 +1433,96 @@ impl Emissor {
             self.mov_rdx(0);
         }
         self.pop_rax();
+        Ok(())
+    }
+
+    fn multiplicar_inteiro_128(&mut self, sem_sinal: bool) -> Result<(), String> {
+        let mut falhas = Vec::new();
+
+        // Para inteiros assinados, multiplica magnitudes e restaura o sinal.
+        self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // xor r11d, r11d
+        if !sem_sinal {
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+            let lhs_positivo = self.emitir_jcc(0x89); // jns
+            self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // xor r11d, 1
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
+            self.aplicar_salto(lhs_positivo, self.codigo.len());
+
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
+            let rhs_positivo = self.emitir_jcc(0x89); // jns
+            self.codigo.extend_from_slice(&[0x41, 0x83, 0xF3, 0x01]); // xor r11d, 1
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD9]); // neg rcx
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD6]); // not rsi
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xD6, 0x00]); // adc rsi, 0
+            self.aplicar_salto(rhs_positivo, self.codigo.len());
+        }
+
+        // Multiplicação binária de 128 iterações. Mantém os 128 bits baixos
+        // e rejeita qualquer bit significativo que ultrapasse o resultado.
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xD0]); // mov r8, rdx
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // mov r9, rax
+        self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2, 0x48, 0x31, 0xC0]); // resultado = 0
+        self.codigo.extend_from_slice(&[0x41, 0xBA, 128, 0, 0, 0]); // r10d = 128
+        let inicio = self.codigo.len();
+
+        self.codigo.extend_from_slice(&[0xF6, 0xC1, 0x01]); // test cl, 1
+        let sem_somar = self.emitir_jcc(0x84); // jz
+        self.codigo.extend_from_slice(&[0x4C, 0x01, 0xC8]); // add rax, r9
+        self.codigo.extend_from_slice(&[0x4C, 0x11, 0xC2]); // adc rdx, r8
+        falhas.push(self.emitir_jcc(0x82)); // jc: overflow no resultado
+        self.aplicar_salto(sem_somar, self.codigo.len());
+
+        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xEE]); // shr rsi, 1
+        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xD9]); // rcr rcx, 1
+        self.codigo.extend_from_slice(&[0x49, 0xD1, 0xE1]); // shl r9, 1
+        self.codigo.extend_from_slice(&[0x49, 0xD1, 0xD0]); // rcl r8, 1
+        let sem_overflow_deslocamento = self.emitir_jcc(0x83); // jnc
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xF6]); // test rsi, rsi
+        let multiplicador_vazio = self.emitir_jcc(0x84);
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
+        falhas.push(self.emitir_jcc(0x85)); // jnz
+        self.aplicar_salto(multiplicador_vazio, self.codigo.len());
+        self.aplicar_salto(sem_overflow_deslocamento, self.codigo.len());
+
+        self.codigo.extend_from_slice(&[0x41, 0xFF, 0xCA]); // dec r10d
+        let repetir = self.emitir_jcc(0x85); // jnz
+        self.aplicar_salto(repetir, inicio);
+
+        if !sem_sinal {
+            self.codigo.extend_from_slice(&[0x45, 0x85, 0xDB]); // test r11d, r11d
+            let resultado_positivo = self.emitir_jcc(0x84); // jz
+            // A magnitude negativa pode alcançar exatamente 2^127, mas não ultrapassá-la.
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // mov r9, rax
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // mov rsi, rax
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // mov rax, r9
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2]); // cmp rdx, rsi
+            falhas.push(self.emitir_jcc(0x87)); // ja
+            let magnitude_menor = self.emitir_jcc(0x85); // jne
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+            falhas.push(self.emitir_jcc(0x85)); // jnz
+            self.aplicar_salto(magnitude_menor, self.codigo.len());
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
+            let fim_negativo = self.emitir_jmp();
+
+            let verificar_positivo = self.codigo.len();
+            self.aplicar_salto(resultado_positivo, verificar_positivo);
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+            falhas.push(self.emitir_jcc(0x88)); // js
+            self.aplicar_salto(fim_negativo, self.codigo.len());
+        }
+
+        let fim = self.emitir_jmp();
+        let erro = self.codigo.len();
+        for salto in falhas {
+            self.aplicar_salto(salto, erro);
+        }
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(fim, self.codigo.len());
         Ok(())
     }
 
