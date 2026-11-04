@@ -13,7 +13,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
-use crate::ast::{CasoEscolha, Expressao, NoAst, NoLocalizado, Programa, ResultadoSintatico, Visibilidade};
+use crate::ast::{CasoEscolha, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
 use unicode_normalization::UnicodeNormalization;
 
 /// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
@@ -34,9 +34,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
@@ -69,8 +69,18 @@ impl Parser {
             }
             self.separadores();
         }
-        self.nos_localizados.sort_by(|a, b| a.intervalo.inicio.cmp(&b.intervalo.inicio).then_with(|| b.intervalo.fim.cmp(&a.intervalo.fim)));
-        Programa { itens, nos_localizados: std::mem::take(&mut self.nos_localizados) }
+        let ordenar = |a: &IntervaloFonte, b: &IntervaloFonte| {
+            a.inicio.cmp(&b.inicio).then_with(|| b.fim.cmp(&a.fim))
+        };
+        self.nos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
+        self.expressoes_localizadas.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
+        self.tipos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
+        Programa {
+            itens,
+            nos_localizados: std::mem::take(&mut self.nos_localizados),
+            expressoes_localizadas: std::mem::take(&mut self.expressoes_localizadas),
+            tipos_localizados: std::mem::take(&mut self.tipos_localizados),
+        }
     }
     fn item(&mut self) -> Option<NoAst> {
         let inicio = self.tokens.get(self.atual).map(|token| token.intervalo.inicio);
@@ -699,7 +709,21 @@ impl Parser {
         } else { self.erro_atual("N2007", "Esperado bloco com '{' ou quebra de linha seguida de 'fim'."); None }
     }
     fn caminho_tipo(&mut self) -> Option<String> {
-        self.com_profundidade(|parser| parser.caminho_tipo_interno())
+        let inicio = self.tokens.get(self.atual).map(|token| token.intervalo.inicio);
+        let tipo = self.com_profundidade(|parser| parser.caminho_tipo_interno());
+        if let (Some(tipo), Some(inicio)) = (tipo.as_ref(), inicio) {
+            if self.atual > 0 {
+                if let Some(token) = self.tokens.get(self.atual - 1) {
+                    if let Some(intervalo) = IntervaloFonte::novo(inicio, token.intervalo.fim) {
+                        self.tipos_localizados.push(TipoLocalizado {
+                            tipo: TipoAst::analisar(tipo),
+                            intervalo,
+                        });
+                    }
+                }
+            }
+        }
+        tipo
     }
     fn caminho_tipo_interno(&mut self) -> Option<String> {
         if self.corresponde(TipoToken::Funcao) {
@@ -761,7 +785,21 @@ impl Parser {
         Some(nome)
     }
     fn expressao(&mut self, minimo: u8) -> Option<Expressao> {
-        self.com_profundidade(|parser| parser.expressao_interna(minimo))
+        let inicio = self.tokens.get(self.atual).map(|token| token.intervalo.inicio);
+        let expressao = self.com_profundidade(|parser| parser.expressao_interna(minimo));
+        if let (Some(expressao), Some(inicio)) = (expressao.as_ref(), inicio) {
+            if self.atual > 0 {
+                if let Some(token) = self.tokens.get(self.atual - 1) {
+                    if let Some(intervalo) = IntervaloFonte::novo(inicio, token.intervalo.fim) {
+                        self.expressoes_localizadas.push(ExpressaoLocalizada {
+                            expressao: expressao.clone(),
+                            intervalo,
+                        });
+                    }
+                }
+            }
+        }
+        expressao
     }
     fn expressao_antes_de_bloco(&mut self) -> Option<Expressao> {
         let anterior = self.bloquear_construcao_vazia;
