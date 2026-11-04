@@ -90,3 +90,15 @@ O Lexer aplica maior correspondência: >= antes de >, == antes de =, <- antes de
 ## 9. Fim de arquivo e erros léxicos
 
 O fluxo contém um token de fim de arquivo. O Lexer deve diagnosticar, no mínimo, UTF-8 inválido, caractere inesperado, literal não terminado, escape inválido, número malformado e comentário de bloco não terminado. Cada diagnóstico deve preservar a localização disponível.
+
+
+## 10. Grafias portuguesas equivalentes
+
+O Lexer aceita as grafias sem acento já usadas nos exemplos e suas formas ortográficas acentuadas:
+- `funcao` e `função`;
+- `senao` e `senão`;
+- `enumeracao` e `enumeração`;
+- `nao` e `não`;
+- `publico` e `público`.
+
+As duas grafias de cada par produzem o mesmo token e seguem exatamente as mesmas regras sintáticas e semânticas. A normalização Unicode NFC continua aplicada antes da classificação das palavras.

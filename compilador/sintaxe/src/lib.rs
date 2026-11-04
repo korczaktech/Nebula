@@ -182,10 +182,10 @@ impl<'a> Lexer<'a> {
             "variavel" => TipoToken::Variavel, "definir" => TipoToken::Definir,
             "mutavel" | "mutável" => TipoToken::Mutavel, "alterar" => TipoToken::Alterar,
             "constante" => TipoToken::Constante,
-            "funcao" => TipoToken::Funcao, "quando" => TipoToken::Quando,
+            "funcao" | "função" => TipoToken::Funcao, "quando" => TipoToken::Quando,
             "escolha" => TipoToken::Escolha, "avaliar" => TipoToken::Avaliar,
             "caso" => TipoToken::Caso,
-            "senao" => TipoToken::Senao, "para" => TipoToken::Para,
+            "senao" | "senão" => TipoToken::Senao, "para" => TipoToken::Para,
             "cada" => TipoToken::Cada, "em" => TipoToken::Em,
             "pulso" => TipoToken::Pulso, "enquanto" => TipoToken::Enquanto,
             "durante" => TipoToken::Durante, "repetir" => TipoToken::Repetir,
@@ -195,10 +195,10 @@ impl<'a> Lexer<'a> {
             "nulo" => TipoToken::Nulo, "fim" => TipoToken::FimBloco,
             "parar" => TipoToken::Parar, "encerrar" => TipoToken::Encerrar,
             "seguir" => TipoToken::Seguir,
-            "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" => TipoToken::Nao,
-            "publico" => TipoToken::Publico, "privado" => TipoToken::Privado,
+            "e" => TipoToken::E, "ou" => TipoToken::Ou, "nao" | "não" => TipoToken::Nao,
+            "publico" | "público" => TipoToken::Publico, "privado" => TipoToken::Privado,
             "tipo" => TipoToken::Tipo, "estrutura" => TipoToken::Estrutura,
-            "enumeracao" => TipoToken::Enumeracao,
+            "enumeracao" | "enumeração" => TipoToken::Enumeracao,
             "tentar" | "capturar" | "finalmente" | "assinc" => TipoToken::ReservadaFutura,
             _ => TipoToken::Identificador,
         };
@@ -1335,6 +1335,14 @@ mod testes {
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 8);
+    }
+
+    #[test]
+    fn aceita_grafias_portuguesas_com_e_sem_acentos() {
+        let codigo = "função somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\\nquando não falso { exibir(1) } senão { exibir(0) }\\nenumeração Estado { Ativo\\nInativo }\\npúblico função principal() { exibir(Estado::Ativo) }";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.programa.itens.len(), 4);
     }
 
     #[test]
