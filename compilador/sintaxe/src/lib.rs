@@ -2840,6 +2840,7 @@ mod testes {
             ("N2047", "alterar total"),
             ("N2048", "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }"),
             ("N2050", "funcao f(item: inteiro, item: texto) {}"),
+            ("N2051", "variavel valor = 1)"),
         ];
 
         for (codigo, exemplo) in casos {
