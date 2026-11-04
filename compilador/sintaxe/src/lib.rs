@@ -1596,9 +1596,9 @@ mod testes {
     #[test]
     fn lexer_e_parser_resistem_a_entradas_malformadas_deterministicas() {
         let alfabeto = [
-            "a", "z", "0", "9", "_", " ", "\\n", "\\t", "{", "}", "(", ")",
+            "a", "z", "0", "9", "_", " ", "\n", "\t", "{", "}", "(", ")",
             "[", "]", ";", ":", ".", ",", "+", "-", "*", "/", "=", "<", ">",
-            "\\\"", "'", "#", "🌌", "ç", "ã",
+            "\"", "'", "#", "🌌", "ç", "ã",
         ];
         let mut estado = 0x5eed_u64;
         for caso in 0..2_048 {
