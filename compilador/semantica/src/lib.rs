@@ -135,7 +135,7 @@ impl<'a> Analisador<'a> {
         }
         let aliases: Vec<String> = self.aliases.keys().cloned().collect();
         for nome in aliases {
-            if self.resolver_tipo(&nome) == Tipo::Desconhecido {
+            if Self::tipo_contem_desconhecido(&self.resolver_tipo(&nome)) {
                 self.erro("N3003", format!("O alias de tipo '{nome}' contém referência inválida ou ciclo."));
             }
         }
@@ -165,7 +165,7 @@ impl<'a> Analisador<'a> {
                 self.parametros_genericos.extend(genericos.iter().cloned());
                 let tipos: Vec<Tipo> = parametros.iter().map(|(parametro, nome_tipo)| {
                     let tipo = self.resolver_tipo(nome_tipo);
-                    if tipo == Tipo::Desconhecido {
+                    if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo '{nome_tipo}' do parâmetro '{parametro}' não foi declarado."));
                     }
                     tipo
@@ -208,13 +208,13 @@ impl<'a> Analisador<'a> {
                 };
                 self.mover_valor(valor);
                 let final_tipo = if let Some(esperado) = esperado_declarado {
-                    if esperado == Tipo::Desconhecido {
+                    if Self::tipo_contem_desconhecido(&esperado) {
                         self.erro("N3021", format!("Tipo '{}' não foi declarado.", tipo.as_deref().unwrap_or("")));
                     }
                     self.exigir_expressao_tipo(valor, &inferido, &esperado, "inicialização da variável");
                     esperado
                 } else {
-                    if matches!(&inferido, Tipo::Lista(elemento) if **elemento == Tipo::Desconhecido) {
+                    if Self::tipo_contem_desconhecido(&inferido) {
                         self.erro("N3027", format!("Não foi possível inferir o tipo dos elementos da lista '{nome}'; anote seu tipo."));
                     }
                     inferido
@@ -259,7 +259,7 @@ impl<'a> Analisador<'a> {
                     if !vistos.insert(campo) {
                         self.erro("N3033", format!("Campo '{campo}' duplicado na estrutura '{nome}'."));
                     }
-                    if self.resolver_tipo(tipo) == Tipo::Desconhecido {
+                    if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
                         self.erro("N3034", format!("Tipo '{tipo}' do campo '{campo}' não foi declarado."));
                     }
                 }
@@ -1463,8 +1463,8 @@ impl<'a> Analisador<'a> {
                     .map(|tipo| self.resolver_tipo(tipo))
                     .collect();
                 let retorno = self.resolver_tipo(retorno);
-                if parametros.iter().any(|tipo| matches!(tipo, Tipo::Vazio | Tipo::Desconhecido))
-                    || retorno == Tipo::Desconhecido
+                if parametros.iter().any(|tipo| *tipo == Tipo::Vazio || Self::tipo_contem_desconhecido(tipo))
+                    || Self::tipo_contem_desconhecido(&retorno)
                 {
                     Tipo::Desconhecido
                 } else {
@@ -1477,7 +1477,7 @@ impl<'a> Analisador<'a> {
             _ if Self::argumentos_genericos(nome).is_some() => {
                 let (base, argumentos) = Self::argumentos_genericos(nome).expect("tipo genérico reconhecido");
                 let tipos: Vec<Tipo> = argumentos.iter().map(|argumento| self.resolver_tipo(argumento)).collect();
-                if tipos.iter().any(|tipo| *tipo == Tipo::Desconhecido) {
+                if tipos.iter().any(Self::tipo_contem_desconhecido) {
                     Tipo::Desconhecido
                 } else {
                     match (base, tipos.as_slice()) {
@@ -1900,7 +1900,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn exigir_expressao_tipo(&mut self, expressao: &Expressao, obtido: &Tipo, esperado: &Tipo, contexto: &str) {
-        if *esperado == Tipo::Desconhecido { return; }
+        if Self::tipo_contem_desconhecido(esperado) { return; }
         if let Some(valor) = Self::literal_numerico(expressao) {
             let compativel = match (valor, esperado) {
                 (LiteralNumerico::Inteiro(v), Tipo::Inteiro8) => i8::try_from(v).is_ok(),
@@ -2703,6 +2703,24 @@ mod testes {
     fn rejeita_aridade_incorreta_de_tipo_generico() {
         let r = analisar_codigo("funcao recebe(valor: Resultado<inteiro>) { exibir(\"ok\") }");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_tipos_desconhecidos_aninhados_em_declaracoes() {
+        let alias = analisar_codigo("tipo Dados = [TipoAusente]");
+        assert!(alias.diagnosticos.iter().any(|d| d.codigo == "N3003"), "{:?}", alias.diagnosticos);
+
+        let parametro = analisar_codigo("funcao receber(valor: [TipoAusente]) { exibir(1) }");
+        assert!(parametro.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", parametro.diagnosticos);
+
+        let variavel = analisar_codigo("variavel dados: [TipoAusente] = []");
+        assert!(variavel.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", variavel.diagnosticos);
+
+        let estrutura = analisar_codigo("estrutura Caixa { dados: [TipoAusente] }");
+        assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", estrutura.diagnosticos);
+
+        let enumeracao = analisar_codigo("enumeracao Resposta { Dados([TipoAusente]) }");
+        assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N3037"), "{:?}", enumeracao.diagnosticos);
     }
 
     #[test]
