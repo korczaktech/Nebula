@@ -1723,6 +1723,7 @@ impl Maquina<'_> {
                     let resultados = std::thread::scope(|escopo| {
                         let tarefas = nomes.into_iter().map(|nome| {
                             let memoria = memoria.clone();
+                            let entrada = entrada.clone();
                             escopo.spawn(move || -> Result<(ValorIr, Vec<String>), String> {
                                 let funcao = programa.funcoes.get(&nome).cloned()
                                     .ok_or_else(|| format!("Função paralela '{nome}' não encontrada."))?;
