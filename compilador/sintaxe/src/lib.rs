@@ -97,7 +97,7 @@ impl Parser {
                 && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao)
                 && !self.separador_atual() && !bloco_recuperado {
                 self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções.");
-                self.sincronizar();
+                self.sincronizar_item();
             }
             self.separadores();
         }
@@ -665,7 +665,7 @@ impl Parser {
                 if self.atual == antes { self.avancar(); }
                 if !self.verifica(TipoToken::FechaChave) && !self.separador_atual() && !bloco_recuperado {
                     self.erro_atual("N2001", "Esperado separador dentro do bloco.");
-                    self.sincronizar();
+                    self.sincronizar_item();
                 }
                 self.separadores();
             }
@@ -1076,6 +1076,23 @@ impl Parser {
             TipoToken::FechaChave,
             TipoToken::FimBloco,
             TipoToken::Senao,
+        ]);
+    }
+    /// Recupera no limite de um item sem consumir o início de uma declaração válida.
+    fn sincronizar_item(&mut self) {
+        self.sincronizar_ate(&[
+            TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::FechaChave,
+            TipoToken::FimBloco, TipoToken::Senao, TipoToken::Variavel, TipoToken::Definir,
+            TipoToken::Mutavel, TipoToken::Constante, TipoToken::Alterar, TipoToken::Funcao,
+            TipoToken::Publico, TipoToken::Privado, TipoToken::Tipo, TipoToken::Estrutura,
+            TipoToken::Enumeracao, TipoToken::ReservadaFutura, TipoToken::Incluir,
+            TipoToken::Quando, TipoToken::Escolha, TipoToken::Avaliar, TipoToken::Enquanto,
+            TipoToken::Durante, TipoToken::Repetir, TipoToken::Pulso, TipoToken::Para,
+            TipoToken::Cada, TipoToken::Devolver, TipoToken::Parar, TipoToken::Encerrar,
+            TipoToken::Seguir, TipoToken::Identificador, TipoToken::Inteiro, TipoToken::Decimal,
+            TipoToken::Texto, TipoToken::Caractere, TipoToken::Verdadeiro, TipoToken::Falso,
+            TipoToken::Nulo, TipoToken::AbrePar, TipoToken::AbreColchete, TipoToken::Negacao,
+            TipoToken::Nao, TipoToken::Menos, TipoToken::Mais,
         ]);
     }
     fn sincronizar_ate(&mut self, finais: &[TipoToken]) {
@@ -2364,6 +2381,43 @@ mod testes {
             resultado.diagnosticos);
         assert_eq!(resultado.programa.itens.len(), 2,
             "todas as expressões válidas devem permanecer na AST");
+    }
+
+    #[test]
+    fn recupera_item_malformado_sem_consumir_declaracao_seguinte() {
+        for codigo in [
+            "variavel quebrada = ) variavel preservada = 42",
+            "variavel quebrada = )\\nvariavel preservada = 42",
+            "funcao principal() { variavel quebrada = ) variavel preservada = 42 }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(!resultado.diagnosticos.is_empty(),
+                "a construção inválida deveria produzir diagnóstico: {codigo:?}");
+            let preservada = resultado.programa.itens.iter().any(
+                |item| matches!(item, NoAst::Variavel { nome, .. } if nome == "preservada")
+            ) || resultado.programa.itens.iter().any(|item| matches!(
+                item, NoAst::Funcao { corpo, .. } if corpo.iter().any(
+                    |interno| matches!(interno, NoAst::Variavel { nome, .. } if nome == "preservada")
+                )
+            ));
+            assert!(preservada,
+                "a recuperação consumiu a declaração válida seguinte: {codigo:?}; AST: {:?}",
+                resultado.programa);
+        }
+    }
+
+    #[test]
+    fn recupera_apos_erros_consecutivos_preservando_todos_os_itens_validos() {
+        let codigo = "variavel a = ) variavel b = ] variavel c = 3\\nfuncao depois() { devolver c }";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.len() >= 2,
+            "cada região inválida deve ser diagnosticada: {:?}", resultado.diagnosticos);
+        assert!(resultado.programa.itens.iter().any(
+            |item| matches!(item, NoAst::Variavel { nome, .. } if nome == "c")
+        ), "a declaração válida após erros consecutivos foi perdida: {:?}", resultado.programa);
+        assert!(resultado.programa.itens.iter().any(
+            |item| matches!(item, NoAst::Funcao { nome, .. } if nome == "depois")
+        ), "a função posterior foi perdida: {:?}", resultado.programa);
     }
 
     #[test]
