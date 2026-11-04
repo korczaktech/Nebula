@@ -310,7 +310,7 @@ fn completion(document: &Document, uri: &str, line: usize, character: usize) -> 
                 NoAst::Quando { entao, senao, .. } => { visit(entao, items, prefix); visit(senao, items, prefix); }
                 NoAst::Enquanto { corpo, .. } | NoAst::Cada { corpo, .. } | NoAst::Pulso { corpo, .. } => visit(corpo, items, prefix),
                 NoAst::Para { inicial, corpo, .. } => {
-                    if let Some(inicial) = inicial { visit(std::slice::from_ref(inicial), items, prefix); }
+                    if let Some(inicial) = inicial { visit(std::slice::from_ref(inicial.as_ref()), items, prefix); }
                     visit(corpo, items, prefix);
                 }
                 NoAst::Escolha { casos, .. } => {
@@ -443,7 +443,7 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
                             format!("Identificador `{word}` no documento atual.")
                         };
                         if let Some(node) = parsed.programa.itens.iter().find(|node| {
-                            declared_name(node).is_some_and(|(name, _)| name == word)
+                            declared_name(node).is_some_and(|(name, _)| name == word.as_str())
                         }) {
                             match node {
                                 NoAst::Funcao { parametros, retorno, .. } => {
