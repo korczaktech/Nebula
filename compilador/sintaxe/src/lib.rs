@@ -206,9 +206,39 @@ impl Parser {
         self.separadores();
         let mut campos = Vec::new();
         while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
-            let campo = self.consumir_nome("Esperado nome do campo da estrutura.")?;
+            let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
+                Some(campo) => campo,
+                None => {
+                    self.sincronizar_ate(&[
+                        TipoToken::Virgula,
+                        TipoToken::NovaLinha,
+                        TipoToken::PontoVirgula,
+                        TipoToken::FechaChave,
+                    ]);
+                    if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                        self.separadores();
+                        continue;
+                    }
+                    break;
+                }
+            };
             self.esperar(TipoToken::DoisPontos, "Esperado ':' após nome do campo.");
-            let tipo = self.caminho_tipo()?;
+            let tipo = match self.caminho_tipo() {
+                Some(tipo) => tipo,
+                None => {
+                    self.sincronizar_ate(&[
+                        TipoToken::Virgula,
+                        TipoToken::NovaLinha,
+                        TipoToken::PontoVirgula,
+                        TipoToken::FechaChave,
+                    ]);
+                    if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                        self.separadores();
+                        continue;
+                    }
+                    break;
+                }
+            };
             if campos.iter().any(|(existente, _)| existente == &campo) {
                 self.erro_atual("N2031", "Campo declarado mais de uma vez na estrutura.");
             } else {
@@ -235,13 +265,39 @@ impl Parser {
         self.separadores();
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
         while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
-            let variante = self.consumir_nome("Esperado nome da variante.")?;
+            let variante = match self.consumir_nome("Esperado nome da variante.") {
+                Some(variante) => variante,
+                None => {
+                    self.sincronizar_ate(&[
+                        TipoToken::Virgula,
+                        TipoToken::NovaLinha,
+                        TipoToken::PontoVirgula,
+                        TipoToken::FechaChave,
+                    ]);
+                    if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                        self.separadores();
+                        continue;
+                    }
+                    break;
+                }
+            };
             let mut payload = Vec::new();
             if self.corresponde(TipoToken::AbrePar) {
                 if !self.verifica(TipoToken::FechaPar) {
                     loop {
-                        payload.push(self.caminho_tipo()?);
+                        match self.caminho_tipo() {
+                            Some(tipo) => payload.push(tipo),
+                            None => {
+                                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::FechaPar]);
+                                if self.corresponde(TipoToken::Virgula) { continue; }
+                                break;
+                            }
+                        }
                         if !self.corresponde(TipoToken::Virgula) { break; }
+                        if self.verifica(TipoToken::FechaPar) {
+                            self.erro_atual("N2035", "Esperado tipo após vírgula no payload da variante.");
+                            break;
+                        }
                     }
                 }
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após tipos da variante.");
