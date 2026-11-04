@@ -833,7 +833,9 @@ impl<'a> Analisador<'a> {
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Vazio;
                     }
-                    if matches!(nome.as_str(), "ler_texto" | "receber" | "perguntar") {
+                    if !self.funcoes.contains_key(nome)
+                        && matches!(nome.as_str(), "ler_texto" | "receber" | "perguntar")
+                    {
                         if argumentos.len() > 1 {
                             self.erro("N3015", format!("'{nome}' aceita no máximo um texto de prompt."));
                         }
