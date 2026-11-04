@@ -2804,6 +2804,15 @@ mod testes {
     }
 
     #[test]
+    fn em_paralelo_aguarda_todas_as_funcoes_e_preserva_ordem() {
+        let ir = compilar(
+            "funcao primeira(): inteiro { devolver 11 }\nfuncao segunda(): inteiro { devolver 22 }\nvariavel resultados = em_paralelo(primeira, segunda)\nexibir(resultados[0])\nexibir(resultados[1])",
+        );
+        let resultado = executar(&ir, 300).expect("tarefas paralelas devem concluir");
+        assert_eq!(resultado.saida, vec!["11", "22"]);
+    }
+
+    #[test]
     fn executa_builtins_json_com_serializacao_deterministica() {
         let ir = compilar(
             "variavel valido = json_valido(\"{\\\"chave\\\":1}\")\nvariavel invalido = json_valido(\"{\\\"chave\\\":}\")\nvariavel canonico = json_canonico(\"{\\\"b\\\":2,\\\"a\\\":1}\")",
