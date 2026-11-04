@@ -58,6 +58,13 @@ pub enum Valor {
         /// Limite superior inclusivo.
         fim: i128,
     },
+    /// Intervalo inteiro sem sinal inclusivo.
+    IntervaloSemSinal {
+        /// Limite inferior inclusivo.
+        inicio: u128,
+        /// Limite superior inclusivo.
+        fim: u128,
+    },
     /// Intervalo decimal inclusivo.
     IntervaloDecimal {
         /// Limite inferior inclusivo.
@@ -87,6 +94,10 @@ impl PartialEq for Valor {
                     inicio: bi,
                     fim: bf,
                 },
+            ) => ai == bi && af == bf,
+            (
+                Self::IntervaloSemSinal { inicio: ai, fim: af },
+                Self::IntervaloSemSinal { inicio: bi, fim: bf },
             ) => ai == bi && af == bf,
             (
                 Self::IntervaloDecimal {
