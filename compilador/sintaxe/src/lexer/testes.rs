@@ -497,7 +497,7 @@ fn delimitadores_nao_causam_underflow_na_continuacao_de_linha() {
 }
 
 #[test]
-fn delimitador_de_fechamento_errado_nao_fecha_outro_tipo() {
+fn fechamento_cruzado_descarta_aberturas_internas_e_restaura_continuacao() {
     let resultado = analisar_lexico(&fonte("([)\n]\ny"));
     assert_eq!(
         resultado
@@ -505,7 +505,11 @@ fn delimitador_de_fechamento_errado_nao_fecha_outro_tipo() {
             .iter()
             .filter(|token| token.tipo == TipoToken::NovaLinha)
             .count(),
-        0
+        2
+    );
+    assert!(
+        resultado.tokens.iter().any(|token| token.lexema == "y"),
+        "a varredura deve alcançar os tokens após os fechamentos inválidos"
     );
 }
 
