@@ -509,6 +509,5 @@ impl<'a> Lexer<'a> {
             }
             _ => false,
         }
-
     }
 }
