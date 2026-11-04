@@ -41,9 +41,13 @@ pub mod texto {
     };
 }
 
-/// Coleções dinâmicas e memória lexical.
+/// Coleções tipadas e memória lexical do runtime.
 pub mod colecoes {
     pub use nebula_runtime::{Memoria, Valor};
+    mod tipadas {
+        include!("colecoes.rs");
+    }
+    pub use tipadas::{Fila, Mapa, Pilha};
 }
 
 /// Operações reais de arquivos e diretórios.
