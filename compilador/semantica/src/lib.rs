@@ -765,6 +765,7 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 if let Expressao::Nome(nome) = alvo.as_ref() {
+
                     if let Some(destino) = Self::tipo_conversao_explicita(nome) {
                         if argumentos.len() != 1 {
                             self.erro("N3015", format!("'{nome}' exige exatamente um argumento."));
