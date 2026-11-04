@@ -417,11 +417,12 @@ impl<'a> Lexer<'a> {
                     break;
                 }
                 b'\\' => {
+                    let inicio_escape = self.atual - 1;
                     if !self.escape_valido() {
                         self.erro(
                             "N1007",
                             "Escape inválido em literal.",
-                            self.atual.saturating_sub(2),
+                            inicio_escape,
                             self.atual,
                         );
                     }
@@ -453,11 +454,12 @@ impl<'a> Lexer<'a> {
             }
             if self.byte(0) == Some(b'\\') {
                 self.atual += 1;
+                let inicio_escape = self.atual - 1;
                 if !self.escape_valido() {
                     self.erro(
                         "N1007",
                         "Escape inválido em literal.",
-                        self.atual.saturating_sub(2),
+                        inicio_escape,
                         self.atual,
                     );
                 }
@@ -482,6 +484,16 @@ impl<'a> Lexer<'a> {
         if self.fim() || matches!(self.byte(0), Some(b'\n' | b'\r')) {
             return false;
         }
+
+        // Escapes da linguagem são ASCII. Consuma o escalar UTF-8 inteiro
+        // quando ele aparecer em uma posição inválida, sem dividir a fonte.
+        if self.byte(0).is_some_and(|byte| !byte.is_ascii()) {
+            if let Some(caractere) = self.caractere_atual() {
+                self.atual += caractere.len_utf8();
+            }
+            return false;
+        }
+
         match self.avancar() {
             b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' | b'0' => true,
             b'u' if self.corresponde(b'{') => {
@@ -497,5 +509,4 @@ impl<'a> Lexer<'a> {
             }
             _ => false,
         }
-    }
-}
+    }}

@@ -297,6 +297,20 @@ fn texto_nao_pode_continuar_em_quebra_fisica_apos_escape() {
     );
 }
 
+
+#[test]
+fn rejeita_escape_nao_ascii_sem_perder_sincronia_utf8() {
+    for literal in [r#""\é""#, r#"'\é'"#] {
+        let resultado = analisar_lexico(&fonte(literal));
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N1007"),
+            "Literal inválido não diagnosticado: {literal:?}"
+        );
+        assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
+        assert_eq!(resultado.tokens[0].lexema, literal);
+    }
+}
+
 #[test]
 fn diagnostica_texto_nao_terminado() {
     assert!(possui_erro("\"texto sem fim", "N1008"));
