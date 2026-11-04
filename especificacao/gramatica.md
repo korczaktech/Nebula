@@ -195,6 +195,7 @@ O Parser rejeita:
 - Variantes repetidas ou enumerações sem variantes.
 - Campos repetidos em uma construção de estrutura.
 - Mais de um caso curinga em uma instrução `escolha`.
+- Repetição do mesmo caminho `Enum::Variante` na mesma instrução `escolha`.
 - Instruções `alterar` cujo conteúdo não seja uma atribuição.
 
 A existência de nomes, tipos, campos, variantes, mutabilidade do destino e validade contextual de `devolver`, `parar` e `seguir` pertence à análise semântica.
