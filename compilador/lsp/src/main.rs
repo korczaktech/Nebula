@@ -186,7 +186,7 @@ impl<'a> JsonParser<'a> {
 #[derive(Clone)]
 struct Document { text: String, version: i64 }
 #[derive(Default)]
-struct Server { documents: BTreeMap<String, Document>, shutdown: bool, exit: bool }
+struct Server { documents: BTreeMap<String, Document>, exit: bool }
 
 fn object(entries: impl IntoIterator<Item = (String, Json)>) -> Json {
     Json::Object(entries.into_iter().collect())
@@ -408,7 +408,6 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
             if let Some(id) = id { output.push(response(id, result)); }
         }
         "shutdown" => {
-            server.shutdown = true;
             if let Some(id) = id { output.push(response(id, Json::Null)); }
         }
         "exit" => { server.exit = true; }
