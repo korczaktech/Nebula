@@ -437,6 +437,9 @@ impl Emissor {
                 for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
                 for salto in laco.continuacoes { self.aplicar_salto(salto, inicio); }
             }
+            InstrucaoIr::Cada { .. } => {
+                return Err("O laço 'cada' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
+            }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
                 self.escopos.push(HashMap::new());
                 self.tipos_escopos.push(HashMap::new());
