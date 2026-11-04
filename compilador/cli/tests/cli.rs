@@ -335,7 +335,6 @@ fn analisar_rejeita_nome_nao_declarado() {
     assert!(String::from_utf8_lossy(&saida.stderr).contains("N3007"));
 }
 
-
 #[test]
 fn interpreta_aliases_de_controle_e_operador_de_atribuicao() {
     let caminho = std::env::temp_dir().join(format!("nebula-aliases-{}.nbx", std::process::id()));
