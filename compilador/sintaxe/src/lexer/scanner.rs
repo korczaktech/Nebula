@@ -240,6 +240,10 @@ impl<'a> Lexer<'a> {
             // Remove também aberturas internas sem fechamento. Isso restabelece
             // a emissão de quebras de linha após um fechamento cruzado.
             self.delimitadores.truncate(posicao);
+        } else {
+            // Um fechamento sem par também encerra a continuação lexical
+            // inválida, permitindo que as próximas linhas sejam recuperadas.
+            self.delimitadores.clear();
         }
     }
 
