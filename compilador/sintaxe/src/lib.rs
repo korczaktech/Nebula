@@ -1049,6 +1049,89 @@ mod testes {
         assert!(matches!(&r.programa.itens[1], NoAst::Expressao(Expressao::Atribuicao { .. })));
     }
 
+
+    #[test]
+    fn cobre_producoes_normativas_do_parser() {
+        let exemplos = [
+            "variavel x = 1",
+            "definir x: inteiro = 1",
+            "mutável x = 1",
+            "constante limite: inteiro = 10",
+            "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }",
+            "publico funcao identidade<T>(valor: T): T { devolver valor }",
+            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U { devolver b }",
+            "tipo Caminho = Modulo::Submodulo::Tipo",
+            "tipo Colecao = [Resultado<inteiro>]",
+            "estrutura Pessoa { nome: texto; idade: inteiro, }",
+            "enumeracao Estado { Ativo\nInativo(texto, inteiro) }",
+            "incluir Biblioteca::Texto como Texto",
+            "quando verdadeiro { exibir(1) } senao { exibir(0) }",
+            "quando verdadeiro { exibir(1) } senao quando falso { exibir(2) }",
+            "escolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso _ { exibir(0) } }",
+            "enquanto verdadeiro { parar }",
+            "durante verdadeiro { seguir }",
+            "repetir falso { encerrar }",
+            "cada item em [1, 2, 3] { exibir(item) }",
+            "pulso(100) { exibir(1) }",
+            "para (variavel i = 0; i < 3; i = i + 1) { exibir(i) }",
+            "alterar total <- 3",
+            "devolver",
+            "variavel vazia = ()",
+            "variavel tupla = (1, 2,)",
+            "variavel lista = [1, 2, 3]",
+            "variavel chamada = sistema::somar(1, 2)[0].valor",
+            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20 }",
+            "variavel potencia = -2 ** 3 ** 2",
+            "variavel logica = (1 < 2) e (3 >= 2) ou falso",
+            "funcao bloco_fim()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.is_empty(),
+                "produção válida rejeitada: {codigo:?}; diagnósticos: {:?}",
+                resultado.diagnosticos
+            );
+            assert!(
+                !resultado.programa.itens.is_empty(),
+                "nenhum item produzido para: {codigo:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejeita_formas_invalidas_das_producoes_normativas() {
+        let exemplos = [
+            "variavel = 1",
+            "constante limite =",
+            "funcao sem_parametros( { devolver }",
+            "funcao incompleta(valor inteiro) { devolver }",
+            "tipo SemDestino =",
+            "estrutura Pessoa { nome texto }",
+            "enumeracao Estado {}",
+            "incluir [inteiro]",
+            "quando verdadeiro { exibir(1)",
+            "escolha valor { caso _ { exibir(1) }",
+            "cada item [1, 2] { exibir(item) }",
+            "pulso { exibir(1) }",
+            "para (variavel i = 0; i < 3) { parar }",
+            "alterar total",
+            "variavel lista = [1, 2",
+            "variavel chamada = funcao(1, 2",
+            "variavel tupla = (1, 2",
+            "variavel membro = objeto.",
+        ];
+
+        for codigo in exemplos {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                !resultado.diagnosticos.is_empty(),
+                "forma inválida aceita sem diagnóstico: {codigo:?}"
+            );
+        }
+    }
+
 }
 
 }
