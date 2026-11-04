@@ -1592,7 +1592,6 @@ impl Emissor {
         self.aplicar_salto(repetir, inicio);
 
         if !resto {
-            self.codigo.extend_from_slice(&[0x49, 0x89, 0xD0]); // mov r8, rdx? rdx recebe quociente alto abaixo
             self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC2]); // mov rdx, r8
             self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // mov rax, r9
             if !sem_sinal {
