@@ -2279,6 +2279,94 @@ mod testes {
 
 
     #[test]
+    fn analisa_sequencias_de_operadores_unarios() {
+        let codigo = "variavel dupla = --2\nvariavel logica = !nao falso\nvariavel mista = +-!nao 3";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+
+        let NoAst::Variavel { valor: Expressao::Unaria { operador: TipoToken::Menos, valor, .. }, .. } =
+            &resultado.programa.itens[0] else { panic!("o primeiro menos deve ser o operador externo"); };
+        assert!(matches!(**valor, Expressao::Unaria { operador: TipoToken::Menos, .. }));
+
+        let NoAst::Variavel { valor: Expressao::Unaria { operador: TipoToken::Negacao, valor, .. }, .. } =
+            &resultado.programa.itens[1] else { panic!("negação simbólica deve ser o operador externo"); };
+        assert!(matches!(**valor, Expressao::Unaria { operador: TipoToken::Nao, .. }));
+
+        let NoAst::Variavel { valor: Expressao::Unaria { operador: TipoToken::Mais, valor, .. }, .. } =
+            &resultado.programa.itens[2] else { panic!("mais unário deve ser o operador externo"); };
+        let Expressao::Unaria { operador: TipoToken::Menos, valor, .. } = &**valor
+            else { panic!("menos unário deve permanecer aninhado"); };
+        let Expressao::Unaria { operador: TipoToken::Negacao, valor, .. } = &**valor
+            else { panic!("negação deve permanecer aninhada"); };
+        assert!(matches!(**valor, Expressao::Unaria { operador: TipoToken::Nao, .. }));
+    }
+
+    #[test]
+    fn valida_combinacoes_cruzadas_de_todos_os_niveis_de_precedencia() {
+        let codigo = "variavel combinada = alfa <- beta ou gama e delta == epsilon < zeta..eta + theta * iota ** -kappa.metodo(1)[2]";
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+
+        let NoAst::Variavel { valor: Expressao::Atribuicao { valor, .. }, .. } =
+            &resultado.programa.itens[0] else { panic!("atribuição deve ser a raiz de menor precedência"); };
+        let Expressao::Binaria { operador: TipoToken::Ou, direita, .. } = &**valor
+            else { panic!("OU deve ficar abaixo de E e acima da atribuição"); };
+        let Expressao::Binaria { operador: TipoToken::E, direita, .. } = &**direita
+            else { panic!("E deve ficar abaixo da igualdade"); };
+        let Expressao::Binaria { operador: TipoToken::Igual, direita, .. } = &**direita
+            else { panic!("igualdade deve ficar abaixo da comparação"); };
+        let Expressao::Binaria { operador: TipoToken::Menor, direita, .. } = &**direita
+            else { panic!("comparação deve ficar abaixo do intervalo"); };
+        let Expressao::Binaria { operador: TipoToken::Intervalo, direita, .. } = &**direita
+            else { panic!("intervalo deve ficar abaixo da adição"); };
+        let Expressao::Binaria { operador: TipoToken::Mais, direita, .. } = &**direita
+            else { panic!("adição deve ficar abaixo da multiplicação"); };
+        let Expressao::Binaria { operador: TipoToken::Vezes, direita, .. } = &**direita
+            else { panic!("multiplicação deve ficar abaixo da potência"); };
+        let Expressao::Binaria { operador: TipoToken::Potencia, direita, .. } = &**direita
+            else { panic!("potência deve ficar abaixo dos operadores unários e pós-fixos"); };
+        let Expressao::Unaria { valor, .. } = &**direita
+            else { panic!("o operando da potência deve preservar o unário"); };
+        let Expressao::Indexacao { alvo, .. } = &**valor
+            else { panic!("indexação deve integrar a cadeia pós-fixa"); };
+        assert!(matches!(**alvo, Expressao::Chamada { .. }),
+            "chamada deve estar dentro da indexação");
+    }
+
+    #[test]
+    fn aceita_atribuicoes_encadeadas_e_agrupadas() {
+        for codigo in [
+            "variavel a = esquerda <- meio = direita <- final",
+            "variavel b = esquerda <- (meio = direita)",
+            "variavel c = (esquerda <- meio) = direita",
+            "variavel d = esquerda = (meio <- direita)",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(resultado.diagnosticos.is_empty(),
+                "atribuições encadeadas ou agrupadas deveriam ser analisadas: {codigo:?}: {:?}",
+                resultado.diagnosticos);
+        }
+    }
+
+    #[test]
+    fn aceita_expressoes_validas_profundas_e_construcoes_posfixas_aninhadas() {
+        let profunda = format!(
+            "variavel profunda = {}valor{}",
+            "(".repeat(120),
+            ")".repeat(120)
+        );
+        let codigo = format!(
+            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo }} "
+        );
+        let resultado = analisar(&fonte(&codigo));
+        assert!(resultado.diagnosticos.is_empty(),
+            "expressões válidas aninhadas não devem atingir o limite de segurança: {:?}",
+            resultado.diagnosticos);
+        assert_eq!(resultado.programa.itens.len(), 2,
+            "todas as expressões válidas devem permanecer na AST");
+    }
+
+    #[test]
     fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
         let codigo = "funcao principal() {\n variavel pessoa = Pessoa { nome: , idade: 20 }\n variavel valores = [1, , 3]\n variavel chamada = calcular(1, , 3)\n variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n variavel depois = 99\n}";
         let resultado = analisar(&fonte(codigo));
