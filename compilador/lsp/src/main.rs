@@ -669,7 +669,7 @@ mod tests {
         assert!(declarations.iter().any(|(name, _, _, _)| name == "a"));
         assert!(declarations.iter().any(|(name, _, _, _)| name == "b"));
         let document = Document { text: text.to_owned(), version: 1 };
-        let result = completion(&document, "file:///teste.nbx", 0, 0);
+        let result = completion(&document, "file:///teste.nbx", 0, text.len());
         let Json::Array(items) = result.get("items").expect("lista de conclusões") else {
             panic!("conclusões deveriam ser uma lista");
         };
