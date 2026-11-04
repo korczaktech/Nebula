@@ -31,15 +31,15 @@ Identificador:
 
 ### Palavras reservadas da gramática inicial
 
-variavel, constante, funcao, quando, senao, para, enquanto, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, seguir, e, ou, nao, publico, privado, tipo, estrutura, enumeracao.
+variavel, definir, mutavel, mutável, constante, funcao, quando, senao, avaliar, escolha, caso, para, cada, em, enquanto, durante, repetir, pulso, alterar, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, encerrar, seguir, e, ou, nao, publico, privado, tipo, estrutura, enumeracao.
 
 Os nomes de tipos como inteiro, logico, texto, caractere, byte e vazio são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
 
 ### Palavras reservadas para estudo futuro
 
-cada, tentar, capturar, finalmente, assinc, aguardar.
+tentar, capturar, finalmente, assinc.
 
-As palavras `estrutura` e `enumeracao` são reconhecidas como tokens próprios e iniciam declarações no Parser. Os demais termos continuam reservados para evitar incompatibilidades futuras, mas **não são construções válidas na gramática atual**. O Lexer os classifica como tokens de palavra reservada futura e o Parser os rejeita com o diagnóstico N2011.
+As palavras listadas na gramática inicial são reconhecidas pelo Lexer e possuem produções sintáticas. `receber`, `perguntar`, `aguardar`, `gerar` e `em_paralelo` são nomes de funções/builtins, não palavras reservadas; podem ser usados como chamadas. `alterar` exige atribuição; `pulso` recebe intervalo inteiro em milissegundos.
 
 ## 4. Números
 
@@ -79,11 +79,11 @@ As palavras `estrutura` e `enumeracao` são reconhecidas como tokens próprios e
 
 ## 8. Operadores
 
-=, +, -, *, /, %, **, ==, !=, <, <=, >, >=, !, .., ::.
+=, <-, +, -, *, /, %, **, ==, !=, <, <=, >, >=, !, .., ::.
 
 Operadores lógicos textuais: e, ou, nao.
 
-O Lexer aplica maior correspondência: >= antes de >, == antes de =, :: antes de :, ** antes de * e .. antes de .
+O Lexer aplica maior correspondência: >= antes de >, == antes de =, <- antes de <, :: antes de :, ** antes de * e .. antes de .
 
 ?? e ~> são reservados para estudo, mas não são operadores da gramática inicial.
 
