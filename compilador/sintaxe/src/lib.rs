@@ -403,9 +403,7 @@ impl Parser {
             };
             let mut payload = Vec::new();
             if self.corresponde(TipoToken::AbrePar) {
-                if self.verifica(TipoToken::FechaPar) {
-                    self.erro_atual("N2035", "Payload entre parênteses precisa declarar ao menos um tipo.");
-                } else {
+                if !self.verifica(TipoToken::FechaPar) {
                     loop {
                         match self.caminho_tipo() {
                             Some(tipo) => payload.push(tipo),
@@ -3125,7 +3123,11 @@ mod testes {
 
     #[test]
     fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
-        let codigo = r#"variavel pessoa = Pessoa {\n nome: "Ana",\n endereco: Endereco { cidade: "Sao Paulo", numero: 10 },\n ativo: verdadeiro,\n}"#;
+        let codigo = r#"variavel pessoa = Pessoa {
+ nome: "Ana",
+ endereco: Endereco { cidade: "Sao Paulo", numero: 10 },
+ ativo: verdadeiro,
+}"#;
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } =
@@ -3137,16 +3139,12 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_payload_de_enum_vazio_entre_parenteses() {
+    fn aceita_payload_de_enum_vazio_entre_parenteses() {
         let resultado = analisar(&fonte("enumeracao Estado { Ativo() }"));
-        assert!(
-            resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"),
-            "payload vazio deve ser rejeitado: {:?}",
-            resultado.diagnosticos
-        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         assert!(matches!(
             resultado.programa.itens.first(),
-            Some(NoAst::Enumeracao { variantes, .. }) if variantes.iter().any(|(nome, _)| nome == "Ativo")
+            Some(NoAst::Enumeracao { variantes, .. }) if variantes.iter().any(|(nome, tipos)| nome == "Ativo" && tipos.is_empty())
         ));
     }
 
