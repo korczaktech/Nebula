@@ -3083,10 +3083,10 @@ mod testes {
             normalizar_valor(&Tipo::Decimal32, ValorIr::Inteiro(2)).unwrap(),
             ValorIr::Decimal(2.0),
         );
-        assert_eq!(
-            normalizar_valor(&Tipo::Decimal32, ValorIr::InteiroSemSinal(u128::MAX)).unwrap(),
-            ValorIr::Decimal((u128::MAX as f32) as f64),
-        );
+        assert!(normalizar_valor(
+            &Tipo::Decimal32,
+            ValorIr::InteiroSemSinal(u128::MAX),
+        ).is_err());
     }
 
     #[test]
