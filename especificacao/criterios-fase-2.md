@@ -35,10 +35,44 @@ A Fase 2 entrega o frontend sintático executável da Nebula. O escopo é o subc
 - `N1007`: escape inválido.
 - `N1008`: literal de texto não terminado.
 - `N1009`: literal de caractere inválido.
-- `N2001`–`N2010`: erros sintáticos e construções incompletas.
-- `N2011`: uso de palavra reservada para recurso futuro.
-- `N2012`: comparação relacional encadeada.
-- `N2013`: operador de intervalo encadeado.
+| Código | Significado |
+|---|---|
+| N2001 | Separador ausente entre instruções ou itens de bloco |
+| N2002 | Modificador de visibilidade sem declaração de função |
+| N2003 | Operador de atribuição ausente em declaração |
+| N2004 | Parêntese de abertura ausente na função |
+| N2005 | Parâmetro sem anotação de tipo ou separador inválido |
+| N2006 | Atribuição ausente em alias de tipo |
+| N2007 | Bloco ausente ou malformado |
+| N2008 | Expressão ausente ou inválida |
+| N2009 | Token delimitador ou estrutural esperado não encontrado |
+| N2010 | Nome/identificador esperado |
+| N2011 | Palavra reservada para recurso futuro usada em posição inválida |
+| N2012 | Comparação relacional encadeada |
+| N2013 | Operador de intervalo encadeado |
+| N2014 | Parâmetro genérico duplicado |
+| N2015 | Lista genérica vazia ou parâmetro genérico ausente |
+| N2016 | Construção reservada para versão futura |
+| N2030 | Chave de abertura ausente na estrutura |
+| N2031 | Campo duplicado na estrutura |
+| N2032 | Separador ausente entre campos da estrutura |
+| N2033 | Chave de abertura ausente na enumeração |
+| N2034 | Variante duplicada na enumeração |
+| N2035 | Separador ou tipo de payload ausente na enumeração |
+| N2036 | Enumeração sem variantes |
+| N2037 | Campo duplicado na construção de estrutura |
+| N2038 | Separador ausente entre campos da construção |
+| N2040 | Chave de abertura ausente em escolha |
+| N2041 | Caso ausente em escolha |
+| N2042 | Padrão de escolha inválido |
+| N2043 | Caso curinga duplicado |
+| N2044 | Escolha sem casos |
+| N2045 | Vínculo de payload ausente ou inválido |
+| N2046 | Vínculo duplicado no payload do padrão |
+| N2047 | Alteração sem expressão de atribuição |
+| N2048 | Padrão de enumeração duplicado em escolha |
+| N2049 | Limite de aninhamento sintático excedido |
+| N2050 | Parâmetro de função duplicado |
 
 ## Limites explícitos
 
