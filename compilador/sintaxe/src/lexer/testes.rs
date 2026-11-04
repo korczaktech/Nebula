@@ -575,6 +575,50 @@ fn comentario_de_bloco_fecha_no_primeiro_delimitador() {
     assert_eq!(resultado.tokens[1].lexema, "b");
 }
 
+
+#[test]
+fn identificadores_sao_sensiveis_a_maiusculas() {
+    let resultado = analisar_lexico(&fonte("Variavel VARIAVEL variável"));
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
+    assert!(resultado.tokens[..3].iter().all(|token| token.tipo == TipoToken::Identificador));
+}
+
+#[test]
+fn continua_a_varredura_apos_caractere_inesperado() {
+    let resultado = analisar_lexico(&fonte("@ variavel x"));
+    assert!(
+        resultado.diagnosticos.iter().any(|d| d.codigo == "N1003")
+    );
+    assert_eq!(resultado.tokens[0].tipo, TipoToken::Variavel);
+}
+
+#[test]
+fn suprime_quebras_de_linha_dentro_de_colchetes() {
+    let resultado = analisar_lexico(&fonte("[\n 1,\n 2\n]\n"));
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
+    assert_eq!(
+        resultado
+            .tokens
+            .iter()
+            .filter(|token| token.tipo == TipoToken::NovaLinha)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn rejeita_cr_isolado_dentro_de_comentario_de_bloco() {
+    assert!(possui_erro("/* linha 1\rlinha 2 */", "N1001"));
+}
+
 #[test]
 fn entrada_extensa_nao_causa_pane() {
     let codigo = format!("{}\n", "variavel x = 1234567890 ".repeat(10_000));
