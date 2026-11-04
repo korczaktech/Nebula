@@ -93,7 +93,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "tuplas",
             "variavel vazia = ()\nvariavel agrupada = (a)\nvariavel par = (a, b)\nvariavel final = (a, b,)",
         ),
-        ("listas", "[]\n[a, b]"),
+        ("listas", "variavel vazia = []\nvariavel valores = [a, b]"),
         (
             "construcao de estrutura",
             "Pessoa {}\nPessoa { nome: \"Ana\", idade: 20 }",
