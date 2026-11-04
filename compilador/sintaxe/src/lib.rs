@@ -1955,8 +1955,8 @@ mod testes {
         }
 
         verifica(
-            "funcao duplicar(a: inteiro, a: texto) {}",
-            "N2050", "a", 1
+            "funcao duplicar(item: inteiro, item: texto) {}",
+            "N2050", "item", 1
         );
         verifica(
             "funcao generica<T, T>() {}",
