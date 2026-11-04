@@ -566,7 +566,7 @@ pub(super) fn iniciar() {
 
 #[cfg(test)]
 mod tests {
-    use super::{Json, JsonParser, offset, position, quote};
+    use super::{Json, JsonParser, Server, handle, object, offset, position, quote, references, s};
 
     #[test]
     fn json_roundtrip_handles_unicode_and_escapes() {
@@ -588,6 +588,48 @@ mod tests {
         let text = "ação\n😀x";
         assert_eq!(position("ação\n😀".len(), text), (1, 2));
         assert_eq!(offset(text, 1, 2), "ação\n😀".len());
+    }
+
+    #[test]
+    fn initialize_advertises_editor_capabilities() {
+        let mut server = Server::default();
+        let request = object([
+            ("jsonrpc".into(), s("2.0")),
+            ("id".into(), Json::Number(1)),
+            ("method".into(), s("initialize")),
+            ("params".into(), object([])),
+        ]);
+        let output = handle(&mut server, request);
+        assert_eq!(output.len(), 1);
+        let capabilities = output[0].get("result").and_then(|value| value.get("capabilities"));
+        assert!(capabilities.and_then(|value| value.get("completionProvider")).is_some());
+        assert!(capabilities.and_then(|value| value.get("definitionProvider")).is_some());
+    }
+
+    #[test]
+    fn document_open_publishes_compiler_diagnostics() {
+        let mut server = Server::default();
+        let request = object([
+            ("jsonrpc".into(), s("2.0")),
+            ("method".into(), s("textDocument/didOpen")),
+            ("params".into(), object([
+                ("textDocument".into(), object([
+                    ("uri".into(), s("file:///teste.nbx")),
+                    ("version".into(), Json::Number(1)),
+                    ("text".into(), s("variavel valor = 1")),
+                ])),
+            ])),
+        ]);
+        let output = handle(&mut server, request);
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0].get("method").and_then(Json::string), Some("textDocument/publishDiagnostics"));
+    }
+
+    #[test]
+    fn references_ignore_text_and_comments() {
+        let found = references("variavel valor = 1\n// valor\nexibir(valor)", "file:///teste.nbx", "valor");
+        let Json::Array(items) = found else { panic!("resultado deveria ser uma lista"); };
+        assert_eq!(items.len(), 2);
     }
 
     #[test]
