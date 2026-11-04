@@ -138,6 +138,15 @@ fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
 }
 
 #[test]
+fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
+    let resultado = compilar_e_executar(
+        "copia-estrutura",
+        "estrutura Ponto { x: inteiro8 }\nfuncao principal(): inteiro { variavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nquando origem.x == destino.x { devolver 42 }\ndevolver 1 }",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro128",
