@@ -47,7 +47,7 @@ Nebula deverá permitir o desenvolvimento de:
 
 ## 2. Identidade e regras iniciais da linguagem
 
-A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa do Lexer, Parser e AST já implementados no crate `nebula-sintaxe`.
+A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa do Lexer, Parser e AST já implementados no crate `nebula-sintaxe`. O catálogo de comandos, tipos, operadores e ferramentas de terminal está em [especificacao/comandos.md](especificacao/comandos.md).
 
 - Código-fonte UTF-8; identificadores Unicode comparados em NFC.
 - Palavras-chave da linguagem e mensagens oficiais em português brasileiro.
