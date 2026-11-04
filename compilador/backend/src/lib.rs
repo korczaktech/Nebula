@@ -2533,6 +2533,33 @@ mod testes {
     }
 
     #[test]
+    fn emite_divisao_e_resto_de_inteiros_de_128_bits() {
+        for (tipo, operador) in [
+            (Tipo::Inteiro128, OperadorIr::Divide),
+            (Tipo::Inteiro128, OperadorIr::Resto),
+            (Tipo::InteiroU128, OperadorIr::Divide),
+            (Tipo::InteiroU128, OperadorIr::Resto),
+        ] {
+            let expressao = ExpressaoIr::Binaria {
+                esquerda: Box::new(ExpressaoIr::Normalizar {
+                    tipo: tipo.clone(),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(27))),
+                }),
+                operador,
+                direita: Box::new(ExpressaoIr::Normalizar {
+                    tipo,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(5))),
+                }),
+            };
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.expressao(&expressao).unwrap();
+            assert!(emissor.codigo.windows(4).any(|janela| janela == [0x49, 0xD1, 0xE1, 0x49]));
+            assert!(emissor.codigo.windows(4).any(|janela| janela == [0x48, 0x29, 0xC8, 0x48]));
+            assert!(emissor.erro_salto.is_none());
+        }
+    }
+
+    #[test]
     fn codifica_saltos_condicionais_e_incondicionais() {
         let mut emissor = Emissor::novo(HashMap::new());
         let condicional = emissor.emitir_jcc(0x84);
