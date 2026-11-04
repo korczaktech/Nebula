@@ -2267,6 +2267,10 @@ mod testes {
             (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(27), ValorIr::Inteiro(5), 2),
             (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(-27), ValorIr::Inteiro(5), 251),
             (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(-27), ValorIr::Inteiro(5), 254),
+            (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(27), ValorIr::Inteiro(-5), 251),
+            (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(27), ValorIr::Inteiro(-5), 2),
+            (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(-27), ValorIr::Inteiro(-5), 5),
+            (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(-27), ValorIr::Inteiro(-5), 254),
             (Tipo::InteiroU128, OperadorIr::Vezes, ValorIr::InteiroSemSinal((1u128 << 64) + 3), ValorIr::InteiroSemSinal(3), 9),
             (Tipo::InteiroU128, OperadorIr::Divide, ValorIr::InteiroSemSinal((1u128 << 64) + 5), ValorIr::InteiroSemSinal(3), 87),
             (Tipo::InteiroU128, OperadorIr::Resto, ValorIr::InteiroSemSinal((1u128 << 64) + 5), ValorIr::InteiroSemSinal(5), 1),
@@ -2289,6 +2293,16 @@ mod testes {
             valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(42.9))),
         }))];
         assert_eq!(executar_elf_de_teste(&programa), 42);
+
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro128,
+            origem: Tipo::Decimal64,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(-42.9))),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 214);
 
         let mut programa = programa_com_retorno(0);
         let principal = programa.funcoes.get_mut("principal").unwrap();
