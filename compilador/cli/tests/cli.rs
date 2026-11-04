@@ -381,6 +381,28 @@ fn receber_le_entrada_padrao_e_exibe_prompt() {
     assert_eq!(String::from_utf8_lossy(&saida.stdout), "Nome: Ada\n");
 }
 
+
+#[test]
+fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
+    let caminho = std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\" { exibir(letra) }\ncada numero em 1..3 { exibir(numero) }",
+    )
+    .unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&saida.stdout),
+        "3\na\nb\n1\n2\n3\n"
+    );
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
