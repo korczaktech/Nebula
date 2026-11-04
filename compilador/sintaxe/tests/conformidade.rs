@@ -12,43 +12,91 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
     let casos = [
         ("arquivo vazio", ""),
         ("separadores no arquivo", "\n;\nvariavel a = 1;;\n\nconstante b <- 2;\n"),
-        ("declaracoes variaveis", "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutável d: texto <- \"Nebula\"\nconstante e = verdadeiro"),
+        (
+            "declaracoes variaveis",
+            "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutável d: texto <- \"Nebula\"\nconstante e = verdadeiro",
+        ),
         ("funcao publica generica", "publico funcao identidade<T>(valor: T): T { devolver valor }"),
-        ("funcao privada e parametros", "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U { devolver b }"),
+        (
+            "funcao privada e parametros",
+            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U { devolver b }",
+        ),
         ("funcao sem retorno", "funcao executar() {}"),
         ("tipos simples e qualificados", "tipo A = inteiro\ntipo B <- Modulo::Interno::Tipo"),
-        ("tipos compostos", "tipo Lista = [[Resultado<inteiro>]]\ntipo Funcao = funcao(inteiro, texto): Resultado<[texto]>"),
+        (
+            "tipos compostos",
+            "tipo Lista = [[Resultado<inteiro>]]\ntipo Funcao = funcao(inteiro, texto): Resultado<[texto]>",
+        ),
         ("estrutura vazia", "estrutura Vazia {}"),
-        ("estrutura com campos e separadores", "estrutura Pessoa { nome: texto, idade: inteiro; ativo: logico }"),
-        ("enumeracao com variantes", "enumeracao Estado { Vazio, Unidade(), Valor(inteiro, texto) }"),
+        (
+            "estrutura com campos e separadores",
+            "estrutura Pessoa { nome: texto, idade: inteiro; ativo: logico }",
+        ),
+        (
+            "enumeracao com variantes",
+            "enumeracao Estado { Vazio, Unidade(), Valor(inteiro, texto) }",
+        ),
         ("inclusao com alias", "incluir Biblioteca::Texto como Texto"),
         ("inclusao sem alias", "incluir Biblioteca::Interna"),
         ("quando e senao", "quando verdadeiro { exibir(1) } senao { exibir(0) }"),
         ("quando encadeado", "quando a {} senao quando b {} senao {}"),
-        ("escolha e padroes", "escolha valor { caso Resultado::Sucesso(texto) { exibir(texto) } caso Resultado::Falha(codigo) {} caso _ {} }"),
+        (
+            "escolha e padroes",
+            "escolha valor { caso Resultado::Sucesso(texto) { exibir(texto) } caso Resultado::Falha(codigo) {} caso _ {} }",
+        ),
         ("alias avaliar", "avaliar valor { caso Estado::Pronto {} }"),
-        ("lacos enquanto", "enquanto verdadeiro { parar }\ndurante falso { seguir }\nrepetir verdadeiro { encerrar }"),
+        (
+            "lacos enquanto",
+            "enquanto verdadeiro { parar }\ndurante falso { seguir }\nrepetir verdadeiro { encerrar }",
+        ),
         ("iteracao cada", "cada item em [1, 2, 3] { exibir(item) }"),
         ("pulso", "pulso(100) { exibir(1) }"),
         ("para com declaracao", "para (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"),
-        ("para com expressoes opcionais", "para (inicio = 0; ; passo = passo + 1) {}\npara (; condicao; ) {}\npara (;; ) {}"),
+        (
+            "para com expressoes opcionais",
+            "para (inicio = 0; ; passo = passo + 1) {}\npara (; condicao; ) {}\npara (;; ) {}",
+        ),
         ("alterar", "alterar total <- 10\nalterar total = total + 1"),
         ("retorno e controle", "devolver\ndevolver resultado\nparar\nencerrar\nseguir"),
-        ("expressoes binarias", "a ou b\na e b\na == b\na != b\na < b\na <= b\na > b\na >= b\na..b\na + b\na - b\na * b\na / b\na % b\na ** b"),
+        (
+            "expressoes binarias",
+            "a ou b\na e b\na == b\na != b\na < b\na <= b\na > b\na >= b\na..b\na + b\na - b\na * b\na / b\na % b\na ** b",
+        ),
         ("expressoes unarias", "!a\nnao a\n-a\n+a"),
         ("chamadas e argumentos", "executar()\nexecutar(a)\nexecutar(a, b)"),
-        ("indexacao e membros", "itens[0]\nobjeto.campo\nModulo::valor\nmodulo::objeto.campo[0](1)"),
+        (
+            "indexacao e membros",
+            "itens[0]\nobjeto.campo\nModulo::valor\nmodulo::objeto.campo[0](1)",
+        ),
         ("tuplas", "()\n(a)\n(a, b)\n(a, b,)"),
         ("listas", "[]\n[a, b]"),
         ("construcao de estrutura", "Pessoa {}\nPessoa { nome: \"Ana\", idade: 20 }"),
-        ("construcao aninhada", "Pessoa { endereco: Endereco { cidade: \"São Paulo\" }, dados: ([1, 2], (3,)) }"),
+        (
+            "construcao aninhada",
+            "Pessoa { endereco: Endereco { cidade: \"São Paulo\" }, dados: ([1, 2], (3,)) }",
+        ),
         ("literais", "42\n3.14\n\"texto\"\n'x'\nverdadeiro\nfalso\nnulo"),
-        ("precedencia e agrupamento", "variavel x = -2 ** 3 ** 2\nvariavel y = (1 < 2) e (3 >= 2) ou falso"),
-        ("continuacao de linha", "variavel soma = 1\n + 2\nvariavel chamada = sistema\n ::somar(\n  1,\n  2\n )"),
-        ("bloco com fim", "funcao executar()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim"),
+        (
+            "precedencia e agrupamento",
+            "variavel x = -2 ** 3 ** 2\nvariavel y = (1 < 2) e (3 >= 2) ou falso",
+        ),
+        (
+            "continuacao de linha",
+            "variavel soma = 1\n + 2\nvariavel chamada = sistema\n ::somar(\n  1,\n  2\n )",
+        ),
+        (
+            "bloco com fim",
+            "funcao executar()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
+        ),
         ("bloco vazio com fim", "funcao vazio()\n fim"),
-        ("grafias ortograficas", "função principal() { quando não falso {} senão {} }\nenumeração Estado { Pronto }\npúblico função iniciar() {}"),
-        ("fixture de sintaxe visual", include_str!("../../../testes/conformidade/sintaxe_visual.nbx")),
+        (
+            "grafias ortograficas",
+            "função principal() { quando não falso {} senão {} }\nenumeração Estado { Pronto }\npúblico função iniciar() {}",
+        ),
+        (
+            "fixture de sintaxe visual",
+            include_str!("../../../testes/conformidade/sintaxe_visual.nbx"),
+        ),
         ("exemplo publico", include_str!("../../../exemplos/ola_mundo.nbx")),
     ];
 
@@ -104,7 +152,10 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         ("vinculo de payload ausente", "N2045", "escolha valor { caso Estado::Erro(1) {} }"),
         ("vinculo duplicado", "N2046", "escolha valor { caso Estado::Erro(item, item) {} }"),
         ("alterar sem atribuicao", "N2047", "alterar total"),
-        ("padrao de variante duplicado", "N2048", "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }"),
+        (
+            "padrao de variante duplicado",
+            "N2048", "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }",
+        ),
         ("parametro duplicado", "N2050", "funcao f(item: inteiro, item: texto) {}"),
         ("fechamento sem abertura", "N2051", "variavel valor = 1)"),
     ];
@@ -112,7 +163,10 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
     for (nome, codigo_esperado, codigo_fonte) in casos {
         let resultado = analisar_codigo(codigo_fonte);
         assert!(
-            resultado.diagnosticos.iter().any(|d| d.codigo == codigo_esperado),
+            resultado
+                .diagnosticos
+                .iter()
+                .any(|d| d.codigo == codigo_esperado),
             "caso inválido [{nome}] não emitiu {codigo_esperado}.\nCódigo:\n{codigo_fonte}\nDiagnósticos: {:#?}",
             resultado.diagnosticos
         );
@@ -126,7 +180,9 @@ fn diagnosticos_do_corpus_preservam_intervalos_utf8_validos() {
     assert!(!resultado.diagnosticos.is_empty());
 
     for diagnostico in resultado.diagnosticos {
-        let intervalo = diagnostico.intervalo.expect("diagnóstico deve localizar a origem");
+        let intervalo = diagnostico
+            .intervalo
+            .expect("diagnóstico deve localizar a origem");
         assert!(intervalo.inicio <= intervalo.fim);
         assert!(intervalo.fim <= codigo.len());
         assert!(codigo.is_char_boundary(intervalo.inicio));
