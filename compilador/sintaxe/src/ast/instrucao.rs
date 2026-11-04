@@ -78,6 +78,13 @@ pub struct NoLocalizado {
     pub intervalo: IntervaloFonte,
 }
 
+/// Caso de escolha acompanhado do intervalo de bytes que o originou.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CasoEscolhaLocalizado {
+    pub caso: CasoEscolha,
+    pub intervalo: IntervaloFonte,
+}
+
 /// Expressão da AST acompanhada do intervalo de bytes que a originou.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpressaoLocalizada {
@@ -102,6 +109,8 @@ pub struct Programa {
     pub expressoes_localizadas: Vec<ExpressaoLocalizada>,
     /// Tipos localizados, incluindo tipos genéricos aninhados.
     pub tipos_localizados: Vec<TipoLocalizado>,
+    /// Casos de escolha localizados na fonte.
+    pub casos_localizados: Vec<CasoEscolhaLocalizado>,
 }
 
 /// Resultado sintático com AST parcial e todos os diagnósticos coletados.
@@ -125,6 +134,11 @@ impl Programa {
     /// Itera sobre todos os tipos com localização de origem.
     pub fn iter_tipos_localizados(&self) -> impl Iterator<Item = &TipoLocalizado> {
         self.tipos_localizados.iter()
+    }
+
+    /// Itera sobre todos os casos de escolha com localização de origem.
+    pub fn iter_casos_localizados(&self) -> impl Iterator<Item = &CasoEscolhaLocalizado> {
+        self.casos_localizados.iter()
     }
 }
 
