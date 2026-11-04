@@ -299,6 +299,13 @@ fn completion(document: &Document, uri: &str, line: usize, character: usize) -> 
                         items.push(object([("label".into(), s(nome)), ("kind".into(), n(3)),
                             ("detail".into(), s(format!("Função Nebula — {} parâmetro(s)", parametros.len())))]));
                     }
+                    for (parametro, _) in parametros {
+                        if parametro.starts_with(prefix) {
+                            items.push(object([("label".into(), s(parametro)), ("kind".into(), n(6)),
+                                ("detail".into(), s("Parâmetro da função"))]));
+                        }
+                    }
+                    visit(corpo, items, prefix);
                 }
                 NoAst::Quando { entao, senao, .. } => { visit(entao, items, prefix); visit(senao, items, prefix); }
                 NoAst::Enquanto { corpo, .. } | NoAst::Cada { corpo, .. } | NoAst::Pulso { corpo, .. } => visit(corpo, items, prefix),
