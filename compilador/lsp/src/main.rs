@@ -430,7 +430,7 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
     match method {
         "initialize" => {
             let capabilities = object([
-                ("textDocumentSync".into(), n(2)),
+                ("textDocumentSync".into(), n(1)),
                 ("completionProvider".into(), object([("resolveProvider".into(), Json::Bool(false))])),
                 ("hoverProvider".into(), Json::Bool(true)),
                 ("signatureHelpProvider".into(), object([("triggerCharacters".into(), Json::Array(vec![s("("), s(",")]))])),
