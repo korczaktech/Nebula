@@ -159,7 +159,7 @@ fn executa_aritmetica_signed128_acima_de_64_bits() {
 fn executa_aritmetica_unsigned128_acima_de_64_bits() {
     let resultado = compilar_e_executar(
         "aritmetica-unsigned128",
-        "funcao principal(): inteiro { variavel base: inteiro_u128 = 18446744073709551619\nvariavel produto = base * 3\nquando produto / 3 == base { devolver 42 }\ndevolver 1 }",
+        "funcao principal(): inteiro { variavel base: inteiro_u128 = 18446744073709551619\nvariavel fator: inteiro_u128 = 3\nvariavel produto = base * fator\nquando produto / fator == base { devolver 42 }\ndevolver 1 }",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
