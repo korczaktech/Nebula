@@ -2,15 +2,15 @@ estrutura Ponto { x: inteiro, y: inteiro }
 enumeracao Estado { Codigo(inteiro), Vazio }
 
 variavel original = Ponto { x: 10, y: 20 }
-variavel copia = original
+variavel copia = copiar(original)
 variavel estado = Estado::Codigo(42)
-variavel estado_copia = estado
+variavel estado_copia = copiar(estado)
 variavel tupla = (42, verdadeiro)
-variavel tupla_copia = tupla
+variavel tupla_copia = copiar(tupla)
 variavel opcional = Opcional::Algum(42)
-variavel opcional_copia = opcional
+variavel opcional_copia = copiar(opcional)
 variavel resultado: Resultado<inteiro, inteiro> = Resultado::Sucesso(42)
-variavel resultado_copia = resultado
+variavel resultado_copia = copiar(resultado)
 
 exibir(original.x)
 exibir(estado)
