@@ -1481,6 +1481,7 @@ impl<'a> Analisador<'a> {
                     Tipo::Desconhecido
                 } else {
                     match (base, tipos.as_slice()) {
+                        ("Intervalo" | "intervalo", [interno]) => Tipo::Intervalo(Box::new(interno.clone())),
                         ("Opcional" | "opcional", [interno]) => Tipo::Opcional(Box::new(interno.clone())),
                         ("Resultado" | "resultado", [sucesso, falha]) => Tipo::Resultado(Box::new(sucesso.clone()), Box::new(falha.clone())),
                         ("Tupla" | "tupla", elementos) if !elementos.is_empty() => Tipo::Tupla(elementos.to_vec()),
@@ -2376,6 +2377,15 @@ mod testes {
         assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
         assert_eq!(
             valido.tipos_globais.get("faixa"),
+            Some(&Tipo::Intervalo(Box::new(Tipo::Inteiro))),
+        );
+
+        let anotado = analisar_codigo(
+            "variavel faixa: Intervalo<inteiro> = 1..10",
+        );
+        assert!(anotado.diagnosticos.is_empty(), "{:?}", anotado.diagnosticos);
+        assert_eq!(
+            anotado.tipos_globais.get("faixa"),
             Some(&Tipo::Intervalo(Box::new(Tipo::Inteiro))),
         );
 
