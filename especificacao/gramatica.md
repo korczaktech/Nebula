@@ -40,14 +40,18 @@ lista_parametros        = parametro, { ",", parametro } ;
 parametro               = IDENTIFICADOR, ":", tipo ;
 declaracao_tipo         = "tipo", IDENTIFICADOR, ("=" | "<-"), tipo ;
 declaracao_estrutura    = "estrutura", IDENTIFICADOR, "{",
-                          { campo_estrutura, { separador_membro } }, "}" ;
+                          { separador }, [ campo_estrutura,
+                          { separador_membro, campo_estrutura },
+                          [ separador_membro ] ], { separador }, "}" ;
 campo_estrutura         = IDENTIFICADOR, ":", tipo ;
 declaracao_enumeracao   = "enumeracao", IDENTIFICADOR, "{",
-                          variante, { separador_membro, variante },
-                          [ separador_membro ], "}" ;
+                          { separador }, variante,
+                          { separador_variante, variante },
+                          { NOVA_LINHA | ";" }, { separador }, "}" ;
 variante                = IDENTIFICADOR, [ "(", [ lista_tipos ], ")" ] ;
 lista_tipos             = tipo, { ",", tipo } ;
 separador_membro        = "," | NOVA_LINHA | ";" ;
+separador_variante      = "," | NOVA_LINHA | ";" ;
 
 declaracao_modulo       = "incluir", caminho_modulo, [ "como", IDENTIFICADOR ] ;
 caminho_modulo          = IDENTIFICADOR, { "::", IDENTIFICADOR } ;
@@ -85,16 +89,17 @@ instrucao               = declaracao_variavel
 
 bloco                   = bloco_chaves | bloco_fim ;
 bloco_chaves            = { NOVA_LINHA }, "{", { separador },
-                          { item, { separador } }, "}" ;
+                          lista_itens, "}" ;
 bloco_fim               = NOVA_LINHA, { separador },
-                          { item, { separador } }, "fim" ;
+                          lista_itens, "fim" ;
+lista_itens             = [ item, { separador, item }, { separador } ] ;
 
 instrucao_quando        = "quando", expressao, bloco,
                           [ { NOVA_LINHA }, "senao",
                             ( instrucao_quando | bloco ) ] ;
 instrucao_escolha       = ("escolha" | "avaliar"), expressao, "{",
                           { separador }, caso_escolha,
-                          { { separador }, caso_escolha },
+                          { separador, caso_escolha },
                           { separador }, "}" ;
 caso_escolha            = "caso", padrao_escolha, bloco ;
 padrao_escolha          = "_" | caminho_variante, [ "(", [ lista_vinculos ], ")" ] ;
@@ -106,7 +111,9 @@ instrucao_enquanto      = ("enquanto" | "durante" | "repetir"),
 instrucao_cada          = "cada", IDENTIFICADOR, "em", expressao, bloco ;
 instrucao_pulso         = "pulso", "(", expressao, ")", bloco ;
 instrucao_para          = "para", "(",
-                          [ declaracao_variavel | expressao ], ";",
+                          [ "variavel", IDENTIFICADOR,
+                            [ ":", tipo ], ("=" | "<-"), expressao
+                          | expressao ], ";",
                           [ expressao ], ";", [ expressao ], ")", bloco ;
 instrucao_alterar       = "alterar", atribuicao ;
 instrucao_devolver      = "devolver", [ expressao ] ;
@@ -139,7 +146,8 @@ acesso_membro           = ("." | "::"), IDENTIFICADOR ;
 primaria                = IDENTIFICADOR | literal | tupla | lista
                         | construcao_estrutura ;
 tupla                   = "(", ")" | "(", expressao, ",",
-                          [ lista_argumentos ], ")" | "(", expressao, ")" ;
+                          [ expressao, { ",", expressao }, [ "," ] ], ")"
+                        | "(", expressao, ")" ;
 lista                   = "[", [ lista_argumentos ], "]" ;
 construcao_estrutura    = IDENTIFICADOR, "{",
                           [ campo_valor, { separador_membro, campo_valor },
