@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn json_rejects_trailing_data_and_invalid_escape() {
         assert!(JsonParser::parse("{} lixo").is_err());
-        assert!(JsonParser::parse(r#"{"x":"\\q"}"#).is_err());
+        assert!(JsonParser::parse(r#"{"x":"\q"}"#).is_err());
     }
 
     #[test]
