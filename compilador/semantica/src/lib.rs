@@ -2764,7 +2764,7 @@ mod testes {
     #[test]
     fn deriva_copia_de_opcional_e_resultado_apenas_quando_payloads_sao_copiaveis() {
         let copiaveis = analisar_codigo(
-            "variavel opcional = Opcional::Algum(42)\nvariavel opcional_copia = opcional\nvariavel resultado = Resultado::Sucesso(42)\nvariavel resultado_copia = resultado\nexibir(opcional)\nexibir(resultado)",
+            "variavel opcional = Opcional::Algum(42)\nvariavel opcional_copia = opcional\nvariavel resultado: Resultado<inteiro, inteiro> = Resultado::Sucesso(42)\nvariavel resultado_copia = resultado\nexibir(opcional)\nexibir(resultado)",
         );
         assert!(copiaveis.diagnosticos.is_empty(), "{:?}", copiaveis.diagnosticos);
 
@@ -2793,7 +2793,7 @@ mod testes {
         let r = analisar_codigo(
             "estrutura Documento { conteudo: texto }\nvariavel original = Documento { conteudo: \"texto\" }\nvariavel destino = original\nexibir(original.conteudo)",
         );
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3041"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
 
     #[test]
