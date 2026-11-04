@@ -110,7 +110,7 @@ Os comandos abaixo são executados no terminal; eles não são instruções que 
 - O Lexer, Parser e analisador semântico reconhecem as declarações, aliases, tipos e operadores descritos acima.
 - O interpretador de referência executa os builtins de entrada, espera, geração de listas, iteração, ciclos periódicos e paralelismo que estão descritos neste inventário.
 - O backend ELF Linux x86-64 não possui integração completa do runtime. Os novos nós de IR `Cada` e `Pulso` são rejeitados explicitamente pelo backend; os builtins `gerar` e `em_paralelo` ainda não são uma interface nativa disponível.
-- `em_paralelo` cria contextos independentes a partir de snapshots da memória; alterações feitas por uma tarefa não são compartilhadas com as demais nem mescladas no contexto chamador. Os resultados são devolvidos na ordem dos argumentos.
+- `em_paralelo` copia os escopos da memória para cada tarefa. Células escalares ficam isoladas, mas listas e estruturas usam valores internos compartilhados com locks; alterações nesses objetos podem ser vistas por outras tarefas. As alterações locais de variáveis escalares não são mescladas no contexto chamador. Os resultados são devolvidos na ordem dos argumentos.
 - O backend atualmente implementado é Linux x86-64 / ELF64. A existência de jobs de CI em Windows e macOS valida o workspace Rust, não a execução nativa de programas Nebula nessas plataformas.
 
 ## 6. Nomes que ainda não são comandos nem tipos
