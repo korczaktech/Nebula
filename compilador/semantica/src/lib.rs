@@ -815,7 +815,7 @@ impl<'a> Analisador<'a> {
                         }
                         let tipo_valor = self.expressao(&argumentos[0]);
                         let tipo_quantidade = self.expressao(&argumentos[1]);
-                        if tipo_valor == Tipo::Desconhecido {
+                        if Self::tipo_contem_desconhecido(&tipo_valor) {
                             self.erro("N3016", "Não foi possível inferir o tipo do valor passado a 'gerar'.");
                         }
                         if !matches!(tipo_quantidade,
