@@ -12,6 +12,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::ArquivoFonte;
 use crate::lexer::{analisar_lexico, TipoToken, Token};
+use unicode_normalization::UnicodeNormalization;
 
 /// Tipos de nós da AST, independentes de detalhes de formatação.
 #[derive(Debug, Clone, PartialEq, Eq)]
