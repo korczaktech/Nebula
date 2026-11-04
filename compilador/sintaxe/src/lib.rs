@@ -1838,6 +1838,27 @@ mod testes {
     }
 
     #[test]
+    fn normaliza_nomes_de_padroes_e_vinculos_antes_de_validar_duplicidade() {
+        let variantes = analisar(&fonte(
+            "escolha x { caso Estado::Café {} caso Estado::Cafe\\u{301} {} }"
+        ));
+        assert!(
+            variantes.diagnosticos.iter().any(|d| d.codigo == "N2048"),
+            "variantes equivalentes em NFC devem ser consideradas repetidas: {:?}",
+            variantes.diagnosticos
+        );
+
+        let vinculacoes = analisar(&fonte(
+            "escolha x { caso Estado::Ok(café, cafe\\u{301}) {} }"
+        ));
+        assert!(
+            vinculacoes.diagnosticos.iter().any(|d| d.codigo == "N2046"),
+            "vínculos equivalentes em NFC devem ser considerados repetidos: {:?}",
+            vinculacoes.diagnosticos
+        );
+    }
+
+    #[test]
     fn curinga_invalido_nao_reserva_o_unico_curinga() {
         for codigo in [
             "escolha x { caso _() {} caso _ {} }",
