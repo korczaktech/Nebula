@@ -746,10 +746,13 @@ impl<'a> Analisador<'a> {
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Vazio;
                     }
-                    if nome == "ler_texto" {
-                        if !argumentos.is_empty() {
-                            self.erro("N3015", "A função 'ler_texto' não aceita argumentos.");
-                            for argumento in argumentos { self.expressao(argumento); }
+                    if matches!(nome.as_str(), "ler_texto" | "receber" | "perguntar") {
+                        if argumentos.len() > 1 {
+                            self.erro("N3015", format!("'{nome}' aceita no máximo um texto de prompt."));
+                        }
+                        for argumento in argumentos {
+                            let tipo = self.expressao(argumento);
+                            self.exigir_tipo(&tipo, &Tipo::Texto, "prompt de entrada");
                         }
                         return Tipo::Texto;
                     }
@@ -964,7 +967,7 @@ impl<'a> Analisador<'a> {
                         }
                         return Tipo::Inteiro;
                     }
-                    if nome == "dormir" {
+                    if nome == "dormir" || nome == "aguardar" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", "'dormir' exige milissegundos.");
                             for argumento in argumentos { self.expressao(argumento); }
@@ -2885,6 +2888,13 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             "Uma lacuna de tipo aninhada não pode virar uma instância genérica concreta: {:?}",
             r.diagnosticos
         );
+    }
+
+    #[test]
+    fn valida_aliases_de_entrada_e_espera() {
+        let r = analisar_codigo("variavel nome = receber(\"Nome: \")\naguardar(1)");
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("nome"), Some(&Tipo::Texto));
     }
 
     #[test]
