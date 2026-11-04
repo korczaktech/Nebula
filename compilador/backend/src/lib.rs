@@ -2161,6 +2161,87 @@ mod testes {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    fn executar_elf_de_teste(programa: &ProgramaIr) -> i32 {
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static CONTADOR: AtomicUsize = AtomicUsize::new(0);
+
+        let caminho = std::env::temp_dir().join(format!(
+            "nebula-backend-{}-{}.elf",
+            std::process::id(),
+            CONTADOR.fetch_add(1, Ordering::Relaxed),
+        ));
+        let binario = gerar_executavel(programa).expect("geração ELF de teste");
+        std::fs::write(&caminho, binario).expect("gravação ELF de teste");
+        let mut permissoes = std::fs::metadata(&caminho).unwrap().permissions();
+        permissoes.set_mode(0o700);
+        std::fs::set_permissions(&caminho, permissoes).unwrap();
+        let status = std::process::Command::new(&caminho)
+            .status()
+            .expect("execução ELF de teste");
+        std::fs::remove_file(&caminho).unwrap();
+        status.code().expect("código de saída ELF")
+    }
+
+    #[cfg(target_os = "linux")]
+    fn programa_com_operacao_128(
+        tipo: Tipo,
+        operador: OperadorIr,
+        esquerda: ValorIr,
+        direita: ValorIr,
+    ) -> ProgramaIr {
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = tipo.clone();
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Binaria {
+            esquerda: Box::new(ExpressaoIr::Normalizar {
+                tipo: tipo.clone(),
+                valor: Box::new(ExpressaoIr::Constante(esquerda)),
+            }),
+            operador,
+            direita: Box::new(ExpressaoIr::Normalizar {
+                tipo,
+                valor: Box::new(ExpressaoIr::Constante(direita)),
+            }),
+        }))];
+        programa
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn executa_aritmetica_nativa_de_inteiros_128_bits() {
+        let casos = [
+            (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(7), ValorIr::Inteiro(9), 63),
+            (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(27), ValorIr::Inteiro(5), 5),
+            (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(27), ValorIr::Inteiro(5), 2),
+            (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(-27), ValorIr::Inteiro(5), 251),
+            (Tipo::Inteiro128, OperadorIr::Resto, ValorIr::Inteiro(-27), ValorIr::Inteiro(5), 254),
+            (Tipo::InteiroU128, OperadorIr::Vezes, ValorIr::InteiroSemSinal((1u128 << 64) + 3), ValorIr::InteiroSemSinal(3), 9),
+            (Tipo::InteiroU128, OperadorIr::Divide, ValorIr::InteiroSemSinal((1u128 << 64) + 5), ValorIr::InteiroSemSinal(3), 87),
+            (Tipo::InteiroU128, OperadorIr::Resto, ValorIr::InteiroSemSinal((1u128 << 64) + 5), ValorIr::InteiroSemSinal(5), 1),
+        ];
+        for (tipo, operador, esquerda, direita, esperado) in casos {
+            let programa = programa_com_operacao_128(tipo, operador, esquerda, direita);
+            assert_eq!(executar_elf_de_teste(&programa), esperado, "{operador:?}");
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rejeita_overflow_e_divisao_por_zero_em_inteiros_128_bits() {
+        let casos = [
+            (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(i128::MAX), ValorIr::Inteiro(2)),
+            (Tipo::Inteiro128, OperadorIr::Divide, ValorIr::Inteiro(i128::MIN), ValorIr::Inteiro(-1)),
+            (Tipo::InteiroU128, OperadorIr::Vezes, ValorIr::InteiroSemSinal(u128::MAX), ValorIr::InteiroSemSinal(2)),
+            (Tipo::InteiroU128, OperadorIr::Divide, ValorIr::InteiroSemSinal(5), ValorIr::InteiroSemSinal(0)),
+        ];
+        for (tipo, operador, esquerda, direita) in casos {
+            let programa = programa_com_operacao_128(tipo, operador, esquerda, direita);
+            assert_eq!(executar_elf_de_teste(&programa), 2, "{operador:?}");
+        }
+    }
+
     #[test]
     fn produz_cabecalho_elf64_linux_x86_64() {
         let binario = gerar_executavel(&programa_com_retorno(7)).unwrap();
