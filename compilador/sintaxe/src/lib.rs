@@ -1339,7 +1339,7 @@ mod testes {
 
     #[test]
     fn aceita_grafias_portuguesas_com_e_sem_acentos() {
-        let codigo = "função somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\\nquando não falso { exibir(1) } senão { exibir(0) }\\nenumeração Estado { Ativo\\nInativo }\\npúblico função principal() { exibir(Estado::Ativo) }";
+        let codigo = "função somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nquando não falso { exibir(1) } senão { exibir(0) }\nenumeração Estado { Ativo\nInativo }\npúblico função principal() { exibir(Estado::Ativo) }";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 4);
