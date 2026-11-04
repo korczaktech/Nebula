@@ -68,6 +68,7 @@ dependencies = [
  "nebula-diagnosticos",
  "nebula-fonte",
  "nebula-sintaxe",
+ "nebula-semantica",
 ]
 
 [[package]]
