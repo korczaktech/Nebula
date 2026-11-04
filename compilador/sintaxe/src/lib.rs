@@ -1779,7 +1779,7 @@ mod testes {
 
     #[test]
     fn rejeita_parametros_duplicados_e_genericos_malformados_sem_perder_funcao() {
-        let duplicado = analisar(&fonte("funcao repetir(a: inteiro, a: texto) {}"));
+        let duplicado = analisar(&fonte("funcao duplicar(a: inteiro, a: texto) {}"));
         assert!(duplicado.diagnosticos.iter().any(|d| d.codigo == "N2050"));
 
         let generico = analisar(&fonte("funcao combinar<T,>(valor: T) { devolver valor }"));
