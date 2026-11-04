@@ -13,7 +13,10 @@ fn tipo_generico_aninhado_preserva_estrutura_e_grafia() {
         tipo.para_texto(),
         "Resultado<[texto], Tupla<inteiro, logico>>"
     );
-    assert!(matches!(tipo, TipoAst::Generico { argumentos, .. } if argumentos.len() == 2));
+    assert!(matches!(
+        tipo,
+        TipoAst::Generico { argumentos, .. } if argumentos.len() == 2
+    ));
 }
 
 #[test]
@@ -103,26 +106,42 @@ fn padrao_e_operadores_possuem_representacao_propria() {
             vinculacoes: vec![PadraoAst::Vinculacao("codigo".into())]
         }
     );
-    assert_eq!(OperadorAst::try_from(crate::TipoToken::Mais), Ok(OperadorAst::Adicao));
+    assert_eq!(
+        OperadorAst::try_from(crate::TipoToken::Mais),
+        Ok(OperadorAst::Adicao)
+    );
     assert!(OperadorAst::try_from(crate::TipoToken::Identificador).is_err());
 }
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = "funcao principal() {\n variavel nome = \"Nebula\"\n quando verdadeiro { devolver nome }\n}";
+    let codigo =
+        "funcao principal() {\n variavel nome = \"Nebula\"\n quando verdadeiro { devolver nome }\n}";
     let resultado = analisar(&ArquivoFonte::novo("ast.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa de teste deve ser válido: {:#?}",
         resultado.diagnosticos
     );
-    assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Funcao { .. })));
     assert!(
-        resultado.programa.iter_localizados().any(|localizado| matches!(localizado.no, NoAst::Variavel { .. })),
+        resultado
+            .programa
+            .itens
+            .iter()
+            .any(|no| matches!(no, NoAst::Funcao { .. }))
+    );
+    assert!(
+        resultado
+            .programa
+            .iter_localizados()
+            .any(|localizado| matches!(localizado.no, NoAst::Variavel { .. })),
         "variável aninhada precisa de localização própria"
     );
     assert!(
-        resultado.programa.iter_localizados().any(|localizado| matches!(localizado.no, NoAst::Devolver(_))),
+        resultado
+            .programa
+            .iter_localizados()
+            .any(|localizado| matches!(localizado.no, NoAst::Devolver(_))),
         "retorno aninhado precisa de localização própria"
     );
     for localizado in resultado.programa.iter_localizados() {
