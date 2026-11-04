@@ -5,6 +5,7 @@
 //! funcional não são publicados como se estivessem prontos.
 
 /// Estruturas genéricas: vetores, matrizes, fluxos e comunicação tipada.
+#[rustfmt::skip]
 pub mod estruturas;
 
 /// Banco de documentos JSON persistido em arquivo.
@@ -42,13 +43,8 @@ pub mod texto {
 }
 
 /// Coleções tipadas e memória lexical do runtime.
-pub mod colecoes {
-    pub use nebula_runtime::{Memoria, Valor};
-    mod tipadas {
-        include!("colecoes.rs");
-    }
-    pub use tipadas::{Fila, Mapa, Pilha};
-}
+#[rustfmt::skip]
+pub mod colecoes;
 
 /// Operações reais de arquivos e diretórios.
 pub mod arquivos {
