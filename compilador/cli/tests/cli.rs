@@ -403,6 +403,25 @@ fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
     );
 }
 
+
+#[test]
+fn pulso_executa_ciclos_ate_encerrar() {
+    let caminho = std::env::temp_dir().join(format!("nebula-pulso-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        "variavel batidas = 0\npulso(1) { alterar batidas <- batidas + 1\nquando batidas >= 2 { encerrar } }\nexibir(batidas)",
+    )
+    .unwrap();
+    let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "2");
+}
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
