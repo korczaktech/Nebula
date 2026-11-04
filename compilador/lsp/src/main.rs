@@ -3,8 +3,8 @@
 //! Transporte JSON-RPC 2.0 por stdin/stdout, conforme o enquadramento LSP
 //! Content-Length. Mensagens de diagnóstico e logs nunca usam stdout.
 
-#![forbid(unsafe_code)]
-
+![forbid(unsafe_code)]
+\n#[rustfmt::skip]\nmod implementacao {\n
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use nebula_sintaxe::{analisar, NoAst};
 use std::collections::BTreeMap;
@@ -510,3 +510,4 @@ mod tests {
         assert_eq!(JsonParser::parse(&encoded), Ok(Json::String("linha\n\"Nebula\"".into())));
     }
 }
+\n}\n
