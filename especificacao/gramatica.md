@@ -191,12 +191,16 @@ O Parser rejeita:
 - Comparações relacionais encadeadas.
 - Operadores de intervalo encadeados.
 - Parâmetros genéricos repetidos.
+- Parâmetros de função repetidos.
+- Vínculos repetidos no payload de um padrão.
 - Campos repetidos em uma estrutura.
 - Variantes repetidas ou enumerações sem variantes.
 - Campos repetidos em uma construção de estrutura.
 - Mais de um caso curinga em uma instrução `escolha`.
 - Repetição do mesmo caminho `Enum::Variante` na mesma instrução `escolha`.
 - Instruções `alterar` cujo conteúdo não seja uma atribuição.
+
+O Parser aplica um limite de segurança de 256 níveis de aninhamento sintático em expressões, tipos e blocos; entradas que ultrapassam esse limite recebem `N2049`, em vez de consumir recursão sem limite. Esse limite é proteção de implementação, não uma regra de tipagem.
 
 A existência de nomes, tipos, campos, variantes, mutabilidade do destino e validade contextual de `devolver`, `parar` e `seguir` pertence à análise semântica.
 
