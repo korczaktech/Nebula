@@ -1461,7 +1461,7 @@ impl Emissor {
 
         // Multiplicação binária de 128 iterações. Mantém os 128 bits baixos
         // e rejeita qualquer bit significativo que ultrapasse o resultado.
-        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xD0]); // mov r8, rdx
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xD0]); // mov r8, rdx
         self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // mov r9, rax
         self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2, 0x48, 0x31, 0xC0]); // resultado = 0
         self.codigo.extend_from_slice(&[0x41, 0xBA, 128, 0, 0, 0]); // r10d = 128
@@ -2400,6 +2400,27 @@ mod testes {
                 emissor.codigo.windows(bytes_esperados.len()).any(|janela| janela == bytes_esperados),
                 "codificação ausente para {operador:?}"
             );
+        }
+    }
+
+    #[test]
+    fn emite_multiplicacao_de_inteiros_de_128_bits() {
+        for tipo in [Tipo::Inteiro128, Tipo::InteiroU128] {
+            let expressao = ExpressaoIr::Binaria {
+                esquerda: Box::new(ExpressaoIr::Normalizar {
+                    tipo: tipo.clone(),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(7))),
+                }),
+                operador: OperadorIr::Vezes,
+                direita: Box::new(ExpressaoIr::Normalizar {
+                    tipo,
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(9))),
+                }),
+            };
+            let mut emissor = Emissor::novo(HashMap::new());
+            emissor.expressao(&expressao).unwrap();
+            assert!(emissor.codigo.windows(4).any(|janela| janela == [0x4C, 0x01, 0xC8, 0x4C]));
+            assert!(emissor.codigo.windows(4).any(|janela| janela == [0x4C, 0x11, 0xC2, 0x0F]));
         }
     }
 
