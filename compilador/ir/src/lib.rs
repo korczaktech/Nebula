@@ -18,7 +18,7 @@ use nebula_runtime::{
     texto_para_decimal, texto_para_inteiro, ContextoRuntime, ErroRuntime, FuncaoMatematica, Memoria,
     OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 
 /// Valor constante ou resultado de execução na IR.
@@ -1179,10 +1179,31 @@ pub struct ResultadoExecucao {
 
 /// Executa a IR com limite de passos para impedir laços infinitos em testes.
 pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<ResultadoExecucao, String> {
+    executar_interno(programa, limite_passos, None)
+}
+
+/// Executa a IR usando linhas de entrada fornecidas pelo chamador.
+///
+/// Esta interface permite testes determinísticos e integração com terminais
+/// ou interfaces gráficas sem substituir a entrada padrão do processo.
+pub fn executar_com_entrada(
+    programa: &ProgramaIr,
+    limite_passos: usize,
+    entrada: impl IntoIterator<Item = String>,
+) -> Result<ResultadoExecucao, String> {
+    executar_interno(programa, limite_passos, Some(entrada.into_iter().collect()))
+}
+
+fn executar_interno(
+    programa: &ProgramaIr,
+    limite_passos: usize,
+    entrada: Option<VecDeque<String>>,
+) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
         contexto: ContextoRuntime::novo(),
         saida: Vec::new(),
+        entrada,
         passos: 0,
         limite: limite_passos.max(1),
         profundidade_chamada: 0,
@@ -1391,6 +1412,7 @@ struct Maquina<'a> {
     programa: &'a ProgramaIr,
     contexto: ContextoRuntime,
     saida: Vec<String>,
+    entrada: Option<VecDeque<String>>,
     passos: usize,
     limite: usize,
     profundidade_chamada: usize,
@@ -1696,6 +1718,7 @@ impl Maquina<'_> {
                     }).collect::<Result<Vec<_>, _>>()?;
                     let programa = self.programa;
                     let memoria = self.contexto.memoria().clone();
+                    let entrada = self.entrada.clone();
                     let limite = self.limite;
                     let resultados = std::thread::scope(|escopo| {
                         let tarefas = nomes.into_iter().map(|nome| {
@@ -1712,6 +1735,7 @@ impl Maquina<'_> {
                                     programa,
                                     contexto,
                                     saida: Vec::new(),
+                                    entrada: entrada.clone(),
                                     passos: 0,
                                     limite,
                                     profundidade_chamada: 0,
@@ -2029,10 +2053,17 @@ impl Maquina<'_> {
                         std::io::Write::flush(&mut stdout)
                             .map_err(|erro| format!("Falha ao exibir prompt: {erro}"))?;
                     }
-                    let mut texto = String::new();
-                    std::io::stdin()
-                        .read_line(&mut texto)
-                        .map_err(|erro| format!("Falha ao ler texto: {erro}"))?;
+                    let mut texto = if let Some(entrada) = self.entrada.as_mut() {
+                        entrada.pop_front().ok_or_else(|| {
+                            "A entrada fornecida para 'receber' foi esgotada.".to_owned()
+                        })?
+                    } else {
+                        let mut linha = String::new();
+                        std::io::stdin()
+                            .read_line(&mut linha)
+                            .map_err(|erro| format!("Falha ao ler texto: {erro}"))?;
+                        linha
+                    };
                     if texto.ends_with('\n') { texto.pop(); }
                     if texto.ends_with('\r') { texto.pop(); }
                     return Ok(ValorIr::Texto(texto));
@@ -2245,6 +2276,28 @@ mod testes {
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         resultado.programa.expect("IR válida")
+    }
+
+    #[test]
+    fn receber_consumindo_entrada_fornecida_pelo_chamador() {
+        let ir = compilar(
+            "variavel nome = receber()\nvariavel cidade = receber()\nexibir(nome)\nexibir(cidade)",
+        );
+        let resultado = executar_com_entrada(
+            &ir,
+            100,
+            ["Raphael".to_owned(), "São Paulo".to_owned()],
+        )
+        .expect("entrada fornecida deve ser consumida");
+        assert_eq!(resultado.saida, vec!["Raphael", "São Paulo"]);
+    }
+
+    #[test]
+    fn receber_falha_quando_a_entrada_fornecida_termina() {
+        let ir = compilar("variavel nome = receber()\nvariavel cidade = receber()");
+        let erro = executar_com_entrada(&ir, 100, ["Raphael".to_owned()])
+            .expect_err("a segunda leitura deve detectar EOF determinístico");
+        assert!(erro.contains("entrada fornecida"), "{erro}");
     }
 
     #[test]
