@@ -4,6 +4,9 @@
 //! exportado quando oferece operações reais; módulos planejados sem API
 //! funcional não são publicados como se estivessem prontos.
 
+/// Estruturas genéricas: vetores, matrizes, fluxos e comunicação tipada.
+pub mod estruturas;
+
 /// Banco de documentos JSON persistido em arquivo.
 pub mod banco;
 
