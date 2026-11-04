@@ -432,7 +432,8 @@ fn handle(server: &mut Server, message: Json) -> Vec<Json> {
             let capabilities = object([
                 ("textDocumentSync".into(), n(2)),
                 ("completionProvider".into(), object([("resolveProvider".into(), Json::Bool(false))])),
-                ("hoverProvider".into(), Json::Bool(true)),\n                ("signatureHelpProvider".into(), object([("triggerCharacters".into(), Json::Array(vec![s("("), s(",")]))])),
+                ("hoverProvider".into(), Json::Bool(true)),
+                ("signatureHelpProvider".into(), object([("triggerCharacters".into(), Json::Array(vec![s("("), s(",")]))])),
                 ("definitionProvider".into(), Json::Bool(true)),
                 ("referencesProvider".into(), Json::Bool(true)),
                 ("documentSymbolProvider".into(), Json::Bool(true)),
