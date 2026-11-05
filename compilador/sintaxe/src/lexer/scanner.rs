@@ -798,41 +798,6 @@ impl<'a> Lexer<'a> {
         }
         self.adicionar(TipoToken::TextoInterpolado, self.inicio, self.atual);
     }
-    fn literal_caractere(&mut self) {
-        let mut quantidade = 0usize;
-        let mut fechado = false;
-        while !self.fim() {
-            if self.byte(0) == Some(b'\'') {
-                self.atual += 1;
-                fechado = true;
-                break;
-            }
-            if matches!(self.byte(0), Some(b'\n' | b'\r')) {
-                break;
-            }
-            if self.byte(0) == Some(b'\\') {
-                let p = self.atual;
-                self.atual += 1;
-                if !self.escape_valido() {
-                    self.erro("N1007", "Escape inválido em caractere.", p, self.atual);
-                }
-            } else if let Some(c) = self.caractere() {
-                self.atual += c.len_utf8();
-            } else {
-                break;
-            }
-            quantidade += 1;
-        }
-        if !fechado || quantidade != 1 {
-            self.erro(
-                "N1009",
-                "Caractere deve conter exatamente um escalar Unicode.",
-                self.inicio,
-                self.atual,
-            );
-        }
-        self.adicionar(TipoToken::Caractere, self.inicio, self.atual);
-    }
     fn escape_valido(&mut self) -> bool {
         if self.fim() || matches!(self.byte(0), Some(b'\n' | b'\r')) {
             return false;
