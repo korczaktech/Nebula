@@ -62,7 +62,10 @@ impl TipoAst {
         if texto.starts_with('(') && texto.ends_with(')') {
             let partes = separar_nivel_superior(&texto[1..texto.len() - 1], ',');
             if partes.len() > 1 {
-                let partes: Vec<_> = partes.into_iter().filter(|parte| !parte.is_empty()).collect();
+                let partes: Vec<_> = partes
+                    .into_iter()
+                    .filter(|parte| !parte.is_empty())
+                    .collect();
                 if partes.len() > 1 {
                     return Self::Tupla(partes.into_iter().map(Self::analisar).collect());
                 }
