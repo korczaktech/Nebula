@@ -1838,6 +1838,7 @@ impl Maquina<'_, '_> {
         let resultado = (|| {
             let mut fluxo = Fluxo::Normal;
             for item in itens {
+                self.marcar_localizacao(item);
                 self.passo()?;
                 fluxo = self.instrucao(item)?;
                 if !matches!(fluxo, Fluxo::Normal) { break; }
@@ -1911,7 +1912,7 @@ impl Maquina<'_, '_> {
                 let intervalo_laco = self.intervalo_fonte;
                 loop {
                     self.intervalo_fonte = intervalo_laco;
-                    self.passo()?
+                    self.passo()?;
                     let condicao = self.expressao(condicao)?;
                     if !self.logico(condicao)? { break; }
                     match self.bloco(corpo)? {
