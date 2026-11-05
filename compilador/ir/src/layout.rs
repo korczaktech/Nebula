@@ -380,22 +380,31 @@ mod testes {
     #[test]
     fn rejeita_estrutura_recursiva_por_valor() {
         let ast = programa("estrutura Elo { proximo: Elo }");
-        assert!(calcular_layout_tipo(&ast, &Tipo::Estrutura("Elo".into()))
-            .unwrap_err().contains("recursivo por valor"));
+        assert!(
+            calcular_layout_tipo(&ast, &Tipo::Estrutura("Elo".into()))
+                .unwrap_err()
+                .contains("recursivo por valor")
+        );
     }
 
     #[test]
     fn rejeita_enumeracao_recursiva_por_valor() {
         let ast = programa("enumeracao Lista { No, Proximo(Lista) }");
-        assert!(calcular_layout_tipo(&ast, &Tipo::Enumeracao("Lista".into()))
-            .unwrap_err().contains("recursivo por valor"));
+        assert!(
+            calcular_layout_tipo(&ast, &Tipo::Enumeracao("Lista".into()))
+                .unwrap_err()
+                .contains("recursivo por valor")
+        );
     }
 
     #[test]
     fn rejeita_ciclo_de_aliases_no_layout() {
         let ast = programa("tipo Primeiro = Segundo\ntipo Segundo = Primeiro");
-        assert!(resolver_tipo_declarado(&ast, "Primeiro", &mut HashSet::new())
-            .unwrap_err().contains("Ciclo no alias"));
+        assert!(
+            resolver_tipo_declarado(&ast, "Primeiro", &mut HashSet::new())
+                .unwrap_err()
+                .contains("Ciclo no alias")
+        );
     }
 
     #[test]
