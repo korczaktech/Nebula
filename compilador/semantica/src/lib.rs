@@ -2348,7 +2348,7 @@ mod testes {
     #[test]
     fn infere_generico_a_partir_do_tipo_esperado_do_retorno() {
         let r = analisar_codigo(
-            "funcao vazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\nvariavel valor: Opcional<inteiro> = vazio()",
+            "funcao opcionalVazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\nvariavel valor: Opcional<inteiro> = opcionalVazio()",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(
@@ -2662,7 +2662,7 @@ mod testes {
     fn inteiro_padrao_e_alias_semantico_de_inteiro64() {
         assert!(Analisador::tipos_compativeis(&Tipo::Inteiro, &Tipo::Inteiro64));
         assert!(Analisador::tipos_compativeis(&Tipo::Inteiro64, &Tipo::Inteiro));
-        let r = analisar_codigo("funcao obter(): inteiro64 { devolver 42 }\nvariavel valor: inteiro = obter()");
+        let r = analisar_codigo("funcao consultar(): inteiro64 { devolver 42 }\nvariavel valor: inteiro = consultar()");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
