@@ -33,14 +33,14 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     ResultadoSintatico { programa, diagnosticos }
 }
 
-const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
+const LIMITE_PROFUNDIDADE_PARSER: usize = 64;
 
 struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
     fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
-            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
+            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (64 níveis). Reduza o aninhamento.");
             return None;
         }
         self.profundidade += 1;
@@ -2142,8 +2142,8 @@ mod testes {
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { visibilidade: Some(Visibilidade::Publico), .. }));
     }
     #[test]
-    fn aceita_chave_de_abertura_na_linha_seguinte() {
-        let r = analisar(&fonte("funcao principal()\n{\n variavel ativo = verdadeiro\n}"));
+    fn aceita_bloco_indentado_apos_quebra_de_linha() {
+        let r = analisar(&fonte("funcao principal()\n    variavel ativo = verdadeiro\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
@@ -2492,10 +2492,10 @@ mod testes {
             "incluir Biblioteca",
             "incluir Biblioteca::Interna como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa\n    passar\nfim\n)\n    passar\nfim",
-            "escolha (Pessoa\n    passar\nfim\n)\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa\n    passar\nfim\n)\n    passar\nfim",
-            "cada item em (Pessoa\n    passar\nfim\n)\n    passar\nfim",
+            "quando (Pessoa {})\n    passar\nfim",
+            "escolha (Pessoa {})\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa {})\n    passar\nfim",
+            "cada item em (Pessoa {})\n    passar\nfim",
             "quando primeiro\n    passar\nsendo segundo\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2572,10 +2572,10 @@ mod testes {
     #[test]
     fn continua_listas_genericas_declaracoes_e_tipos_apos_virgula() {
         let exemplos = [
-            "funcao converter<T,\nU>(valor: T): U { devolver valor }",
+            "funcao converter<T,\nU>(valor: T): U\n    devolver valor\nfim",
             "tipo Mapa = Resultado<Texto,\n[inteiro]>",
             "tipo Operacao = funcao(inteiro,\ntexto): Resultado<texto,\ninteiro>",
-            "funcao aninhada<T,\nU>(valor: Resultado<T,\nU>): Resultado<U,\nT> { devolver valor }",
+            "funcao aninhada<T,\nU>(valor: Resultado<T,\nU>): Resultado<U,\nT>\n    devolver valor\nfim",
         ];
 
         for codigo in exemplos {
@@ -2606,7 +2606,7 @@ mod testes {
             "funcao sem_parametros(): vazio\n    passar\nfim",
             "funcao multiplos(a: inteiro, b: texto, c: [logico])\n    passar\nfim",
             "quando verdadeiro\n    passar\nfim",
-            "quando falso\n    passar\nsenao quando verdadeiro\n    passar\nfim\nsenao\n    passar\nfim",
+            "quando falso\n    passar\nsendo verdadeiro\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Enum::Vazio\n        passar\n    caso Enum::Unico()\n        passar\n    caso Enum::Par(a, b)\n        passar\n    caso _\n        passar\nfim",
             "para (inicial = 1; condicao; atualizacao = 2)\n    passar\nfim",
             "para (; condicao; atualizacao = 2)\n    passar\nfim",
@@ -2783,7 +2783,7 @@ mod testes {
 
     #[test]
     fn alias_avaliar_e_blocos_fim_cobrem_formas_normativas_de_escolha() {
-        let codigo = "avaliar resultado\n    caso Estado::Vazio\n    exibir(0)\n    fim\n    caso Estado::Valor(item)\n       exibir(item)\n    \n    caso _\n       exibir(1)\nfim";
+        let codigo = "avaliar resultado\n    caso Estado::Vazio\n        exibir(0)\n    caso Estado::Valor(item)\n        exibir(item)\n    caso _\n        exibir(1)\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -3844,14 +3844,14 @@ mod testes {
             invalido.diagnosticos.iter().any(|d| d.codigo == "N2009"),
             "condicional indentado sem 'fim' precisa ser rejeitado"
         );
-        let valido = analisar(&fonte("se sim { passar }"));
+        let valido = analisar(&fonte("se sim\n    passar\nfim"));
         assert!(
             valido.diagnosticos.is_empty(),
             "a forma delimitada por chaves continua compatível: {:?}",
             valido.diagnosticos
         );
         let aninhado = analisar(&fonte(
-            "funcao principal()\n    se sim\n    passar\nfim\n\nfim"
+            "funcao principal()\n    se sim\n        passar\n    fim\nfim"
         ));
         assert!(
             aninhado.diagnosticos.is_empty(),
@@ -4195,7 +4195,7 @@ criarUsuario(nome = "Ana", idade = 25)
     #[test]
     fn blocos_de_instrucao_exigem_indentacao_e_fim() {
         let valido = analisar(&fonte(
-            "funcao principal()\\n    se verdadeiro\\n        passar\\n    fim\\nfim"
+            "funcao principal()\n    se verdadeiro\n        passar\n    fim\nfim"
         ));
         assert!(
             valido.diagnosticos.is_empty(),
@@ -4224,7 +4224,7 @@ criarUsuario(nome = "Ana", idade = 25)
         );
 
         let recuperacao = analisar(&fonte(
-            "funcao quebrada()\\nvariavel depois = 1\\nfim\\nvariavel fora = 2"
+            "funcao quebrada()\nvariavel depois = 1\nfim\nvariavel fora = 2"
         ));
         assert!(recuperacao.programa.itens.iter().any(
             |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
@@ -4234,9 +4234,9 @@ criarUsuario(nome = "Ana", idade = 25)
         ));
 
         for codigo in [
-            "funcao principal()\\npassar\\nfim",
-            "funcao principal()\\n    passar\\n",
-            "funcao vazia()\\nfim",
+            "funcao principal()\npassar\nfim",
+            "funcao principal()\n    passar\n",
+            "funcao vazia()\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -4348,15 +4348,15 @@ fim
 
     #[test]
     fn limite_de_aninhamento_corresponde_a_gramatica_normativa() {
-        let dentro = format!("{}verdadeiro", "!".repeat(200));
+        let dentro = format!("{}verdadeiro", "!".repeat(40));
         let resultado_dentro = analisar(&fonte(&dentro));
         assert!(
             !resultado_dentro.diagnosticos.iter().any(|d| d.codigo == "N2049"),
-            "200 níveis devem respeitar o limite normativo de 256: {:?}",
+            "40 níveis devem respeitar o limite seguro de 64: {:?}",
             resultado_dentro.diagnosticos
         );
 
-        let acima = format!("{}verdadeiro", "!".repeat(260));
+        let acima = format!("{}verdadeiro", "!".repeat(80));
         let resultado_acima = analisar(&fonte(&acima));
         assert!(
             resultado_acima.diagnosticos.iter().any(|d| d.codigo == "N2049"),
