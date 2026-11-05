@@ -304,6 +304,9 @@ impl Emissor {
         if principal.is_some_and(|f| !f.parametros.is_empty()) {
             return Err("A função principal não pode receber parâmetros no alvo inicial.".into());
         }
+        if principal.is_some_and(|funcao| self.layout_agregado_grande(&funcao.retorno).is_some()) {
+            return Err("A função principal não pode retornar agregado grande no ponto de entrada ELF.".into());
+        }
 
         // O ponto de entrada chama as rotinas geradas e encerra pelo syscall Linux.
         let mut chamadas_inicio = Vec::new();
@@ -2366,7 +2369,10 @@ fn indice_literal_ir(expressao: &ExpressaoIr) -> Option<usize> {
 
 fn tipo_expressao_ir(expressao: &ExpressaoIr) -> Option<&Tipo> {
     match expressao {
-        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => Some(tipo),
+        ExpressaoIr::Normalizar { tipo, .. }
+        | ExpressaoIr::Conversao { tipo, .. }
+        | ExpressaoIr::ReferenciaFuncao { tipo, .. }
+        | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => Some(tipo),
         ExpressaoIr::Unaria { valor, .. } => tipo_expressao_ir(valor),
         _ => None,
     }
