@@ -1825,6 +1825,8 @@ impl Maquina<'_, '_> {
                 passo: self.passos,
                 profundidade_chamada: self.profundidade_chamada,
                 pilha_chamadas: self.pilha_chamadas.clone(),
+                limites_escopos: self.limites_escopos.clone(),
+                locais_chamada: self.locais_chamada.clone(),
                 escopos,
             };
             if let Some(observador) = self.observador.as_mut() {
