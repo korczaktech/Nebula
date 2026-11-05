@@ -119,7 +119,7 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = "funcao principal()\n     variavel nome: texto = \"Nebula\"\n     quando verdadeiro\n        devolver nome\n    fim\nfim";
+    let codigo = "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim";
     let resultado = analisar(&ArquivoFonte::novo("ast.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
