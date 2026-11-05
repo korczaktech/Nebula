@@ -268,9 +268,15 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             continue;
                         };
                         let expressao = argumentos.get("expression").and_then(Value::as_str).unwrap_or("").trim();
-                        let valor = estado.atual.as_ref()
-                            .and_then(|evento| evento.escopos.iter().rev().find_map(|escopo| escopo.get(expressao)))
-                            .cloned();
+                        let frame_id = argumentos.get("frameId").and_then(Value::as_u64).unwrap_or(1) as usize;
+                        let valor = estado.atual.as_ref().and_then(|evento| {
+                            let (inicio, fim) = faixa_escopos(evento, frame_id)?;
+                            evento.escopos.get(inicio..fim)?
+                                .iter()
+                                .rev()
+                                .find_map(|escopo| escopo.get(expressao))
+                                .cloned()
+                        });
                         if let Some(valor) = valor {
                             let variavel = criar_variavel(estado, expressao.to_owned(), valor);
                             responder(&mut saida, &mut sequencia, seq, comando, true, json!({
@@ -436,6 +442,27 @@ fn offset_linha(fonte: &ArquivoFonte, linha: usize) -> Option<usize> {
     }
     if linha == fonte.conteudo().lines().count() + 1 && fonte.conteudo().is_empty() {
         return Some(0);
+    }
+    None
+}
+
+fn faixa_escopos(evento: &EventoDepuracao, frame_id: usize) -> Option<(usize, usize)> {
+    let quantidade_funcoes = evento.pilha_chamadas.len();
+    let total = evento.escopos.len();
+    if quantidade_funcoes == 0 {
+        return (frame_id == 1).then_some((0, total));
+    }
+    if frame_id == 0 {
+        return None;
+    }
+    if frame_id <= quantidade_funcoes {
+        let indice_funcao = quantidade_funcoes - frame_id;
+        let inicio = *evento.limites_escopos.get(indice_funcao)?;
+        let fim = evento.limites_escopos.get(indice_funcao + 1).copied().unwrap_or(total);
+        return Some((inicio.min(total), fim.min(total)));
+    }
+    if frame_id == quantidade_funcoes + 1 {
+        return Some((0, evento.limites_escopos.first().copied().unwrap_or(total).min(total)));
     }
     None
 }
