@@ -1577,7 +1577,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
 
 struct Maquina<'p, 'o> {
     programa: &'p ProgramaIr,
-    observador: Option<&'o mut dyn FnMut(usize, usize) -> Result<(), String>>,
+    observador: Option<&'o mut dyn FnMut(&EventoDepuracao) -> Result<(), String>>,
     contexto: ContextoRuntime,
     saida: Vec<String>,
     entrada: Option<VecDeque<String>>,
