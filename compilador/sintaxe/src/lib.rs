@@ -4249,6 +4249,81 @@ criarUsuario(nome = "Ana", idade = 25)
 
 
     #[test]
+    fn analisa_construcoes_de_baixo_nivel_da_sintaxe2() {
+        let codigo = r#"
+@representacao(C)
+@alinhamento(8)
+estrutura Cabecalho:
+    codigo: u32
+    tamanho: u16
+    flags: u16
+fim
+
+@convencao(C)
+externa funcao escreverByte(valor: u8) -> vazio
+
+funcao iniciarKernel() -> vazio:
+    memoria.inicializar()
+    passar
+fim
+
+funcao tratarTeclado(evento: interrupcao.Evento):
+    variavel tecla = porta.ler8(0x60)
+    passar
+fim
+
+funcao montar() -> vazio:
+    variavel resultado = montagem x86_64<u64>(
+        entradas: [10, 20],
+        saidas: [resultado],
+        efeitos: [memoria, registrador],
+        instrucoes: [registrador.ler(0), registrador.escrever(1, 2)]
+    )
+    passar
+fim
+
+enumeracao EstadoKernel:
+    Inicializando
+    Pronto
+    Falha(inteiro)
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "construções da sintaxe 2 precisam gerar AST sem erros: {:#?}",
+            resultado.diagnosticos
+        );
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Atributada { declaracao, .. }
+                if matches!(declaracao.as_ref(), NoAst::Estrutura { nome, campos }
+                    if nome == "Cabecalho" && campos.len() == 3)
+        )));
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Atributada { atributos, declaracao }
+                if atributos.iter().any(|atributo| atributo.nome == "convencao")
+                    && matches!(declaracao.as_ref(), NoAst::Atributada { atributos, declaracao }
+                        if atributos.iter().any(|atributo| atributo.nome == "externa")
+                            && matches!(declaracao.as_ref(), NoAst::Funcao { nome, corpo, .. }
+                                if nome == "escreverByte" && corpo.is_empty()))
+        )));
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Enumeracao { nome, variantes }
+                if nome == "EstadoKernel" && variantes.len() == 3
+        )));
+        assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado| matches!(
+            &localizado.expressao,
+            Expressao::Chamada { alvo, tipos_genericos, argumentos }
+                if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome == "montagem::x86_64")
+                    && tipos_genericos == &["u64"]
+                    && argumentos.len() == 4
+        )));
+    }
+
+    #[test]
     fn aceita_bloco_indentado_apos_tipos_genericos_e_tuplas() {
         let codigo = r#"
 funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>
