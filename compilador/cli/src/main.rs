@@ -2029,13 +2029,13 @@ funcao principal(): inteiro {
 
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     #[test]
-    fn compila_caractere_unicode_fora_do_ascii() {
+    fn compila_texto_unicode_fora_do_ascii() {
         let sufixo = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         let diretorio = std::env::temp_dir().join(format!(
-            "nebula-caractere-unicode-{}-{sufixo}",
+            "nebula-texto-unicode-{}-{sufixo}",
             std::process::id()
         ));
         std::fs::create_dir_all(&diretorio).unwrap();
@@ -2044,7 +2044,7 @@ funcao principal(): inteiro {
         std::fs::write(
             &origem,
             r#"funcao principal(): inteiro {
-    variavel letra: caractere = '🛰'
+    variavel letra: texto = '🛰'
     quando letra == '🛰' {
         devolver 42
     } senao {
@@ -2054,7 +2054,7 @@ funcao principal(): inteiro {
         )
         .unwrap();
 
-        compilar_arquivo(&origem, &saida).expect("compilação de caractere Unicode");
+        compilar_arquivo(&origem, &saida).expect("compilação de texto Unicode");
         let status = Command::new(&saida).status().expect("executável gerado");
         assert_eq!(status.code(), Some(42));
         std::fs::remove_dir_all(diretorio).unwrap();
