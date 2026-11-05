@@ -1223,7 +1223,7 @@ pub struct ResultadoExecucao {
 
 /// Executa a IR com limite de passos para impedir laços infinitos em testes.
 pub fn executar(programa: &ProgramaIr, limite_passos: usize) -> Result<ResultadoExecucao, String> {
-    executar_interno(programa, limite_passos, None)
+    executar_interno(programa, limite_passos, None, None)
 }
 
 /// Executa a IR usando linhas de entrada fornecidas pelo chamador.
@@ -1235,16 +1235,33 @@ pub fn executar_com_entrada(
     limite_passos: usize,
     entrada: impl IntoIterator<Item = String>,
 ) -> Result<ResultadoExecucao, String> {
-    executar_interno(programa, limite_passos, Some(entrada.into_iter().collect()))
+    executar_interno(programa, limite_passos, Some(entrada.into_iter().collect()), None)
 }
 
-fn executar_interno(
+/// Executa a IR notificando o chamador antes de cada instrução.
+///
+/// O observador pode bloquear para aguardar comandos de depuração. Retornar
+/// erro interrompe a execução sem descartar o erro original.
+pub fn executar_observado<F>(
     programa: &ProgramaIr,
     limite_passos: usize,
+    mut observador: F,
+) -> Result<ResultadoExecucao, String>
+where
+    F: FnMut(usize, usize) -> Result<(), String>,
+{
+    executar_interno(programa, limite_passos, None, Some(&mut observador))
+}
+
+fn executar_interno<'p, 'o>(
+    programa: &'p ProgramaIr,
+    limite_passos: usize,
     entrada: Option<VecDeque<String>>,
+    observador: Option<&'o mut dyn FnMut(usize, usize) -> Result<(), String>>,
 ) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
+        observador,
         contexto: ContextoRuntime::novo(),
         saida: Vec::new(),
         entrada,
@@ -1544,8 +1561,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
     }
 }
 
-struct Maquina<'a> {
-    programa: &'a ProgramaIr,
+struct Maquina<'p, 'o> {
+    programa: &'p ProgramaIr,
+    observador: Option<&'o mut dyn FnMut(usize, usize) -> Result<(), String>>,
     contexto: ContextoRuntime,
     saida: Vec<String>,
     entrada: Option<VecDeque<String>>,
@@ -1554,14 +1572,20 @@ struct Maquina<'a> {
     profundidade_chamada: usize,
 }
 
-impl Maquina<'_> {
+impl Maquina<'_, '_> {
     fn memoria_mutavel(&mut self) -> Result<&mut Memoria, String> {
         self.contexto.memoria_mutavel().map_err(formatar_erro_runtime)
     }
 
     fn passo(&mut self) -> Result<(), String> {
         self.passos += 1;
-        if self.passos > self.limite { Err("Limite de passos da IR excedido.".into()) } else { Ok(()) }
+        if self.passos > self.limite {
+            return Err("Limite de passos da IR excedido.".into());
+        }
+        if let Some(observador) = self.observador.as_mut() {
+            observador(self.passos, self.profundidade_chamada)?;
+        }
+        Ok(())
     }
 
     fn bloco_raiz(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
