@@ -1410,11 +1410,14 @@ impl Parser {
         Some(esquerda)
     }
     fn eh_bloco(&self, no: &NoAst) -> bool {
-        matches!(no,
-            NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
-            | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
-            | NoAst::Para { .. } | NoAst::Classe { .. } | NoAst::BlocoContextual { .. }
-        )
+        match no {
+            NoAst::Atributada { declaracao, .. } => self.eh_bloco(declaracao),
+            _ => matches!(no,
+                NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
+                | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
+                | NoAst::Para { .. } | NoAst::Classe { .. } | NoAst::BlocoContextual { .. }
+            ),
+        }
     }
     fn inicia_item(&self) -> bool {
         matches!(self.tipo(),
@@ -3659,6 +3662,34 @@ fim
         assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
         assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Classe { .. })));
         assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Funcao { assincrona: true, .. })));
+    }
+
+    #[test]
+    fn analisa_atributos_e_contextos_de_codigo_nativo() {
+        let codigo = r#"
+@alinhamento(8)
+@representacao("C")
+estrutura Cabecalho { codigo: u32 }
+
+critico:
+    passar
+fim
+
+privilegio sistema:
+    passar
+fim
+
+montagem x86_64:
+    passar
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
+        assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Atributada { .. })));
+        assert_eq!(
+            resultado.programa.itens.iter().filter(|no| matches!(no, NoAst::BlocoContextual { .. })).count(),
+            3
+        );
     }
 
 }
