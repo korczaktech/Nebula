@@ -3420,6 +3420,71 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     }
 
     #[test]
+    fn inferencia_de_chamada_generica_e_atomica_entre_argumentos_e_retorno() {
+        let funcao = Funcao {
+            genericos: vec!["T".into(), "R".into()],
+            parametros: vec![
+                Tipo::Lista(Box::new(Tipo::Parametro("T".into()))),
+                Tipo::Funcao(
+                    vec![Tipo::Parametro("T".into())],
+                    Box::new(Tipo::Opcional(Box::new(Tipo::Parametro("R".into())))),
+                ),
+            ],
+            retorno: Tipo::Resultado(
+                Box::new(Tipo::Parametro("R".into())),
+                Box::new(Tipo::Parametro("T".into())),
+            ),
+        };
+        let argumentos_validos = vec![
+            Tipo::Lista(Box::new(Tipo::Inteiro128)),
+            Tipo::Funcao(
+                vec![Tipo::Inteiro128],
+                Box::new(Tipo::Opcional(Box::new(Tipo::Texto))),
+            ),
+        ];
+        let esperado = Tipo::Resultado(
+            Box::new(Tipo::Texto),
+            Box::new(Tipo::Inteiro128),
+        );
+        let inferidos = Analisador::inferir_genericos_chamada(
+            &funcao,
+            &argumentos_validos,
+            Some(&esperado),
+        ).expect("todos os parâmetros e o retorno devem unificar");
+        assert_eq!(inferidos.get("T"), Some(&Tipo::Inteiro128));
+        assert_eq!(inferidos.get("R"), Some(&Tipo::Texto));
+
+        let argumentos_conflitantes = vec![
+            Tipo::Lista(Box::new(Tipo::Inteiro128)),
+            Tipo::Funcao(
+                vec![Tipo::Texto],
+                Box::new(Tipo::Opcional(Box::new(Tipo::Texto))),
+            ),
+        ];
+        assert!(
+            Analisador::inferir_genericos_chamada(
+                &funcao,
+                &argumentos_conflitantes,
+                Some(&esperado),
+            ).is_none(),
+            "conflito em argumento não pode preservar inferência parcial"
+        );
+
+        let retorno_conflitante = Tipo::Resultado(
+            Box::new(Tipo::Logico),
+            Box::new(Tipo::Inteiro128),
+        );
+        assert!(
+            Analisador::inferir_genericos_chamada(
+                &funcao,
+                &argumentos_validos,
+                Some(&retorno_conflitante),
+            ).is_none(),
+            "conflito com tipo esperado não pode aceitar instância parcial"
+        );
+    }
+
+    #[test]
     fn matriz_de_tipos_primitivos_da_fase5_permanece_tipavel() {
         let r = analisar_codigo(
             "variavel logico_valor: logico = verdadeiro\n\
