@@ -2411,6 +2411,15 @@ mod fixtures_conformidade_tipos {
     }
 
     #[test]
+    fn valida_fixture_de_inferencia_generica_com_tipos_aninhados() {
+        let resultado = validar_fixture(
+            include_str!("../fixtures/tipos/genericos-aninhados.nbx"),
+            "genericos-aninhados.nbx",
+        );
+        assert!(resultado.is_ok(), "{resultado:?}");
+    }
+
+    #[test]
     fn valida_fixture_de_movimentacao_parcial() {
         let resultado = validar_fixture(
             include_str!("../fixtures/tipos/movimento-valido.nbx"),
