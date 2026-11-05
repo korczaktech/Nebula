@@ -559,11 +559,11 @@ impl<'a> Analisador<'a> {
         let tipos_obtidos: Vec<Tipo> = argumentos.iter()
             .map(|argumento| self.expressao(argumento))
             .collect();
-        let inferidos = Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, Some(esperado))
-            .unwrap_or_else(|| {
-                self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
-                HashMap::new()
-            });
+        let (inferencia_valida, inferidos) =
+            Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, Some(esperado));
+        if !inferencia_valida {
+            self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
+        }
         for parametro in &funcao.genericos {
             if !inferidos.contains_key(parametro) {
                 self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
@@ -1151,11 +1151,11 @@ impl<'a> Analisador<'a> {
                             return Tipo::Desconhecido;
                         }
                         let tipos_obtidos: Vec<Tipo> = argumentos.iter().map(|argumento| self.expressao(argumento)).collect();
-                        let inferidos = Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, None)
-                            .unwrap_or_else(|| {
-                                self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
-                                HashMap::new()
-                            });
+                        let (inferencia_valida, inferidos) =
+                            Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, None);
+                        if !inferencia_valida {
+                            self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
+                        }
                         for parametro in &funcao.genericos {
                             if !inferidos.contains_key(parametro) {
                                 self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
@@ -1533,13 +1533,14 @@ impl<'a> Analisador<'a> {
         funcao: &Funcao,
         tipos_obtidos: &[Tipo],
         esperado: Option<&Tipo>,
-    ) -> Option<HashMap<String, Tipo>> {
+    ) -> (bool, HashMap<String, Tipo>) {
         if tipos_obtidos.len() != funcao.parametros.len() {
-            return None;
+            return (false, HashMap::new());
         }
-        // A inferência da chamada inteira é uma única transação: nenhum
-        // argumento ou retorno pode deixar vínculos parciais se outro falhar.
+        // O mapa parcial só serve para produzir diagnósticos específicos dos
+        // argumentos. A chamada só é válida se todos os vínculos concordarem.
         let mut tentativa = HashMap::new();
+        let mut consistente = true;
         for (parametro, obtido) in funcao.parametros.iter().zip(tipos_obtidos) {
             if !Self::inferir_genericos(
                 parametro,
@@ -1547,7 +1548,7 @@ impl<'a> Analisador<'a> {
                 &funcao.genericos,
                 &mut tentativa,
             ) {
-                return None;
+                consistente = false;
             }
         }
         if let Some(esperado) = esperado {
@@ -1557,13 +1558,13 @@ impl<'a> Analisador<'a> {
                 &funcao.genericos,
                 &mut tentativa,
             ) {
-                return None;
+                consistente = false;
             }
         }
         if funcao.genericos.iter().any(|nome| !tentativa.contains_key(nome)) {
-            return None;
+            consistente = false;
         }
-        Some(tentativa)
+        (consistente, tentativa)
     }
 
     fn inferir_genericos(
@@ -3446,11 +3447,12 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             Box::new(Tipo::Texto),
             Box::new(Tipo::Inteiro128),
         );
-        let inferidos = Analisador::inferir_genericos_chamada(
+        let (valida, inferidos) = Analisador::inferir_genericos_chamada(
             &funcao,
             &argumentos_validos,
             Some(&esperado),
-        ).expect("todos os parâmetros e o retorno devem unificar");
+        );
+        assert!(valida, "todos os parâmetros e o retorno devem unificar");
         assert_eq!(inferidos.get("T"), Some(&Tipo::Inteiro128));
         assert_eq!(inferidos.get("R"), Some(&Tipo::Texto));
 
@@ -3461,27 +3463,25 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
                 Box::new(Tipo::Opcional(Box::new(Tipo::Texto))),
             ),
         ];
-        assert!(
+        let (argumentos_validos, inferidos_parciais) =
             Analisador::inferir_genericos_chamada(
                 &funcao,
                 &argumentos_conflitantes,
                 Some(&esperado),
-            ).is_none(),
-            "conflito em argumento não pode preservar inferência parcial"
-        );
+            );
+        assert!(!argumentos_validos, "conflito em argumento deve invalidar a chamada");
+        assert_eq!(inferidos_parciais.get("T"), Some(&Tipo::Inteiro128));
 
         let retorno_conflitante = Tipo::Resultado(
             Box::new(Tipo::Logico),
             Box::new(Tipo::Inteiro128),
         );
-        assert!(
-            Analisador::inferir_genericos_chamada(
-                &funcao,
-                &argumentos_validos,
-                Some(&retorno_conflitante),
-            ).is_none(),
-            "conflito com tipo esperado não pode aceitar instância parcial"
+        let (retorno_valido, _) = Analisador::inferir_genericos_chamada(
+            &funcao,
+            &argumentos_validos,
+            Some(&retorno_conflitante),
         );
+        assert!(!retorno_valido, "conflito com tipo esperado deve invalidar a chamada");
     }
 
     #[test]
