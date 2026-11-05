@@ -1349,20 +1349,7 @@ impl Parser {
             }
             if tipo == TipoToken::AbrePar && 16 >= minimo {
                 self.avancar();
-                let mut args = Vec::new();
-                if !self.verifica(TipoToken::FechaPar) {
-                    loop {
-                        match self.expressao(0) {
-                            Some(argumento) => args.push(argumento),
-                            None => {
-                                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::FechaPar]);
-                                if self.corresponde(TipoToken::Virgula) { continue; }
-                                break;
-                            }
-                        }
-                        if !self.corresponde(TipoToken::Virgula) { break; }
-                    }
-                }
+                let args = self.argumentos_chamada(TipoToken::FechaPar)?;
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
                 esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args }; continue;
             }
@@ -1484,6 +1471,33 @@ impl Parser {
         }
         Some(esquerda)
     }
+    fn argumentos_chamada(&mut self, fechamento: TipoToken) -> Option<Vec<Expressao>> {
+        let mut argumentos = Vec::new();
+        if self.verifica(fechamento) {
+            self.avancar();
+            return Some(argumentos);
+        }
+        loop {
+            let nomeado = self.verifica(TipoToken::Identificador)
+                && self.tokens.get(self.atual + 1).is_some_and(|token| token.tipo == TipoToken::Atribui);
+            let argumento = if nomeado {
+                let nome = self.avancar().lexema.nfc().collect::<String>();
+                self.avancar();
+                Expressao::ArgumentoNomeado { nome, valor: Box::new(self.expressao(0)?) }
+            } else {
+                self.expressao(0)?
+            };
+            argumentos.push(argumento);
+            if !self.corresponde(TipoToken::Virgula) { break; }
+            if self.verifica(fechamento) {
+                self.erro_atual("N2005", "Esperado argumento após vírgula.");
+                break;
+            }
+        }
+        self.esperar(fechamento, "Esperado fechamento após argumentos.");
+        Some(argumentos)
+    }
+
     fn eh_bloco(no: &NoAst) -> bool {
         match no {
             NoAst::Atributada { declaracao, .. } => Self::eh_bloco(declaracao),
