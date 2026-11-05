@@ -1285,7 +1285,7 @@ pub enum ComandoDepuracao {
     /// Executa uma instrução e pausa novamente.
     Avancar,
     /// Avança até uma linha diferente, sem entrar em chamadas.
-    AvancarLinha(Vec<usize>),
+    AvancarLinha(Vec<(PathBuf, usize)>),
     /// Pausa antes da próxima instrução executada.
     Pausar,
     /// Executa até sair da função atual.
@@ -1293,7 +1293,7 @@ pub enum ComandoDepuracao {
     /// Substitui os pontos de parada por índices de instrução.
     DefinirPontos(Vec<usize>),
     /// Substitui pontos de parada por offsets de bytes na fonte original.
-    DefinirPontosFonte(Vec<usize>),
+    DefinirPontosFonte(Vec<(PathBuf, usize)>),
     /// Encerra a execução depurada.
     Encerrar,
 }
@@ -1321,11 +1321,11 @@ pub fn executar_controlado(
 ) -> Result<ResultadoExecucao, String> {
     use std::collections::HashSet;
     let mut pontos = HashSet::new();
-    let mut pontos_fonte = HashSet::new();
+    let mut pontos_fonte: HashSet<(PathBuf, usize)> = HashSet::new();
     let mut pausado = true;
     let mut pausar_no_proximo = false;
     let mut profundidade_saida = None;
-    let mut offsets_linha_passo = HashSet::new();
+    let mut offsets_linha_passo: HashSet<(PathBuf, usize)> = HashSet::new();
     let mut profundidade_passo = None;
     let mut observador = |evento: &EventoDepuracao| {
         while let Ok(comando) = comandos.try_recv() {
@@ -1380,8 +1380,9 @@ pub fn executar_controlado(
             pausado = true;
             pausar_no_proximo = false;
         }
+        let localizacao_atual = evento.intervalo_fonte.map(|intervalo| (evento.caminho_fonte.clone().unwrap_or_default(), intervalo.inicio));
         let ponto_atingido = pontos.contains(&evento.passo)
-            || evento.intervalo_fonte.is_some_and(|intervalo| pontos_fonte.contains(&intervalo.inicio));
+            || localizacao_atual.as_ref().is_some_and(|localizacao| pontos_fonte.contains(localizacao));
         let retorno_funcao = profundidade_saida
             .is_some_and(|profundidade| evento.profundidade_chamada < profundidade);
         if retorno_funcao {
@@ -1390,7 +1391,7 @@ pub fn executar_controlado(
         }
         let linha_seguinte = profundidade_passo.is_some_and(|profundidade| {
             evento.profundidade_chamada <= profundidade
-                && evento.intervalo_fonte.is_some_and(|intervalo| !offsets_linha_passo.contains(&intervalo.inicio))
+                && localizacao_atual.as_ref().is_some_and(|localizacao| !offsets_linha_passo.contains(localizacao))
         });
         if linha_seguinte {
             pausado = true;
