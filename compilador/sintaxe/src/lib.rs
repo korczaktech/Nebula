@@ -141,16 +141,25 @@ impl Parser {
                 let mensagem = if self.corresponde(TipoToken::Virgula) { self.expressao(0) } else { None };
                 Some(NoAst::Verifique { condicao, mensagem })
             }
-            TipoToken::Global | TipoToken::Externa => {
-                let externa = self.avancar().tipo == TipoToken::Externa;
+            TipoToken::Global => {
+                self.avancar();
                 let nome = self.consumir_nome("Esperado nome após declaração de escopo.")?;
-                Some(NoAst::Escopo { externa, nome })
+                Some(NoAst::Escopo { externa: false, nome })
+            }
+            TipoToken::Externa => {
+                self.avancar();
+                if self.corresponde(TipoToken::Funcao) {
+                    self.funcao_corpo(None, true)
+                } else {
+                    let nome = self.consumir_nome("Esperado nome ou 'funcao' após 'externa'.")?;
+                    Some(NoAst::Escopo { externa: true, nome })
+                }
             }
             TipoToken::Arroba => self.atributada(),
             TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem => self.bloco_contextual(),
             TipoToken::Exportar => {
                 self.avancar();
-                if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico)) }
+                if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico), false) }
                 else { self.erro_atual("N2002", "'exportar' deve anteceder uma função."); None }
             }
             TipoToken::Tipo => self.tipo_alias(),
@@ -204,7 +213,7 @@ impl Parser {
             self.erro_atual("N2002", "Modificadores devem anteceder uma declaração de função.");
             return None;
         }
-        let mut funcao = self.funcao_corpo(visibilidade)?;
+        let mut funcao = self.funcao_corpo(visibilidade, false)?;
         if let NoAst::Funcao { assincrona: destino_assinc, estatica: destino_estatico, .. } = &mut funcao {
             *destino_assinc = assincrona;
             *destino_estatico = estatica;
@@ -212,7 +221,7 @@ impl Parser {
         Some(funcao)
     }
 
-    fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
+    fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>, externa: bool) -> Option<NoAst> {
         let nome = if self.verifica(TipoToken::Construtor) { self.avancar().lexema } else { self.consumir_nome("Esperado nome da função.")? };
         let mut genericos = Vec::new();
         if self.corresponde(TipoToken::Menor) {
@@ -316,23 +325,40 @@ impl Parser {
             }
         }
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
-        let retorno = if self.corresponde(TipoToken::DoisPontos) || self.corresponde(TipoToken::Seta) {
-            match self.caminho_tipo() {
-                Some(tipo) => Some(tipo),
-                None => {
-                    self.sincronizar_ate(&[
-                        TipoToken::AbreChave,
-                        TipoToken::NovaLinha,
-                        TipoToken::Fim,
-                    ]);
-                    None
-                }
+        let retorno = if self.corresponde(TipoToken::Seta) {
+            Some(self.caminho_tipo()?)
+        } else if self.corresponde(TipoToken::DoisPontos) {
+            if matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::Indent | TipoToken::AbreChave | TipoToken::Fim) {
+                None
+            } else {
+                Some(self.caminho_tipo()?)
             }
         } else {
             None
         };
-        let corpo = self.bloco()?;
-        Some(NoAst::Funcao { visibilidade, assincrona: false, estatica: false, nome, genericos, parametros, parametros_padrao, retorno, corpo })
+        let corpo = if externa { Vec::new() } else { self.bloco()? };
+        let funcao = NoAst::Funcao {
+            visibilidade,
+            assincrona: false,
+            estatica: false,
+            nome,
+            genericos,
+            parametros,
+            parametros_padrao,
+            retorno,
+            corpo,
+        };
+        if externa {
+            Some(NoAst::Atributada {
+                atributos: vec![AtributoAst {
+                    nome: "externa".into(),
+                    argumentos: Vec::new(),
+                }],
+                declaracao: Box::new(funcao),
+            })
+        } else {
+            Some(funcao)
+        }
     }
     fn atributada(&mut self) -> Option<NoAst> {
         let mut atributos = Vec::new();
@@ -1593,7 +1619,9 @@ impl Parser {
         }
         loop {
             let nomeado = self.verifica(TipoToken::Identificador)
-                && self.tokens.get(self.atual + 1).is_some_and(|token| token.tipo == TipoToken::Atribui);
+                && self.tokens.get(self.atual + 1).is_some_and(|token| {
+                    matches!(token.tipo, TipoToken::Atribui | TipoToken::DoisPontos)
+                });
             let argumento = if nomeado {
                 let nome = self.avancar().lexema.nfc().collect::<String>();
                 self.avancar();
