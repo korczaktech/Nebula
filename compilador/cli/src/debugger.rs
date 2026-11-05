@@ -162,7 +162,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let mut scopes = Vec::new();
                         for indice in (0..escopos).rev() {
                             scopes.push(json!({
-                                "name": if indice == 0 { "Globais" } else { format!("Escopo {indice}") },
+                                "name": if indice == 0 { "Globais".to_owned() } else { format!("Escopo {indice}") },
                                 "variablesReference": indice as i64 + 1000,
                                 "expensive": false
                             }));
@@ -170,7 +170,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"scopes": scopes}))?;
                     }
                     "variables" => {
-                        let Some(estado) = estado.as_ref() else {
+                        let Some(estado) = estado.as_mut() else {
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
                             continue;
                         };
