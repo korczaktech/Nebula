@@ -1433,7 +1433,7 @@ mod testes {
         let saida = std::env::temp_dir().join(&prefixo);
         std::fs::write(
             &origem,
-            "funcao principal(): inteiro { quando verdadeiro { devolver 7 } senao { devolver 9 } }",
+            "funcao principal(): inteiro\n    quando verdadeiro\n        devolver 7\n    senao\n        devolver 9\n    fim\nfim",
         )
         .unwrap();
         compilar_arquivo_com_nivel(&origem, &saida, NivelOtimizacao::O2)
@@ -1469,14 +1469,14 @@ mod testes {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor(): inteiro { devolver 40 }",
+            "publico funcao valor(): inteiro\n    devolver 40\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "incluir Base\nfuncao principal(): inteiro { devolver Base::valor() + 2 }",
+            "incluir Base\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
         )
         .unwrap();
 
@@ -1512,7 +1512,7 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 2 }\nfuncao consultar(): funcao(inteiro): inteiro { devolver somar }\nfuncao principal(): inteiro { devolver consultar()(40) }",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\nfuncao consultar(): funcao(inteiro): inteiro\n    devolver somar\nfim\nfuncao principal(): inteiro\n    devolver consultar()(40)\nfim",
         )
         .unwrap();
 
@@ -1549,19 +1549,19 @@ mod testes {
         std::fs::write(
             &origem,
             r#"estrutura Ponto { x: inteiro64, y: inteiro64 }
-funcao deslocar(ponto: Ponto): Ponto {
+funcao deslocar(ponto: Ponto): Ponto
     devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
-}
-funcao principal(): inteiro {
+fim
+funcao principal(): inteiro
     variavel original = Ponto { x: 39, y: 0 }
     original.x = 40
     variavel resultado = deslocar(original)
-    quando resultado.x == 41 e resultado.y == 2 {
+    quando resultado.x == 41 e resultado.y == 2
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1597,23 +1597,27 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao extrair(valor: Opcional<inteiro64>): inteiro {
-    escolha valor {
-        caso Opcional::Algum(conteudo) { devolver conteudo }
-        caso Opcional::Nenhum { devolver 0 }
-    }
-}
-funcao ler(valor: Resultado<inteiro64,inteiro64>): inteiro {
-    escolha valor {
-        caso Resultado::Sucesso(conteudo) { devolver conteudo }
-        caso Resultado::Falha(falha) { devolver falha }
-    }
-}
-funcao principal(): inteiro {
+            r#"funcao extrair(valor: Opcional<inteiro64>): inteiro
+    escolha valor
+        caso Opcional::Algum(conteudo)
+            devolver conteudo
+        caso Opcional::Nenhum
+            devolver 0
+    fim
+fim
+funcao ler(valor: Resultado<inteiro64,inteiro64>): inteiro
+    escolha valor
+        caso Resultado::Sucesso(conteudo)
+            devolver conteudo
+        caso Resultado::Falha(falha)
+            devolver falha
+    fim
+fim
+funcao principal(): inteiro
     variavel opcional: Opcional<inteiro64> = Opcional::Algum(40)
     variavel resultado: Resultado<inteiro64,inteiro64> = Resultado::Sucesso(2)
     devolver extrair(opcional) + ler(resultado)
-}"#,
+fim"#,
         )
         .unwrap();
 
@@ -1648,21 +1652,27 @@ funcao principal(): inteiro {
         std::fs::write(
             &origem,
             r#"enumeracao Resposta { Sucesso(inteiro64), Falha(inteiro64), Vazio }
-funcao transformar(resposta: Resposta): Resposta {
-    escolha resposta {
-        caso Resposta::Sucesso(valor) { devolver Resposta::Falha(valor + 1) }
-        caso Resposta::Falha(falha) { devolver Resposta::Sucesso(falha + 1) }
-        caso Resposta::Vazio { devolver Resposta::Vazio }
-    }
-}
-funcao principal(): inteiro {
+funcao transformar(resposta: Resposta): Resposta
+    escolha resposta
+        caso Resposta::Sucesso(valor)
+            devolver Resposta::Falha(valor + 1)
+        caso Resposta::Falha(falha)
+            devolver Resposta::Sucesso(falha + 1)
+        caso Resposta::Vazio
+            devolver Resposta::Vazio
+    fim
+fim
+funcao principal(): inteiro
     variavel resultado = transformar(Resposta::Sucesso(41))
-    escolha resultado {
-        caso Resposta::Sucesso(valor) { devolver 0 }
-        caso Resposta::Falha(falha) { devolver falha }
-        caso Resposta::Vazio { devolver 1 }
-    }
-}"#,
+    escolha resultado
+        caso Resposta::Sucesso(valor)
+            devolver 0
+        caso Resposta::Falha(falha)
+            devolver falha
+        caso Resposta::Vazio
+            devolver 1
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1696,18 +1706,18 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao inverter(par: Tupla<inteiro64,inteiro64>): Tupla<inteiro64,inteiro64> {
+            r#"funcao inverter(par: Tupla<inteiro64,inteiro64>): Tupla<inteiro64,inteiro64>
     devolver (par[1], par[0])
-}
-funcao principal(): inteiro {
+fim
+funcao principal(): inteiro
     variavel original = (40, 2)
     variavel resultado = inverter(original)
-    quando resultado[0] == 2 e resultado[1] == 40 {
+    quando resultado[0] == 2 e resultado[1] == 40
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1743,18 +1753,18 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro {
+            r#"funcao principal(): inteiro
     variavel negativo: inteiro128 = -42
     variavel estreito: inteiro64 = inteiro64(negativo)
     variavel ampliado: inteiro128 = inteiro128(estreito)
     variavel sem_sinal: inteiro_u128 = inteiro_u128(42)
     variavel de_volta: inteiro_u64 = inteiro_u64(sem_sinal)
-    quando estreito == -42 e ampliado == negativo e de_volta == 42 {
+    quando estreito == -42 e ampliado == negativo e de_volta == 42
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1791,28 +1801,28 @@ funcao principal(): inteiro {
         std::fs::write(
             &origem,
             r#"variavel valorGlobal: inteiro128 = 1208925819614629174706176
-funcao somar(a: inteiro128, b: inteiro128): inteiro128 {
+funcao somar(a: inteiro128, b: inteiro128): inteiro128
     devolver a + b
-}
-funcao identidade(valor: inteiro128): inteiro128 {
+fim
+funcao identidade(valor: inteiro128): inteiro128
     devolver valor
-}
-funcao identidade_sem_sinal(valor: inteiro_u128): inteiro_u128 {
+fim
+funcao identidade_sem_sinal(valor: inteiro_u128): inteiro_u128
     devolver valor
-}
-funcao principal(): inteiro {
+fim
+funcao principal(): inteiro
     variavel soma = somar(valorGlobal, valorGlobal)
     variavel esperado: inteiro128 = 2417851639229258349412352
     variavel negativo: inteiro128 = -42
     variavel positivo: inteiro128 = 42
     variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455
     variavel zero: inteiro_u128 = 0
-    quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero {
+    quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1846,7 +1856,7 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro {
+            r#"funcao principal(): inteiro
     variavel origem: inteiro = 16777217
     variavel convertido: decimal32 = decimal32(origem)
     variavel um: decimal32 = 1.0
@@ -1855,12 +1865,12 @@ funcao principal(): inteiro {
     variavel dois: decimal64 = 2.0
     variavel soma_mista = convertido + dois
     variavel esperado_misto: decimal64 = 16777218.0
-    quando soma == esperado e soma_mista == esperado_misto {
+    quando soma == esperado e soma_mista == esperado_misto
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -1896,10 +1906,10 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro64 {
+            r#"funcao principal(): inteiro64
     variavel decimal: decimal64 = 42.75
     devolver inteiro64(decimal)
-}"#,
+fim"#,
         )
         .unwrap();
 
@@ -1933,17 +1943,17 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro {
+            r#"funcao principal(): inteiro
     variavel valor: decimal64 = 9223372036854775808.0
     variavel convertido: inteiro_u64 = inteiro_u64(valor)
     variavel esperado: inteiro_u64 = 9223372036854775808
     variavel decimal: decimal64 = decimal64(esperado)
-    quando convertido == esperado e decimal == valor {
+    quando convertido == esperado e decimal == valor
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -2043,14 +2053,14 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro {
+            r#"funcao principal(): inteiro
     variavel letra: caractere = '🛰'
-    quando letra == '🛰' {
+    quando letra == '🛰'
         devolver 42
-    } senao {
+    senao
         devolver 0
-    }
-}"#,
+    fim
+fim"#,
         )
         .unwrap();
 
@@ -2078,23 +2088,23 @@ funcao principal(): inteiro {
             &origem,
             r#"estrutura Medidas { curta: decimal32, longa: decimal64 }
 enumeracao Evento { Vazio, Medida(decimal64) }
-funcao identidade(valor: Medidas): Medidas {
+funcao identidade(valor: Medidas): Medidas
     devolver valor
-}
-funcao principal(): inteiro {
+fim
+funcao principal(): inteiro
     variavel entrada = Medidas { curta: 1.25, longa: 42.5 }
     variavel retorno = identidade(entrada)
     variavel evento = Evento::Medida(42.5)
-    escolha evento {
-        caso Evento::Medida(valor) {
-            quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5) {
+    escolha evento
+        caso Evento::Medida(valor)
+            quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5)
                 devolver 42
-            }
-        }
-        caso Evento::Vazio {}
-    }
+            fim
+        caso Evento::Vazio
+            passar
+    fim
     devolver 0
-}"#,
+fim"#,
         )
         .unwrap();
 
@@ -2127,7 +2137,7 @@ funcao principal(): inteiro {
         let raiz = diretorio.join("projeto");
         std::fs::create_dir_all(&raiz).unwrap();
         let externo = diretorio.join("externo.nbx");
-        std::fs::write(&externo, "publico funcao vazia() {}").unwrap();
+        std::fs::write(&externo, "publico funcao vazia()\n    passar\nfim").unwrap();
         symlink(&externo, raiz.join("Externo.nbx")).unwrap();
 
         let origem = raiz.join("principal.nbx");
@@ -2143,7 +2153,7 @@ funcao principal(): inteiro {
         let origem = diretorio.join("principal.nbx");
         std::fs::write(
             &modulo,
-            "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\npublico funcao dobro(valor: inteiro): inteiro { devolver somar(valor, valor) }",
+            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\npublico funcao dobro(valor: inteiro): inteiro\n    devolver somar(valor, valor)\nfim",
         )
         .unwrap();
         std::fs::write(
@@ -2164,12 +2174,12 @@ funcao principal(): inteiro {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor(): inteiro { devolver 40 }",
+            "publico funcao valor(): inteiro\n    devolver 40\nfim",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("Servico.nbx"),
-            "incluir Base\npublico funcao consultar(): inteiro { devolver Base::valor() + 2 }",
+            "incluir Base\npublico funcao consultar(): inteiro\n    devolver Base::valor() + 2\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2187,12 +2197,12 @@ funcao principal(): inteiro {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("A.nbx"),
-            "incluir B\npublico funcao a(): inteiro { devolver 1 }",
+            "incluir B\npublico funcao a(): inteiro\n    devolver 1\nfim",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("B.nbx"),
-            "incluir A\npublico funcao b(): inteiro { devolver 2 }",
+            "incluir A\npublico funcao b(): inteiro\n    devolver 2\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2218,7 +2228,7 @@ funcao principal(): inteiro {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Interno.nbx"),
-            "funcao segredo(): inteiro { devolver 42 }\npublico funcao visivel(): inteiro { devolver segredo() }",
+            "funcao segredo(): inteiro\n    devolver 42\nfim\npublico funcao visivel(): inteiro\n    devolver segredo()\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
