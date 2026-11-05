@@ -2424,6 +2424,36 @@ mod testes {
     }
 
     #[test]
+    fn falha_de_unificacao_composta_nao_deixa_substituicoes_parciais() {
+        let lowerer = Lowerer {
+            diagnosticos: Vec::new(),
+            aliases: HashMap::new(),
+            tipos_agregados: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
+            assinaturas_funcoes: HashMap::new(),
+            modulos_importados: HashMap::new(),
+            genericas: HashMap::new(),
+            instancias: HashMap::new(),
+            fila_instancias: Vec::new(),
+            escopos_tipos: vec![HashMap::new()],
+            substituicoes: HashMap::new(),
+        };
+        let genericos = vec!["T".to_owned()];
+        let mut substituicoes = HashMap::new();
+
+        let unificou = lowerer.inferir_substituicao(
+            "Tupla<T,T>",
+            &Tipo::Tupla(vec![Tipo::Inteiro, Tipo::Texto]),
+            &genericos,
+            &mut substituicoes,
+        );
+
+        assert!(!unificou);
+        assert!(substituicoes.is_empty());
+    }
+
+    #[test]
     fn infere_retorno_de_builtins_de_entrada_e_consulta() {
         let ir = compilar(
             "variavel nome = receber()\nvariavel instante = tempo()\nvariavel tamanho = comprimento(\"abc\")",
