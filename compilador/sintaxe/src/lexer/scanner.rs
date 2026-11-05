@@ -1062,7 +1062,7 @@ impl<'a> Lexer<'a> {
                         {
                             self.erro(
                                 "N1017",
-                                "Interpolação exige uma expressão entre ' e '.",
+                                "Interpolação exige uma expressão dentro das chaves.",
                                 inicio,
                                 self.atual + 1,
                             );
