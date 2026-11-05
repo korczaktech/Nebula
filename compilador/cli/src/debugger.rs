@@ -150,8 +150,6 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             let indice_funcao = nomes.len() - 1 - indice_topo;
                             let intervalo = if indice_topo == 0 {
                                 atual.and_then(|evento| evento.intervalo_fonte)
-                            } else if indice_funcao == 0 {
-                                atual.and_then(|evento| evento.locais_chamada.first().copied().flatten())
                             } else {
                                 atual.and_then(|evento| evento.locais_chamada.get(indice_funcao + 1).copied().flatten())
                             };
