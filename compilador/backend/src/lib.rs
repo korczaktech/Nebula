@@ -220,10 +220,17 @@ impl Emissor {
                     return Err("Tupla possui tamanho inválido.".into());
                 }
                 for (deslocamento, tamanho_campo) in campos {
-                    let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
-                    let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
-                    if !campo_em_dois_registros && !campo_escalar {
-                        return Err("Elemento de tupla não cabe nos dois registradores da ABI inicial.".into());
+                    let fim = deslocamento.checked_add(tamanho_campo)
+                        .ok_or("Elemento de tupla excede o layout.")?;
+                    if tamanho_campo == 0 || fim > tamanho {
+                        return Err("Elemento de tupla excede os limites do layout.".into());
+                    }
+                    if tamanho <= 16 {
+                        let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
+                        let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
+                        if !campo_em_dois_registros && !campo_escalar {
+                            return Err("Elemento de tupla não cabe nos dois registradores ABI.".into());
+                        }
                     }
                 }
                 Ok(())
