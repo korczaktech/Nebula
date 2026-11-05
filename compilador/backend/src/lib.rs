@@ -2550,6 +2550,62 @@ mod testes {
     }
 
     #[test]
+    fn valida_limites_de_layout_dos_agregados_na_abi() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "ParDuplo".into(),
+            LayoutAgregado {
+                tamanho: 16,
+                alinhamento: 8,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 8)),
+                    ("segundo".into(), (8, 8)),
+                ]),
+            },
+        );
+        emissor.layouts_tipos.insert(
+            "AgregadoGrande".into(),
+            LayoutAgregado {
+                tamanho: 24,
+                alinhamento: 8,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 8)),
+                    ("segundo".into(), (8, 8)),
+                    ("terceiro".into(), (16, 8)),
+                ]),
+            },
+        );
+
+        assert!(emissor.validar_tipo_abi(&Tipo::Estrutura("ParDuplo".into())).is_ok());
+        let erro = emissor.validar_tipo_abi(&Tipo::Estrutura("AgregadoGrande".into())).unwrap_err();
+        assert!(erro.contains("24 bytes") || erro.contains("16 bytes"));
+        assert!(emissor.validar_tipo_abi(&Tipo::Tupla(vec![
+            Tipo::Inteiro64,
+            Tipo::Inteiro64,
+        ])).is_ok());
+        assert!(emissor.validar_tipo_abi(&Tipo::Tupla(vec![
+            Tipo::Inteiro64,
+            Tipo::Inteiro64,
+            Tipo::Inteiro64,
+        ])).is_err());
+    }
+
+    #[test]
+    fn rejeita_enum_com_payload_maior_que_um_registro_na_abi() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "Evento".into(),
+            LayoutAgregado {
+                tamanho: 24,
+                alinhamento: 8,
+                campos: HashMap::from([("payload".into(), (8, 16))]),
+            },
+        );
+        let erro = emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).unwrap_err();
+        assert!(erro.contains("16 bytes") || erro.contains("registrador"));
+    }
+
+    #[test]
     fn rejeita_tipo_nao_suportado_sem_fingir_implementacao() {
         assert!(validar_tipo(&Tipo::Texto).is_err());
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
