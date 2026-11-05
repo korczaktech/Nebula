@@ -610,9 +610,9 @@ impl Parser {
         let fechamento = if indentado { TipoToken::Dedent } else { TipoToken::FechaChave };
         self.separadores();
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
-        while !self.verifica(fechamento)
-            && !(indentado && self.verifica(TipoToken::FimBloco))
-            && !self.verifica(TipoToken::Fim)
+        while !(self.verifica(fechamento)
+            || self.verifica(TipoToken::Fim)
+            || (indentado && self.verifica(TipoToken::FimBloco)))
         {
             let intervalo_variante = self.tokens.get(self.atual).map(|token| token.intervalo);
             let variante = match self.consumir_nome("Esperado nome da variante.") {
@@ -658,10 +658,10 @@ impl Parser {
             } else {
                 variantes.push((variante, payload));
             }
-            if !self.corresponde(TipoToken::Virgula)
-                && !self.separador_atual()
-                && !self.verifica(fechamento)
-                && !(indentado && self.verifica(TipoToken::FimBloco))
+            if !(self.corresponde(TipoToken::Virgula)
+                || self.separador_atual()
+                || self.verifica(fechamento)
+                || (indentado && self.verifica(TipoToken::FimBloco)))
             {
                 self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
                 self.sincronizar();
