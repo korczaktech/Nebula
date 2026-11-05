@@ -3951,7 +3951,7 @@ funcao operar(a: inteiro, b: inteiro, idade: inteiro)
     variavel numero = 1
     numero += 2
     numero++
-    variavel dentro = numero dentro faixa
+    variavel pertence = numero dentro faixa
     retorne bits
 fim
 "#;
@@ -4120,15 +4120,14 @@ criarUsuario(nome = "Ana", idade = 25)
         );
 
         let recuperacao = analisar(&fonte(
-            "funcao quebrada()\n    variavel depois = 1\nvariavel fora = 2"
+            "funcao quebrada()\\nvariavel depois = 1"
         ));
-        assert!(recuperacao.programa.itens.iter().any(|no| matches!(
-            no,
-            NoAst::Funcao { corpo, .. }
-                if corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "depois"))
-        )));
+        assert!(
+            recuperacao.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "bloco sem indentação deve produzir diagnóstico"
+        );
         assert!(recuperacao.programa.itens.iter().any(
-            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "fora")
+            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
         ));
 
         for codigo in [
