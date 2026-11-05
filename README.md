@@ -273,12 +273,13 @@ nebula formatar
 nebula testar
 nebula analisar
 nebula interpretar
+nebula depurar --dap <arquivo.nbx>
 nebula dependencias
 nebula limpar
 nebula versao
 ```
 
-O comando `compilar` aceita `-O0`, `-O1`, `-O2`, `-O3` e `-Os`. O comando `interpretar` executa a IR pelo runtime Rust de referência; `executar` continua usando o backend nativo Linux x86-64. A seleção de plataformas e arquiteturas adicionais ainda não está implementada.
+O comando `compilar` aceita `-O0`, `-O1`, `-O2`, `-O3` e `-Os`. O comando `interpretar` executa a IR pelo runtime Rust de referência; `executar` continua usando o backend nativo Linux x86-64. O comando `depurar --dap` inicia o adaptador Debug Adapter Protocol para depuração pelo VS Code, com breakpoints por linha, pilha de chamadas, escopos, variáveis, continuar, avançar, step-over, step-out e pausa. A seleção de plataformas e arquiteturas adicionais ainda não está implementada.
 
 ## 9. Estrutura planejada do repositório
 
