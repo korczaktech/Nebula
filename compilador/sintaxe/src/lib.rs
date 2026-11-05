@@ -3911,7 +3911,7 @@ privilegio sistema:
     passar
 fim
 
-montagem x86_64:
+montagem x86_64<u32>:
     passar
 fim
 "#;
@@ -3922,6 +3922,11 @@ fim
             resultado.programa.itens.iter().filter(|no| matches!(no, NoAst::BlocoContextual { .. })).count(),
             3
         );
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::BlocoContextual { contexto, tipos_genericos, .. }
+                if contexto == "montagem" && tipos_genericos == &["u32"]
+        )));
     }
 
     #[test]
