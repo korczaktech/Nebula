@@ -1197,6 +1197,28 @@ impl Parser {
                 let corpo = self.expressao(0)?;
                 Expressao::Lambda { parametros, corpo: Box::new(corpo) }
             }
+            TipoToken::Montagem => {
+                self.avancar();
+                let arquitetura = self.consumir_nome("Esperado arquitetura após 'montagem'.")?;
+                let mut tipos_genericos = Vec::new();
+                if self.corresponde(TipoToken::Menor) {
+                    loop {
+                        tipos_genericos.push(self.caminho_tipo()?);
+                        if !self.corresponde(TipoToken::Virgula) {
+                            break;
+                        }
+                        self.pular_novas_linhas();
+                    }
+                    self.esperar(TipoToken::Maior, "Esperado '>' após tipo da montagem.");
+                }
+                self.esperar(TipoToken::AbrePar, "Esperado '(' após arquitetura da montagem.");
+                let argumentos = self.argumentos_chamada(TipoToken::FechaPar)?;
+                Expressao::Chamada {
+                    alvo: Box::new(Expressao::Nome(format!("montagem::{arquitetura}"))),
+                    argumentos,
+                    tipos_genericos,
+                }
+            }
             TipoToken::Isto | TipoToken::TipoDe | TipoToken::InstanciaDe | TipoToken::Obter
             | TipoToken::Modulo | TipoToken::Biblioteca => Expressao::Nome(self.avancar().lexema),
             TipoToken::Identificador => {
