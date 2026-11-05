@@ -1,5 +1,11 @@
-estrutura Ponto { x: inteiro, y: inteiro }
-enumeracao Estado { Codigo(inteiro), Vazio }
+estrutura Ponto:
+    x: inteiro
+    y: inteiro
+fim
+enumeracao Estado:
+    Codigo(inteiro)
+    Vazio
+fim
 
 variavel original = Ponto { x: 10, y: 20 }
 variavel copia = copiar(original)
