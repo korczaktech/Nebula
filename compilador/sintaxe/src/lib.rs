@@ -3946,7 +3946,7 @@ funcao operar(a: inteiro, b: inteiro, idade: inteiro)
     variavel bits = (a & b) | (a ^ b) << 2
     variavel opcional = valor?.campo ?? valorPadrao
     variavel faixa = 1..10
-    variavel condicao = idade >= 18 ? sim : nao
+    variavel condicao = idade >= 18 ? sim : falso
     variavel objeto = novo Pessoa()
     variavel numero = 1
     numero += 2
@@ -4122,9 +4122,11 @@ criarUsuario(nome = "Ana", idade = 25)
         let recuperacao = analisar(&fonte(
             "funcao quebrada()\n    variavel depois = 1\nvariavel fora = 2"
         ));
-        assert!(recuperacao.programa.itens.iter().any(
-            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
-        ));
+        assert!(recuperacao.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Funcao { corpo, .. }
+                if corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "depois"))
+        )));
         assert!(recuperacao.programa.itens.iter().any(
             |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "fora")
         ));
@@ -4202,7 +4204,7 @@ funcao iniciarKernel() -> vazio
     passar
 fim
 
-funcao tratarTeclado(evento: interrupcao.Evento)
+funcao tratarTeclado(evento: interrupcao::Evento)
     variavel tecla = porta.ler8(0x60)
     passar
 fim
