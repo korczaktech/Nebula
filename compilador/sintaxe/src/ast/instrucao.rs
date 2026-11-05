@@ -70,6 +70,7 @@ pub enum NoAst {
     Devolver(Option<Expressao>),
     Parar,
     Seguir,
+    Passar,
 }
 
 /// Nó da AST acompanhado do intervalo de bytes que o originou.
