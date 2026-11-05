@@ -593,3 +593,22 @@ fn escrever_mensagem(saida: &mut impl Write, mensagem: &Value) -> Result<(), Str
         .and_then(|_| saida.flush())
         .map_err(|erro| format!("falha ao escrever protocolo DAP: {erro}"))
 }
+
+#[cfg(test)]
+mod testes {
+    use super::{linha_coluna_dap, offset_linha};
+    use nebula_fonte::ArquivoFonte;
+
+    #[test]
+    fn coluna_dap_conta_unidades_utf16() {
+        let fonte = ArquivoFonte::novo("unicode.nbx", "a😀b");
+        let offset = "a😀".len();
+        assert_eq!(linha_coluna_dap(&fonte, offset), Some((1, 4)));
+    }
+
+    #[test]
+    fn breakpoint_ignora_recuo_da_linha() {
+        let fonte = ArquivoFonte::novo("recuo.nbx", "primeira\n    segunda");
+        assert_eq!(offset_linha(&fonte, 2), Some("primeira\n    ".len()));
+    }
+}
