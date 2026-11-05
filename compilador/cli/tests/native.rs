@@ -198,7 +198,12 @@ fn monomorfiza_funcao_generica_no_backend_nativo() {
 fn compila_divisao_resto_e_operacoes_com_sinal() {
     let resultado = compilar_e_executar(
         "divisao-resto",
-        "funcao principal(): inteiro\n        quando -2 < -1\n        devolver 84 / 2 + 43 % 5\n    fim\n    \n    devolver 1\nfim",
+        r#"funcao principal(): inteiro
+    quando -2 < -1
+        devolver 84 / 2 + 43 % 5
+    fim
+    devolver 1
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(45));
 }
@@ -356,7 +361,13 @@ fn divisao_e_resto_negativos_seguem_semantica_signed() {
 fn compila_condicionais_e_comparacoes() {
     let resultado = compilar_e_executar(
         "condicional",
-        "funcao principal(): inteiro\n        quando 6 * 7 == 42\n        devolver 42\n    senao\n        devolver 1\n    fim\nfim",
+        r#"funcao principal(): inteiro
+    quando 6 * 7 == 42
+        devolver 42
+    senao
+        devolver 1
+    fim
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -365,7 +376,15 @@ fn compila_condicionais_e_comparacoes() {
 fn operadores_logicos_respeitam_curto_circuito() {
     let resultado = compilar_e_executar(
         "curto-circuito",
-        "funcao principal(): inteiro\n        quando falso e (1 / 0 == 0)\n        devolver 1\n    fim\n        quando verdadeiro ou (1 / 0 == 0)\n        devolver 42\n    fim\n    \n    devolver 2\nfim",
+        r#"funcao principal(): inteiro
+    quando falso e (1 / 0 == 0)
+        devolver 1
+    fim
+    quando verdadeiro ou (1 / 0 == 0)
+        devolver 42
+    fim
+    devolver 2
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -374,7 +393,13 @@ fn operadores_logicos_respeitam_curto_circuito() {
 fn compila_laco_enquanto() {
     let resultado = compilar_e_executar(
         "enquanto",
-        "funcao principal(): inteiro\n        variavel i: inteiro = 0\n        enquanto i < 42\n        i = i + 1\n    fim\n    \n    devolver i\nfim",
+        r#"funcao principal(): inteiro
+    variavel i: inteiro = 0
+    enquanto i < 42
+        i = i + 1
+    fim
+    devolver i
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -383,7 +408,19 @@ fn compila_laco_enquanto() {
 fn compila_laco_para_e_controle() {
     let resultado = compilar_e_executar(
         "para",
-        "funcao principal(): inteiro\n        variavel total: inteiro = 0\n        para (variavel i = 0; i < 10; i = i + 1)\n                quando i == 2\n            seguir\n        fim\n                quando i == 8\n            parar\n        fim\n    \n        total = total + i\n    fim\n    \n    devolver total\nfim",
+        r#"funcao principal(): inteiro
+    variavel total: inteiro = 0
+    para (variavel i = 0; i < 10; i = i + 1)
+        quando i == 2
+            seguir
+        fim
+        quando i == 8
+            parar
+        fim
+        total = total + i
+    fim
+    devolver total
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(26));
 }
@@ -455,7 +492,15 @@ fn compila_negacao_logica_unaria() {
 fn compila_chamadas_recursivas_com_alinhamento_de_pilha() {
     let resultado = compilar_e_executar(
         "recursao",
-        "funcao fibonacci(n: inteiro): inteiro\n        quando n <= 1\n        devolver n\n    fim\n    \n    devolver fibonacci(n - 1) + fibonacci(n - 2)\nfim\nfuncao principal(): inteiro\n    devolver fibonacci(10)\nfim",
+        r#"funcao fibonacci(n: inteiro): inteiro
+    quando n <= 1
+        devolver n
+    fim
+    devolver fibonacci(n - 1) + fibonacci(n - 2)
+fim
+funcao principal(): inteiro
+    devolver fibonacci(10)
+fim"#,
     );
     assert_eq!(resultado.status.code(), Some(55));
 }
