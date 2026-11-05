@@ -77,14 +77,14 @@ O Parser contém testes específicos para produções normativas, alternativas, 
 - `cada` com `em` inicia iteração sobre coleção.
 - `pulso` inicia repetição por intervalo.
 - `devolver`, `parar`, `encerrar` e `seguir` são aliases de controle.
-- `mutavel`, `definir` e `alterar` possuem tratamento próprio/legado; não devem ser confundidos automaticamente com os exemplos da especificação principal.
+- `mutavel` e `definir` são aliases de declaração de variável; `alterar` exige uma expressão de atribuição.
 - `verdadeiro` e `falso` também são aceitos como literais lógicos.
 
 ### Reservadas, mas não disponíveis como construção independente
 
 - `erro` e `sempre` são cláusulas de `tente`; fora do contexto, não são declarações comuns.
 - `herda` é consumido no cabeçalho de classe.
-- `obter` e `definir` são reconhecidos em contexto de expressão/nome, mas não há declaração de propriedade getter/setter implementada como produção própria.
+- `obter` pode ser usado como nome/chamada, mas não há declaração própria de getter. `definir` é aceito como alias de declaração de variável; não é uma produção de setter de propriedade.
 - `tentar`, `capturar` e `finalmente` são tokens reservados para o futuro e geram diagnóstico de construção não implementada.
 
 ## 5. Operadores — divergência de precedência corrigida
@@ -112,7 +112,7 @@ O número interno de precedência do código é crescente para operadores mais f
 
 ### Atribuição composta
 
-O Scanner reconhece a grafia Nebula documentada com operador depois do sinal de atribuição: `=+`, `=-`, `=*`, `=/`, `=\\`, `=%`, `=**`. O Parser converte esses tokens em atribuições compostas na AST. Não declarar `+=`, `-=`, `*=` etc. como aliases aceitos sem adicionar suporte e testes.
+O Scanner reconhece tanto a grafia Nebula com o sinal de atribuição antes do operador (`=+`, `=-`, `=*`, `=/`, `=\\`, `=%`, `=**`) quanto os aliases convencionais (`+=`, `-=`, `*=`, `/=`, `\\=`, `%=`, `**=`). Ambas as grafias geram os mesmos tokens de atribuição composta. A divisão inteira usa duas barras invertidas, não `//`.
 
 ## 6. NEBULA-SINTAXE-2.md — conferência por seção
 
