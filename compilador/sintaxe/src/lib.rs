@@ -740,6 +740,9 @@ impl Parser {
         tipo
     }
     fn caminho_tipo_interno(&mut self) -> Option<String> {
+        if self.corresponde(TipoToken::Vazio) {
+            return Some("vazio".into());
+        }
         if self.corresponde(TipoToken::Funcao) {
             self.esperar(TipoToken::AbrePar, "Esperado '(' após 'funcao' em tipo de função.");
             let mut parametros = Vec::new();
