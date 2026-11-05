@@ -670,6 +670,13 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Lambda { .. } | Expressao::LambdaBloco { .. } => Tipo::Desconhecido,
+            Expressao::Condicional { condicao, entao, senao } => {
+                let tipo_condicao = self.expressao(condicao);
+                self.exigir_tipo(&tipo_condicao, &Tipo::Logico, "condição ternária");
+                let tipo_entao = self.expressao(entao);
+                let tipo_senao = self.expressao(senao);
+                if tipo_entao == tipo_senao { tipo_entao } else { Tipo::Desconhecido }
+            },
             Expressao::Binaria { esquerda, operador, direita } => {
                 let a = self.expressao(esquerda);
                 let b = self.expressao(direita);
