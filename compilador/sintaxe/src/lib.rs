@@ -477,52 +477,41 @@ impl Parser {
         &mut self,
         codigo: &'static str,
         mensagem: &str,
-    ) -> Option<bool> {
-        if self.corresponde(TipoToken::AbreChave) {
-            return Some(false);
-        }
+    ) -> Option<()> {
         if !self.corresponde(TipoToken::DoisPontos) {
             self.erro_atual(codigo, mensagem);
             return None;
         }
-        let houve_quebra = self.corresponde(TipoToken::NovaLinha);
-        if !houve_quebra && !self.verifica(TipoToken::Indent) && !self.verifica(TipoToken::FimBloco) {
-            self.erro_atual(codigo, "Esperada quebra de linha e indentação após ':'.");
+        if !self.corresponde(TipoToken::NovaLinha) {
+            self.erro_atual(codigo, "Esperada quebra de linha após ':'.");
             return None;
         }
-        if houve_quebra {
-            self.separadores();
-        }
-        if self.corresponde(TipoToken::Indent) || self.verifica(TipoToken::FimBloco) {
-            Some(true)
-        } else {
+        self.separadores();
+        if !self.corresponde(TipoToken::Indent) {
             self.erro_atual(codigo, "Esperada indentação no corpo da declaração.");
-            None
+            return None;
         }
+        Some(())
     }
 
-    fn fechar_declaracao_indentada(&mut self, indentado: bool, mensagem: &str) {
-        if indentado {
-            self.corresponde(TipoToken::Dedent);
-            self.esperar(TipoToken::FimBloco, mensagem);
-        } else {
-            self.esperar(TipoToken::FechaChave, mensagem);
-        }
+    fn fechar_declaracao_indentada(&mut self, mensagem: &str) {
+        self.esperar(TipoToken::Dedent, "Indentação da declaração não foi encerrada corretamente.");
+        self.esperar(TipoToken::FimBloco, mensagem);
     }
 
     fn estrutura(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome após 'estrutura'.")?;
-        let indentado = self.abrir_declaracao_indentada(
+        self.abrir_declaracao_indentada(
             "N2030",
-            "Esperado '{' ou ':' após o nome da estrutura.",
+            "Esperado ':' após o nome da estrutura.",
         )?;
-        let fechamento = if indentado { TipoToken::Dedent } else { TipoToken::FechaChave };
+        let fechamento = TipoToken::Dedent;
         self.separadores();
         let mut campos = Vec::new();
         while !(self.verifica(fechamento)
             || self.verifica(TipoToken::Fim)
-            || (indentado && self.verifica(TipoToken::FimBloco)))
+            || self.verifica(TipoToken::FimBloco))
         {
             let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
@@ -582,37 +571,30 @@ impl Parser {
             if !(self.corresponde(TipoToken::Virgula)
                 || self.separador_atual()
                 || self.verifica(fechamento)
-                || (indentado && self.verifica(TipoToken::FimBloco)))
+                || self.verifica(TipoToken::FimBloco))
             {
                 self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
                 self.sincronizar();
             }
             self.separadores();
         }
-        self.fechar_declaracao_indentada(
-            indentado,
-            if indentado {
-                "Estrutura precisa terminar com 'fim'."
-            } else {
-                "Estrutura não foi fechada com '}'."
-            },
-        );
+        self.fechar_declaracao_indentada("Estrutura precisa terminar com 'fim'.");
         Some(NoAst::Estrutura { nome, campos })
     }
 
     fn enumeracao(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome após 'enumeracao'.")?;
-        let indentado = self.abrir_declaracao_indentada(
+        self.abrir_declaracao_indentada(
             "N2033",
-            "Esperado '{' ou ':' após o nome da enumeração.",
+            "Esperado ':' após o nome da enumeração.",
         )?;
-        let fechamento = if indentado { TipoToken::Dedent } else { TipoToken::FechaChave };
+        let fechamento = TipoToken::Dedent;
         self.separadores();
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
         while !(self.verifica(fechamento)
             || self.verifica(TipoToken::Fim)
-            || (indentado && self.verifica(TipoToken::FimBloco)))
+            || self.verifica(TipoToken::FimBloco))
         {
             let intervalo_variante = self.tokens.get(self.atual).map(|token| token.intervalo);
             let variante = match self.consumir_nome("Esperado nome da variante.") {
@@ -661,21 +643,14 @@ impl Parser {
             if !(self.corresponde(TipoToken::Virgula)
                 || self.separador_atual()
                 || self.verifica(fechamento)
-                || (indentado && self.verifica(TipoToken::FimBloco)))
+                || self.verifica(TipoToken::FimBloco))
             {
                 self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
                 self.sincronizar();
             }
             self.separadores();
         }
-        self.fechar_declaracao_indentada(
-            indentado,
-            if indentado {
-                "Enumeração precisa terminar com 'fim'."
-            } else {
-                "Enumeração não foi fechada com '}'."
-            },
-        );
+        self.fechar_declaracao_indentada("Enumeração precisa terminar com 'fim'.");
         if variantes.is_empty() {
             self.erro_atual("N2036", "Uma enumeração precisa declarar ao menos uma variante.");
         }
@@ -738,32 +713,27 @@ impl Parser {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
         self.corresponde(TipoToken::DoisPontos);
-        let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
-        if delimitado_por_chaves {
+        if self.corresponde(TipoToken::AbreChave) {
             self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
+            return None;
         }
-        let indentado = if delimitado_por_chaves {
-            false
-        } else {
-            let houve_quebra = self.corresponde(TipoToken::NovaLinha);
-            if !houve_quebra && !self.verifica(TipoToken::Indent) {
-                self.erro_atual("N2040", "Esperada quebra de linha antes dos casos de escolha.");
-                return None;
-            }
-            if houve_quebra {
-                self.separadores();
-            }
-            if !self.corresponde(TipoToken::Indent) {
-                self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
-                return None;
-            }
-            true
-        };
+        let houve_quebra = self.corresponde(TipoToken::NovaLinha);
+        if !houve_quebra && !self.verifica(TipoToken::Indent) {
+            self.erro_atual("N2040", "Esperada quebra de linha antes dos casos de escolha.");
+            return None;
+        }
+        if houve_quebra {
+            self.separadores();
+        }
+        if !self.corresponde(TipoToken::Indent) {
+            self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
+            return None;
+        }
         self.separadores();
         let mut casos = Vec::new();
         let mut possui_curinga = false;
         let mut padroes_vistos: Vec<(String, String)> = Vec::new();
-        while !(if delimitado_por_chaves { self.verifica(TipoToken::FechaChave) } else { self.verifica(TipoToken::Dedent) })
+        while !self.verifica(TipoToken::Dedent)
             && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
             let padrao_padrao = self.corresponde(TipoToken::Padrao);
             if !padrao_padrao && !self.corresponde(TipoToken::Caso) {
@@ -999,14 +969,6 @@ impl Parser {
     }
     fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
         self.corresponde(TipoToken::DoisPontos);
-        if self.verifica(TipoToken::NovaLinha) {
-            let proximo = self.tokens.iter().skip(self.atual)
-                .find(|token| token.tipo != TipoToken::NovaLinha)
-                .map(|token| token.tipo);
-            if proximo == Some(TipoToken::AbreChave) {
-                self.pular_novas_linhas();
-            }
-        }
         if self.corresponde(TipoToken::AbreChave) {
             self.erro_atual("N2009", "Blocos de instruções exigem indentação; chaves não substituem indentação.");
             self.separadores();
