@@ -1253,11 +1253,11 @@ where
     executar_interno(programa, limite_passos, None, Some(&mut observador))
 }
 
-fn executar_interno<'p, 'o>(
-    programa: &'p ProgramaIr,
+fn executar_interno(
+    programa: &ProgramaIr,
     limite_passos: usize,
     entrada: Option<VecDeque<String>>,
-    observador: Option<&'o mut dyn FnMut(usize, usize) -> Result<(), String>>,
+    observador: Option<&mut dyn FnMut(usize, usize) -> Result<(), String>>,
 ) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
