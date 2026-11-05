@@ -1080,7 +1080,7 @@ variavel       = "variavel", identificador,
 constante      = "constante", identificador,
                  [":", tipo], "=", expressao ;
 
-funcao         = ["assinc"], "funcao",
+funcao         = ["async"], "funcao",
                  identificador, "(",
                  [parametros], ")",
                  ["->", tipo],
