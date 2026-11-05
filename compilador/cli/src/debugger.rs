@@ -113,25 +113,41 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
                             continue;
                         };
+                        let caminho_solicitado = argumentos.get("source")
+                            .and_then(|source| source.get("path"))
+                            .and_then(Value::as_str)
+                            .map(PathBuf::from)
+                            .unwrap_or_else(|| estado.caminho_principal.clone());
+                        let caminho_solicitado = normalizar_caminho(&caminho_solicitado, &estado.caminho_principal);
+                        let fonte = estado.fontes.get(&caminho_solicitado);
                         let linhas = argumentos.get("breakpoints").and_then(Value::as_array)
                             .cloned().unwrap_or_default();
-                        let mut offsets = Vec::new();
+                        let mut pontos = Vec::new();
                         let mut respostas = Vec::new();
                         for ponto in linhas {
                             let linha = ponto.get("line").and_then(Value::as_u64).unwrap_or(0) as usize;
-                            let offset = offset_linha(&estado.fonte, linha);
-                            let intervalo = offset.and_then(|offset| estado.localizacoes.iter()
-                                .find(|intervalo| intervalo.inicio == offset || linha_coluna_dap(&estado.fonte, intervalo.inicio).is_some_and(|(l, _)| l == linha)));
-                            if let Some(intervalo) = intervalo {
-                                offsets.push(intervalo.inicio);
-                                let (linha_real, coluna) = linha_coluna_dap(&estado.fonte, intervalo.inicio).unwrap_or((linha, 1));
+                            let localizacao = fonte.and_then(|fonte| {
+                                offset_linha(fonte, linha)?;
+                                estado.localizacoes.iter()
+                                    .find(|(origem, intervalo)| origem == &caminho_solicitado
+                                        && linha_coluna_dap(fonte, intervalo.inicio).is_some_and(|(linha_real, _)| linha_real == linha))
+                                    .cloned()
+                            });
+                            if let (Some((origem, intervalo)), Some(fonte)) = (localizacao, fonte) {
+                                pontos.push((origem, intervalo.inicio));
+                                let (linha_real, coluna) = linha_coluna_dap(fonte, intervalo.inicio).unwrap_or((linha, 1));
                                 respostas.push(json!({"id": respostas.len()+1, "verified": true, "line": linha_real, "column": coluna}));
                             } else {
-                                respostas.push(json!({"id": respostas.len()+1, "verified": false, "line": linha, "message": "Nenhuma instrução executável nesta linha."}));
+                                let mensagem = if fonte.is_none() {
+                                    "Arquivo-fonte não pertence ao programa depurado."
+                                } else {
+                                    "Nenhuma instrução executável nesta linha."
+                                };
+                                respostas.push(json!({"id": respostas.len()+1, "verified": false, "line": linha, "message": mensagem}));
                             }
                         }
-                        estado.pontos_parada = offsets.iter().copied().collect();
-                        estado.comandos.send(ComandoDepuracao::DefinirPontosFonte(offsets))
+                        estado.pontos_parada = pontos.iter().cloned().collect();
+                        estado.comandos.send(ComandoDepuracao::DefinirPontosFonte(pontos))
                             .map_err(|erro| format!("Não foi possível atualizar breakpoints: {erro}"))?;
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"breakpoints": respostas}))?;
                     }
