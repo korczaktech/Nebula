@@ -424,7 +424,7 @@ impl Lowerer {
             NoAst::Devolver(e) => Some(InstrucaoIr::Devolver(e.as_ref().and_then(|v| self.expressao(v)))),
             NoAst::Parar => Some(InstrucaoIr::Parar),
             NoAst::Seguir => Some(InstrucaoIr::Seguir),
-            NoAst::Passar => None,
+            NoAst::Passar | NoAst::Ceder(_) => None,
             NoAst::Tipo { .. } | NoAst::Classe { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. } | NoAst::Funcao { .. } => None,
         };
         instrucao.map(|instrucao| {
