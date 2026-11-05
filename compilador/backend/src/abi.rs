@@ -52,11 +52,13 @@ pub fn classificar_retorno_agregado(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocalArgumento {
     Registrador(u8),
+    PonteiroRegistrador(u8),
     Pilha {
         deslocamento: u64,
         tamanho: u64,
         alinhamento: u64,
     },
+    PonteiroPilha { deslocamento: u64 },
 }
 
 /// Plano de passagem de argumentos e tamanho da área de pilha.
@@ -102,18 +104,27 @@ pub fn planejar_argumentos(
             .is_some_and(|fim| fim <= 6)
         {
             for indice in 0..palavras {
-                locais.push(LocalArgumento::Registrador(
-                    (proximo_registrador + indice) as u8,
-                ));
+                let registrador = (proximo_registrador + indice) as u8;
+                locais.push(if indireto {
+                    LocalArgumento::PonteiroRegistrador(registrador)
+                } else {
+                    LocalArgumento::Registrador(registrador)
+                });
             }
             proximo_registrador += palavras;
         } else {
             deslocamento_pilha = alinhar(deslocamento_pilha, alinhamento_pilha)?;
-            locais.push(LocalArgumento::Pilha {
-                deslocamento: deslocamento_pilha,
-                tamanho: tamanho_pilha,
-                alinhamento: alinhamento_pilha,
-            });
+            if indireto {
+                locais.push(LocalArgumento::PonteiroPilha {
+                    deslocamento: deslocamento_pilha,
+                });
+            } else {
+                locais.push(LocalArgumento::Pilha {
+                    deslocamento: deslocamento_pilha,
+                    tamanho: tamanho_pilha,
+                    alinhamento: alinhamento_pilha,
+                });
+            }
             deslocamento_pilha = deslocamento_pilha
                 .checked_add(tamanho_pilha)
                 .ok_or("Área de argumentos excede o limite de endereçamento.")?;
@@ -284,7 +295,7 @@ mod testes {
     #[test]
     fn argumento_grande_e_passado_por_um_ponteiro() {
         let plano = planejar_argumentos(&[(24, 8)], None).unwrap();
-        assert_eq!(plano.argumentos[0], vec![LocalArgumento::Registrador(0)]);
+        assert_eq!(plano.argumentos[0], vec![LocalArgumento::PonteiroRegistrador(0)]);
     }
 
     #[test]
