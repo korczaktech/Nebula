@@ -702,6 +702,12 @@ impl Lowerer {
             return match (base, obtido) {
                 ("Opcional" | "opcional", Tipo::Opcional(interno)) if argumentos.len() == 1 =>
                     self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
+                ("Vetor" | "vetor", Tipo::Lista(interno)) if argumentos.len() == 1 =>
+                    self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
+                ("Matriz" | "matriz", Tipo::Lista(linha)) if argumentos.len() == 1 => {
+                    matches!(linha.as_ref(), Tipo::Lista(interno)
+                        if self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes))
+                }
                 ("Resultado" | "resultado", Tipo::Resultado(ok, erro)) if argumentos.len() == 2 =>
                     self.inferir_substituicao(argumentos[0], ok, genericos, substituicoes)
                     && self.inferir_substituicao(argumentos[1], erro, genericos, substituicoes),
@@ -2421,6 +2427,43 @@ mod testes {
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         resultado.programa.expect("IR válida")
+    }
+
+    #[test]
+    fn infere_genericos_por_aliases_de_vetor_e_matriz_na_ir() {
+        let lowerer = Lowerer {
+            diagnosticos: Vec::new(),
+            aliases: HashMap::new(),
+            tipos_agregados: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
+            assinaturas_funcoes: HashMap::new(),
+            modulos_importados: HashMap::new(),
+            genericas: HashMap::new(),
+            instancias: HashMap::new(),
+            fila_instancias: Vec::new(),
+            escopos_tipos: vec![HashMap::new()],
+            substituicoes: HashMap::new(),
+        };
+        let genericos = vec!["T".to_owned()];
+
+        for (esperado, obtido) in [
+            ("Vetor<T>", Tipo::Lista(Box::new(Tipo::Inteiro))),
+            ("Matriz<T>", Tipo::Lista(Box::new(Tipo::Lista(Box::new(Tipo::Decimal64))))),
+        ] {
+            let mut substituicoes = HashMap::new();
+            assert!(lowerer.inferir_substituicao(
+                esperado,
+                &obtido,
+                &genericos,
+                &mut substituicoes,
+            ));
+            let tipo_inferido = lowerer.tipo(substituicoes.get("T").unwrap());
+            assert_eq!(
+                tipo_inferido,
+                if esperado.starts_with("Vetor") { Tipo::Inteiro } else { Tipo::Decimal64 },
+            );
+        }
     }
 
     #[test]
