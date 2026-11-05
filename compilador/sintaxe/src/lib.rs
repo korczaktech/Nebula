@@ -1130,7 +1130,7 @@ impl Parser {
                 };
                 Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
             }
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1350,14 +1350,25 @@ impl Parser {
             }
             if tipo == TipoToken::Interrogacao && 1 >= minimo {
                 self.avancar();
-                let entao = self.expressao(0)?;
-                self.esperar(TipoToken::DoisPontos, "Esperado ':' na expressão condicional.");
-                let senao = self.expressao(1)?;
-                esquerda = Expressao::Condicional {
-                    condicao: Box::new(esquerda),
-                    entao: Box::new(entao),
-                    senao: Box::new(senao),
-                };
+                if matches!(self.tipo(),
+                    TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::Virgula
+                        | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave
+                        | TipoToken::Dedent | TipoToken::FimBloco | TipoToken::Fim
+                ) {
+                    esquerda = Expressao::Unaria {
+                        operador: TipoToken::Interrogacao,
+                        valor: Box::new(esquerda),
+                    };
+                } else {
+                    let entao = self.expressao(0)?;
+                    self.esperar(TipoToken::DoisPontos, "Esperado ':' na expressão condicional.");
+                    let senao = self.expressao(1)?;
+                    esquerda = Expressao::Condicional {
+                        condicao: Box::new(esquerda),
+                        entao: Box::new(entao),
+                        senao: Box::new(senao),
+                    };
+                }
                 continue;
             }
             if tipo == TipoToken::Menor && 16 >= minimo && self.parece_chamada_generica() {
@@ -1578,7 +1589,7 @@ impl Parser {
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Isto | TipoToken::Lambda | TipoToken::Incrementa | TipoToken::Decrementa | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::TextoInterpolado | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
-            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Interrogacao | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
             | TipoToken::Mais
         )
     }
@@ -3945,6 +3956,8 @@ fim
 
 variavel endereco: ponteiroBruto<u8> = obter()
 variavel dados: vetor<u8, 16> = criar()
+variavel referencia = ponteiro.de(&numero)
+variavel reserva = memoria.reservar(4096, 8)?
 variavel leitura = memoria.ler<u32>(endereco)
 variavel saudacao = "Ola, {nome}"
 criarUsuario(nome = "Ana", idade = 25)
