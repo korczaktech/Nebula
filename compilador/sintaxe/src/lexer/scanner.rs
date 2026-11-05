@@ -116,6 +116,50 @@ impl<'a> Lexer<'a> {
             Some(IntervaloFonte { inicio, fim }),
         ));
     }
+    fn linha_contem_apenas_comentario_bloco(&self) -> bool {
+        let mut posicao = self.atual;
+        loop {
+            if self.bytes.get(posicao) != Some(&b'/')
+                || self.bytes.get(posicao + 1) != Some(&b'*')
+            {
+                return false;
+            }
+            posicao += 2;
+            let mut fechado = false;
+            while posicao < self.bytes.len() {
+                if self.bytes.get(posicao) == Some(&b'\\n')
+                    || self.bytes.get(posicao) == Some(&b'\\r')
+                {
+                    return true;
+                }
+                if self.bytes.get(posicao) == Some(&b'*')
+                    && self.bytes.get(posicao + 1) == Some(&b'/')
+                {
+                    posicao += 2;
+                    fechado = true;
+                    break;
+                }
+                posicao += 1;
+            }
+            if !fechado {
+                return true;
+            }
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t')) {
+                posicao += 1;
+            }
+            if self.bytes.get(posicao) == Some(&b'/')
+                && self.bytes.get(posicao + 1) == Some(&b'*')
+            {
+                continue;
+            }
+            return matches!(
+                self.bytes.get(posicao),
+                None | Some(b'\\n' | b'\\r' | b'#')
+            ) || (self.bytes.get(posicao) == Some(&b'/')
+                && self.bytes.get(posicao + 1) == Some(&b'/'));
+        }
+    }
+
     fn suprime_indentacao(&self) -> bool {
         !self.delimitadores.is_empty()
     }
@@ -140,6 +184,7 @@ impl<'a> Lexer<'a> {
             || matches!(self.byte(0), Some(b'\n' | b'\r'))
             || self.byte(0) == Some(b'#')
             || (self.byte(0) == Some(b'/') && self.byte(1) == Some(b'/'))
+            || self.linha_contem_apenas_comentario_bloco()
         {
             self.inicio_linha = false;
             return;
