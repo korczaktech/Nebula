@@ -20,6 +20,7 @@ pub enum NoAst {
         nome: String,
         genericos: Vec<String>,
         parametros: Vec<(String, String)>,
+        parametros_padrao: Vec<Option<Expressao>>,
         retorno: Option<String>,
         corpo: Vec<NoAst>,
     },
