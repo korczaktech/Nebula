@@ -140,7 +140,7 @@ mod tests {
         let source = "funcao principal(): vazio\n    exibir(\"a  b\")  \nfim\n";
         let formatted = normalize_whitespace(source);
         assert!(formatted.contains("\"a  b\""));
-        assert_eq!(formatted.matches('\\n').count(), 3);
+        assert_eq!(formatted.matches('\n').count(), 3);
         assert!(formatted.contains("    exibir"));
     }
     #[test]
