@@ -928,6 +928,12 @@ impl Parser {
         let indentado = self.corresponde(TipoToken::Indent);
         let mut profundidade_indentacao = usize::from(indentado);
         let mut itens = Vec::new();
+        if !indentado && !matches!(self.tipo(),
+            TipoToken::FimBloco | TipoToken::Fim | TipoToken::Senao
+                | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre
+        ) {
+            self.erro_atual("N2009", "Bloco não vazio precisa iniciar com indentação.");
+        }
 
         loop {
             if self.verifica(TipoToken::Fim) || self.verifica(TipoToken::Senao)
@@ -942,7 +948,16 @@ impl Parser {
                 break;
             }
             if self.corresponde(TipoToken::Indent) {
-                profundidade_indentacao = profundidade_indentacao.saturating_add(1);
+                self.erro_atual("N2009", "Indentação inesperada: cada nível deve pertencer a um bloco explícito.");
+                let mut profundidade_inesperada = 1usize;
+                while profundidade_inesperada > 0 && !self.verifica(TipoToken::Fim) {
+                    match self.tipo() {
+                        TipoToken::Indent => profundidade_inesperada += 1,
+                        TipoToken::Dedent => profundidade_inesperada -= 1,
+                        _ => {}
+                    }
+                    self.avancar();
+                }
                 continue;
             }
             if self.corresponde(TipoToken::Dedent) {
@@ -3584,17 +3599,33 @@ mod testes {
     }
 
     #[test]
-    fn indentacao_nao_abre_nem_fecha_blocos() {
-        let valido = analisar(&fonte(
-            "funcao principal()\n variavel primeiro = 1\n      variavel segundo = 2\nfim"
-        ));
+    fn indentacao_define_niveis_e_fim_fecha_blocos() {
+        let codigo = "funcao principal()\n    variavel primeiro = 1\n    se sim\n        variavel segundo = 2\n    fim\nfim";
+        let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
-            "mudanças de indentação não devem alterar o escopo do bloco: {:?}",
+            "blocos indentados e encerrados com 'fim' devem ser aceitos: {:?}",
             valido.diagnosticos
         );
+        let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
+            panic!("esperada função principal");
+        };
+        let Some(NoAst::Quando { entao, .. }) = corpo.first() else {
+            panic!("esperado condicional dentro da função");
+        };
+        assert!(entao.iter().any(|no| matches!(
+            no, NoAst::Variavel { nome, .. } if nome == "segundo"
+        )));
+
+        let sem_indentacao = analisar(&fonte(
+            "funcao principal()\nvariavel valor = 1\nfim"
+        ));
+        assert!(
+            sem_indentacao.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "bloco não vazio sem indentação deve ser rejeitado"
+        );
         let sem_fechamento = analisar(&fonte(
-            "funcao principal()\n variavel primeiro = 1\n"
+            "funcao principal()\n    variavel primeiro = 1\n"
         ));
         assert!(
             sem_fechamento.diagnosticos.iter().any(|d| d.codigo == "N2009"),
