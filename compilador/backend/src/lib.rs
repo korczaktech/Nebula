@@ -1040,7 +1040,18 @@ impl Emissor {
                 if nome == "exibir" || nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
-                self.preparar_argumentos(argumentos)?;
+                let retorno_grande = self.retornos_funcoes.get(nome)
+                    .and_then(|tipo| self.layout_agregado_grande(tipo));
+                if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.push_rax();
+                    self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.pop_rax();
+                    self.mover_rax_registrador(7); // RDI = destino oculto
+                } else {
+                    self.preparar_argumentos(argumentos)?;
+                }
                 if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
                 self.codigo.push(0xE8);
                 let posicao = self.codigo.len();
@@ -1050,7 +1061,18 @@ impl Emissor {
             }
             ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
                 let nome_completo = format!("{modulo}::{nome}");
-                self.preparar_argumentos(argumentos)?;
+                let retorno_grande = self.retornos_funcoes.get(&nome_completo)
+                    .and_then(|tipo| self.layout_agregado_grande(tipo));
+                if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.push_rax();
+                    self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.pop_rax();
+                    self.mover_rax_registrador(7);
+                } else {
+                    self.preparar_argumentos(argumentos)?;
+                }
                 if self.pilha % 2 == 1 {
                     self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
                 }
@@ -1701,7 +1723,7 @@ impl Emissor {
             .ok_or("Área de agregados excedeu o limite do quadro.")?;
         let fim = Self::alinhar_layout(topo, alinhamento)
             .ok_or("Alinhamento da área de agregados excedeu o limite.")?;
-        if fim > u64::from(TAMANHO_QUADRO) {
+        if fim > u64::from(TAMANHO_QUADRO - 16) {
             return Err("A função excedeu a área reservada para agregados no quadro nativo.".into());
         }
         let deslocamento = i32::try_from(fim)
@@ -2080,12 +2102,20 @@ impl Emissor {
     }
 
     fn preparar_argumentos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
+        self.preparar_argumentos_desde(argumentos, 0)
+    }
+
+    fn preparar_argumentos_desde(
+        &mut self,
+        argumentos: &[ExpressaoIr],
+        inicio_registrador: usize,
+    ) -> Result<(), String> {
         let registradores = [7u8, 6, 2, 1, 8, 9];
         let larguras = argumentos.iter()
             .map(|argumento| self.largura_abi_expressao(argumento))
             .collect::<Result<Vec<_>, _>>()?;
         let quantidade = larguras.iter().sum::<usize>();
-        if quantidade > registradores.len() {
+        if inicio_registrador.checked_add(quantidade).is_none_or(|fim| fim > registradores.len()) {
             return Err("Os argumentos excedem os seis registradores inteiros do ABI x86-64.".into());
         }
         for (argumento, largura) in argumentos.iter().zip(&larguras) {
@@ -2096,7 +2126,7 @@ impl Emissor {
                 self.pilha += 1;
             }
         }
-        let mut indice = quantidade;
+        let mut indice = inicio_registrador + quantidade;
         for largura in larguras.iter().rev() {
             if *largura == 2 {
                 indice -= 2;
