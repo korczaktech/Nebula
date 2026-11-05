@@ -1,6 +1,9 @@
 //! Backend nativo da Nebula: geração direta de executáveis ELF x86-64.
 #![forbid(unsafe_code)]
 
+/// Classificação e planejamento da convenção ABI interna.
+pub mod abi;
+
 #[rustfmt::skip]
 mod implementacao {
 use nebula_ir::{CasoEscolhaIr, ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
