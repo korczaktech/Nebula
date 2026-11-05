@@ -3538,6 +3538,54 @@ mod testes {
     }
 
     #[test]
+    fn controlador_pausa_avanca_inspeciona_e_respeita_pontos() {
+        let programa = compilar(
+            "variavel contador = 1\ncontador = contador + 1\ncontador = contador + 1"
+        );
+        let (tx_comandos, rx_comandos) = std::sync::mpsc::channel();
+        let (tx_eventos, rx_eventos) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            executar_controlado(&programa, 100, rx_comandos, tx_eventos)
+        });
+
+        let primeiro = rx_eventos.recv().expect("primeira pausa");
+        let EventoControleDepuracao::Pausado(primeiro) = primeiro else {
+            panic!("esperava pausa inicial");
+        };
+        assert_eq!(primeiro.passo, 1);
+
+        tx_comandos.send(ComandoDepuracao::Avancar).unwrap();
+        let segundo = rx_eventos.recv().expect("pausa após avançar");
+        let EventoControleDepuracao::Pausado(segundo) = segundo else {
+            panic!("esperava segunda pausa");
+        };
+        assert_eq!(segundo.passo, 2);
+        assert_eq!(segundo.escopos[0].get("contador"), Some(&ValorIr::Inteiro(1)));
+
+        tx_comandos
+            .send(ComandoDepuracao::DefinirPontos(vec![3]))
+            .unwrap();
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        let terceiro = rx_eventos.recv().expect("ponto de parada");
+        let EventoControleDepuracao::Pausado(terceiro) = terceiro else {
+            panic!("esperava ponto de parada");
+        };
+        assert_eq!(terceiro.passo, 3);
+
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        let finalizado = rx_eventos.recv().expect("evento de finalização");
+        assert!(matches!(
+            finalizado,
+            EventoControleDepuracao::Finalizado(Ok(_))
+        ));
+        let resultado = worker.join().expect("thread de depuração");
+        assert_eq!(
+            resultado.unwrap().globais.get("contador"),
+            Some(&ValorIr::Inteiro(3))
+        );
+    }
+
+    #[test]
     fn observador_pode_interromper_a_execucao_com_erro() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let resultado = executar_observado(&programa, 100, |evento| {
