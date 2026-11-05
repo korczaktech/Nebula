@@ -507,31 +507,46 @@ impl Parser {
     fn escolha(&mut self) -> Option<NoAst> {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
-        if !self.corresponde(TipoToken::AbreChave) {
-            self.erro_atual("N2040", "Esperado '{' após expressão de escolha.");
-            return None;
-        }
+        let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
+        let indentado = if delimitado_por_chaves {
+            false
+        } else {
+            if !self.corresponde(TipoToken::NovaLinha) {
+                self.erro_atual("N2040", "Esperado bloco após expressão de escolha.");
+                return None;
+            }
+            self.separadores();
+            if !self.corresponde(TipoToken::Indent) {
+                self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
+                return None;
+            }
+            true
+        };
         self.separadores();
         let mut casos = Vec::new();
         let mut possui_curinga = false;
         let mut padroes_vistos: Vec<(String, String)> = Vec::new();
-        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
-            if !self.corresponde(TipoToken::Caso) {
-                self.erro_atual("N2041", "Esperado 'caso' dentro de escolha.");
+        while !(if delimitado_por_chaves { self.verifica(TipoToken::FechaChave) } else { self.verifica(TipoToken::Dedent) })
+            && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+            let padrao_padrao = self.corresponde(TipoToken::Padrao);
+            if !padrao_padrao && !self.corresponde(TipoToken::Caso) {
+                self.erro_atual("N2041", "Esperado 'caso' ou 'padrao' dentro de escolha.");
                 self.sincronizar();
                 self.separadores();
                 continue;
             }
-            let inicio_caso = self.tokens.get(self.atual - 1).map(|token| token.intervalo.inicio);
+            let inicio_caso = self.tokens.get(self.atual.saturating_sub(1)).map(|token| token.intervalo.inicio);
             let mut padrao_valido = true;
-            let mut intervalo_padrao = None;
-            let (enumeracao, variante, vinculacoes, curinga) =
-                if self.verifica(TipoToken::Identificador)
+            let mut intervalo_padrao = self.tokens.get(self.atual.saturating_sub(1)).map(|token| token.intervalo);
+            let (enumeracao, variante, vinculacoes, curinga, expressao_padrao) =
+                if padrao_padrao {
+                    (None, None, Vec::new(), true, None)
+                } else if self.verifica(TipoToken::Identificador)
                     && self.tokens.get(self.atual).is_some_and(|token| token.lexema == "_")
                 {
                     intervalo_padrao = self.tokens.get(self.atual).map(|token| token.intervalo);
                     self.avancar();
-                    (None, None, Vec::new(), true)
+                    (None, None, Vec::new(), true, None)
                 } else if self.verifica(TipoToken::Identificador) {
                     intervalo_padrao = self.tokens.get(self.atual).map(|token| token.intervalo);
                     let primeiro = self.avancar().lexema.nfc().collect::<String>();
@@ -591,20 +606,23 @@ impl Parser {
                                     self.corresponde(TipoToken::FechaPar);
                                 }
                             }
-                            (Some(primeiro), Some(variante), vinculacoes, false)
+                            (Some(primeiro), Some(variante), vinculacoes, false, None)
                         } else {
                             padrao_valido = false;
-                            (Some(primeiro), None, Vec::new(), false)
+                            (Some(primeiro), None, Vec::new(), false, None)
                         }
                     } else {
                         self.erro_atual("N2042", "Padrão deve ser uma variante Enum::Variante ou '_'.");
                         padrao_valido = false;
-                        (None, None, Vec::new(), false)
+                        (None, None, Vec::new(), false, None)
                     }
+                } else if matches!(self.tipo(), TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Sim | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo) {
+                    let expressao = self.expressao(0);
+                    (None, None, Vec::new(), false, expressao)
                 } else {
-                    self.erro_atual("N2042", "Esperado padrão de enumeração ou '_'.");
+                    self.erro_atual("N2042", "Esperado padrão de enumeração, literal ou '_'.");
                     padrao_valido = false;
-                    (None, None, Vec::new(), false)
+                    (None, None, Vec::new(), false, None)
                 };
 
             if curinga {
@@ -650,7 +668,7 @@ impl Parser {
                     self.avancar();
                 }
             }
-            let corpo = match self.bloco() {
+            let corpo = match if indentado { self.bloco_sem_fim() } else { self.bloco() } {
                 Some(corpo) => corpo,
                 None => {
                     if !self.separador_atual()
@@ -665,7 +683,7 @@ impl Parser {
                 }
             };
             if padrao_valido {
-                let caso = CasoEscolha { enumeracao, variante, vinculacoes, corpo };
+                let caso = CasoEscolha { enumeracao, variante, vinculacoes, expressao: expressao_padrao, corpo };
                 if let (Some(inicio), Some(token)) = (inicio_caso, self.tokens.get(self.atual.saturating_sub(1))) {
                     if let Some(intervalo) = IntervaloFonte::novo(inicio, token.intervalo.fim) {
                         self.casos_localizados.push(CasoEscolhaLocalizado {
@@ -678,7 +696,13 @@ impl Parser {
             }
             self.separadores();
         }
-        self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
+        if delimitado_por_chaves {
+            self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
+        } else {
+            self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
+            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
+            else { self.erro_atual("N2009", "Escolha precisa terminar com 'fim'."); }
+        }
         if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
         Some(NoAst::Escolha { valor, casos })
     }
