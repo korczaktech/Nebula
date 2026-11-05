@@ -3144,11 +3144,13 @@ mod testes {
             Tipo::Inteiro64,
             Tipo::Inteiro64,
         ])).is_ok());
-        assert!(emissor.validar_tipo_abi(&Tipo::Tupla(vec![
+        let tupla_grande = Tipo::Tupla(vec![
             Tipo::Inteiro64,
             Tipo::Inteiro64,
             Tipo::Inteiro64,
-        ])).is_err());
+        ]);
+        assert!(emissor.validar_tipo_abi(&tupla_grande).is_ok());
+        assert_eq!(emissor.largura_abi_tipo(&tupla_grande).unwrap(), 1);
     }
 
     #[test]
