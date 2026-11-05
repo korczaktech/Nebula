@@ -177,13 +177,24 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             .unwrap_or_default();
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"variables": variaveis}))?;
                     }
-                    "continue" | "next" | "stepOut" => {
+                    "continue" | "next" | "stepIn" | "stepOut" => {
                         let Some(estado) = estado.as_ref() else {
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
                             continue;
                         };
                         let acao = match comando {
-                            "next" => ComandoDepuracao::Avancar,
+                            "next" => {
+                                let linha_atual = estado.atual.as_ref()
+                                    .and_then(|evento| evento.intervalo_fonte)
+                                    .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
+                                    .map(|(linha, _)| linha);
+                                let offsets = estado.localizacoes.iter().filter_map(|intervalo| {
+                                    let (linha, _) = estado.fonte.linha_coluna(intervalo.inicio)?;
+                                    (Some(linha) == linha_atual).then_some(intervalo.inicio)
+                                }).collect();
+                                ComandoDepuracao::AvancarLinha(offsets)
+                            }
+                            "stepIn" => ComandoDepuracao::Avancar,
                             "stepOut" => ComandoDepuracao::Sair,
                             _ => ComandoDepuracao::Continuar,
                         };
