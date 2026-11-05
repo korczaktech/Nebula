@@ -1874,7 +1874,8 @@ impl Maquina<'_, '_> {
 
     fn instrucao(&mut self, item: &InstrucaoIr) -> Result<Fluxo, String> {
         match item {
-            InstrucaoIr::Localizada { intervalo, instrucao } => {
+            InstrucaoIr::Localizada { caminho, intervalo, instrucao } => {
+                self.caminho_fonte = Some(caminho.clone());
                 self.intervalo_fonte = Some(*intervalo);
                 self.instrucao(instrucao)
             }
@@ -2768,6 +2769,7 @@ mod testes {
             escopos_tipos: vec![HashMap::new()],
             substituicoes: HashMap::new(),
             localizacoes: HashMap::new(),
+            caminho_fonte: PathBuf::new(),
         };
         let genericos = vec!["T".to_owned()];
 
