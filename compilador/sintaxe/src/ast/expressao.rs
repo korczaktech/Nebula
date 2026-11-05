@@ -26,6 +26,7 @@ pub enum Expressao {
     Chamada {
         alvo: Box<Expressao>,
         argumentos: Vec<Expressao>,
+        tipos_genericos: Vec<String>,
     },
     Indexacao {
         alvo: Box<Expressao>,
