@@ -3820,6 +3820,33 @@ mod testes {
     }
 
     #[test]
+    fn controlador_pausa_e_encerra_execucao_em_andamento() {
+        let programa = compilar("variavel primeiro = 1\nvariavel segundo = 2\nvariavel terceiro = 3");
+        let (tx_comandos, rx_comandos) = std::sync::mpsc::channel();
+        let (tx_eventos, rx_eventos) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || executar_controlado(&programa, 100, rx_comandos, tx_eventos));
+
+        assert!(matches!(
+            rx_eventos.recv().expect("pausa inicial"),
+            EventoControleDepuracao::Pausado(_)
+        ));
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        tx_comandos.send(ComandoDepuracao::Pausar).unwrap();
+        let pausado = rx_eventos.recv().expect("pausa solicitada");
+        let EventoControleDepuracao::Pausado(pausado) = pausado else {
+            panic!("esperava pausa solicitada");
+        };
+        assert_eq!(pausado.passo, 2);
+
+        tx_comandos.send(ComandoDepuracao::Encerrar).unwrap();
+        assert!(matches!(
+            rx_eventos.recv().expect("finalização"),
+            EventoControleDepuracao::Finalizado(Err(_))
+        ));
+        assert!(worker.join().expect("thread").is_err());
+    }
+
+    #[test]
     fn observador_pode_interromper_a_execucao_com_erro() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let resultado = executar_observado(&programa, 100, |evento| {
