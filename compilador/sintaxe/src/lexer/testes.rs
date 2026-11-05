@@ -422,6 +422,48 @@ fn preserva_offsets_em_bytes_e_lexemas_originais() {
 }
 
 #[test]
+fn suprime_quebras_apos_operadores_de_continuacao() {
+    for codigo in [
+        "variavel soma =\n  1 + 2",
+        "variavel soma = 1 +\n  2",
+        "variavel negativo = -\n  2",
+        "variavel membro = objeto.\n  nome",
+        "tipo Caminho = Modulo::\n  Tipo",
+    ] {
+        let r = analisar(codigo);
+        assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
+    }
+}
+
+#[test]
+fn suprime_quebras_antes_de_operadores_e_apos_linhas_vazias() {
+    for codigo in [
+        "variavel soma = 1\n + 2",
+        "variavel soma = 1\n\n + 2",
+        "variavel membro = objeto\n.nome",
+        "tipo Caminho = Modulo\n:: Tipo",
+    ] {
+        let r = analisar(codigo);
+        assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
+    }
+}
+
+#[test]
+fn continuacao_nao_emite_indent_dedent_artificiais() {
+    let r = analisar("variavel soma = 1 +\n        2\nvariavel final = soma");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 0);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 0);
+}
+
+#[test]
+fn comentarios_de_linha_nao_iniciam_continuacao_por_engano() {
+    let r = analisar("variavel soma = 1 # comentario\nvariavel outra = 2");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 1);
+}
+
+#[test]
 fn emite_fim_unico_e_dedents_no_final_do_arquivo() {
     let r = analisar("inicio\n    meio");
     assert_eq!(
