@@ -245,7 +245,7 @@ impl<'a> Analisador<'a> {
                 self.fechar_escopo();
                 self.parametros_genericos = genericos_anteriores;
             }
-            NoAst::Tipo { .. } => {
+            NoAst::Tipo { .. } | NoAst::Classe { .. } | NoAst::Passar => {
                 if self.escopos.len() > 1 {
                     self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
                 }
