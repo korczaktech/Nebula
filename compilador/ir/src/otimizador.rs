@@ -68,6 +68,20 @@ pub fn otimizar(
     Ok(relatorio)
 }
 
+fn instrucao_base(mut instrucao: &InstrucaoIr) -> &InstrucaoIr {
+    while let InstrucaoIr::Localizada { instrucao: interna, .. } = instrucao {
+        instrucao = interna;
+    }
+    instrucao
+}
+
+fn instrucao_base_mut(mut instrucao: &mut InstrucaoIr) -> &mut InstrucaoIr {
+    while let InstrucaoIr::Localizada { instrucao: interna, .. } = instrucao {
+        instrucao = interna;
+    }
+    instrucao
+}
+
 fn otimizar_lista(
     instrucoes: &mut Vec<InstrucaoIr>,
     nivel: NivelOtimizacao,
@@ -78,7 +92,7 @@ fn otimizar_lista(
         otimizar_instrucao(&mut instrucoes[indice], nivel, relatorio);
 
         if nivel != NivelOtimizacao::O1 {
-            let ramo = match &instrucoes[indice] {
+            let ramo = match instrucao_base(&instrucoes[indice]) {
                 InstrucaoIr::Se {
                     condicao: ExpressaoIr::Constante(ValorIr::Logico(condicao)),
                     entao,
@@ -87,10 +101,10 @@ fn otimizar_lista(
                 _ => None,
             };
             if let Some(escolhido) = ramo {
-                instrucoes[indice] = InstrucaoIr::Bloco(escolhido);
+                *instrucao_base_mut(&mut instrucoes[indice]) = InstrucaoIr::Bloco(escolhido);
                 relatorio.ramos_simplificados += 1;
             } else if matches!(
-                &instrucoes[indice],
+                instrucao_base(&instrucoes[indice]),
                 InstrucaoIr::Enquanto {
                     condicao: ExpressaoIr::Constante(ValorIr::Logico(false)),
                     ..
@@ -101,19 +115,19 @@ fn otimizar_lista(
                 continue;
             } else {
                 let para_inexecutavel = matches!(
-                    &instrucoes[indice],
+                    instrucao_base(&instrucoes[indice]),
                     InstrucaoIr::Para {
                         condicao: Some(ExpressaoIr::Constante(ValorIr::Logico(false))),
                         ..
                     }
                 );
                 if para_inexecutavel {
-                    let inicial = match &mut instrucoes[indice] {
+                    let inicial = match instrucao_base_mut(&mut instrucoes[indice]) {
                         InstrucaoIr::Para { inicial, .. } => inicial.take(),
                         _ => None,
                     };
                     if let Some(inicial) = inicial {
-                        instrucoes[indice] = InstrucaoIr::Bloco(vec![*inicial]);
+                        *instrucao_base_mut(&mut instrucoes[indice]) = InstrucaoIr::Bloco(vec![*inicial]);
                     } else {
                         instrucoes.remove(indice);
                         relatorio.lacos_removidos += 1;
@@ -125,7 +139,7 @@ fn otimizar_lista(
         }
 
         if nivel == NivelOtimizacao::Os
-            && matches!(&instrucoes[indice], InstrucaoIr::Bloco(itens) if itens.is_empty())
+            && matches!(instrucao_base(&instrucoes[indice]), InstrucaoIr::Bloco(itens) if itens.is_empty())
         {
             instrucoes.remove(indice);
             relatorio.blocos_vazios_removidos += 1;
@@ -133,7 +147,7 @@ fn otimizar_lista(
         }
 
         if matches!(nivel, NivelOtimizacao::O3 | NivelOtimizacao::Os)
-            && termina_fluxo(&instrucoes[indice])
+            && termina_fluxo(instrucao_base(&instrucoes[indice]))
         {
             let removidas = instrucoes.len() - indice - 1;
             instrucoes.truncate(indice + 1);
