@@ -75,6 +75,7 @@ pub enum TipoToken {
     Privado,
     Publico,
     Protegido,
+    Seguro,
     Critico,
     Privilegio,
     Montagem,
