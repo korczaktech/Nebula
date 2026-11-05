@@ -3949,7 +3949,7 @@ funcao operar(a: inteiro, b: inteiro, idade: inteiro)
     variavel condicao = idade >= 18 ? sim : nao
     variavel objeto = novo Pessoa()
     variavel numero = 1
-    numero =+ 2
+    numero += 2
     numero++
     variavel dentro = numero dentro faixa
     retorne bits
