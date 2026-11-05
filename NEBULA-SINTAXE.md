@@ -438,7 +438,7 @@ fim
 | `++` | Incrementa |
 | `--` | Decrementa |
 
-Também poderão ser aceitos os aliases convencionais `+=`, `-=`, `*=`, `/=`, `//= `, `%=` e `**=`, desde que a gramática formal os confirme.
+Também são aceitos os aliases convencionais `+=`, `-=`, `*=`, `/=`, `\\=`, `%=` e `**=`. As duas grafias (`=+` e `+=`, por exemplo) produzem a mesma operação. Para divisão inteira, a grafia usa duas barras invertidas: `\\` e `\\=`.
 
 # 12. Funções
 
