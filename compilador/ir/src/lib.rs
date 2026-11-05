@@ -3818,7 +3818,7 @@ mod testes {
         };
         assert_eq!(fonte.linha_coluna(inicial.intervalo_fonte.expect("origem inicial").inicio), Some((1, 1)));
 
-        tx_comandos.send(ComandoDepuracao::DefinirPontosFonte(vec![offset_segunda])).unwrap();
+        tx_comandos.send(ComandoDepuracao::DefinirPontosFonte(vec![(fonte.caminho().to_path_buf(), offset_segunda)])).unwrap();
         tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
         let ponto = rx_eventos.recv().expect("pausa no breakpoint de origem");
         let EventoControleDepuracao::Pausado(ponto) = ponto else {
