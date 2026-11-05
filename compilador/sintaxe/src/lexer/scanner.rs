@@ -504,7 +504,8 @@ impl<'a> Lexer<'a> {
                 }
                 continue;
             }
-            if self.bytes.get(posicao) == Some(&b'/') && self.bytes.get(posicao + 1) == Some(&b'*') {
+            if self.bytes.get(posicao) == Some(&b'/') && self.bytes.get(posicao + 1) == Some(&b'*')
+            {
                 posicao += 2;
                 while posicao + 1 < self.bytes.len()
                     && !(self.bytes[posicao] == b'*' && self.bytes[posicao + 1] == b'/')
