@@ -2820,6 +2820,7 @@ mod testes {
             escopos_tipos: vec![HashMap::new()],
             substituicoes: HashMap::new(),
             localizacoes: HashMap::new(),
+            caminho_fonte: PathBuf::new(),
         };
         let genericos = vec!["T".to_owned()];
         let mut substituicoes = HashMap::new();
