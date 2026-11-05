@@ -2892,7 +2892,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
@@ -2904,7 +2904,7 @@ mod testes {
     #[test]
     fn executa_copia_explicita_de_estrutura_derivada() {
         let ir = compilar(
-            "estrutura Ponto { x: inteiro8 }\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         let resultado = executar(&ir, 100).expect("cópia explícita de estrutura");
         assert_eq!(resultado.saida, vec!["7", "7"]);
@@ -2947,7 +2947,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes { callback: funcao(inteiro): inteiro }\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3084,7 +3084,7 @@ mod testes {
     #[test]
     fn calcula_layout_de_campo_com_tipo_de_funcao() {
         let ir = compilar(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(funcao(inteiro): logico): vazio }",
+            "estrutura Registro:\n    callback: funcao(inteiro, texto): logico\n    inicializar: funcao(funcao(inteiro): logico): vazio\nfim",
         );
         let layout = ir.layouts_tipos.get("Registro").expect("layout nominal");
         assert_eq!(layout.tamanho, 16);
@@ -3096,7 +3096,7 @@ mod testes {
     #[test]
     fn baixa_assinaturas_com_tipos_nominais() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
+            "estrutura Pessoa:\n    nome: texto\nfim\nenumeracao Estado:\n    Ativo\n    Inativo\nfim\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
         );
         let funcao = ir.funcoes.get("receber").expect("função declarada");
         assert_eq!(funcao.parametros[0].1, Tipo::Estrutura("Pessoa".into()));
@@ -3107,7 +3107,7 @@ mod testes {
     #[test]
     fn construi_estrutura_e_le_campos_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura executável");
         assert_eq!(resultado.saida, vec!["Lia", "28"]);
@@ -3116,7 +3116,7 @@ mod testes {
     #[test]
     fn estrutura_aninhada_le_campo_da_estrutura_interna() {
         let ir = compilar(
-            "estrutura Endereco { cidade: texto }\nestrutura Pessoa { endereco: Endereco }\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura aninhada executável");
         assert_eq!(resultado.saida, vec!["Recife"]);
@@ -3125,7 +3125,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição de campo válida");
         assert_eq!(resultado.saida, vec!["29"]);
@@ -3134,7 +3134,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_aninhada_no_runtime() {
         let ir = compilar(
-            "estrutura Endereco { cidade: texto }\nestrutura Pessoa { endereco: Endereco }\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição aninhada válida");
         assert_eq!(resultado.saida, vec!["Olinda"]);
@@ -3143,7 +3143,7 @@ mod testes {
     #[test]
     fn constroi_enumeracao_com_payload_no_runtime() {
         let ir = compilar(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nexibir(resultado)",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nexibir(resultado)",
         );
         let resultado = executar(&ir, 100).expect("payload de enumeração válido");
         assert_eq!(resultado.saida, vec!["Resultado::Sucesso { 0: 42 }"]);
@@ -3169,7 +3169,7 @@ mod testes {
     #[test]
     fn executa_escolha_com_payload_de_enumeracao() {
         let ir = compilar(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\nfim\n\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\nfim\n\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         let resultado = executar(&ir, 200).expect("pattern matching válido");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3187,7 +3187,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_variantes_sem_payload() {
         let ir = compilar(
-            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado\n    caso Estado::Ativo\n        exibir(\"ativo\")\n    caso Estado::Inativo\n        exibir(\"inativo\")\nfim",
+            "enumeracao Estado:\n    Ativo\n    Inativo\nfim\nvariavel estado = Estado::Ativo\nescolha estado\n    caso Estado::Ativo\n        exibir(\"ativo\")\n    caso Estado::Inativo\n        exibir(\"inativo\")\nfim",
         );
         let resultado = executar(&ir, 200).expect("enumeração sem payload válida");
         assert_eq!(resultado.saida, vec!["ativo"]);
@@ -3555,7 +3555,7 @@ mod testes {
     #[test]
     fn baixa_layouts_nominais_para_a_ir() {
         let ir = compilar(
-            "estrutura Pessoa { idade: inteiro8, ativo: logico, saldo: decimal64 }\nenumeracao Estado { Inativo, Ativo, Falha(texto) }",
+            "estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nfim\nenumeracao Estado:\n    Inativo\n    Ativo\n    Falha(texto)\nfim",
         );
         let pessoa = ir.layouts_tipos.get("Pessoa").expect("layout da estrutura");
         assert_eq!(pessoa.tamanho, 16);
@@ -3567,7 +3567,7 @@ mod testes {
 
     #[test]
     fn rejeita_layout_nominal_recursivo_ao_baixar_ir() {
-        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No { proximo: No }");
+        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No:\n    proximo: No\nfim");
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
