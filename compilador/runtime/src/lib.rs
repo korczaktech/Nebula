@@ -1226,13 +1226,18 @@ mod testes {
         memoria.declarar("valor", Valor::Inteiro(1), true).unwrap();
         memoria.abrir_escopo();
         memoria.declarar("valor", Valor::Inteiro(2), true).unwrap();
-        memoria.declarar("local", Valor::Texto("interno".into()), true).unwrap();
+        memoria
+            .declarar("local", Valor::Texto("interno".into()), true)
+            .unwrap();
 
         let escopos = memoria.escopos();
         assert_eq!(escopos.len(), 2);
         assert_eq!(escopos[0].get("valor"), Some(&Valor::Inteiro(1)));
         assert_eq!(escopos[1].get("valor"), Some(&Valor::Inteiro(2)));
-        assert_eq!(escopos[1].get("local"), Some(&Valor::Texto("interno".into())));
+        assert_eq!(
+            escopos[1].get("local"),
+            Some(&Valor::Texto("interno".into()))
+        );
     }
 
     #[test]
