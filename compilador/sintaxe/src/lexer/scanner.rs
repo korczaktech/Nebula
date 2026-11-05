@@ -469,7 +469,8 @@ impl<'a> Lexer<'a> {
                 | TipoToken::Seta
                 | TipoToken::Ponto
                 | TipoToken::Escopo
-                | TipoToken::Virgula
+                | TipoToken::Intervalo
+                | TipoToken::Reticencias
                 | TipoToken::E
                 | TipoToken::Ou
                 | TipoToken::Dentro
