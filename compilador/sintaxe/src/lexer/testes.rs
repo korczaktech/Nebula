@@ -93,10 +93,7 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
 fn nomes_de_tipos_e_metodos_da_biblioteca_permanecem_identificadores() {
     let r = analisar("vazio obter");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert!(
-        r.tokens[0].tipo == TipoToken::Vazio
-            && r.tokens[1].tipo == TipoToken::Obter
-    );
+    assert!(r.tokens[0].tipo == TipoToken::Vazio && r.tokens[1].tipo == TipoToken::Obter);
 }
 
 #[test]
@@ -452,8 +449,20 @@ fn suprime_quebras_antes_de_operadores_e_apos_linhas_vazias() {
 fn continuacao_nao_emite_indent_dedent_artificiais() {
     let r = analisar("variavel soma = 1 +\n        2\nvariavel final = soma");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 0);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 0);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Indent)
+            .count(),
+        0
+    );
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Dedent)
+            .count(),
+        0
+    );
 }
 
 #[test]
