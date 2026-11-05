@@ -1705,7 +1705,7 @@ mod testes {
     }
     #[test]
     fn analisa_laco_para_e_inclusao_de_modulo() {
-        let r = analisar(&fonte("incluir Matemática como Mat\npara (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"));
+        let r = analisar(&fonte("incluir Matematica como Mat\npara (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
     }
@@ -3147,7 +3147,7 @@ mod testes {
             ("N2013", "variavel a = 1..2..3"),
             ("N2014", "funcao f<T, T>() {}"),
             ("N2015", "funcao f<>() {}"),
-            ("N2016", "assinc funcao f() {}"),
+            ("N2016", "tente"),
             ("N2030", "estrutura Pessoa nome: texto }"),
             ("N2031", "estrutura Pessoa { nome: texto, nome: inteiro }"),
             ("N2032", "estrutura Pessoa { nome: texto idade: inteiro }"),
@@ -3483,6 +3483,63 @@ pub use ast::{
     NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
     TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
 };
-pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
+pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico    #[test]
+    fn analisa_sintaxe_principal_atual_e_recursos_nativos() {
+        let codigo = r#"
+incluir biblioteca matematica como mat
+
+variavel ativo: logico = sim
+variavel dobrar = lambda x: x * 2
+variavel somar = (a, b) -> a + b
+variavel quadrado = x -> x ** 2
+
+funcao saudar(nome: texto = "Visitante") -> vazio
+    se ativo == sim
+        exibir(nome)
+    sendo nao ativo
+        exibir("Inativo")
+    senao
+        passar
+    fim
+fim
+
+assinc funcao carregar() -> texto
+    variavel resultado = aguarda buscarDados()
+    retorne resultado
+fim
+
+classe Pessoa herda Humano
+    funcao apresentar() -> vazio
+        exibir(isto.nome)
+    fim
+fim
+
+funcao percorrer()
+    para numero dentro faixa(0, 10)
+        se numero == 5
+            prossiga
+        fim
+        exibir(numero)
+    fim
+fim
+
+funcao escolher(opcao: inteiro)
+    escolha opcao
+        caso 1
+            exibir("Um")
+        caso 2
+            exibir("Dois")
+        padrao
+            passar
+    fim
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
+        assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Classe { .. })));
+        assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Funcao { assincrona: true, .. })));
+    }
+
+};
 
 pub use implementacao::*;
