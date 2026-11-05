@@ -587,7 +587,11 @@ impl Parser {
     fn incluir(&mut self) -> Option<NoAst> {
         self.avancar();
         if matches!(self.tipo(), TipoToken::Biblioteca | TipoToken::Modulo) { self.avancar(); }
-        let caminho = self.caminho_modulo()?;
+        let primeiro = self.caminho_modulo()?;
+        let caminho = if self.corresponde(TipoToken::De) {
+            let origem = self.caminho_modulo()?;
+            format!("{origem}::{primeiro}")
+        } else { primeiro };
         let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
         Some(NoAst::Incluir { caminho, apelido })
     }
@@ -1043,7 +1047,11 @@ impl Parser {
         }
         let mut argumentos = Vec::new();
         loop {
-            argumentos.push(self.caminho_tipo()?);
+            if self.verifica(TipoToken::Inteiro) {
+                argumentos.push(self.avancar().lexema);
+            } else {
+                argumentos.push(self.caminho_tipo()?);
+            }
             if !self.corresponde(TipoToken::Virgula) { break; }
             self.pular_novas_linhas();
         }
