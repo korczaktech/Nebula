@@ -1,6 +1,7 @@
 //! Nós que representam expressões da linguagem Nebula.
 
 use crate::lexer::TipoToken;
+use super::instrucao::NoAst;
 
 /// Expressões reconhecidas pelo parser.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,5 +39,13 @@ pub enum Expressao {
     ConstrucaoEstrutura {
         nome: String,
         campos: Vec<(String, Expressao)>,
+    },
+    Lambda {
+        parametros: Vec<String>,
+        corpo: Box<Expressao>,
+    },
+    LambdaBloco {
+        parametros: Vec<String>,
+        corpo: Vec<NoAst>,
     },
 }
