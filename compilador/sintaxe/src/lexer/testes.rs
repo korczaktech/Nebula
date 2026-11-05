@@ -142,9 +142,13 @@ fn emite_indent_dedent_e_preserva_fim_explicito() {
 #[test]
 fn emite_quebra_e_indent_apos_fechamento_de_tipo_generico() {
     let resultado = analisar(
-        "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>\\n    devolver valor\\nfim"
+        "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>\\n    devolver valor\\nfim",
     );
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     let fechamento = resultado
         .tokens
         .iter()
