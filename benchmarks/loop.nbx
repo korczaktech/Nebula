@@ -1,11 +1,11 @@
-funcao principal(): inteiro {
+funcao principal(): inteiro
     variavel indice: inteiro = 0
     variavel total: inteiro = 0
 
-    enquanto indice < 50000000 {
+    enquanto indice < 50000000
         total = total + indice
         indice = indice + 1
-    }
+    fim
 
     devolver 0
-}
+fim
