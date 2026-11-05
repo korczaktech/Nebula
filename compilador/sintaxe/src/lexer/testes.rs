@@ -355,8 +355,8 @@ fn diagnostica_escapes_e_caracteres_invalidos() {
 
 #[test]
 fn valida_expressoes_dentro_de_textos_interpolados() {
-    let valido = analisar("\x60Ola, ${nome}! ${objeto.campo}`");
-    let aninhado = analisar("\x60Valor: ${calcular({ chave: \"}\" })}`");
+    let valido = analisar(r#"`Ola, ${nome}! ${objeto.campo}`"#);
+    let aninhado = analisar(r#"`Valor: ${calcular({ chave: "}" })}`"#);
     assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
     assert!(
         aninhado.diagnosticos.is_empty(),
@@ -373,24 +373,24 @@ fn valida_expressoes_dentro_de_textos_interpolados() {
 
 #[test]
 fn ignora_chaves_dentro_de_comentarios_da_interpolacao() {
-    let r = analisar("\x60Valor: ${objeto /* } */ .campo}\x60");
+    let r = analisar(r#"`Valor: ${objeto /* } */ .campo}`"#);
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
 }
 
 #[test]
 fn diagnostica_texto_nao_terminado_dentro_da_interpolacao() {
-    assert!(possui_erro("\x60Valor: ${\"texto}\x60", "N1018"));
+    assert!(possui_erro(r#"`Valor: ${"texto}`"#, "N1018"));
 }
 
 #[test]
 fn diagnostica_interpolacoes_vazias_e_nao_terminadas() {
-    assert!(possui_erro("\x60Valor: ${}`", "N1017"));
-    assert!(possui_erro("\x60Valor: ${nome`", "N1016"));
+    assert!(possui_erro(r#"`Valor: ${}`"#, "N1017"));
+    assert!(possui_erro(r#"`Valor: ${nome`"#, "N1016"));
 }
 
 #[test]
 fn escape_de_cifrao_nao_inicia_interpolacao() {
-    let r = analisar("\x60Literal: \\${nome}`");
+    let r = analisar(r#"`Literal: \${nome}`"#);
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
 }
 
