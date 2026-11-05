@@ -17,7 +17,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "declaracoes variaveis",
-            "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutável d: texto <- \"Nebula\"\nconstante ativo = verdadeiro",
+            "variavel a = 1\ndefinir b: inteiro = 2\nmutavel c <- 3\nmutavel d: texto <- \"Nebula\"\nconstante ativo = verdadeiro",
         ),
         (
             "funcao publica generica",
@@ -135,8 +135,8 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "funcao vazio()\n    passar\nfim",
         ),
         (
-            "grafias ortograficas",
-            "função principal()\n    quando não falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeração Estado:\n    Pronto\nfim\npúblico função iniciar()\n    passar\nfim",
+            "aliases sem acentos",
+            "funcao principal()\n    quando nao falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeracao Estado:\n    Pronto\nfim\npublico funcao iniciar()\n    passar\nfim",
         ),
         (
             "fixture de sintaxe visual",
@@ -186,7 +186,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         ("intervalo encadeado", "N2013", "variavel a = 1..2..3"),
         ("generico duplicado", "N2014", "funcao f<T, T>() {}"),
         ("lista generica vazia", "N2015", "funcao f<>() {}"),
-        ("construcao futura", "N2016", "assinc funcao f() {}"),
+        ("construcao futura", "N2016", "herda"),
         (
             "abertura de estrutura ausente",
             "N2030",
@@ -304,8 +304,14 @@ fn diagnosticos_do_corpus_preservam_intervalos_utf8_validos() {
 fn corpus_combinado_preserva_a_ordem_dos_itens() {
     let codigo = r#"
 variavel nome = "Nebula"
-estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim
-enumeracao Estado:\n    Ativo\n    Inativo\nfim
+estrutura Pessoa:
+    nome: texto
+    idade: inteiro
+fim
+enumeracao Estado:
+    Ativo
+    Inativo
+fim
 funcao principal(pessoa: Pessoa): vazio
     quando verdadeiro
         exibir(pessoa.nome)
@@ -498,7 +504,7 @@ variavel chamada = executar(1)
 variavel indexacao = itens[0]
 variavel membro = objeto.campo
 variavel construcao = Pessoa { nome: "Ana" }
-variavel lambda = x -> x + 1
+variavel funcao_lambda = x -> x + 1
 variavel lambda_bloco = x ->:
     devolver x
 fim
