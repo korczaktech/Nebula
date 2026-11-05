@@ -1797,7 +1797,7 @@ mod testes {
             "para (variavel i = 0; i < 2; i = i + 1) { exibir(i) }",
             "para (i = 0; ; i = i + 1) { parar }",
             "para (; verdadeiro; ) { parar }",
-            "quando verdadeiro\n{ exibir(1) }\nsenão\n{ exibir(0) }",
+            "quando verdadeiro\n{ exibir(1) }\nsenao\n{ exibir(0) }",
             "escolha valor { caso Resultado::Vazio {} }",
             "avaliar valor { caso Resultado::Unico(item) { exibir(item) } }",
             "variavel agrupada = (1)",
