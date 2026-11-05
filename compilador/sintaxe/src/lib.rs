@@ -475,7 +475,7 @@ impl Parser {
     fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar();
         let condicao = self.expressao_antes_de_bloco()?;
-        let entao = self.bloco()?;
+        let entao = self.bloco_sem_fim()?;
         let mut alternativas = Vec::new();
         loop {
             self.pular_novas_linhas();
@@ -483,15 +483,18 @@ impl Parser {
                 break;
             }
             let condicao_alternativa = self.expressao_antes_de_bloco()?;
-            let corpo_alternativo = self.bloco()?;
+            let corpo_alternativo = self.bloco_sem_fim()?;
             alternativas.push((condicao_alternativa, corpo_alternativo));
         }
         self.pular_novas_linhas();
         let mut senao = if self.corresponde(TipoToken::Senao) {
-            self.bloco()?
+            self.bloco_sem_fim()?
         } else {
             Vec::new()
         };
+        if self.verifica(TipoToken::FimBloco) {
+            self.avancar();
+        }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
                 condicao: condicao_alternativa,
@@ -727,9 +730,12 @@ impl Parser {
         Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
     }
     fn bloco(&mut self) -> Option<Vec<NoAst>> {
-        self.com_profundidade(|parser| parser.bloco_interno())
+        self.com_profundidade(|parser| parser.bloco_interno(true))
     }
-    fn bloco_interno(&mut self) -> Option<Vec<NoAst>> {
+    fn bloco_sem_fim(&mut self) -> Option<Vec<NoAst>> {
+        self.com_profundidade(|parser| parser.bloco_interno(false))
+    }
+    fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
         if self.verifica(TipoToken::NovaLinha) {
             let proximo = self.tokens.iter().skip(self.atual)
                 .find(|token| token.tipo != TipoToken::NovaLinha)
@@ -829,11 +835,13 @@ impl Parser {
         if indentado && profundidade_indentacao > 0 {
             self.erro_atual("N2009", "Bloco indentado não foi fechado corretamente.");
         }
-        if self.verifica(TipoToken::FimBloco) {
-            self.avancar();
-        } else if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::Senao)
-            && !self.verifica(TipoToken::Sendo) {
-            self.erro_atual("N2009", "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
+        if consumir_fim {
+            if self.verifica(TipoToken::FimBloco) {
+                self.avancar();
+            } else if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::Senao)
+                && !self.verifica(TipoToken::Sendo) {
+                self.erro_atual("N2009", "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
+            }
         }
         Some(itens)
     }
