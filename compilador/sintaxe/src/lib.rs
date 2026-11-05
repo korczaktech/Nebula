@@ -207,7 +207,6 @@ impl Parser {
         Some(funcao)
     }
 
-    fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo(None) }
     fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
         let nome = if self.verifica(TipoToken::Construtor) { self.avancar().lexema } else { self.consumir_nome("Esperado nome da função.")? };
         let mut genericos = Vec::new();
@@ -901,7 +900,7 @@ impl Parser {
                     continue;
                 }
                 let no = self.item();
-                let bloco_recuperado = no.as_ref().is_some_and(|no| Self::eh_bloco(no))
+                let bloco_recuperado = no.as_ref().is_some_and(Self::eh_bloco)
                     && self.diagnosticos.len() > diagnosticos_antes
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
