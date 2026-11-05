@@ -637,7 +637,7 @@ fn reconhece_async_e_nao_reserva_assinc() {
     let resultado = analisar("async funcao carregar() assinc");
     assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
     assert_eq!(resultado.tokens[0].tipo, TipoToken::Async);
-    assert_eq!(resultado.tokens[4].tipo, TipoToken::Identificador);
+    assert_eq!(resultado.tokens[5].tipo, TipoToken::Identificador);
 }
 
 #[test]
