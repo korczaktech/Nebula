@@ -329,7 +329,6 @@ fim
     assert_eq!(resultado.programa.itens.len(), 4);
 }
 
-
 #[test]
 fn matriz_ast_cobre_todas_as_variantes_de_instrucao() {
     use nebula_sintaxe::ast::NoAst;
@@ -419,7 +418,11 @@ fim
         resultado.diagnosticos
     );
 
-    let nos: Vec<_> = resultado.programa.iter_localizados().map(|item| &item.no).collect();
+    let nos: Vec<_> = resultado
+        .programa
+        .iter_localizados()
+        .map(|item| &item.no)
+        .collect();
     let exige = |condicao: fn(&NoAst) -> bool, nome: &str| {
         assert!(
             nos.iter().any(|no| condicao(no)),
@@ -444,16 +447,34 @@ fim
     exige(|n| matches!(n, NoAst::Passar), "Passar");
     exige(|n| matches!(n, NoAst::Ceder(_)), "Ceder");
     exige(|n| matches!(n, NoAst::Atributada { .. }), "Atributada");
-    exige(|n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "seguro"), "BlocoContextual seguro");
-    exige(|n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "critico"), "BlocoContextual critico");
-    exige(|n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "privilegio"), "BlocoContextual privilegio");
-    exige(|n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "montagem"), "BlocoContextual montagem");
+    exige(
+        |n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "seguro"),
+        "BlocoContextual seguro",
+    );
+    exige(
+        |n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "critico"),
+        "BlocoContextual critico",
+    );
+    exige(
+        |n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "privilegio"),
+        "BlocoContextual privilegio",
+    );
+    exige(
+        |n| matches!(n, NoAst::BlocoContextual { contexto, .. } if contexto == "montagem"),
+        "BlocoContextual montagem",
+    );
     exige(|n| matches!(n, NoAst::Tente { .. }), "Tente");
     exige(|n| matches!(n, NoAst::Com { .. }), "Com");
     exige(|n| matches!(n, NoAst::Lancar(_)), "Lancar");
     exige(|n| matches!(n, NoAst::Verifique { .. }), "Verifique");
-    exige(|n| matches!(n, NoAst::Escopo { externa: false, .. }), "Escopo global");
-    exige(|n| matches!(n, NoAst::Escopo { externa: true, .. }), "Escopo externa");
+    exige(
+        |n| matches!(n, NoAst::Escopo { externa: false, .. }),
+        "Escopo global",
+    );
+    exige(
+        |n| matches!(n, NoAst::Escopo { externa: true, .. }),
+        "Escopo externa",
+    );
     exige(|n| matches!(n, NoAst::Classe { .. }), "Classe");
 }
 
@@ -507,15 +528,27 @@ variavel propagacao = resultado?
     exige(|e| matches!(e, Expressao::Tupla(_)), "Tupla");
     exige(|e| matches!(e, Expressao::Unaria { .. }), "Unaria");
     exige(|e| matches!(e, Expressao::Binaria { .. }), "Binaria");
-    exige(|e| matches!(e, Expressao::ArgumentoNomeado { .. }), "ArgumentoNomeado");
+    exige(
+        |e| matches!(e, Expressao::ArgumentoNomeado { .. }),
+        "ArgumentoNomeado",
+    );
     exige(|e| matches!(e, Expressao::Atribuicao { .. }), "Atribuicao");
     exige(|e| matches!(e, Expressao::Chamada { .. }), "Chamada");
     exige(|e| matches!(e, Expressao::Indexacao { .. }), "Indexacao");
     exige(|e| matches!(e, Expressao::Membro { .. }), "Membro");
-    exige(|e| matches!(e, Expressao::ConstrucaoEstrutura { .. }), "ConstrucaoEstrutura");
+    exige(
+        |e| matches!(e, Expressao::ConstrucaoEstrutura { .. }),
+        "ConstrucaoEstrutura",
+    );
     exige(|e| matches!(e, Expressao::Lambda { .. }), "Lambda");
-    exige(|e| matches!(e, Expressao::LambdaBloco { .. }), "LambdaBloco");
-    exige(|e| matches!(e, Expressao::Condicional { .. }), "Condicional");
+    exige(
+        |e| matches!(e, Expressao::LambdaBloco { .. }),
+        "LambdaBloco",
+    );
+    exige(
+        |e| matches!(e, Expressao::Condicional { .. }),
+        "Condicional",
+    );
     assert!(
         expressoes.iter().any(|e| matches!(e, Expressao::Chamada { tipos_genericos, .. } if tipos_genericos == &["texto"])),
         "chamada genérica precisa preservar os argumentos de tipo"
@@ -525,10 +558,38 @@ variavel propagacao = resultado?
 #[test]
 fn matriz_de_operadores_binarios_e_atribuicoes_compostas() {
     let operadores = [
-        "+", "-", "*", "/", r"\\", "%", "**", "<<", ">>", ">>>", "..",
-        "<", "<=", ">", ">=", "==", "!=", "!==", "iguais", "identico",
-        "dentro", "fora", "tipoDe", "instanciaDe", "&", "^", "|",
-        "e", "ou", "&&", "||", "??",
+        "+",
+        "-",
+        "*",
+        "/",
+        r"\\",
+        "%",
+        "**",
+        "<<",
+        ">>",
+        ">>>",
+        "..",
+        "<",
+        "<=",
+        ">",
+        ">=",
+        "==",
+        "!=",
+        "!==",
+        "iguais",
+        "identico",
+        "dentro",
+        "fora",
+        "tipoDe",
+        "instanciaDe",
+        "&",
+        "^",
+        "|",
+        "e",
+        "ou",
+        "&&",
+        "||",
+        "??",
     ];
     for (indice, operador) in operadores.iter().enumerate() {
         let codigo = format!("variavel resultado_{indice} = esquerdo {operador} direito");
@@ -539,13 +600,20 @@ fn matriz_de_operadores_binarios_e_atribuicoes_compostas() {
             resultado.diagnosticos
         );
         assert!(
-            resultado.programa.iter_expressoes_localizadas().any(|item|
-                matches!(&item.expressao, nebula_sintaxe::ast::Expressao::Binaria { .. })),
+            resultado
+                .programa
+                .iter_expressoes_localizadas()
+                .any(|item| matches!(
+                    &item.expressao,
+                    nebula_sintaxe::ast::Expressao::Binaria { .. }
+                )),
             "operador {operador:?} não produziu expressão binária"
         );
     }
 
-    let atribuicoes = ["=", "<-", "+=", "-=", "*=", "/=", r"\\=", "%=", "**=", "??="];
+    let atribuicoes = [
+        "=", "<-", "+=", "-=", "*=", "/=", r"\\=", "%=", "**=", "??=",
+    ];
     for (indice, operador) in atribuicoes.iter().enumerate() {
         let codigo = format!("variavel valor_{indice} = 1\nvalor_{indice} {operador} 2");
         let resultado = analisar_codigo(&codigo);
@@ -555,8 +623,13 @@ fn matriz_de_operadores_binarios_e_atribuicoes_compostas() {
             resultado.diagnosticos
         );
         assert!(
-            resultado.programa.iter_expressoes_localizadas().any(|item|
-                matches!(&item.expressao, nebula_sintaxe::ast::Expressao::Atribuicao { .. })),
+            resultado
+                .programa
+                .iter_expressoes_localizadas()
+                .any(|item| matches!(
+                    &item.expressao,
+                    nebula_sintaxe::ast::Expressao::Atribuicao { .. }
+                )),
             "atribuição {operador:?} não produziu AST de atribuição"
         );
     }
@@ -594,10 +667,14 @@ fim
         .map(|item| item.caso.padrao())
         .collect();
     assert_eq!(padroes.len(), 6);
-    assert!(matches!(&padroes[0], PadraoAst::Variante { caminho, vinculacoes }
-        if caminho == &["Estado".to_owned(), "Falha".to_owned()] && vinculacoes.len() == 2));
-    assert!(matches!(&padroes[1], PadraoAst::Variante { caminho, vinculacoes }
-        if caminho == &["Estado".to_owned(), "Pronto".to_owned()] && vinculacoes.is_empty()));
+    assert!(
+        matches!(&padroes[0], PadraoAst::Variante { caminho, vinculacoes }
+        if caminho == &["Estado".to_owned(), "Falha".to_owned()] && vinculacoes.len() == 2)
+    );
+    assert!(
+        matches!(&padroes[1], PadraoAst::Variante { caminho, vinculacoes }
+        if caminho == &["Estado".to_owned(), "Pronto".to_owned()] && vinculacoes.is_empty())
+    );
     assert!(matches!(&padroes[2], PadraoAst::Literal(valor) if valor == "42"));
     assert!(matches!(&padroes[3], PadraoAst::Literal(valor) if valor == "\"texto\""));
     assert!(matches!(&padroes[4], PadraoAst::Literal(valor) if valor == "verdadeiro"));
@@ -607,8 +684,14 @@ fim
 #[test]
 fn matriz_de_erros_limites_e_recuperacao_do_parser() {
     let invalidos = [
-        ("parâmetro duplicado", "funcao f(x: inteiro, x: texto)\n    passar\nfim"),
-        ("genérico sem fechamento", "funcao f<T(valor: T)\n    passar\nfim"),
+        (
+            "parâmetro duplicado",
+            "funcao f(x: inteiro, x: texto)\n    passar\nfim",
+        ),
+        (
+            "genérico sem fechamento",
+            "funcao f<T(valor: T)\n    passar\nfim",
+        ),
         ("tipo genérico vazio", "variavel x: Mapa<> = nulo"),
         ("lista sem fechamento", "variavel x = [1, 2"),
         ("tupla sem fechamento", "variavel x = (1, 2"),
@@ -618,13 +701,28 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
         ("lambda com parâmetro inválido", "variavel f = (1, 2) -> 3"),
         ("bloco contextual sem corpo", "critico"),
         ("classe sem bloco", "classe Pessoa"),
-        ("estrutura sem tipo de campo", "estrutura Pessoa:\n    nome:\nfim"),
-        ("enumeração com payload incompleto", "enumeracao Estado:\n    Falha(inteiro,)\nfim"),
-        ("escolha sem padrão", "escolha valor\n    caso\n        passar\nfim"),
-        ("caso com tokens extras", "escolha valor\n    caso Estado::Pronto extra\n        passar\nfim"),
+        (
+            "estrutura sem tipo de campo",
+            "estrutura Pessoa:\n    nome:\nfim",
+        ),
+        (
+            "enumeração com payload incompleto",
+            "enumeracao Estado:\n    Falha(inteiro,)\nfim",
+        ),
+        (
+            "escolha sem padrão",
+            "escolha valor\n    caso\n        passar\nfim",
+        ),
+        (
+            "caso com tokens extras",
+            "escolha valor\n    caso Estado::Pronto extra\n        passar\nfim",
+        ),
         ("tente sem cláusula", "tente\n    passar\nfim"),
         ("com sem recurso", "com\n    passar\nfim"),
-        ("para com cabeçalho inválido", "para (variavel i = ; ; )\n    passar\nfim"),
+        (
+            "para com cabeçalho inválido",
+            "para (variavel i = ; ; )\n    passar\nfim",
+        ),
         ("condicional sem corpo", "quando verdadeiro\nfim"),
         ("fechamento isolado", "variavel x = 1]"),
     ];
@@ -636,12 +734,27 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
         );
         for diagnostico in &resultado.diagnosticos {
             if let Some(intervalo) = diagnostico.intervalo {
-                assert!(intervalo.inicio <= intervalo.fim, "intervalo invertido em [{nome}]");
-                assert!(intervalo.fim <= codigo.len(), "intervalo fora da fonte em [{nome}]");
-                assert!(codigo.is_char_boundary(intervalo.inicio), "início UTF-8 inválido em [{nome}]");
-                assert!(codigo.is_char_boundary(intervalo.fim), "fim UTF-8 inválido em [{nome}]");
+                assert!(
+                    intervalo.inicio <= intervalo.fim,
+                    "intervalo invertido em [{nome}]"
+                );
+                assert!(
+                    intervalo.fim <= codigo.len(),
+                    "intervalo fora da fonte em [{nome}]"
+                );
+                assert!(
+                    codigo.is_char_boundary(intervalo.inicio),
+                    "início UTF-8 inválido em [{nome}]"
+                );
+                assert!(
+                    codigo.is_char_boundary(intervalo.fim),
+                    "fim UTF-8 inválido em [{nome}]"
+                );
             }
-            assert!(!diagnostico.mensagem.trim().is_empty(), "mensagem vazia em [{nome}]");
+            assert!(
+                !diagnostico.mensagem.trim().is_empty(),
+                "mensagem vazia em [{nome}]"
+            );
         }
     }
 
@@ -653,7 +766,10 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
     ];
     for codigo in recuperaveis {
         let resultado = analisar_codigo(codigo);
-        assert!(!resultado.diagnosticos.is_empty(), "a entrada deveria emitir diagnóstico");
+        assert!(
+            !resultado.diagnosticos.is_empty(),
+            "a entrada deveria emitir diagnóstico"
+        );
         assert!(
             resultado.programa.itens.iter().any(|no|
                 matches!(no, nebula_sintaxe::ast::NoAst::Variavel { nome, .. } if nome == "preservada")),
