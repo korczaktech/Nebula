@@ -357,11 +357,13 @@ impl Parser {
             || (contexto == "seguro" && self.verifica(TipoToken::Identificador)) {
             self.consumir_nome("Esperado identificador após o contexto.")
         } else { None };
+        let mut tipos_genericos = Vec::new();
         let mut argumentos = Vec::new();
         if self.corresponde(TipoToken::Menor) {
             while !self.verifica(TipoToken::Maior) && !self.verifica(TipoToken::Fim) {
-                let _ = self.caminho_tipo()?;
+                tipos_genericos.push(self.caminho_tipo()?);
                 if !self.corresponde(TipoToken::Virgula) { break; }
+                self.pular_novas_linhas();
             }
             self.esperar(TipoToken::Maior, "Esperado '>' após parâmetros do contexto.");
         }
@@ -376,9 +378,9 @@ impl Parser {
         }
         if self.corresponde(TipoToken::DoisPontos) || self.verifica(TipoToken::NovaLinha) {
             let corpo = self.bloco()?;
-            Some(NoAst::BlocoContextual { contexto, argumento, argumentos, corpo })
+            Some(NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo })
         } else if self.corresponde(TipoToken::FimBloco) {
-            Some(NoAst::BlocoContextual { contexto, argumento, argumentos, corpo: Vec::new() })
+            Some(NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo: Vec::new() })
         } else {
             self.erro_atual("N2007", "Esperado bloco após declaração de contexto.");
             None
