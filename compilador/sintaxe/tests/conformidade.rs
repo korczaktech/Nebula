@@ -51,17 +51,26 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "quando e senao",
             "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
         ),
-        ("quando encadeado", "quando a\n    passar\nsendo b\n    passar\nsenao\n    passar\nfim"),
+        (
+            "quando encadeado",
+            "quando a\n    passar\nsendo b\n    passar\nsenao\n    passar\nfim",
+        ),
         (
             "escolha e padroes",
             "escolha valor\n    caso Resultado::Sucesso(texto)\n        exibir(texto)\n    caso Resultado::Falha(codigo)\n        passar\n    caso _\n        passar\nfim",
         ),
-        ("alias avaliar", "avaliar valor\n    caso Estado::Pronto\n        passar\nfim"),
+        (
+            "alias avaliar",
+            "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
+        ),
         (
             "lacos enquanto",
             "enquanto verdadeiro\n    parar\nfim\ndurante falso\n    seguir\nfim\nrepetir verdadeiro\n    encerrar\nfim",
         ),
-        ("iteracao cada", "cada item em [1, 2, 3]\n    exibir(item)\nfim"),
+        (
+            "iteracao cada",
+            "cada item em [1, 2, 3]\n    exibir(item)\nfim",
+        ),
         ("pulso", "pulso(100)\n    exibir(1)\nfim"),
         (
             "para com declaracao",
@@ -118,7 +127,10 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "bloco com fim",
             "funcao executar()\n    variavel ativo = verdadeiro\n    enquanto ativo\n        ativo = falso\n    fim\nfim",
         ),
-        ("bloco com instrucao vazia", "funcao vazio()\n    passar\nfim"),
+        (
+            "bloco com instrucao vazia",
+            "funcao vazio()\n    passar\nfim",
+        ),
         (
             "grafias ortograficas",
             "função principal()\n    quando não falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeração Estado { Pronto }\npúblico função iniciar()\n    passar\nfim",
