@@ -519,7 +519,13 @@ fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
             .count(),
         1
     );
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 1);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Dedent)
+            .count(),
+        1
+    );
 }
 
 #[test]
@@ -533,7 +539,13 @@ fn comentarios_de_bloco_nao_criam_niveis_em_linhas_vazias() {
             .count(),
         0
     );
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 0);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Dedent)
+            .count(),
+        0
+    );
 }
 
 #[test]
