@@ -976,7 +976,13 @@ impl<'a> Lexer<'a> {
                         self.atual,
                     );
                 }
-            } else if self.byte(0) == Some(b'
+            } else if self.byte(0) == Some(b'$') && self.byte(1) == Some(b'{') {
+                self.interpolacao();
+            } else if let Some(c) = self.caractere() {
+                self.atual += c.len_utf8();
+            } else {
+                break;
+            }
         }
         if !fechado {
             self.erro(
@@ -988,6 +994,7 @@ impl<'a> Lexer<'a> {
         }
         self.adicionar(TipoToken::TextoInterpolado, self.inicio, self.atual);
     }
+
     fn interpolacao(&mut self) {
         let inicio = self.atual;
         self.atual += 2;
