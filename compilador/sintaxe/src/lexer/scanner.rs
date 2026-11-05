@@ -201,7 +201,6 @@ impl<'a> Lexer<'a> {
     }
     fn operador_igual(&mut self) {
         if self.corresponde(b'=') {
-            let _estrito = self.corresponde(b'=');
             self.simples(TipoToken::Igual);
         } else if self.corresponde(b'+') { self.simples(TipoToken::SomaAtribui); }
         else if self.corresponde(b'-') { self.simples(TipoToken::SubtraiAtribui); }
@@ -242,7 +241,7 @@ impl<'a> Lexer<'a> {
             "verifique" => TipoToken::Verifique, "com" => TipoToken::Com, "assinc" => TipoToken::Assinc,
             "aguarda" => TipoToken::Aguarda, "global" => TipoToken::Global, "externa" => TipoToken::Externa,
             "isto" => TipoToken::Isto, "novo" => TipoToken::Novo, "apagar" => TipoToken::Apagar,
-            "identico" => TipoToken::Identico, "nao" | "não" => TipoToken::Nao,
+            "identico" => TipoToken::Identico, "nao" | "não" => TipoToken::Nao, "fora" => TipoToken::Fora,
             "e" => TipoToken::E, "ou" => TipoToken::Ou, "sim" => TipoToken::Sim,
             "verdadeiro" => TipoToken::Verdadeiro, "falso" => TipoToken::Falso, "nulo" => TipoToken::Nulo,
             "iguais" => TipoToken::Iguais, "tipoDe" => TipoToken::TipoDe, "instanciaDe" => TipoToken::InstanciaDe,
