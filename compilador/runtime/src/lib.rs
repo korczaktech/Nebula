@@ -458,6 +458,20 @@ impl Memoria {
             .collect()
     }
 
+    /// Retorna uma cópia de todos os escopos ativos, do global ao local.
+    #[must_use]
+    pub fn escopos(&self) -> Vec<HashMap<String, Valor>> {
+        self.escopos
+            .iter()
+            .map(|escopo| {
+                escopo
+                    .iter()
+                    .map(|(nome, celula)| (nome.clone(), celula.valor.clone()))
+                    .collect()
+            })
+            .collect()
+    }
+
     /// Abre um novo escopo léxico.
     pub fn abrir_escopo(&mut self) {
         self.escopos.push(HashMap::new());
@@ -1204,6 +1218,21 @@ mod testes {
             Err(ErroRuntime::DivisaoPorZero)
         );
         assert_eq!(operar_inteiro(OperacaoInteira::Potencia, 2, 10), Ok(1024));
+    }
+
+    #[test]
+    fn inspeciona_escopos_ativos_sem_perder_sombreamento() {
+        let mut memoria = Memoria::nova();
+        memoria.declarar("valor", Valor::Inteiro(1), true).unwrap();
+        memoria.abrir_escopo();
+        memoria.declarar("valor", Valor::Inteiro(2), true).unwrap();
+        memoria.declarar("local", Valor::Texto("interno".into()), true).unwrap();
+
+        let escopos = memoria.escopos();
+        assert_eq!(escopos.len(), 2);
+        assert_eq!(escopos[0].get("valor"), Some(&Valor::Inteiro(1)));
+        assert_eq!(escopos[1].get("valor"), Some(&Valor::Inteiro(2)));
+        assert_eq!(escopos[1].get("local"), Some(&Valor::Texto("interno".into())));
     }
 
     #[test]
