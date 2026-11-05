@@ -1286,7 +1286,7 @@ mod testes {
     #[test]
     fn analisa_tipos_de_funcao_aninhados() {
         let resultado = analisar(&fonte(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, padrao: funcao(funcao(inteiro): logico): vazio }",
+            "estrutura Registro { callback: funcao(inteiro, texto): logico, callbackPadrao: funcao(funcao(inteiro): logico): vazio }",
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
@@ -2486,7 +2486,7 @@ mod testes {
 
     #[test]
     fn analisa_sequencias_de_operadores_unarios() {
-        let codigo = "variavel dupla = --2\nvariavel logica = !nao falso\nvariavel mista = +-!nao 3";
+        let codigo = "variavel dupla = - -2\nvariavel logica = !nao falso\nvariavel mista = +-!nao 3";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
 
@@ -3168,14 +3168,14 @@ mod testes {
 
     #[test]
     fn analisa_campos_de_estrutura_com_todas_as_formas_de_tipo() {
-        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: modulo::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
+        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: biblioteca::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
             panic!("a declaração de estrutura deveria produzir AST");
         };
         assert_eq!(campos.len(), 6);
-        assert_eq!(campos[1].1, "modulo::Identidade");
+        assert_eq!(campos[1].1, "biblioteca::Identidade");
         assert_eq!(campos[2].1, "[texto]");
         assert_eq!(campos[3].1, "Mapa<texto,[inteiro]>");
         assert_eq!(campos[4].1, "funcao(inteiro,texto):logico");
