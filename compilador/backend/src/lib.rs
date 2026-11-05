@@ -16,6 +16,13 @@ const INICIO_AREA_AGREGADOS: u64 = (LIMITE_VARIAVEIS as u64) * 16 + 8;
 const LIMITE_VARIAVEIS: usize = 512;
 const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 
+fn instrucao_base(mut instrucao: &InstrucaoIr) -> &InstrucaoIr {
+    while let InstrucaoIr::Localizada { instrucao: interna, .. } = instrucao_base(instrucao) {
+        instrucao = interna;
+    }
+    instrucao
+}
+
 /// Compila a IR em um executável ELF64 estático para Linux x86-64.
 ///
 /// O arquivo é construído diretamente em Rust. Não gera C/C++, assembly textual,
