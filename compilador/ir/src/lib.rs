@@ -3751,6 +3751,41 @@ mod testes {
     }
 
     #[test]
+    fn preserva_localizacoes_em_blocos_e_lacos_aninhados() {
+        let fonte = ArquivoFonte::novo(
+            "aninhado.nbx",
+            "quando verdadeiro {\n    variavel interno = 7\n}\nenquanto falso {\n    variavel repetido = 1\n}",
+        );
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let ir = resultado.programa.expect("IR aninhada");
+
+        let InstrucaoIr::Localizada { instrucao: condicional, .. } = &ir.instrucoes[0] else {
+            panic!("condicional precisa ter origem");
+        };
+        let InstrucaoIr::Se { entao, .. } = condicional.as_ref() else {
+            panic!("esperava condicional");
+        };
+        let InstrucaoIr::Localizada { intervalo: interno, .. } = &entao[0] else {
+            panic!("instrução interna precisa ter origem");
+        };
+        assert_eq!(fonte.linha_coluna(interno.inicio), Some((2, 5)));
+
+        let InstrucaoIr::Localizada { instrucao: laco, .. } = &ir.instrucoes[1] else {
+            panic!("laço precisa ter origem");
+        };
+        let InstrucaoIr::Enquanto { corpo, .. } = laco.as_ref() else {
+            panic!("esperava enquanto");
+        };
+        let InstrucaoIr::Localizada { intervalo: repetido, .. } = &corpo[0] else {
+            panic!("corpo do laço precisa ter origem");
+        };
+        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((5, 5)));
+    }
+
+    #[test]
     fn controlador_interrompe_em_offset_de_linha_fonte() {
         let fonte = ArquivoFonte::novo("pontos.nbx", "variavel contador = 1\ncontador = contador + 1\ncontador = contador + 1");
         let sintaxe = analisar(&fonte);
