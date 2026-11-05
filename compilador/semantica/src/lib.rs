@@ -641,7 +641,8 @@ impl<'a> Analisador<'a> {
                 }
                 tipo
             },
-            Expressao::ArgumentoNomeado { valor, .. } => self.expressao(valor),\n            Expressao::Lista(valores) => {
+            Expressao::ArgumentoNomeado { valor, .. } => self.expressao(valor),
+            Expressao::Lista(valores) => {
                 if valores.is_empty() { return Tipo::Lista(Box::new(Tipo::Desconhecido)); }
                 let primeiro = self.expressao(&valores[0]);
                 for valor in valores.iter().skip(1) {
