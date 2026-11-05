@@ -245,11 +245,19 @@ impl<'a> Analisador<'a> {
                 self.fechar_escopo();
                 self.parametros_genericos = genericos_anteriores;
             }
-            NoAst::Tipo { .. } | NoAst::Classe { .. } | NoAst::Passar => {
+            NoAst::Tipo { .. } => {
                 if self.escopos.len() > 1 {
                     self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
                 }
             }
+            NoAst::Classe { corpo, .. } => {
+                self.abrir_escopo();
+                for membro in corpo {
+                    self.item(membro);
+                }
+                self.fechar_escopo();
+            }
+            NoAst::Passar => {}
             NoAst::Estrutura { nome, campos } => {
                 if self.escopos.len() > 1 {
                     self.erro("N3032", "Estruturas só podem ser declaradas no escopo do arquivo.");
