@@ -29,9 +29,7 @@ impl TipoAst {
         }
 
         // A gramática permite argumentos inteiros constantes em tipos genéricos.
-        if texto.chars().any(|c| c.is_ascii_digit())
-            && texto.chars().all(|c| c.is_ascii_digit() || c == '_')
-        {
+        if eh_inteiro_constante(texto) {
             return Self::Constante(texto.to_owned());
         }
 
@@ -238,4 +236,24 @@ mod testes {
             }
         );
     }
+}
+
+
+/// Reconhece literais inteiros decimais, binários, octais e hexadecimais.
+fn eh_inteiro_constante(texto: &str) -> bool {
+    let (digitos, radix) = if let Some(resto) = texto.strip_prefix("0x").or_else(|| texto.strip_prefix("0X")) {
+        (resto, 16)
+    } else if let Some(resto) = texto.strip_prefix("0b").or_else(|| texto.strip_prefix("0B")) {
+        (resto, 2)
+    } else if let Some(resto) = texto.strip_prefix("0o").or_else(|| texto.strip_prefix("0O")) {
+        (resto, 8)
+    } else {
+        (texto, 10)
+    };
+
+    !digitos.is_empty()
+        && !digitos.starts_with('_')
+        && !digitos.ends_with('_')
+        && !digitos.contains("__")
+        && digitos.chars().filter(|c| *c != '_').all(|c| c.is_digit(radix))
 }
