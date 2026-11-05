@@ -1,0 +1,38 @@
+name: Atualizar lockfile DAP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "compilador/cli/Cargo.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Gerar lockfile
+        run: cargo generate-lockfile
+
+      - name: Registrar lockfile
+        run: |
+          if git diff --quiet -- Cargo.lock; then
+            echo "Lockfile já atualizado."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "Atualiza dependências DAP"
+          git push
