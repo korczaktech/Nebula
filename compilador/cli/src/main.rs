@@ -2366,6 +2366,15 @@ mod fixtures_conformidade_tipos {
     }
 
     #[test]
+    fn valida_fixture_da_matriz_completa_de_tipos_primitivos() {
+        let resultado = validar_fixture(
+            include_str!("../fixtures/tipos/matriz-primitivos.nbx"),
+            "matriz-primitivos.nbx",
+        );
+        assert!(resultado.is_ok(), "{resultado:?}");
+    }
+
+    #[test]
     fn valida_fixture_de_tipos_compostos_e_algebricos() {
         let resultado = validar_fixture(
             include_str!("../fixtures/tipos/compostos.nbx"),
