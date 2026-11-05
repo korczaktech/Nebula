@@ -39,7 +39,7 @@ Identificador:
 
 ### Palavras reconhecidas pelo Lexer e usadas na gramática
 
-variavel, definir, mutavel, constante, funcao, classe, herda, se, quando, sendo, senao, para, dentro, enquanto, escolha, caso, padrao, pare, prossiga, passar, retorne, devolver, lambda, ceder, incluir, biblioteca, modulo, de, como, tente, erro, sempre, lancar, verifique, com, assinc, aguarda, global, externa, isto, novo, apagar, identico, nao, fora, e, ou, sim, verdadeiro, falso, nulo, iguais, tipoDe, instanciaDe, obter, vazio, exportar, construtor, estatico, privado, publico, protegido, seguro, critico, privilegio, montagem, tipo, estrutura, enumeracao, avaliar, cada, em, pulso, durante, repetir, alterar, fim, parar, encerrar, seguir.
+variavel, definir, mutavel, constante, funcao, classe, herda, se, quando, sendo, senao, para, dentro, enquanto, escolha, caso, padrao, pare, prossiga, passar, retorne, devolver, lambda, ceder, incluir, biblioteca, modulo, de, como, tente, erro, sempre, lancar, verifique, com, async, aguarda, global, externa, isto, novo, apagar, identico, nao, fora, e, ou, sim, verdadeiro, falso, nulo, iguais, tipoDe, instanciaDe, obter, vazio, exportar, construtor, estatico, privado, publico, protegido, seguro, critico, privilegio, montagem, tipo, estrutura, enumeracao, avaliar, cada, em, pulso, durante, repetir, alterar, fim, parar, encerrar, seguir.
 
 ### Palavras reservadas futuras
 
@@ -84,7 +84,7 @@ Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u1
 
 `(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM`.
 
-## 8. Operadores
+## 8. Function Body e importações\n\nO Lexer reconhece a palavra reservada `async` como token próprio; `assinc` não é palavra reservada e é classificada como identificador. A estrutura `incluir(modulo: ..., biblioteca: ...)` é formada lexicalmente pelos tokens `INCLUIR`, `ABRE_PAR`, `MODULO`, `DOIS_PONTOS`, identificadores, `VIRGULA`, `BIBLIOTECA`, `DOIS_PONTOS` e `FECHA_PAR`.\n\nA abertura e o fechamento visual de Function Body são emitidos como `ABRE_CHAVE` e `FECHA_CHAVE`; a palavra `fim` é emitida como `FIM_BLOCO`. O Lexer preserva esses elementos e suas localizações, mas a exigência de um `fim` por corpo, sua posição antes de `}` e a validade das construções pertencem à validação sintática do Parser.\n\n## 9. Operadores
 
 A implementação reconhece operadores de atribuição, aritméticos, relacionais, igualdade, lógicos, bit a bit, deslocamento, acesso e operadores opcionais. Entre as grafias reconhecidas estão:
 
@@ -98,11 +98,11 @@ Operadores textuais incluem `e`, `ou`, `nao`, `dentro`, `fora`, `tipoDe` e `inst
 
 O Lexer aplica maior correspondência aos operadores compostos antes de seus prefixos.
 
-## 9. Fim de arquivo e erros léxicos
+## 10. Fim de arquivo e erros léxicos
 
 O fluxo contém token de fim de arquivo. O Lexer diagnostica, no mínimo, UTF-8 inválido, caractere inesperado, literal não terminado, escape inválido, número malformado, comentário de bloco não terminado, CR isolado, tabulação em indentação e coluna de dedentação inexistente. Cada diagnóstico preserva a localização disponível.
 
-## 10. Grafias portuguesas equivalentes
+## 11. Grafias portuguesas equivalentes
 
 O Lexer aceita as grafias sem acento e suas formas ortográficas acentuadas quando implementadas como aliases:
 - `funcao` e `função`;
