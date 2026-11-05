@@ -91,9 +91,6 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             proxima_referencia: 1,
                             pontos_parada: HashSet::new(),
                         });
-                        if continuar_inicializacao {
-                            let _ = tx_comandos.send(ComandoDepuracao::Continuar);
-                        }
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                         evento(&mut saida, &mut sequencia, "thread", json!({"reason":"started","threadId":1}))?;
                     }
@@ -124,7 +121,16 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             .map_err(|erro| format!("Não foi possível atualizar breakpoints: {erro}"))?;
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"breakpoints": respostas}))?;
                     }
-                    "configurationDone" | "setExceptionBreakpoints" => {
+                    "configurationDone" => {
+                        if continuar_inicializacao {
+                            if let Some(estado) = estado.as_ref() {
+                                estado.comandos.send(ComandoDepuracao::Continuar)
+                                    .map_err(|erro| format!("Falha ao iniciar execução: {erro}"))?;
+                            }
+                        }
+                        responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
+                    }
+                    "setExceptionBreakpoints" => {
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                     }
                     "threads" => {
