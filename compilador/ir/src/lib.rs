@@ -652,6 +652,29 @@ impl Lowerer {
         genericos: &[String],
         substituicoes: &mut HashMap<String, String>,
     ) -> bool {
+        // Cada unificação composta é atômica: falhas em tuplas, funções ou
+        // tipos genéricos não podem deixar vínculos parciais no chamador.
+        let mut tentativa = substituicoes.clone();
+        if self.inferir_substituicao_interno(
+            esperado,
+            obtido,
+            genericos,
+            &mut tentativa,
+        ) {
+            *substituicoes = tentativa;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn inferir_substituicao_interno(
+        &self,
+        esperado: &str,
+        obtido: &Tipo,
+        genericos: &[String],
+        substituicoes: &mut HashMap<String, String>,
+    ) -> bool {
         if genericos.iter().any(|parametro| parametro == esperado) {
             let nome = nome_tipo(obtido);
             return match substituicoes.get(esperado) {
