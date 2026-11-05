@@ -1180,7 +1180,7 @@ impl Parser {
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
-            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Nao | TipoToken::Menos
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Menos
             | TipoToken::Mais
         )
     }
