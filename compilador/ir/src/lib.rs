@@ -576,7 +576,7 @@ impl Lowerer {
                 }
                 _ => Tipo::Desconhecido,
             },
-            Expressao::Chamada { alvo, argumentos } => match alvo.as_ref() {
+            Expressao::Chamada { alvo, argumentos, .. } => match alvo.as_ref() {
                 Expressao::Nome(nome) => {
                     if nome == "copiar" && argumentos.len() == 1 {
                         self.inferir_tipo_ast(&argumentos[0])
@@ -855,7 +855,7 @@ impl Lowerer {
                     None
                 }
             }
-            Expressao::Chamada { alvo, argumentos } => {
+            Expressao::Chamada { alvo, argumentos, .. } => {
                 let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
                 match alvo.as_ref() {
                     Expressao::Nome(nome) => {
