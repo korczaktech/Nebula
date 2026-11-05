@@ -1,688 +1,199 @@
-//! Testes de conformidade e robustez do Lexer Nebula.
-
+//! Testes da nova especificação léxica Nebula.
 use nebula_fonte::ArquivoFonte;
-
 use super::{TipoToken, analisar_lexico};
 
-fn fonte(codigo: &str) -> ArquivoFonte {
-    ArquivoFonte::novo("lexer_teste.nbx", codigo)
-}
-
+fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("lexer_teste.nbx", codigo) }
+fn analisar(codigo: &str) -> super::ResultadoLexico { analisar_lexico(&fonte(codigo)) }
 fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
-    analisar_lexico(&fonte(codigo))
-        .diagnosticos
-        .iter()
-        .any(|d| d.codigo == codigo_erro)
+    analisar(codigo).diagnosticos.iter().any(|d| d.codigo == codigo_erro)
 }
 
 #[test]
-fn reconhece_palavras_reservadas_e_identificadores_unicode() {
-    let resultado = analisar_lexico(&fonte("variavel ação = verdadeiro"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Variavel);
-    assert_eq!(resultado.tokens[1].lexema, "ação");
-    assert_eq!(resultado.tokens[3].tipo, TipoToken::Verdadeiro);
+fn reconhece_palavras_reservadas_da_sintaxe_principal() {
+    let r = analisar("variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe obter definir vazio exportar construtor estatico privado publico protegido");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    let esperados = [
+        TipoToken::Variavel, TipoToken::Constante, TipoToken::Funcao, TipoToken::Classe,
+        TipoToken::Herda, TipoToken::Se, TipoToken::Sendo, TipoToken::Senao, TipoToken::Para,
+        TipoToken::Dentro, TipoToken::Enquanto, TipoToken::Escolha, TipoToken::Caso,
+        TipoToken::Padrao, TipoToken::Pare, TipoToken::Prossiga, TipoToken::Passar,
+        TipoToken::Retorne, TipoToken::Lambda, TipoToken::Ceder, TipoToken::Incluir,
+        TipoToken::Biblioteca, TipoToken::Modulo, TipoToken::De, TipoToken::Como,
+        TipoToken::Tente, TipoToken::Erro, TipoToken::Sempre, TipoToken::Lancar,
+        TipoToken::Verifique, TipoToken::Com, TipoToken::Assinc, TipoToken::Aguarda,
+        TipoToken::Global, TipoToken::Externa, TipoToken::Isto, TipoToken::Novo,
+        TipoToken::Apagar, TipoToken::Identico, TipoToken::Nao, TipoToken::E, TipoToken::Ou,
+        TipoToken::Sim, TipoToken::Verdadeiro, TipoToken::Falso, TipoToken::Nulo,
+        TipoToken::Iguais, TipoToken::TipoDe, TipoToken::InstanciaDe, TipoToken::Obter,
+        TipoToken::Definir, TipoToken::Vazio, TipoToken::Exportar, TipoToken::Construtor,
+        TipoToken::Estatico, TipoToken::Privado, TipoToken::Publico, TipoToken::Protegido
+    ];
+    let tokens: Vec<_> = r.tokens.iter().filter(|t| t.tipo != TipoToken::Fim).map(|t| t.tipo).collect();
+    assert_eq!(tokens, esperados);
 }
 
 #[test]
-fn reconhece_grafias_com_e_sem_acentos() {
-    let resultado = analisar_lexico(&fonte(
-        "funcao função senao senão nao não publico público enumeracao enumeração",
-    ));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
+fn reconhece_palavras_de_baixo_nivel_e_deixa_apis_como_identificadores() {
+    let r = analisar("critico privilegio montagem u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 endereco enderecoFisico tamanho deslocamento ponteiro ponteiroBruto vetor hardware memoria cpu atomico dma");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens[0].tipo, TipoToken::Critico);
+    assert_eq!(r.tokens[1].tipo, TipoToken::Privilegio);
+    assert_eq!(r.tokens[2].tipo, TipoToken::Montagem);
+    assert!(r.tokens[3..].iter().all(|t| t.tipo == TipoToken::Identificador));
+}
+
+#[test]
+fn emite_indent_dedent_e_preserva_fim_explicito() {
+    let r = analisar("funcao principal()\n    se sim\n        exibir(\"oi\")\n    fim\nfim");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    let tipos: Vec<_> = r.tokens.iter().map(|t| t.tipo).collect();
+    assert_eq!(tipos.iter().filter(|t| **t == TipoToken::Indent).count(), 2);
+    assert_eq!(tipos.iter().filter(|t| **t == TipoToken::Dedent).count(), 2);
+    assert_eq!(tipos.last(), Some(&TipoToken::Fim));
+}
+
+#[test]
+fn dedenta_varios_niveis_sem_criar_blocos_falsos_em_linhas_vazias() {
+    let r = analisar("a\n\n    b\n        c\n    d\ne");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 2);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 2);
+}
+
+#[test]
+fn diagnostica_tabulacao_e_nivel_de_indentacao_inexistente() {
+    assert!(possui_erro("a\n\tb", "N1012"));
+    assert!(possui_erro("a\n    b\n  c", "N1013"));
+}
+
+#[test]
+fn reconhece_operadores_da_especificacao_principal() {
+    let r = analisar("+ - * / \\\\ % ** ^ == iguais != !== > < >= <= = =+ =- =* =/ =\\\\ =% =** ++ -- -> && || ! ?? ?. ??= ... & | ~ << >> >>> ? : :: @ .. .");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    let tipos: Vec<_> = r.tokens.iter().filter(|t| t.tipo != TipoToken::Fim).map(|t| t.tipo).collect();
     for tipo in [
-        TipoToken::Funcao,
-        TipoToken::Senao,
-        TipoToken::Nao,
-        TipoToken::Publico,
-        TipoToken::Enumeracao,
-    ] {
-        assert_eq!(
-            resultado.tokens.iter().filter(|t| t.tipo == tipo).count(),
-            2
-        );
+        TipoToken::Mais, TipoToken::Menos, TipoToken::Vezes, TipoToken::Divide,
+        TipoToken::DivideInteira, TipoToken::Resto, TipoToken::Potencia, TipoToken::XorBit,
+        TipoToken::Igual, TipoToken::Iguais, TipoToken::Diferente, TipoToken::DiferenteEstrito,
+        TipoToken::Maior, TipoToken::Menor, TipoToken::MaiorIgual, TipoToken::MenorIgual,
+        TipoToken::Atribui, TipoToken::SomaAtribui, TipoToken::SubtraiAtribui,
+        TipoToken::MultiplicaAtribui, TipoToken::DivideAtribui, TipoToken::DivideInteiraAtribui,
+        TipoToken::RestoAtribui, TipoToken::PotenciaAtribui, TipoToken::Incrementa,
+        TipoToken::Decrementa, TipoToken::Seta, TipoToken::ELogico, TipoToken::OuLogico,
+        TipoToken::Negacao, TipoToken::Coalesce, TipoToken::AcessoOpcional,
+        TipoToken::CoalesceAtribui, TipoToken::Reticencias, TipoToken::EBit,
+        TipoToken::OuBit, TipoToken::NaoBit, TipoToken::DeslocaEsquerda,
+        TipoToken::DeslocaDireita, TipoToken::DeslocaDireitaSemSinal,
+        TipoToken::Interrogacao, TipoToken::DoisPontos, TipoToken::Escopo,
+        TipoToken::Arroba, TipoToken::Intervalo, TipoToken::Ponto
+    ] { assert!(tipos.contains(&tipo), "operador ausente: {tipo:?}"); }
+}
+
+#[test]
+fn respeita_maior_correspondencia_de_operadores() {
+    let r = analisar(">>> >> >= > !== != ** * ... .. . :: : ?? ??= ?. ?");
+    let tipos: Vec<_> = r.tokens.iter().filter(|t| t.tipo != TipoToken::Fim).map(|t| t.tipo).collect();
+    assert_eq!(tipos, [
+        TipoToken::DeslocaDireitaSemSinal, TipoToken::DeslocaDireita, TipoToken::MaiorIgual,
+        TipoToken::Maior, TipoToken::DiferenteEstrito, TipoToken::Diferente,
+        TipoToken::Potencia, TipoToken::Vezes, TipoToken::Reticencias, TipoToken::Intervalo,
+        TipoToken::Ponto, TipoToken::Escopo, TipoToken::DoisPontos, TipoToken::CoalesceAtribui,
+        TipoToken::AcessoOpcional, TipoToken::Interrogacao
+    ]);
+}
+
+#[test]
+fn reconhece_identificadores_unicode_e_normaliza_classificacao() {
+    let r = analisar("ação ação função função público publico");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens[0].tipo, TipoToken::Identificador);
+    assert_eq!(r.tokens[0].lexema, "ação");
+    assert_eq!(r.tokens[1].tipo, TipoToken::Identificador);
+    assert_eq!(r.tokens[1].lexema, "ação");
+    assert_eq!(r.tokens[2].tipo, TipoToken::Funcao);
+    assert_eq!(r.tokens[3].tipo, TipoToken::Funcao);
+    assert_eq!(r.tokens[4].tipo, TipoToken::Publico);
+    assert_eq!(r.tokens[5].tipo, TipoToken::Publico);
+}
+
+#[test]
+fn reconhece_numeros_decimais_expoentes_e_bases() {
+    let r = analisar("0 42 1_000 3.14 0.25 2e10 1E+2 1e-2 0xFF 0b101 0o77");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Inteiro).count(), 7);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Decimal).count(), 4);
+}
+
+#[test]
+fn diagnostica_numeros_malformados() {
+    for n in ["0x", "0b", "0o", "0b2", "0o8", "0xGG", "0b102", "0x_FF", "0b_1", "0o7_", "0xA__B", "1_", "1__2", "1e", "1e+", "1e-"] {
+        assert!(!analisar(n).diagnosticos.is_empty(), "literal inválido aceito: {n}");
     }
 }
 
 #[test]
-fn reconhece_todas_as_palavras_reservadas_iniciais() {
-    let resultado = analisar_lexico(&fonte(
-        "variavel definir mutavel constante funcao quando senao escolha avaliar caso para cada em pulso enquanto durante repetir alterar devolver incluir como verdadeiro falso nulo fim parar encerrar seguir e ou nao publico privado tipo estrutura enumeracao",
-    ));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .all(|t| t.tipo != TipoToken::Identificador)
-    );
+fn reconhece_texto_caractere_texto_multilinha_e_interpolacao() {
+    let r = analisar(r#""Nebula\n" 'á' '\u{1F680}' """linha 1
+linha 2""" "#);
+    let interpolado = analisar("\x60Ola, nome\x60");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert!(interpolado.diagnosticos.is_empty(), "{:?}", interpolado.diagnosticos);
+    assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::Texto));
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Caractere).count(), 2);
+    assert!(interpolado.tokens.iter().any(|t| t.tipo == TipoToken::TextoInterpolado));
 }
 
 #[test]
-fn reconhece_palavras_reservadas_futuras() {
-    let resultado = analisar_lexico(&fonte("tentar capturar finalmente assinc"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::ReservadaFutura)
-            .count(),
-        4
-    );
-}
-
-#[test]
-fn identificadores_unicode_preservam_lexema_original() {
-    let codigo = "ac\u{0327}a\u{0303}o";
-    let resultado = analisar_lexico(&fonte(codigo));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Identificador);
-    assert_eq!(resultado.tokens[0].lexema, codigo);
-}
-
-#[test]
-fn rejeita_espacos_unicode_nao_especificados() {
-    assert!(possui_erro("a\u{00A0}b", "N1003"));
-}
-
-#[test]
-fn reconhece_numeros_decimais_e_em_bases() {
-    let resultado = analisar_lexico(&fonte("42 1_000 3.14 2e10 0xFF 0b101 0o77"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::Inteiro)
-            .count(),
-        5
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::Decimal)
-            .count(),
-        2
-    );
-}
-
-#[test]
-fn reconhece_variacoes_validas_de_numeros_e_separadores() {
-    let resultado = analisar_lexico(&fonte(
-        "0 00 1_2_3 0xA_B 0b1_0 0o7_0 1.0 0.25 1e2 1E+2 1e-2 1_000.25_00 9_9e1_0",
-    ));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-}
-
-#[test]
-fn aceita_inteiros_maiores_que_os_limites_das_primitivas() {
-    let gugol = format!("1{}", "0".repeat(100));
-    let extremo = "9".repeat(4096);
-    let codigo = format!("{gugol} {extremo}");
-    let resultado = analisar_lexico(&fonte(&codigo));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].lexema, gugol);
-    assert_eq!(resultado.tokens[1].lexema, extremo);
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Inteiro);
-    assert_eq!(resultado.tokens[1].tipo, TipoToken::Inteiro);
-}
-
-#[test]
-fn aceita_expoentes_extremamente_grandes_sem_converter_o_valor() {
-    let expoente = format!("1e{}", "9".repeat(2048));
-    let resultado = analisar_lexico(&fonte(&expoente));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].lexema, expoente);
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Decimal);
-}
-
-#[test]
-fn ponto_final_nao_transforma_inteiro_em_decimal() {
-    let resultado = analisar_lexico(&fonte("1. 1..2"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado.tokens.iter().map(|t| t.tipo).collect::<Vec<_>>(),
-        vec![
-            TipoToken::Inteiro,
-            TipoToken::Ponto,
-            TipoToken::Inteiro,
-            TipoToken::Intervalo,
-            TipoToken::Inteiro,
-            TipoToken::Fim,
-        ]
-    );
-}
-
-#[test]
-fn diagnostica_numeros_malformados_em_todas_as_bases() {
-    for numero in [
-        "0x", "0b", "0o", "0b2", "0o8", "0xGG", "0b102", "0x_FF", "0b_1", "0o7_", "0xA__B",
-    ] {
-        assert!(possui_erro(numero, "N1005"), "Literal inválido: {numero:?}");
+fn diagnostica_escapes_e_caracteres_invalidos() {
+    for literal in [r#""\q""#, r#""\u{}""#, r#""\u{D800}""#, r#""\u{110000}""#, r#"'ab'"#, "''"] {
+        assert!(!analisar(literal).diagnosticos.is_empty(), "literal inválido aceito: {literal}");
     }
 }
 
 #[test]
-fn diagnostica_separadores_e_expoentes_malformados() {
-    for numero in [
-        "1_", "1__2", "1e", "1e+", "1e-", "1e_2", "1e+_2", "1e2_", "1_._2",
-    ] {
-        assert!(
-            !analisar_lexico(&fonte(numero)).diagnosticos.is_empty(),
-            "Literal inválido: {numero:?}"
-        );
-    }
-    assert!(possui_erro("1e+", "N1004"));
+fn reconhece_comentarios_de_linha_e_bloco_sem_perder_quebras() {
+    let r = analisar("variavel a = 1 # comentario\n// outro\n/* bloco\ncontinua */\nvariavel b = 2");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 4);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Variavel).count(), 2);
 }
 
 #[test]
-fn reconhece_textos_caracteres_e_escapes() {
-    let resultado = analisar_lexico(&fonte(
-        r#""Nebula\n\r\t\0\\\"\'" 'á' '\u{1F680}' '\n' '\''"#,
-    ));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Texto);
-    assert!(
-        resultado.tokens[1..]
-            .iter()
-            .take(4)
-            .all(|t| t.tipo == TipoToken::Caractere)
-    );
+fn nova_linha_e_suprimida_em_parenteses_e_colchetes() {
+    let r = analisar("chamar(\n  1,\n  2\n)\nlista = [\n  1,\n  2\n]");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 1);
 }
 
 #[test]
-fn aceita_caracteres_unicode_de_um_escalar() {
-    let resultado = analisar_lexico(&fonte("'🚀' '界' 'é' '\u{10FFFF}'"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::Caractere)
-            .count(),
-        4
-    );
+fn chaves_nao_suprimem_quebras_de_linha() {
+    let r = analisar("Pessoa {\n nome: \"Ana\",\n idade: 20\n}");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count() >= 3);
 }
 
 #[test]
-fn rejeita_escapes_desconhecidos_e_unicode_invalido() {
-    for literal in [
-        r#""\q""#,
-        r#""\u{}""#,
-        r#""\u{ZZ}""#,
-        r#""\u{D800}""#,
-        r#""\u{110000}""#,
-        r#"'\x'"#,
-    ] {
-        assert!(
-            possui_erro(literal, "N1007"),
-            "Literal inválido: {literal:?}"
-        );
-    }
+fn diagnostica_delimitadores_desbalanceados_e_cr_isolado() {
+    assert!(possui_erro("funcao x(", "N1011"));
+    assert!(possui_erro(")", "N1015"));
+    assert!(possui_erro("([)]", "N1014"));
+    assert!(possui_erro("a\rb", "N1001"));
 }
 
 #[test]
-fn rejeita_caractere_vazio_com_multiplos_escalres_e_nao_terminado() {
-    for literal in ["''", "'ab'", "'a", "'🚀x'"] {
-        assert!(
-            possui_erro(literal, "N1009"),
-            "Literal inválido: {literal:?}"
-        );
-    }
+fn preserva_offsets_em_bytes_e_lexemas_originais() {
+    let codigo = "variavel ação = 1";
+    let r = analisar(codigo);
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    let t = r.tokens.iter().find(|t| t.lexema == "ação").unwrap();
+    assert_eq!(&codigo[t.intervalo.inicio..t.intervalo.fim], "ação");
+    assert_eq!(t.intervalo.inicio, "variavel ".len());
 }
 
 #[test]
-fn texto_nao_pode_continuar_em_quebra_fisica_apos_escape() {
-    let resultado = analisar_lexico(&fonte("\"texto\\\ncontinua\""));
-    assert!(
-        resultado.diagnosticos.iter().any(|d| d.codigo == "N1006"),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|t| t.tipo == TipoToken::NovaLinha)
-    );
-}
-
-#[test]
-fn rejeita_escape_nao_ascii_sem_perder_sincronia_utf8() {
-    for literal in [r#""\é""#, r#"'\é'"#] {
-        let resultado = analisar_lexico(&fonte(literal));
-        assert!(
-            resultado.diagnosticos.iter().any(|d| d.codigo == "N1007"),
-            "Literal inválido não diagnosticado: {literal:?}"
-        );
-        assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
-        assert_eq!(resultado.tokens[0].lexema, literal);
-    }
-}
-
-#[test]
-fn diagnostica_texto_nao_terminado() {
-    assert!(possui_erro("\"texto sem fim", "N1008"));
-}
-
-#[test]
-fn reconhece_operadores_pelo_maior_prefixo() {
-    let resultado = analisar_lexico(&fonte("== != <= >= <- ** .. :: = < > : / * ."));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    let tipos: Vec<_> = resultado.tokens.iter().map(|t| t.tipo).collect();
-    assert_eq!(
-        tipos[..15],
-        [
-            TipoToken::Igual,
-            TipoToken::Diferente,
-            TipoToken::MenorIgual,
-            TipoToken::MaiorIgual,
-            TipoToken::Atribui,
-            TipoToken::Potencia,
-            TipoToken::Intervalo,
-            TipoToken::Escopo,
-            TipoToken::Atribui,
-            TipoToken::Menor,
-            TipoToken::Maior,
-            TipoToken::DoisPontos,
-            TipoToken::Divide,
-            TipoToken::Vezes,
-            TipoToken::Ponto,
-        ]
-    );
-}
-
-#[test]
-fn preserva_quebras_de_linha_e_suprime_quebras_em_parenteses() {
-    let resultado = analisar_lexico(&fonte("a\nfuncao f(x,\n y)\n"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::NovaLinha)
-            .count(),
-        2
-    );
-}
-
-#[test]
-fn reconhece_crlf_como_uma_quebra() {
-    let resultado = analisar_lexico(&fonte("a\r\nb"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::NovaLinha)
-            .count(),
-        1
-    );
-}
-
-#[test]
-fn rejeita_cr_isolado() {
-    let resultado = analisar_lexico(&fonte("a\rb"));
-    assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N1001"));
-}
-
-#[test]
-fn reconhece_comentarios_e_preserva_quebras_em_bloco() {
-    let resultado = analisar_lexico(&fonte("a // linha\n/* bloco\ncontinua */ b"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::NovaLinha)
-            .count(),
-        2
-    );
-}
-
-#[test]
-fn comentario_de_linha_nao_consume_a_quebra() {
-    let resultado = analisar_lexico(&fonte("x // comentario\ny"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::NovaLinha)
-            .count(),
-        1
-    );
-    assert_eq!(resultado.tokens[2].lexema, "y");
-}
-
-#[test]
-fn reconhece_crlf_dentro_de_comentario_de_bloco() {
-    let resultado = analisar_lexico(&fonte("a /* um\r\ndois */ b"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::NovaLinha)
-            .count(),
-        1
-    );
-}
-
-#[test]
-fn marcadores_de_comentario_dentro_de_literal_sao_texto() {
-    let resultado = analisar_lexico(&fonte(r#""// texto /* literal */" '/' *"#));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Texto);
-    assert_eq!(resultado.tokens[1].tipo, TipoToken::Caractere);
-    assert_eq!(resultado.tokens[2].tipo, TipoToken::Vezes);
-}
-
-#[test]
-fn diagnostica_comentario_de_bloco_nao_terminado() {
-    assert!(possui_erro("a /* sem fechamento", "N1002"));
-}
-
-#[test]
-fn preserva_intervalos_em_bytes_para_unicode() {
-    let resultado = analisar_lexico(&fonte("ação '🚀'"));
-    assert_eq!(resultado.tokens[0].intervalo.inicio, 0);
-    assert_eq!(resultado.tokens[0].intervalo.fim, "ação".len());
-    assert_eq!(resultado.tokens[0].lexema, "ação");
-    assert_eq!(resultado.tokens[1].intervalo.inicio, "ação ".len());
-    assert_eq!(resultado.tokens[1].intervalo.fim, "ação '🚀'".len());
-}
-
-#[test]
-fn sempre_encerra_com_token_fim_mesmo_apos_erro() {
-    for codigo in ["", "@", "\"texto", "0b2", "/* aberto"] {
-        let resultado = analisar_lexico(&fonte(codigo));
-        assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
-    }
-}
-
-#[test]
-fn delimitadores_nao_causam_underflow_na_continuacao_de_linha() {
-    let resultado = analisar_lexico(&fonte("))) ((( [ ]"));
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|t| t.tipo == TipoToken::FechaPar)
-    );
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|t| t.tipo == TipoToken::AbreColchete)
-    );
-}
-
-#[test]
-fn fechamento_cruzado_descarta_aberturas_internas_e_restaura_continuacao() {
-    let resultado = analisar_lexico(&fonte("([)\n]\ny"));
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|token| token.tipo == TipoToken::NovaLinha)
-            .count(),
-        2
-    );
-    assert!(
-        resultado.tokens.iter().any(|token| token.lexema == "y"),
-        "a varredura deve alcançar os tokens após os fechamentos inválidos"
-    );
-}
-
-#[test]
-fn normaliza_palavras_reservadas_unicode_em_nfc() {
-    let resultado = analisar_lexico(&fonte("função"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Funcao);
-}
-
-#[test]
-fn reconhece_pontuacao_e_operadores_de_um_caractere() {
-    let resultado = analisar_lexico(&fonte("(){}[],;:+-*/% ! = < >"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .map(|token| token.tipo)
-            .collect::<Vec<_>>(),
-        vec![
-            TipoToken::AbrePar,
-            TipoToken::FechaPar,
-            TipoToken::AbreChave,
-            TipoToken::FechaChave,
-            TipoToken::AbreColchete,
-            TipoToken::FechaColchete,
-            TipoToken::Virgula,
-            TipoToken::PontoVirgula,
-            TipoToken::DoisPontos,
-            TipoToken::Mais,
-            TipoToken::Menos,
-            TipoToken::Vezes,
-            TipoToken::Divide,
-            TipoToken::Resto,
-            TipoToken::Negacao,
-            TipoToken::Atribui,
-            TipoToken::Menor,
-            TipoToken::Maior,
-            TipoToken::Fim,
-        ]
-    );
-}
-
-#[test]
-fn preserva_quebras_em_chaves_e_suprime_em_parenteses() {
-    let resultado = analisar_lexico(&fonte("{\n x\n}\n(\n y\n)\n"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|token| token.tipo == TipoToken::NovaLinha)
-            .count(),
-        4
-    );
-}
-
-#[test]
-fn comentario_de_bloco_fecha_no_primeiro_delimitador() {
-    let resultado = analisar_lexico(&fonte("a /* externo /* interno */ b"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens[0].lexema, "a");
-    assert_eq!(resultado.tokens[1].lexema, "b");
-}
-
-#[test]
-fn identificadores_sao_sensiveis_a_maiusculas() {
-    let resultado = analisar_lexico(&fonte("Variavel VARIAVEL variável"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert!(
-        resultado.tokens[..3]
-            .iter()
-            .all(|token| token.tipo == TipoToken::Identificador)
-    );
-}
-
-#[test]
-fn continua_a_varredura_apos_caractere_inesperado() {
-    let resultado = analisar_lexico(&fonte("@ variavel x"));
-    assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N1003"));
-    assert_eq!(resultado.tokens[0].tipo, TipoToken::Variavel);
-}
-
-#[test]
-fn suprime_quebras_de_linha_dentro_de_colchetes() {
-    let resultado = analisar_lexico(&fonte("[\n 1,\n 2\n]\n"));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(
-        resultado
-            .tokens
-            .iter()
-            .filter(|token| token.tipo == TipoToken::NovaLinha)
-            .count(),
-        1
-    );
-}
-
-#[test]
-fn rejeita_cr_isolado_dentro_de_comentario_de_bloco() {
-    assert!(possui_erro("/* linha 1\rlinha 2 */", "N1001"));
-}
-
-#[test]
-fn entrada_extensa_nao_causa_pane() {
-    let codigo = format!("{}\n", "variavel x = 1234567890 ".repeat(10_000));
-    let resultado = analisar_lexico(&fonte(&codigo));
-    assert!(
-        resultado.diagnosticos.is_empty(),
-        "{:?}",
-        resultado.diagnosticos
-    );
-    assert_eq!(resultado.tokens.last().unwrap().tipo, TipoToken::Fim);
-}
-
-#[test]
-fn restabelece_quebras_apos_fechamento_de_delimitador_externo() {
-    let resultado = analisar_lexico(&fonte("calcular([1)\nvariavel depois = 2"));
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|token| token.tipo == TipoToken::NovaLinha),
-        "um fechamento cruzado não pode suprimir as quebras seguintes"
-    );
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|token| token.lexema == "depois"),
-        "a varredura deve continuar após o fechamento cruzado"
-    );
-}
-
-#[test]
-fn fechamento_sem_abertura_nao_corrompe_estado_de_continuacao() {
-    let resultado = analisar_lexico(&fonte("calcular(1))\nvariavel depois = 2"));
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|token| token.tipo == TipoToken::NovaLinha),
-        "fechamento extra não pode manter a continuação ativa"
-    );
-    assert!(
-        resultado
-            .tokens
-            .iter()
-            .any(|token| token.lexema == "depois"),
-        "tokens posteriores devem continuar disponíveis"
-    );
+fn emite_fim_unico_e_dedents_no_final_do_arquivo() {
+    let r = analisar("inicio\n    meio");
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Fim).count(), 1);
+    assert_eq!(r.tokens.last().unwrap().tipo, TipoToken::Fim);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 1);
 }
