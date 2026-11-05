@@ -1548,13 +1548,13 @@ impl Parser {
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
             | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido
             | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
-            | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
+            | TipoToken::Exportar | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
             | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Ceder | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Isto | TipoToken::Lambda | TipoToken::Incrementa | TipoToken::Decrementa | TipoToken::Identificador
-            | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
+            | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::TextoInterpolado | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
-            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
             | TipoToken::Mais
         )
     }
@@ -1638,7 +1638,7 @@ impl Parser {
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
-    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Dedent | TipoToken::Passar) }
+    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre | TipoToken::Dedent) }
     fn sincronizar(&mut self) {
         self.sincronizar_ate(&[
             TipoToken::NovaLinha,
