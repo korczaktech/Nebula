@@ -833,37 +833,42 @@ Cada diagnóstico deve indicar causa, localização, requisito e uma possível c
 
 # 30. Gramática adicional preliminar
 
-A gramática abaixo complementa a EBNF da especificação principal. É um esboço de construções novas; tipos, expressões e blocos devem reutilizar as regras centrais do parser.
+As produções abaixo descrevem apenas a forma sintática reconhecida. Os nomes de tipos, atributos, módulos e operações de hardware não se tornam implementados apenas por serem aceitos pelo Parser.
 
 ```ebnf
 bloco_critico       = "critico", ":", bloco, "fim" ;
 bloco_privilegiado  = "privilegio", identificador,
-                      ":", bloco, "fim" ;
+                      [ "<", lista_tipos, ">" ],
+                      [ "(", argumentos, ")" ],
+                      [ ":" ], bloco, "fim" ;
 
-tipo_primitivo      = "u8" | "u16" | "u32" | "u64" | "u128"
-                    | "i8" | "i16" | "i32" | "i64" | "i128"
-                    | "f32" | "f64" | "bit"
-                    | "endereco" | "enderecoFisico"
-                    | "tamanho" | "deslocamento" ;
-
-tipo_ponteiro       = "ponteiro", "<", tipo, ">"
-                    | "ponteiroBruto", "<", tipo, ">"
-                    | "ponteiroVolatil", "<", tipo, ">" ;
-
-tipo_vetor          = "vetor", "<", tipo, ",", inteiro, ">" ;
+tipo_primitivo      = identificador ;
+tipo_ponteiro       = identificador, "<", tipo, ">" ;
+tipo_vetor          = identificador, "<", tipo, ",", inteiro, ">" ;
 
 atributo            = "@", identificador,
                       [ "(", argumentos, ")" ] ;
-
 declaracao_atributo = { atributo }, declaracao ;
 
-montagem            = "montagem", identificador,
-                      [ "<", tipo, ">" ],
-                      "(", argumentos_montagem, ")"
-                    | "fim" ;
+expressao_montagem  = "montagem", identificador,
+                      [ "<", lista_tipos, ">" ],
+                      "(", argumentos, ")" ;
+
+bloco_montagem      = "montagem", identificador,
+                      [ "<", lista_tipos, ">" ],
+                      [ "(", argumentos, ")" ],
+                      [ ":" ], bloco, "fim" ;
 ```
 
-A sintaxe de Assembly, atributos e blocos privilegiados precisa ser integrada à gramática principal sem criar ambiguidades com os delimitadores existentes.
+Observações de conformidade:
+
+1. `tipo_primitivo` é uma categoria ilustrativa: o Parser trata nomes como `u8`, `u64`, `endereco` e `tamanho` como nomes de tipo, sem validar sua existência ou layout.
+2. Tipos como `ponteiro<T>`, `ponteiroBruto<T>`, `ponteiroVolatil<T>`, `vetor<T, N>` e `bloco<T, N>` usam a sintaxe genérica geral; isso não implementa suas operações.
+3. Atributos são armazenados na AST, mas seus argumentos e efeitos precisam de validação semântica específica.
+4. `expressao_montagem` é a expressão `montagem arquitetura<T>(argumentos)`.
+5. `bloco_montagem` é um bloco contextual iniciado por `montagem arquitetura` e encerrado por `fim`; não confundir as duas formas.
+6. A dereferência prefixa `*referencia` permanece proposta e não é reconhecida como operador unário pelo Parser atual.
+7. A gramática normativa geral continua sendo `especificacao/gramatica.md`.
 
 # 31. Biblioteca padrão: catálogo inicial
 
