@@ -2347,7 +2347,7 @@ mod testes {
     #[test]
     fn rejeita_parametro_vazio_em_tipo_de_funcao() {
         let r = analisar_codigo(
-            "estrutura Registro { callback: funcao(vazio): logico }",
+            "estrutura Registro:\n    callback: funcao(vazio): logico\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", r.diagnosticos);
     }
@@ -2426,7 +2426,7 @@ mod testes {
     #[test]
     fn resolve_tipos_de_funcao_em_campos_nominais() {
         let r = analisar_codigo(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, inicializar: funcao(funcao(inteiro): logico): vazio }",
+            "estrutura Registro:\n    callback: funcao(inteiro, texto): logico\n    inicializar: funcao(funcao(inteiro): logico): vazio\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2434,7 +2434,7 @@ mod testes {
     #[test]
     fn valida_campos_de_estrutura_e_payloads_de_enumeracao() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto, inteiro) }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto, inteiro)\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2442,7 +2442,7 @@ mod testes {
     #[test]
     fn valida_construcao_de_variante_com_payload() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("resultado"), Some(&Tipo::Enumeracao("Resultado".into())));
@@ -2451,7 +2451,7 @@ mod testes {
     #[test]
     fn rejeita_payload_de_variante_com_tipo_incorreto() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(\"texto\")",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(\"texto\")",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
     }
@@ -2459,7 +2459,7 @@ mod testes {
     #[test]
     fn rejeita_quantidade_incorreta_de_payload() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso()",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso()",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3044"), "{:?}", r.diagnosticos);
     }
@@ -2467,7 +2467,7 @@ mod testes {
     #[test]
     fn valida_escolha_exaustiva_e_vinculos_de_payload() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2487,7 +2487,7 @@ mod testes {
     #[test]
     fn exige_caso_curinga_ao_final() {
         let r = analisar_codigo(
-            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado\n    caso _\n        exibir(0)\n    caso Estado::Ativo\n        exibir(1)\nfim",
+            "enumeracao Estado:\n    Ativo\n    Inativo\nfim\nvariavel estado = Estado::Ativo\nescolha estado\n    caso _\n        exibir(0)\n    caso Estado::Ativo\n        exibir(1)\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
     }
@@ -2495,7 +2495,7 @@ mod testes {
     #[test]
     fn rejeita_escolha_nao_exaustiva_e_payload_incorreto() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso()\n        exibir(1)\nfim",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso()\n        exibir(1)\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3050"), "{:?}", r.diagnosticos);
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3053"), "{:?}", r.diagnosticos);
@@ -2504,7 +2504,7 @@ mod testes {
     #[test]
     fn rejeita_tipo_desconhecido_em_estrutura_e_enumeracao() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: TipoAusente }\nenumeracao Estado { Falha(TipoAusente) }",
+            "estrutura Pessoa:\n    nome: TipoAusente\nfim\nenumeracao Estado:\n    Falha(TipoAusente)\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3034"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3037"));
@@ -2513,7 +2513,7 @@ mod testes {
     #[test]
     fn resolve_tipos_nominais_em_assinaturas_de_funcoes() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
+            "estrutura Pessoa:\n    nome: texto\nfim\nenumeracao Estado:\n    Ativo\n    Inativo\nfim\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2847,7 +2847,7 @@ mod testes {
     #[test]
     fn deriva_copia_de_estruturas_com_todos_os_campos_copiaveis() {
         let r = analisar_codigo(
-            "estrutura Ponto { x: inteiro, y: inteiro }\nvariavel original = Ponto { x: 10, y: 20 }\nvariavel copia = original\nexibir(original.x)",
+            "estrutura Ponto:\n    x: inteiro\n    y: inteiro\nfim\nvariavel original = Ponto { x: 10, y: 20 }\nvariavel copia = original\nexibir(original.x)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2855,7 +2855,7 @@ mod testes {
     #[test]
     fn estrutura_com_campo_move_only_nao_e_copiavel() {
         let r = analisar_codigo(
-            "estrutura Caixa { conteudo: texto, codigo: inteiro }\nvariavel original = Caixa { conteudo: \"Nebula\", codigo: 42 }\nvariavel copia = original\nexibir(original.codigo)",
+            "estrutura Caixa:\n    conteudo: texto\n    codigo: inteiro\nfim\nvariavel original = Caixa { conteudo: \"Nebula\", codigo: 42 }\nvariavel copia = original\nexibir(original.codigo)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -2863,7 +2863,7 @@ mod testes {
     #[test]
     fn deriva_copia_de_enumeracoes_e_tuplas_recursivamente() {
         let r = analisar_codigo(
-            "enumeracao Estado { Codigo(inteiro), Vazio }\nvariavel estado = Estado::Codigo(42)\nvariavel estado_copia = estado\nvariavel tupla = (42, verdadeiro)\nvariavel tupla_copia = tupla\nexibir(estado)\nexibir(tupla)",
+            "enumeracao Estado:\n    Codigo(inteiro)\n    Vazio\nfim\nvariavel estado = Estado::Codigo(42)\nvariavel estado_copia = estado\nvariavel tupla = (42, verdadeiro)\nvariavel tupla_copia = tupla\nexibir(estado)\nexibir(tupla)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2871,7 +2871,7 @@ mod testes {
     #[test]
     fn enum_e_tupla_com_payload_move_only_nao_sao_copiaveis() {
         let r = analisar_codigo(
-            "enumeracao Resposta { Texto(texto), Vazia }\nvariavel resposta = Resposta::Texto(\"ok\")\nvariavel resposta_copia = resposta\nvariavel tupla = (\"Nebula\", 42)\nvariavel tupla_copia = tupla\nexibir(resposta)\nexibir(tupla)",
+            "enumeracao Resposta:\n    Texto(texto)\n    Vazia\nfim\nvariavel resposta = Resposta::Texto(\"ok\")\nvariavel resposta_copia = resposta\nvariavel tupla = (\"Nebula\", 42)\nvariavel tupla_copia = tupla\nexibir(resposta)\nexibir(tupla)",
         );
         assert!(r.diagnosticos.iter().filter(|d| d.codigo == "N3030").count() >= 2, "{:?}", r.diagnosticos);
     }
@@ -2892,7 +2892,7 @@ mod testes {
     #[test]
     fn deriva_copia_para_tuplas_estruturas_e_enumeracoes() {
         let r = analisar_codigo(
-            "estrutura Ponto { x: inteiro8, ativo: logico }\nenumeracao Estado { Inativo, Codigo(inteiro8) }\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nvariavel opcional: Opcional<inteiro8> = Opcional::Algum(7)\nvariavel outro_opcional = opcional\nvariavel resultado: Resultado<inteiro8,inteiro8> = Resultado::Sucesso(7)\nvariavel outro_resultado = resultado\nvariavel faixa: Intervalo<inteiro8> = inteiro8(1)..inteiro8(3)\nvariavel outra_faixa = faixa\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
+            "estrutura Ponto:\n    x: inteiro8\n    ativo: logico\nfim\nenumeracao Estado:\n    Inativo\n    Codigo(inteiro8)\nfim\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nvariavel opcional: Opcional<inteiro8> = Opcional::Algum(7)\nvariavel outro_opcional = opcional\nvariavel resultado: Resultado<inteiro8,inteiro8> = Resultado::Sucesso(7)\nvariavel outro_resultado = resultado\nvariavel faixa: Intervalo<inteiro8> = inteiro8(1)..inteiro8(3)\nvariavel outra_faixa = faixa\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("ponto"), Some(&Tipo::Estrutura("Ponto".into())));
@@ -2906,7 +2906,7 @@ mod testes {
     #[test]
     fn copiar_explicita_valores_com_derivacao_de_copia() {
         let r = analisar_codigo(
-            "estrutura Ponto { x: inteiro8 }\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("origem"), Some(&Tipo::Estrutura("Ponto".into())));
@@ -2927,7 +2927,7 @@ mod testes {
     #[test]
     fn estruturas_com_texto_continuam_move_only() {
         let r = analisar_codigo(
-            "estrutura Documento { conteudo: texto }\nvariavel original = Documento { conteudo: \"texto\" }\nvariavel destino = original\nexibir(original.conteudo)",
+            "estrutura Documento:\n    conteudo: texto\nfim\nvariavel original = Documento { conteudo: \"texto\" }\nvariavel destino = original\nexibir(original.conteudo)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -2974,10 +2974,10 @@ mod testes {
         let variavel = analisar_codigo("variavel dados: [TipoAusente] = []");
         assert!(variavel.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", variavel.diagnosticos);
 
-        let estrutura = analisar_codigo("estrutura Caixa { dados: [TipoAusente] }");
+        let estrutura = analisar_codigo("estrutura Caixa:\n    dados: [TipoAusente]\nfim");
         assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N3034"), "{:?}", estrutura.diagnosticos);
 
-        let enumeracao = analisar_codigo("enumeracao Resposta { Dados([TipoAusente]) }");
+        let enumeracao = analisar_codigo("enumeracao Resposta:\n    Dados([TipoAusente])\nfim");
         assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N3037"), "{:?}", enumeracao.diagnosticos);
     }
 
@@ -3064,7 +3064,7 @@ mod testes {
     #[test]
     fn move_campo_sem_invalidar_campos_independentes() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.idade)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.idade)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3072,12 +3072,12 @@ mod testes {
     #[test]
     fn rejeita_reuso_de_campo_movido_e_uso_integral_parcialmente_movido() {
         let campo = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.nome)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.nome)",
         );
         assert!(campo.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", campo.diagnosticos);
 
         let inteiro = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta)",
         );
         assert!(inteiro.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", inteiro.diagnosticos);
     }
@@ -3085,7 +3085,7 @@ mod testes {
     #[test]
     fn atribuir_campo_move_o_valor_de_origem() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto }\nvariavel nome = \"Lia\"\nvariavel conta = Conta { nome: \"Ana\" }\nconta.nome = nome\nexibir(nome)",
+            "estrutura Conta:\n    nome: texto\nfim\nvariavel nome = \"Lia\"\nvariavel conta = Conta { nome: \"Ana\" }\nconta.nome = nome\nexibir(nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3093,7 +3093,7 @@ mod testes {
     #[test]
     fn reatribuir_campo_reinicializa_movimento_parcial() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nconta.nome = \"Bia\"\nexibir(conta.nome)\nexibir(conta.idade)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nconta.nome = \"Bia\"\nexibir(conta.nome)\nexibir(conta.idade)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3101,7 +3101,7 @@ mod testes {
     #[test]
     fn move_campo_aninhado_preserva_campos_irmãos() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
+            "estrutura Endereco:\n    rua: texto\n    numero: inteiro\nfim\nestrutura Pessoa:\n    endereco: Endereco\n    idade: inteiro\nfim\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3109,7 +3109,7 @@ mod testes {
     #[test]
     fn rejeita_acesso_ao_agregado_que_contem_campo_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco\nfim",
+            "estrutura Endereco:\n    rua: texto\n    numero: inteiro\nfim\nestrutura Pessoa:\n    endereco: Endereco\n    idade: inteiro\nfim\nfuncao obter_endereco(pessoa: Pessoa): Endereco\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3117,7 +3117,7 @@ mod testes {
     #[test]
     fn permite_irmao_apos_movimento_de_campo_aninhado() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
+            "estrutura Endereco:\n    rua: texto\n    numero: inteiro\nfim\nestrutura Pessoa:\n    endereco: Endereco\n    idade: inteiro\nfim\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3125,7 +3125,7 @@ mod testes {
     #[test]
     fn rejeita_reuso_de_campo_aninhado_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_rua(pessoa: Pessoa): texto\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.rua\nfim",
+            "estrutura Endereco:\n    rua: texto\n    numero: inteiro\nfim\nestrutura Pessoa:\n    endereco: Endereco\n    idade: inteiro\nfim\nfuncao obter_rua(pessoa: Pessoa): texto\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.rua\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3189,7 +3189,7 @@ mod testes {
     #[test]
     fn escolha_consume_enum_nao_copiavel() {
         let r = analisar_codigo(
-            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta\n    caso Resposta::Sucesso(valor)\n        exibir(valor)\n    caso Resposta::Falha(falha)\n        exibir(falha)\nfim\n\nexibir(resposta)",
+            "enumeracao Resposta:\n    Sucesso(texto)\n    Falha(texto)\nfim\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta\n    caso Resposta::Sucesso(valor)\n        exibir(valor)\n    caso Resposta::Falha(falha)\n        exibir(falha)\nfim\n\nexibir(resposta)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3209,7 +3209,7 @@ mod testes {
     #[test]
     fn movimento_parcial_e_mesclado_entre_ramos() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro\n    variavel nome = conta.nome\n\nsenao\n    passar\nfim\n\nexibir(conta.nome)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro\n    variavel nome = conta.nome\n\nsenao\n    passar\nfim\n\nexibir(conta.nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3233,7 +3233,7 @@ mod testes {
     #[test]
     fn resolve_tipo_de_campo_de_estrutura() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nfuncao obter_nome(pessoa: Pessoa): texto\n    devolver pessoa.nome\nfim",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nfuncao obter_nome(pessoa: Pessoa): texto\n    devolver pessoa.nome\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3241,7 +3241,7 @@ mod testes {
     #[test]
     fn rejeita_campo_inexistente_em_estrutura() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto }\nfuncao obter_id(pessoa: Pessoa): inteiro\n    devolver pessoa.id\nfim",
+            "estrutura Pessoa:\n    nome: texto\nfim\nfuncao obter_id(pessoa: Pessoa): inteiro\n    devolver pessoa.id\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3040"), "{:?}", r.diagnosticos);
     }
@@ -3257,7 +3257,7 @@ mod testes {
     #[test]
     fn construcao_de_estrutura_valida_todos_os_campos() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3265,7 +3265,7 @@ mod testes {
     #[test]
     fn construcao_de_estrutura_rejeita_campo_ausente() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nvariavel pessoa = Pessoa { nome: \"Lia\" }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\" }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3043"), "{:?}", r.diagnosticos);
     }
@@ -3273,7 +3273,7 @@ mod testes {
     #[test]
     fn construcao_de_estrutura_rejeita_tipo_incompativel() {
         let r = analisar_codigo(
-            "estrutura Pessoa { idade: inteiro }\nvariavel pessoa = Pessoa { idade: \"vinte\" }",
+            "estrutura Pessoa:\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { idade: \"vinte\" }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
     }
