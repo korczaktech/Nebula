@@ -469,6 +469,35 @@ fn normalizar_caminho(caminho: &Path, principal: &Path) -> PathBuf {
     std::fs::canonicalize(caminho).unwrap_or_else(|_| caminho.to_path_buf())
 }
 
+fn localizacao_evento(
+    evento: &EventoDepuracao,
+    principal: &Path,
+) -> Option<(PathBuf, IntervaloFonte)> {
+    Some((
+        normalizar_caminho(evento.caminho_fonte.as_deref().unwrap_or(principal), principal),
+        evento.intervalo_fonte?,
+    ))
+}
+
+fn localizacao_chamada(
+    evento: &EventoDepuracao,
+    indice: usize,
+    principal: &Path,
+) -> Option<(PathBuf, IntervaloFonte)> {
+    let (caminho, intervalo) = evento.locais_chamada.get(indice)?;
+    Some((
+        normalizar_caminho(caminho.as_deref().unwrap_or(principal), principal),
+        (*intervalo)?,
+    ))
+}
+
+fn fonte_json(caminho: &Path) -> Value {
+    json!({
+        "name": caminho.file_name().unwrap_or_default().to_string_lossy(),
+        "path": caminho.to_string_lossy()
+    })
+}
+
 fn linha_coluna_dap(fonte: &ArquivoFonte, offset: usize) -> Option<(usize, usize)> {
     let conteudo = fonte.conteudo();
     if offset > conteudo.len() || !conteudo.is_char_boundary(offset) {
