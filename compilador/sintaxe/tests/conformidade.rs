@@ -36,7 +36,10 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "tipos compostos",
             "tipo Lista = [[Resultado<inteiro>]]\ntipo Funcao = funcao(inteiro, texto): Resultado<[texto]>",
         ),
-        ("estrutura vazia", "estrutura Vazia:\n    marcador: inteiro\nfim"),
+        (
+            "estrutura vazia",
+            "estrutura Vazia:\n    marcador: inteiro\nfim",
+        ),
         (
             "estrutura com campos e separadores",
             "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\n    ativo: logico\nfim",
