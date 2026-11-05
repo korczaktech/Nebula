@@ -2028,6 +2028,50 @@ funcao principal(): inteiro {
         std::fs::remove_dir_all(diretorio).unwrap();
     }
 
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    #[test]
+    fn executa_decimais_em_agregados_e_payloads_da_abi() {
+        let sufixo = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let diretorio = std::env::temp_dir().join(format!(
+            "nebula-decimais-agregados-{}-{sufixo}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let origem = diretorio.join("principal.nbx");
+        let saida = diretorio.join("programa");
+        std::fs::write(
+            &origem,
+            r#"estrutura Medidas { curta: decimal32, longa: decimal64 }
+enumeracao Evento { Vazio, Medida(decimal64) }
+funcao identidade(valor: Medidas): Medidas {
+    devolver valor
+}
+funcao principal(): inteiro {
+    variavel entrada = Medidas { curta: 1.25, longa: 42.5 }
+    variavel retorno = identidade(entrada)
+    variavel evento = Evento::Medida(42.5)
+    escolha evento {
+        caso Evento::Medida(valor) {
+            quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5) {
+                devolver 42
+            }
+        }
+        caso Evento::Vazio {}
+    }
+    devolver 0
+}"#,
+        )
+        .unwrap();
+
+        compilar_arquivo(&origem, &saida).expect("compilação de decimais em agregados");
+        let status = Command::new(&saida).status().expect("executável gerado");
+        assert_eq!(status.code(), Some(42));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
     #[test]
     fn rejeita_travessia_no_caminho_de_modulo() {
         let origem = std::env::temp_dir().join("principal.nbx");
