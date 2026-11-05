@@ -144,18 +144,45 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             continue;
                         };
                         let atual = estado.atual.as_ref();
-                        let (linha, coluna) = atual.and_then(|evento| evento.intervalo_fonte)
+                        let nomes = atual.map(|evento| evento.pilha_chamadas.as_slice()).unwrap_or(&[]);
+                        let mut frames = Vec::new();
+                        for indice_topo in 0..nomes.len() {
+                            let indice_funcao = nomes.len() - 1 - indice_topo;
+                            let intervalo = if indice_topo == 0 {
+                                atual.and_then(|evento| evento.intervalo_fonte)
+                            } else if indice_funcao == 0 {
+                                atual.and_then(|evento| evento.locais_chamada.first().copied().flatten())
+                            } else {
+                                atual.and_then(|evento| evento.locais_chamada.get(indice_funcao + 1).copied().flatten())
+                            };
+                            let (linha, coluna) = intervalo
+                                .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
+                                .unwrap_or((1, 1));
+                            frames.push(json!({
+                                "id": indice_topo as i64 + 1,
+                                "name": nomes[indice_funcao],
+                                "line": linha,
+                                "column": coluna,
+                                "source": {"name": estado.caminhos.first().cloned().unwrap_or_default(), "path": estado.caminhos.first().cloned().unwrap_or_default()}
+                            }));
+                        }
+                        let intervalo_programa = atual.and_then(|evento| {
+                            if nomes.is_empty() {
+                                evento.intervalo_fonte
+                            } else {
+                                evento.locais_chamada.first().copied().flatten()
+                            }
+                        });
+                        let (linha_programa, coluna_programa) = intervalo_programa
                             .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
                             .unwrap_or((1, 1));
-                        let mut nomes = atual.map(|evento| evento.pilha_chamadas.clone()).unwrap_or_default();
-                        if nomes.is_empty() { nomes.push("Programa".into()); }
-                        let frames = nomes.iter().rev().enumerate().map(|(indice, nome)| json!({
-                            "id": indice as i64 + 1,
-                            "name": nome,
-                            "line": linha,
-                            "column": coluna,
+                        frames.push(json!({
+                            "id": nomes.len() as i64 + 1,
+                            "name": "Programa",
+                            "line": linha_programa,
+                            "column": coluna_programa,
                             "source": {"name": estado.caminhos.first().cloned().unwrap_or_default(), "path": estado.caminhos.first().cloned().unwrap_or_default()}
-                        })).collect::<Vec<_>>();
+                        }));
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"stackFrames": frames, "totalFrames": frames.len()}))?;
                     }
                     "scopes" => {
@@ -163,9 +190,27 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
                             continue;
                         };
-                        let escopos = estado.atual.as_ref().map(|evento| evento.escopos.len()).unwrap_or(0);
+                        let Some(atual) = estado.atual.as_ref() else {
+                            responder(&mut saida, &mut sequencia, seq, comando, true, json!({"scopes": []}))?;
+                            continue;
+                        };
+                        let frame_id = argumentos.get("frameId").and_then(Value::as_u64).unwrap_or(1) as usize;
+                        let quantidade_funcoes = atual.pilha_chamadas.len();
+                        let (inicio, fim) = if quantidade_funcoes == 0 {
+                            (0, atual.escopos.len())
+                        } else if frame_id <= quantidade_funcoes {
+                            let indice_funcao = quantidade_funcoes - frame_id;
+                            let inicio = atual.limites_escopos.get(indice_funcao).copied().unwrap_or(0);
+                            let fim = atual.limites_escopos.get(indice_funcao + 1).copied().unwrap_or(atual.escopos.len());
+                            (inicio.min(atual.escopos.len()), fim.min(atual.escopos.len()))
+                        } else if frame_id == quantidade_funcoes + 1 {
+                            (0, atual.limites_escopos.first().copied().unwrap_or(atual.escopos.len()).min(atual.escopos.len()))
+                        } else {
+                            responder_erro(&mut saida, &mut sequencia, seq, comando, "Quadro de pilha inexistente.")?;
+                            continue;
+                        };
                         let mut scopes = Vec::new();
-                        for indice in (0..escopos).rev() {
+                        for indice in (inicio..fim).rev() {
                             scopes.push(json!({
                                 "name": if indice == 0 { "Globais".to_owned() } else { format!("Escopo {indice}") },
                                 "variablesReference": indice as i64 + 1000,
