@@ -2266,7 +2266,7 @@ mod testes {
     #[test]
     fn permite_igualdade_estrutural_de_tipos_compostos() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel iguais = a == b\nvariavel estado = Estado::Falha(\"erro\")\nvariavel estados_iguais = estado == Estado::Falha(\"erro\")\nvariavel tupla_igual = (1, \"x\") == (1, \"x\")\nvariavel lista_igual = [1, 2] == [1, 2]\nvariavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)",
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel equivalentes = a == b\nvariavel estado = Estado::Falha(\"erro\")\nvariavel estados_iguais = estado == Estado::Falha(\"erro\")\nvariavel tupla_igual = (1, \"x\") == (1, \"x\")\nvariavel lista_igual = [1, 2] == [1, 2]\nvariavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3151,7 +3151,7 @@ mod testes {
     #[test]
     fn escolha_consume_enum_nao_copiavel() {
         let r = analisar_codigo(
-            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta { caso Resposta::Sucesso(valor) { exibir(valor) } caso Resposta::Falha(erro) { exibir(erro) } }\nexibir(resposta)",
+            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta { caso Resposta::Sucesso(valor) { exibir(valor) } caso Resposta::Falha(falha) { exibir(falha) } }\nexibir(resposta)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3163,7 +3163,7 @@ mod testes {
         );
         assert!(opcional.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", opcional.diagnosticos);
         let resultado = analisar_codigo(
-            "variavel valor = Resultado::Sucesso(\"texto\")\nescolha valor { caso Resultado::Sucesso(conteudo) { exibir(conteudo) } caso Resultado::Falha(erro) { exibir(erro) } }\nexibir(valor)",
+            "variavel valor = Resultado::Sucesso(\"texto\")\nescolha valor { caso Resultado::Sucesso(conteudo) { exibir(conteudo) } caso Resultado::Falha(falha) { exibir(falha) } }\nexibir(valor)",
         );
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", resultado.diagnosticos);
     }
