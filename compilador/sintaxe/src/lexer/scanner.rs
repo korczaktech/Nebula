@@ -736,7 +736,7 @@ impl<'a> Lexer<'a> {
             "lancar" => TipoToken::Lancar,
             "verifique" => TipoToken::Verifique,
             "com" => TipoToken::Com,
-            "assinc" => TipoToken::Assinc,
+            "async" => TipoToken::Async,
             "aguarda" => TipoToken::Aguarda,
             "global" => TipoToken::Global,
             "externa" => TipoToken::Externa,
