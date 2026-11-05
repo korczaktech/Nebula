@@ -3548,16 +3548,7 @@ mod testes {
             matches!(item, NoAst::Variavel { nome, .. } if nome == "depois")));
     }
 
-}
-
-}
-
-pub use ast::{
-    AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada,
-    NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
-    TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
-};
-pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico    #[test]
+    #[test]
     fn analisa_sintaxe_principal_atual_e_recursos_nativos() {
         let codigo = r#"
 incluir biblioteca matematica como mat
@@ -3614,6 +3605,15 @@ fim
         assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Funcao { assincrona: true, .. })));
     }
 
+}
+
+}
+
+pub use ast::{
+    AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada,
+    NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
+    TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
 };
+pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico
 
 pub use implementacao::*;
