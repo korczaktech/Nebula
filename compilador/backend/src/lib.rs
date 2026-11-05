@@ -2740,7 +2740,7 @@ mod testes {
             ],
         }).unwrap();
         assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xAA]));
-        assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xA4]) == false);
+        assert!(!emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xA4]));
         assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0x49, 0x89, 0x83]));
     }
 
