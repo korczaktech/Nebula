@@ -540,7 +540,7 @@ fn matriz_de_operadores_binarios_e_atribuicoes_compostas() {
         );
         assert!(
             resultado.programa.iter_expressoes_localizadas().any(|item|
-                matches!(item.expressao, nebula_sintaxe::ast::Expressao::Binaria { .. })),
+                matches!(&item.expressao, nebula_sintaxe::ast::Expressao::Binaria { .. })),
             "operador {operador:?} não produziu expressão binária"
         );
     }
@@ -556,7 +556,7 @@ fn matriz_de_operadores_binarios_e_atribuicoes_compostas() {
         );
         assert!(
             resultado.programa.iter_expressoes_localizadas().any(|item|
-                matches!(item.expressao, nebula_sintaxe::ast::Expressao::Atribuicao { .. })),
+                matches!(&item.expressao, nebula_sintaxe::ast::Expressao::Atribuicao { .. })),
             "atribuição {operador:?} não produziu AST de atribuição"
         );
     }
