@@ -3219,12 +3219,12 @@ mod testes {
                 InstrucaoIr::Expressao(ExpressaoIr::AtribuicaoCampo {
                     raiz: "registro".into(),
                     caminho: vec!["terceiro".into()],
-                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(99)),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(99))),
                     tipo: Tipo::Inteiro64,
                 }),
                 InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
                     nome: "registro".into(),
-                    valor: construcao,
+                    valor: Box::new(construcao),
                     tipo: Tipo::Estrutura("RegistroGrande".into()),
                 }),
             ],
