@@ -1512,7 +1512,7 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 2 }\nfuncao obter(): funcao(inteiro): inteiro { devolver somar }\nfuncao principal(): inteiro { devolver obter()(40) }",
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 2 }\nfuncao consultar(): funcao(inteiro): inteiro { devolver somar }\nfuncao principal(): inteiro { devolver consultar()(40) }",
         )
         .unwrap();
 
@@ -1790,7 +1790,7 @@ funcao principal(): inteiro {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"variavel global: inteiro128 = 1208925819614629174706176
+            r#"variavel valorGlobal: inteiro128 = 1208925819614629174706176
 funcao somar(a: inteiro128, b: inteiro128): inteiro128 {
     devolver a + b
 }
@@ -1801,7 +1801,7 @@ funcao identidade_sem_sinal(valor: inteiro_u128): inteiro_u128 {
     devolver valor
 }
 funcao principal(): inteiro {
-    variavel soma = somar(global, global)
+    variavel soma = somar(valorGlobal, valorGlobal)
     variavel esperado: inteiro128 = 2417851639229258349412352
     variavel negativo: inteiro128 = -42
     variavel positivo: inteiro128 = 42
@@ -2044,8 +2044,8 @@ funcao principal(): inteiro {
         std::fs::write(
             &origem,
             r#"funcao principal(): inteiro {
-    variavel letra: texto = '🛰'
-    quando letra == '🛰' {
+    variavel letra: texto = "🛰"
+    quando letra == "🛰" {
         devolver 42
     } senao {
         devolver 0
@@ -2169,11 +2169,11 @@ funcao principal(): inteiro {
         .unwrap();
         std::fs::write(
             diretorio.join("Servico.nbx"),
-            "incluir Base\npublico funcao obter(): inteiro { devolver Base::valor() + 2 }",
+            "incluir Base\npublico funcao consultar(): inteiro { devolver Base::valor() + 2 }",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
-        std::fs::write(&origem, "incluir Servico\nexibir(Servico::obter())").unwrap();
+        std::fs::write(&origem, "incluir Servico\nexibir(Servico::consultar())").unwrap();
 
         let saida = interpretar_arquivo(&origem).expect("dependência aninhada válida");
         assert_eq!(saida, vec!["42"]);
