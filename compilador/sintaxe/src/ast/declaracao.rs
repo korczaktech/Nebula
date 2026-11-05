@@ -1,6 +1,7 @@
 //! Modelos tipados para declarações da linguagem Nebula.
 
 use super::tipos::TipoAst;
+use super::expressao::Expressao;
 
 /// Visibilidade declarada para uma função.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,4 +36,11 @@ pub struct VarianteAst {
 pub struct AliasTipoAst {
     pub nome: String,
     pub destino: TipoAst,
+}
+
+/// Atributo anexado a uma declaração.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AtributoAst {
+    pub nome: String,
+    pub argumentos: Vec<Expressao>,
 }
