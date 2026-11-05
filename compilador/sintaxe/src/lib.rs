@@ -799,9 +799,11 @@ impl Parser {
             if self.fechamento_incompativel_com_fim() {
                 self.erro_atual("N2051", "Delimitador incompatível com o bloco iniciado em nova linha.");
                 self.avancar();
-            } else if !self.separador_atual() && !self.verifica(TipoToken::FimBloco)
-                && !self.verifica(TipoToken::Fim) && !bloco_recuperado
-                && !(indentado && self.verifica(TipoToken::Dedent)) {
+            } else if !(self.separador_atual()
+                || self.verifica(TipoToken::FimBloco)
+                || self.verifica(TipoToken::Fim)
+                || bloco_recuperado
+                || (indentado && self.verifica(TipoToken::Dedent))) {
                 self.erro_atual("N2001", "Esperado separador dentro do bloco.");
                 self.sincronizar_item();
             }
