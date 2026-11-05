@@ -43,7 +43,7 @@ Operações inteiras verificadas não podem produzir wraparound silencioso. Over
 
 ### 3.1 Listas e vetores
 
-A sintaxe de tipo de lista é `[T]`. Todos os elementos de uma lista possuem exatamente o mesmo tipo. Listas vazias exigem anotação ou contexto de tipo inequívoco. O acesso por índice é verificado em execução; índices negativos e índices fora do limite produzem erro definido, nunca acesso inválido à memória.
+A sintaxe de tipo de lista é `[T]`. Todos os elementos de uma lista possuem exatamente o mesmo tipo. Listas vazias exigem anotação ou contexto de tipo inequívoco. O acesso por índice é verificado em execução; índices negativos e índices fora do limite produzem erro definido, nunca acesso inválido à memória. `Vetor<T>` é uma grafia genérica equivalente a `[T]`; `Matriz<T>` equivale a `[[T]]`, isto é, uma lista de listas, sem garantia de que todas as linhas tenham o mesmo comprimento. Essas grafias preservam as regras de tipo e movimentação das listas.
 
 ### 3.2 Tuplas
 
