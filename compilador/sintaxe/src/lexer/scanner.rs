@@ -3,8 +3,8 @@ use super::token::{ResultadoLexico, TipoToken, Token};
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use unicode_ident::{is_xid_continue, is_xid_start};
-use unicode_normalization::char::is_combining_mark;
 use unicode_normalization::UnicodeNormalization;
+use unicode_normalization::char::is_combining_mark;
 
 #[must_use]
 pub fn analisar_lexico(fonte: &ArquivoFonte) -> ResultadoLexico {
