@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod formatador;
+mod debugger;
 
 type ProgramaModuloCarregado = (String, ProgramaIr);
 type FonteModuloCarregada = (PathBuf, Vec<u8>);
@@ -165,6 +166,32 @@ fn main() {
             let status = Command::new(&temporario).status();
             let _ = std::fs::remove_file(&temporario);
             match status { Ok(s) if s.success() => {}, Ok(s) => std::process::exit(s.code().unwrap_or(1)), Err(e) => { eprintln!("Não foi possível executar o programa: {e}"); std::process::exit(1); } }
+        }
+        Some("depurar") => {
+            if argumentos.next().as_deref() != Some("--dap") {
+                eprintln!("Uso: nebula depurar --dap <arquivo.nbx> [--continuar-inicializacao]");
+                std::process::exit(2);
+            }
+            let Some(caminho) = argumentos.next() else {
+                eprintln!("Uso: nebula depurar --dap <arquivo.nbx> [--continuar-inicializacao]");
+                std::process::exit(2);
+            };
+            let continuar = match argumentos.next().as_deref() {
+                None => false,
+                Some("--continuar-inicializacao") => true,
+                Some(opcao) => {
+                    eprintln!("Opção desconhecida para depurar: {opcao}");
+                    std::process::exit(2);
+                }
+            };
+            if argumentos.next().is_some() {
+                eprintln!("Uso: nebula depurar --dap <arquivo.nbx> [--continuar-inicializacao]");
+                std::process::exit(2);
+            }
+            if let Err(erro) = debugger::iniciar(Path::new(&caminho), continuar) {
+                eprintln!("Falha no depurador Nebula: {erro}");
+                std::process::exit(1);
+            }
         }
         Some("interpretar") => {
             let Some(caminho) = argumentos.next() else {
@@ -1088,6 +1115,7 @@ fn ajuda() {
         "  compilar <arquivo>    Gera executável nativo (--alvo linux-x86_64, -O0/-O1/-O2/-O3/-Os)"
     );
     println!("  interpretar <arquivo> Executa a IR pelo runtime Rust de referência");
+    println!("  depurar --dap <arquivo> Inicia o adaptador DAP do VS Code");
     println!("  dependencias resolver [diretorio] Resolve dependências e grava nebula.lock");
     println!("  dependencias verificar [diretorio] Confere o lockfile sem alterá-lo");
     println!("  executar <arquivo>    Compila e executa um programa nativo");
