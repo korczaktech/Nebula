@@ -594,6 +594,7 @@ impl Parser {
     fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar();
         let condicao = self.expressao_antes_de_bloco()?;
+        let delimitado_por_chaves = self.proximo_tipo_significativo() == TipoToken::AbreChave;
         let entao = self.bloco_sem_fim()?;
         let mut alternativas = Vec::new();
         loop {
@@ -611,8 +612,10 @@ impl Parser {
         } else {
             Vec::new()
         };
-        if self.verifica(TipoToken::FimBloco) {
-            self.avancar();
+        if delimitado_por_chaves {
+            self.corresponde(TipoToken::FimBloco);
+        } else {
+            self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
         }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
@@ -1497,6 +1500,12 @@ impl Parser {
         }
         Some(esquerda)
     }
+    fn proximo_tipo_significativo(&self) -> TipoToken {
+        self.tokens.iter().skip(self.atual)
+            .find(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula))
+            .map_or(TipoToken::Fim, |token| token.tipo)
+    }
+
     fn parece_chamada_generica(&self) -> bool {
         if !matches!(self.tokens.get(self.atual + 1).map(|token| token.tipo),
             Some(TipoToken::Identificador | TipoToken::Inteiro | TipoToken::Vazio | TipoToken::Funcao)) {
@@ -3630,6 +3639,21 @@ mod testes {
         assert!(
             sem_fechamento.diagnosticos.iter().any(|d| d.codigo == "N2009"),
             "bloco sem 'fim' deve continuar inválido mesmo com dedentação"
+        );
+    }
+
+    #[test]
+    fn condicional_indentado_exige_terminador_fim() {
+        let invalido = analisar(&fonte("se sim\n    passar\n"));
+        assert!(
+            invalido.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "condicional indentado sem 'fim' precisa ser rejeitado"
+        );
+        let valido = analisar(&fonte("se sim { passar }"));
+        assert!(
+            valido.diagnosticos.is_empty(),
+            "a forma delimitada por chaves continua compatível: {:?}",
+            valido.diagnosticos
         );
     }
 
