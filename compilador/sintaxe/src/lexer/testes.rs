@@ -358,8 +358,17 @@ fn valida_expressoes_dentro_de_textos_interpolados() {
     let valido = analisar("\x60Ola, ${nome}! ${objeto.campo}`");
     let aninhado = analisar("\x60Valor: ${calcular({ chave: \"}\" })}`");
     assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
-    assert!(aninhado.diagnosticos.is_empty(), "{:?}", aninhado.diagnosticos);
-    assert!(valido.tokens.iter().any(|t| t.tipo == TipoToken::TextoInterpolado));
+    assert!(
+        aninhado.diagnosticos.is_empty(),
+        "{:?}",
+        aninhado.diagnosticos
+    );
+    assert!(
+        valido
+            .tokens
+            .iter()
+            .any(|t| t.tipo == TipoToken::TextoInterpolado)
+    );
 }
 
 #[test]
@@ -490,14 +499,26 @@ fn continuacao_nao_emite_indent_dedent_artificiais() {
 fn comentarios_de_linha_nao_iniciam_continuacao_por_engano() {
     let r = analisar("variavel soma = 1 # comentario\nvariavel outra = 2");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::NovaLinha).count(), 1);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::NovaLinha)
+            .count(),
+        1
+    );
 }
 
 #[test]
 fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
     let r = analisar("inicio\n    /* comentario */\n    meio\nfim");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 1);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Indent)
+            .count(),
+        1
+    );
     assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 1);
 }
 
@@ -505,7 +526,13 @@ fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
 fn comentarios_de_bloco_nao_criam_niveis_em_linhas_vazias() {
     let r = analisar("inicio\n    /* comentario */\nfim");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 0);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Indent)
+            .count(),
+        0
+    );
     assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 0);
 }
 
