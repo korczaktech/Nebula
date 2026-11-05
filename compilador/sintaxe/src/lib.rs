@@ -940,11 +940,14 @@ impl Parser {
             return Some(itens);
         }
 
-        if !self.corresponde(TipoToken::NovaLinha) {
+        let houve_quebra = self.corresponde(TipoToken::NovaLinha);
+        if !houve_quebra && !self.verifica(TipoToken::Indent) {
             self.erro_atual("N2007", "Esperada quebra de linha antes do bloco indentado.");
             return None;
         }
-        self.separadores();
+        if houve_quebra {
+            self.separadores();
+        }
 
         let indentado = self.corresponde(TipoToken::Indent);
         if !indentado {
@@ -4102,6 +4105,29 @@ criarUsuario(nome = "Ana", idade = 25)
         }
     }
 
+
+    #[test]
+    fn aceita_bloco_indentado_apos_tipos_genericos_e_tuplas() {
+        let codigo = r#"
+funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>
+    devolver Resultado::Sucesso(Opcional::Algum(valor))
+fim
+
+funcao aplicar<T>(valor: T, operacao: funcao(T): Opcional<T>): Resultado<Opcional<T>, texto>
+    devolver Resultado::Sucesso(operacao(valor))
+fim
+
+funcao inverter(par: Tupla<inteiro64, inteiro64>): Tupla<inteiro64, inteiro64>
+    devolver (par[1], par[0])
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "tipos compostos não podem consumir a quebra que inicia o bloco: {:#?}",
+            resultado.diagnosticos
+        );
+    }
 
     #[test]
     fn limite_de_aninhamento_corresponde_a_gramatica_normativa() {
