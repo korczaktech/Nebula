@@ -149,6 +149,10 @@ principal()
 | get | `obter` |
 | set | `definir` |
 | void | `vazio` |
+| safe context | `seguro` |
+| critical section | `critico` |
+| privilege declaration | `privilegio` |
+| assembly block | `montagem` |
 
 Observações:
 - `nao` representa negação lógica e o valor lógico falso, conforme o contexto.
