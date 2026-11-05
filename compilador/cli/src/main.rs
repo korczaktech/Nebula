@@ -1606,7 +1606,7 @@ funcao principal(): inteiro {
 funcao ler(valor: Resultado<inteiro64,inteiro64>): inteiro {
     escolha valor {
         caso Resultado::Sucesso(conteudo) { devolver conteudo }
-        caso Resultado::Falha(erro) { devolver erro }
+        caso Resultado::Falha(falha) { devolver falha }
     }
 }
 funcao principal(): inteiro {
@@ -1651,7 +1651,7 @@ funcao principal(): inteiro {
 funcao transformar(resposta: Resposta): Resposta {
     escolha resposta {
         caso Resposta::Sucesso(valor) { devolver Resposta::Falha(valor + 1) }
-        caso Resposta::Falha(erro) { devolver Resposta::Sucesso(erro + 1) }
+        caso Resposta::Falha(falha) { devolver Resposta::Sucesso(falha + 1) }
         caso Resposta::Vazio { devolver Resposta::Vazio }
     }
 }
@@ -1659,7 +1659,7 @@ funcao principal(): inteiro {
     variavel resultado = transformar(Resposta::Sucesso(41))
     escolha resultado {
         caso Resposta::Sucesso(valor) { devolver 0 }
-        caso Resposta::Falha(erro) { devolver erro }
+        caso Resposta::Falha(falha) { devolver falha }
         caso Resposta::Vazio { devolver 1 }
     }
 }"#,
