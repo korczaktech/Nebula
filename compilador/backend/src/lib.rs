@@ -660,27 +660,24 @@ impl Emissor {
                     }
                 });
                 self.expressao(alvo)?;
-                self.push_rax(); // ponteiro da função
-                if let Some((tamanho, alinhamento)) = retorno_grande {
+                let funcao_slot = self.reservar_agregado(8, 8)?;
+                self.armazenar_rax(funcao_slot);
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
                     let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
                     self.emitir_endereco_rbp_rax(destino);
-                    self.push_rax();
-                    self.preparar_argumentos_desde(argumentos, 1)?;
-                    self.pop_rax();
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
                     self.mover_rax_registrador(7);
+                    preparado
                 } else {
-                    self.preparar_argumentos(argumentos)?;
-                }
-                self.codigo.extend_from_slice(&[0x41, 0x5B]); // pop r11: ponteiro da função
-                self.pilha = self.pilha.checked_sub(1)
-                    .ok_or("Contabilidade da pilha inválida na chamada indireta.")?;
-                if self.pilha % 2 == 1 {
-                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
-                }
+                    self.preparar_argumentos(argumentos)?
+                };
+                self.carregar_rax(funcao_slot);
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = função
                 self.codigo.extend_from_slice(&[0x41, 0xFF, 0xD3]); // call r11
-                if self.pilha % 2 == 1 {
-                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
-                }
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
             }
             ExpressaoIr::Conversao { tipo, origem, valor } => {
                 self.expressao(valor)?;
@@ -1103,47 +1100,45 @@ impl Emissor {
                 }
                 let retorno_grande = self.retornos_funcoes.get(nome)
                     .and_then(|tipo| self.layout_agregado_grande(tipo));
-                if let Some((tamanho, alinhamento)) = retorno_grande {
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
                     let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
                     self.emitir_endereco_rbp_rax(destino);
-                    self.push_rax();
-                    self.preparar_argumentos_desde(argumentos, 1)?;
-                    self.pop_rax();
-                    self.mover_rax_registrador(7); // RDI = destino oculto
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
+                    self.mover_rax_registrador(7);
+                    preparado
                 } else {
-                    self.preparar_argumentos(argumentos)?;
-                }
-                if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); }
+                    self.preparar_argumentos(argumentos)?
+                };
                 self.codigo.push(0xE8);
                 let posicao = self.codigo.len();
                 self.codigo.extend_from_slice(&[0, 0, 0, 0]);
                 self.chamadas.push((posicao, nome.clone()));
-                if self.pilha % 2 == 1 { self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); }
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
             }
             ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
                 let nome_completo = format!("{modulo}::{nome}");
                 let retorno_grande = self.retornos_funcoes.get(&nome_completo)
                     .and_then(|tipo| self.layout_agregado_grande(tipo));
-                if let Some((tamanho, alinhamento)) = retorno_grande {
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
                     let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
                     self.emitir_endereco_rbp_rax(destino);
-                    self.push_rax();
-                    self.preparar_argumentos_desde(argumentos, 1)?;
-                    self.pop_rax();
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
                     self.mover_rax_registrador(7);
+                    preparado
                 } else {
-                    self.preparar_argumentos(argumentos)?;
-                }
-                if self.pilha % 2 == 1 {
-                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
-                }
+                    self.preparar_argumentos(argumentos)?
+                };
                 self.codigo.push(0xE8);
                 let posicao = self.codigo.len();
                 self.codigo.extend_from_slice(&[0, 0, 0, 0]);
                 self.chamadas.push((posicao, nome_completo));
-                if self.pilha % 2 == 1 {
-                    self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
-                }
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
             }
         }
         Ok(())
