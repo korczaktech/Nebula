@@ -3,6 +3,7 @@ use super::token::{ResultadoLexico, TipoToken, Token};
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_normalization::char::is_combining_mark;
 use unicode_normalization::UnicodeNormalization;
 
 #[must_use]
@@ -682,9 +683,25 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        let palavra = self.fonte[self.inicio..self.atual]
-            .nfc()
-            .collect::<String>();
+        let lexema = &self.fonte[self.inicio..self.atual];
+        let mut base_latina = false;
+        let possui_acento = lexema.nfd().any(|caractere| {
+            if is_combining_mark(caractere) {
+                base_latina
+            } else {
+                base_latina = caractere.is_ascii_alphabetic();
+                false
+            }
+        });
+        if possui_acento {
+            self.erro(
+                "N1019",
+                "Identificadores não podem conter acentos; use a grafia sem acento.",
+                self.inicio,
+                self.atual,
+            );
+        }
+        let palavra = lexema.nfc().collect::<String>();
         let tipo = match palavra.as_str() {
             "variavel" => TipoToken::Variavel,
             "constante" => TipoToken::Constante,
