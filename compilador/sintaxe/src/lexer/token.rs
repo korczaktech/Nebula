@@ -1,84 +1,40 @@
-//! Tipos públicos que representam os tokens produzidos pelo Lexer.
+//! Categorias públicas de tokens reconhecidas pelo Lexer Nebula.
 
 use nebula_diagnosticos::Diagnostico;
 use nebula_fonte::IntervaloFonte;
 
-/// Categorias de tokens produzidas pelo Lexer.
+/// Categoria léxica de um elemento da linguagem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TipoToken {
-    Fim,
-    NovaLinha,
-    Identificador,
-    Inteiro,
-    Decimal,
-    Texto,
-    Caractere,
-    Variavel,
-    Definir,
-    Mutavel,
-    Alterar,
-    Constante,
-    Funcao,
-    Quando,
-    Senao,
-    Escolha,
-    Avaliar,
-    Caso,
-    Para,
-    Cada,
-    Em,
-    Pulso,
-    Enquanto,
-    Durante,
-    Repetir,
-    Devolver,
-    Incluir,
-    Como,
-    Verdadeiro,
-    Falso,
-    Nulo,
-    FimBloco,
-    Parar,
-    Encerrar,
-    Seguir,
-    E,
-    Ou,
-    Nao,
-    Publico,
-    Privado,
-    Tipo,
-    Estrutura,
-    Enumeracao,
-    ReservadaFutura,
-    AbrePar,
-    FechaPar,
-    AbreChave,
-    FechaChave,
-    AbreColchete,
-    FechaColchete,
-    Virgula,
-    PontoVirgula,
-    DoisPontos,
-    Ponto,
-    Atribui,
-    Mais,
-    Menos,
-    Vezes,
-    Divide,
-    Resto,
-    Potencia,
-    Igual,
-    Diferente,
-    Menor,
-    MenorIgual,
-    Maior,
-    MaiorIgual,
-    Negacao,
-    Intervalo,
-    Escopo,
+    Fim, NovaLinha, Indent, Dedent,
+    Identificador, Inteiro, Decimal, Texto, TextoInterpolado, Caractere,
+    Variavel, Constante, Funcao, Classe, Herda, Se, Sendo, Senao,
+    Para, Dentro, Enquanto, Escolha, Caso, Padrao, Pare, Prossiga, Passar,
+    Retorne, Lambda, Ceder, Incluir, Biblioteca, Modulo, De, Como,
+    Tente, Erro, Sempre, Lancar, Verifique, Com, Assinc, Aguarda,
+    Global, Externa, Isto, Novo, Apagar, Identico, Nao, E, Ou,
+    Sim, Verdadeiro, Falso, Nulo, Iguais, TipoDe, InstanciaDe,
+    Obter, Definir, Vazio, Exportar, Construtor, Estatico, Privado,
+    Publico, Protegido, Critico, Privilegio, Montagem,
+    AbrePar, FechaPar, AbreChave, FechaChave, AbreColchete, FechaColchete,
+    Virgula, PontoVirgula, DoisPontos, Ponto, Arroba,
+    Atribui, Seta, Mais, Menos, Vezes, Divide, DivideInteira, Resto,
+    Potencia, Igual, Diferente, DiferenteEstrito, Maior, Menor,
+    MaiorIgual, MenorIgual, Negacao, Intervalo,
+    Incrementa, Decrementa, SomaAtribui, SubtraiAtribui,
+    MultiplicaAtribui, DivideAtribui, DivideInteiraAtribui,
+    RestoAtribui, PotenciaAtribui,
+    ELogico, OuLogico, EBit, OuBit, XorBit, NaoBit,
+    DeslocaEsquerda, DeslocaDireita, DeslocaDireitaSemSinal,
+    Coalesce, AcessoOpcional, CoalesceAtribui, Reticencias,
+    Interrogacao, Escopo,
+    // Tokens legados mantidos durante a migração do Parser.
+    Definir, Mutavel, Alterar, Quando, Avaliar, Cada, Em, Pulso,
+    Durante, Repetir, Devolver, FimBloco, Parar, Encerrar, Seguir,
+    ReservadaFutura, IgualLegado, MenorLegado, MaiorLegado,
 }
 
-/// Token com texto original e intervalo de bytes na fonte.
+/// Token com lexema original e intervalo de bytes [início, fim).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub tipo: TipoToken,
@@ -86,7 +42,7 @@ pub struct Token {
     pub intervalo: IntervaloFonte,
 }
 
-/// Resultado léxico: tokens e diagnósticos; erros não interrompem a varredura.
+/// Resultado da análise léxica.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResultadoLexico {
     pub tokens: Vec<Token>,
