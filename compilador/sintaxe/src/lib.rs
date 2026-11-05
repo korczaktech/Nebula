@@ -129,6 +129,11 @@ impl Parser {
                 }
             }
             TipoToken::Classe => self.classe(),
+            TipoToken::Exportar => {
+                self.avancar();
+                if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico)) }
+                else { self.erro_atual("N2002", "'exportar' deve anteceder uma função."); None }
+            }
             TipoToken::Publico | TipoToken::Privado => {
                 let visibilidade = if self.avancar().tipo == TipoToken::Publico {
                     Visibilidade::Publico
@@ -226,6 +231,7 @@ impl Parser {
             self.corresponde(TipoToken::AbrePar);
         }
         let mut parametros = Vec::new();
+        let mut parametros_padrao = Vec::new();
         if !self.verifica(TipoToken::FechaPar) && !self.verifica(TipoToken::AbreChave) {
             loop {
                 let intervalo_parametro = self.tokens.get(self.atual).map(|token| token.intervalo);
@@ -266,10 +272,12 @@ impl Parser {
                         break;
                     }
                 };
+                let padrao = if self.corresponde(TipoToken::Atribui) { self.expressao(0) } else { None };
                 if parametros.iter().any(|(existente, _)| existente == &n) {
                     self.erro_intervalo("N2050", "Parâmetro declarado mais de uma vez na função.", intervalo_parametro);
                 } else {
                     parametros.push((n, t));
+                    parametros_padrao.push(padrao);
                 }
                 if !self.corresponde(TipoToken::Virgula) { break; }
                 if self.verifica(TipoToken::FechaPar) {
@@ -279,7 +287,7 @@ impl Parser {
             }
         }
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
-        let retorno = if self.corresponde(TipoToken::DoisPontos) {
+        let retorno = if self.corresponde(TipoToken::DoisPontos) || self.corresponde(TipoToken::Seta) {
             match self.caminho_tipo() {
                 Some(tipo) => Some(tipo),
                 None => {
@@ -295,7 +303,7 @@ impl Parser {
             None
         };
         let corpo = self.bloco()?;
-        Some(NoAst::Funcao { visibilidade, assincrona: false, nome, genericos, parametros, retorno, corpo })
+        Some(NoAst::Funcao { visibilidade, assincrona: false, nome, genericos, parametros, parametros_padrao, retorno, corpo })
     }
     fn classe(&mut self) -> Option<NoAst> {
         self.avancar();
@@ -454,7 +462,9 @@ impl Parser {
     }
 
     fn incluir(&mut self) -> Option<NoAst> {
-        self.avancar(); let caminho = self.caminho_modulo()?;
+        self.avancar();
+        if matches!(self.tipo(), TipoToken::Biblioteca | TipoToken::Modulo) { self.avancar(); }
+        let caminho = self.caminho_modulo()?;
         let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
         Some(NoAst::Incluir { caminho, apelido })
     }
