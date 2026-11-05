@@ -637,9 +637,21 @@ impl Emissor {
                 };
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
-                let deslocamento = layout.campos.get(campo)
-                    .map(|(deslocamento, _)| *deslocamento)
+                let (deslocamento, tamanho_campo, tamanho_agregado) = layout.campos.get(campo)
+                    .map(|(deslocamento, tamanho)| (*deslocamento, *tamanho, layout.tamanho))
                     .ok_or_else(|| format!("Campo '{campo}' não encontrado no layout de '{nome}'."))?;
+                if tamanho_agregado > 16 {
+                    let tipo_campo = match tamanho_campo {
+                        1 => Tipo::Byte,
+                        2 => Tipo::InteiroU16,
+                        4 => Tipo::InteiroU32,
+                        8 => Tipo::Inteiro64,
+                        9..=16 => Tipo::Inteiro128,
+                        _ => Tipo::Estrutura(nome.clone()),
+                    };
+                    self.carregar_membro_agregado(alvo, campo, &tipo_campo)?;
+                    return Ok(());
+                }
                 self.expressao(alvo)?;
                 match deslocamento {
                     0 => {}
@@ -2836,6 +2848,42 @@ mod testes {
         assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xAA]));
         assert!(!emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xA4]));
         assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0x49, 0x89, 0x83]));
+    }
+
+    #[test]
+    fn acessa_campo_de_agregado_grande_por_deslocamento_real() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "RegistroGrande".into(),
+            LayoutAgregado {
+                tamanho: 24,
+                alinhamento: 8,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 8)),
+                    ("segundo".into(), (8, 8)),
+                    ("terceiro".into(), (16, 8)),
+                ]),
+            },
+        );
+        let agregado = ExpressaoIr::Normalizar {
+            tipo: Tipo::Estrutura("RegistroGrande".into()),
+            valor: Box::new(ExpressaoIr::ConstrucaoEstrutura {
+                nome: "RegistroGrande".into(),
+                campos: vec![
+                    ("primeiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(11))),
+                    ("segundo".into(), ExpressaoIr::Constante(ValorIr::Inteiro(22))),
+                    ("terceiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(33))),
+                ],
+            }),
+        };
+        emissor.expressao(&ExpressaoIr::Normalizar {
+            tipo: Tipo::Inteiro64,
+            valor: Box::new(ExpressaoIr::Membro {
+                alvo: Box::new(agregado),
+                campo: "terceiro".into(),
+            }),
+        }).unwrap();
+        assert!(emissor.codigo.windows(7).any(|bytes| bytes == [0x49, 0x8B, 0x83, 16, 0, 0, 0]));
     }
 
     #[test]
