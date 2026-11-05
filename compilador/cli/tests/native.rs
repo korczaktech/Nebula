@@ -38,14 +38,14 @@ fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
 
 #[test]
 fn gera_elf_executavel_com_codigo_de_saida() {
-    let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro { devolver 42 }");
+    let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro\n    devolver 42\nfim");
     assert_eq!(resultado.status.code(), Some(42));
 }
 
 #[test]
 fn compila_sem_compilador_externo_no_path() {
     let (origem, executavel) = caminhos("sem-toolchain-c");
-    fs::write(&origem, "funcao principal(): inteiro { devolver 42 }").unwrap();
+    fs::write(&origem, "funcao principal(): inteiro\n    devolver 42\nfim").unwrap();
     let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .env("PATH", "")
         .arg("compilar")
@@ -69,7 +69,7 @@ fn compila_sem_compilador_externo_no_path() {
 fn compila_variaveis_aritmetica_e_atribuicao() {
     let resultado = compilar_e_executar(
         "aritmetica",
-        "funcao principal(): inteiro {\n    variavel total: inteiro = 10\n    total = total * 4 + 2\n    devolver total\n}",
+        "funcao principal(): inteiro\n    variavel total: inteiro = 10\n    total = total * 4 + 2\n    devolver total\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -78,7 +78,7 @@ fn compila_variaveis_aritmetica_e_atribuicao() {
 fn compila_valor_de_funcao_e_chamada_indireta() {
     let resultado = compilar_e_executar(
         "funcao-indireta",
-        "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao principal(): inteiro { variavel callback: funcao(inteiro): inteiro = somar; devolver callback(41) }",
+        "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\nfuncao principal(): inteiro\n    variavel callback: funcao(inteiro): inteiro = somar\n    devolver callback(41)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -87,7 +87,7 @@ fn compila_valor_de_funcao_e_chamada_indireta() {
 fn compila_parametros_e_retornos_decimais_no_abi_proprio() {
     let resultado = compilar_e_executar(
         "abi-decimal",
-        "funcao ajustar(valor: decimal64): decimal64 { devolver valor + 1.0 }\nfuncao principal(): inteiro { variavel total = ajustar(41.0)\nquando total == 42.0 { devolver 42 }\ndevolver 1 }",
+        "funcao ajustar(valor: decimal64): decimal64\n    devolver valor + 1.0\nfim\nfuncao principal(): inteiro\n    variavel total = ajustar(41.0)\n    quando total == 42.0\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -96,7 +96,7 @@ fn compila_parametros_e_retornos_decimais_no_abi_proprio() {
 fn compila_campos_decimais_em_estruturas() {
     let resultado = compilar_e_executar(
         "estrutura-decimal",
-        "estrutura Medida { valor: decimal64, codigo: inteiro }\nfuncao principal(): inteiro { variavel medida = Medida { valor: 42.0, codigo: 7 }\nquando medida.valor == 42.0 { devolver medida.codigo + 35 }\ndevolver 1 }",
+        "estrutura Medida { valor: decimal64, codigo: inteiro }\nfuncao principal(): inteiro\n    variavel medida = Medida { valor: 42.0, codigo: 7 }\n    quando medida.valor == 42.0\n        devolver medida.codigo + 35\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -105,7 +105,7 @@ fn compila_campos_decimais_em_estruturas() {
 fn compila_elementos_decimais_em_tuplas() {
     let resultado = compilar_e_executar(
         "tupla-decimal",
-        "funcao principal(): inteiro { variavel medida = (42.0, 7)\nquando medida[0] == 42.0 { devolver medida[1] + 35 }\ndevolver 1 }",
+        "funcao principal(): inteiro\n    variavel medida = (42.0, 7)\n    quando medida[0] == 42.0\n        devolver medida[1] + 35\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -114,7 +114,7 @@ fn compila_elementos_decimais_em_tuplas() {
 fn compila_payload_decimal_em_enumeracoes() {
     let resultado = compilar_e_executar(
         "enum-decimal",
-        "enumeracao Leitura { Numero(decimal64), Codigo(inteiro) }\nfuncao principal(): inteiro { variavel leitura = Leitura::Numero(42.0)\nescolha leitura { caso Leitura::Numero(valor) { quando valor == 42.0 { devolver 42 } } caso Leitura::Codigo(valor) { } }\ndevolver 1 }",
+        "enumeracao Leitura { Numero(decimal64), Codigo(inteiro) }\nfuncao principal(): inteiro\n    variavel leitura = Leitura::Numero(42.0)\n    escolha leitura\n        caso Leitura::Numero(valor)\n            quando valor == 42.0\n                devolver 42\n            fim\n        caso Leitura::Codigo(valor)\n            passar\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -123,7 +123,7 @@ fn compila_payload_decimal_em_enumeracoes() {
 fn compila_funcoes_parametros_e_chamadas() {
     let resultado = compilar_e_executar(
         "funcao",
-        "funcao dobrar(valor: inteiro): inteiro { devolver valor * 2 }\nfuncao principal(): inteiro { devolver dobrar(21) }",
+        "funcao dobrar(valor: inteiro): inteiro\n    devolver valor * 2\nfim\nfuncao principal(): inteiro\n    devolver dobrar(21)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -132,7 +132,7 @@ fn compila_funcoes_parametros_e_chamadas() {
 fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
     let resultado = compilar_e_executar(
         "copia-explicita",
-        "estrutura Ponto { x: inteiro, y: inteiro }\nfuncao principal(): inteiro { variavel original = Ponto { x: 40, y: 2 }\nvariavel copia = copiar(original)\nquando original.x + original.y == copia.x + copia.y { devolver 42 }\ndevolver 1 }",
+        "estrutura Ponto { x: inteiro, y: inteiro }\nfuncao principal(): inteiro\n    variavel original = Ponto { x: 40, y: 2 }\n    variavel copia = copiar(original)\n    quando original.x + original.y == copia.x + copia.y\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -141,7 +141,7 @@ fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
 fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
     let resultado = compilar_e_executar(
         "copia-estrutura",
-        "estrutura Ponto { x: inteiro8 }\nfuncao principal(): inteiro { variavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nquando origem.x == destino.x { devolver 42 }\ndevolver 1 }",
+        "estrutura Ponto { x: inteiro8 }\nfuncao principal(): inteiro\n    variavel origem = Ponto { x: 7 }\n    variavel destino = copiar(origem)\n    quando origem.x == destino.x\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -150,7 +150,7 @@ fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
 fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro128",
-        "funcao transportar(valor: inteiro128): inteiro128 { devolver valor }\nfuncao principal(): inteiro { variavel original: inteiro128 = 1267650600228229401496703205376\nvariavel recebido = transportar(original)\nquando recebido == original { devolver 42 }\ndevolver 1 }",
+        "funcao transportar(valor: inteiro128): inteiro128\n    devolver valor\nfim\nfuncao principal(): inteiro\n    variavel original: inteiro128 = 1267650600228229401496703205376\n    variavel recebido = transportar(original)\n    quando recebido == original\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -159,7 +159,7 @@ fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
 fn abi_transporta_inteiro_u128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro-u128",
-        "funcao transportar(valor: inteiro_u128): inteiro_u128 { devolver valor }\nfuncao principal(): inteiro { variavel original: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel recebido = transportar(original)\nquando recebido == original { devolver 42 }\ndevolver 1 }",
+        "funcao transportar(valor: inteiro_u128): inteiro_u128\n    devolver valor\nfim\nfuncao principal(): inteiro\n    variavel original: inteiro_u128 = 340282366920938463463374607431768211455\n    variavel recebido = transportar(original)\n    quando recebido == original\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -168,7 +168,7 @@ fn abi_transporta_inteiro_u128_com_parte_alta_em_parametro_e_retorno() {
 fn executa_aritmetica_signed128_acima_de_64_bits() {
     let resultado = compilar_e_executar(
         "aritmetica-signed128",
-        "funcao principal(): inteiro { variavel base: inteiro128 = 1267650600228229401496703205376\nvariavel dobro = base * 2\nquando dobro / 2 == base { devolver 42 }\ndevolver 1 }",
+        "funcao principal(): inteiro\n    variavel base: inteiro128 = 1267650600228229401496703205376\n    variavel dobro = base * 2\n    quando dobro / 2 == base\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -177,7 +177,7 @@ fn executa_aritmetica_signed128_acima_de_64_bits() {
 fn executa_aritmetica_unsigned128_acima_de_64_bits() {
     let resultado = compilar_e_executar(
         "aritmetica-unsigned128",
-        "funcao principal(): inteiro { variavel base: inteiro_u128 = 18446744073709551619\nvariavel fator: inteiro_u128 = 3\nvariavel produto = base * fator\nquando produto / fator == base { devolver 42 }\ndevolver 1 }",
+        "funcao principal(): inteiro\n    variavel base: inteiro_u128 = 18446744073709551619\n    variavel fator: inteiro_u128 = 3\n    variavel produto = base * fator\n    quando produto / fator == base\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -186,7 +186,7 @@ fn executa_aritmetica_unsigned128_acima_de_64_bits() {
 fn monomorfiza_funcao_generica_no_backend_nativo() {
     let resultado = compilar_e_executar(
         "generica",
-        "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao principal(): inteiro { devolver identidade(42) }",
+        "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\nfuncao principal(): inteiro\n    devolver identidade(42)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -195,7 +195,7 @@ fn monomorfiza_funcao_generica_no_backend_nativo() {
 fn compila_divisao_resto_e_operacoes_com_sinal() {
     let resultado = compilar_e_executar(
         "divisao-resto",
-        "funcao principal(): inteiro {\n    quando -2 < -1 { devolver 84 / 2 + 43 % 5 }\n    devolver 1\n}",
+        "funcao principal(): inteiro\n        quando -2 < -1\n        devolver 84 / 2 + 43 % 5\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(45));
 }
@@ -204,7 +204,7 @@ fn compila_divisao_resto_e_operacoes_com_sinal() {
 fn compila_potencia_inteira_por_quadratura() {
     let resultado = compilar_e_executar(
         "potencia",
-        "funcao principal(): inteiro { devolver 3 ** 3 }",
+        "funcao principal(): inteiro\n    devolver 3 ** 3\nfim",
     );
     assert_eq!(resultado.status.code(), Some(27));
 }
@@ -213,7 +213,7 @@ fn compila_potencia_inteira_por_quadratura() {
 fn potencia_usa_expoente_calculado_em_tempo_de_execucao() {
     let resultado = compilar_e_executar(
         "potencia-dinamica",
-        "funcao principal(): inteiro { variavel expoente: inteiro = 3; devolver 2 ** expoente }",
+        "funcao principal(): inteiro\n    variavel expoente: inteiro = 3\n    devolver 2 ** expoente\nfim",
     );
     assert_eq!(resultado.status.code(), Some(8));
 }
@@ -222,7 +222,7 @@ fn potencia_usa_expoente_calculado_em_tempo_de_execucao() {
 fn expoente_zero_produz_unidade() {
     let resultado = compilar_e_executar(
         "potencia-zero",
-        "funcao principal(): inteiro { devolver 7 ** 0 }",
+        "funcao principal(): inteiro\n    devolver 7 ** 0\nfim",
     );
     assert_eq!(resultado.status.code(), Some(1));
 }
@@ -231,7 +231,7 @@ fn expoente_zero_produz_unidade() {
 fn divisao_por_zero_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "divisao-zero",
-        "funcao principal(): inteiro { devolver 42 / 0 }",
+        "funcao principal(): inteiro\n    devolver 42 / 0\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -240,7 +240,7 @@ fn divisao_por_zero_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_divisao_signed_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-divisao",
-        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver minimo / -1 }",
+        "funcao principal(): inteiro\n    variavel minimo: inteiro = -9223372036854775807 - 1\n    devolver minimo / -1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -249,7 +249,7 @@ fn overflow_de_divisao_signed_termina_com_codigo_de_erro_estavel() {
 fn expoente_acima_de_u32_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "expoente-acima-u32",
-        "funcao principal(): inteiro { devolver 1 ** 4294967296 }",
+        "funcao principal(): inteiro\n    devolver 1 ** 4294967296\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -258,7 +258,7 @@ fn expoente_acima_de_u32_termina_com_codigo_de_erro_estavel() {
 fn aceita_expoente_maximo_da_ir() {
     let resultado = compilar_e_executar(
         "expoente-maximo-u32",
-        "funcao principal(): inteiro { devolver 1 ** 4294967295 }",
+        "funcao principal(): inteiro\n    devolver 1 ** 4294967295\nfim",
     );
     assert_eq!(resultado.status.code(), Some(1));
 }
@@ -267,7 +267,7 @@ fn aceita_expoente_maximo_da_ir() {
 fn overflow_de_resto_signed_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-resto",
-        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver minimo % -1 }",
+        "funcao principal(): inteiro\n    variavel minimo: inteiro = -9223372036854775807 - 1\n    devolver minimo % -1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -276,7 +276,7 @@ fn overflow_de_resto_signed_termina_com_codigo_de_erro_estavel() {
 fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "expoente-negativo",
-        "funcao principal(): inteiro { devolver 2 ** -1 }",
+        "funcao principal(): inteiro\n    devolver 2 ** -1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -285,7 +285,7 @@ fn expoente_negativo_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_soma_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-soma",
-        "funcao principal(): inteiro { devolver 9223372036854775807 + 1 }",
+        "funcao principal(): inteiro\n    devolver 9223372036854775807 + 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -294,7 +294,7 @@ fn overflow_de_soma_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_multiplicacao_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-multiplicacao",
-        "funcao principal(): inteiro { devolver 3037000500 * 3037000500 }",
+        "funcao principal(): inteiro\n    devolver 3037000500 * 3037000500\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -303,7 +303,7 @@ fn overflow_de_multiplicacao_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_potencia_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-potencia",
-        "funcao principal(): inteiro { devolver 2 ** 63 }",
+        "funcao principal(): inteiro\n    devolver 2 ** 63\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -312,7 +312,7 @@ fn overflow_de_potencia_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_subtracao_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-subtracao",
-        "funcao principal(): inteiro { devolver -9223372036854775807 - 2 }",
+        "funcao principal(): inteiro\n    devolver -9223372036854775807 - 2\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -321,7 +321,7 @@ fn overflow_de_subtracao_termina_com_codigo_de_erro_estavel() {
 fn overflow_de_negacao_termina_com_codigo_de_erro_estavel() {
     let resultado = compilar_e_executar(
         "overflow-negacao",
-        "funcao principal(): inteiro { variavel minimo: inteiro = -9223372036854775807 - 1; devolver -minimo }",
+        "funcao principal(): inteiro\n    variavel minimo: inteiro = -9223372036854775807 - 1\n    devolver -minimo\nfim",
     );
     assert_eq!(resultado.status.code(), Some(2));
 }
@@ -330,7 +330,7 @@ fn overflow_de_negacao_termina_com_codigo_de_erro_estavel() {
 fn aceita_literal_minimo_de_inteiro_assinado() {
     let resultado = compilar_e_executar(
         "inteiro-minimo-literal",
-        "funcao principal(): inteiro { devolver -9223372036854775808 }",
+        "funcao principal(): inteiro\n    devolver -9223372036854775808\nfim",
     );
     assert_eq!(resultado.status.code(), Some(0));
 }
@@ -339,12 +339,12 @@ fn aceita_literal_minimo_de_inteiro_assinado() {
 fn divisao_e_resto_negativos_seguem_semantica_signed() {
     let divisao = compilar_e_executar(
         "divisao-negativa",
-        "funcao principal(): inteiro { devolver -7 / 2 }",
+        "funcao principal(): inteiro\n    devolver -7 / 2\nfim",
     );
     assert_eq!(divisao.status.code(), Some(253));
     let resto = compilar_e_executar(
         "resto-negativo",
-        "funcao principal(): inteiro { devolver -5 % 2 }",
+        "funcao principal(): inteiro\n    devolver -5 % 2\nfim",
     );
     assert_eq!(resto.status.code(), Some(255));
 }
@@ -353,7 +353,7 @@ fn divisao_e_resto_negativos_seguem_semantica_signed() {
 fn compila_condicionais_e_comparacoes() {
     let resultado = compilar_e_executar(
         "condicional",
-        "funcao principal(): inteiro {\n    quando 6 * 7 == 42 { devolver 42 } senao { devolver 1 }\n}",
+        "funcao principal(): inteiro\n        quando 6 * 7 == 42\n        devolver 42\n    senao\n        devolver 1\n    fim\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -362,7 +362,7 @@ fn compila_condicionais_e_comparacoes() {
 fn operadores_logicos_respeitam_curto_circuito() {
     let resultado = compilar_e_executar(
         "curto-circuito",
-        "funcao principal(): inteiro {\n    quando falso e (1 / 0 == 0) { devolver 1 }\n    quando verdadeiro ou (1 / 0 == 0) { devolver 42 }\n    devolver 2\n}",
+        "funcao principal(): inteiro\n        quando falso e (1 / 0 == 0)\n        devolver 1\n    fim\n        quando verdadeiro ou (1 / 0 == 0)\n        devolver 42\n    fim\n    \n    devolver 2\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -371,7 +371,7 @@ fn operadores_logicos_respeitam_curto_circuito() {
 fn compila_laco_enquanto() {
     let resultado = compilar_e_executar(
         "enquanto",
-        "funcao principal(): inteiro {\n    variavel i: inteiro = 0\n    enquanto i < 42 { i = i + 1 }\n    devolver i\n}",
+        "funcao principal(): inteiro\n        variavel i: inteiro = 0\n        enquanto i < 42\n        i = i + 1\n    fim\n    \n    devolver i\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -380,7 +380,7 @@ fn compila_laco_enquanto() {
 fn compila_laco_para_e_controle() {
     let resultado = compilar_e_executar(
         "para",
-        "funcao principal(): inteiro {\n    variavel total: inteiro = 0\n    para (variavel i = 0; i < 10; i = i + 1) {\n        quando i == 2 { seguir }\n        quando i == 8 { parar }\n        total = total + i\n    }\n    devolver total\n}",
+        "funcao principal(): inteiro\n        variavel total: inteiro = 0\n        para (variavel i = 0; i < 10; i = i + 1)\n                quando i == 2\n            seguir\n        fim\n                quando i == 8\n            parar\n        fim\n    \n        total = total + i\n    fim\n    \n    devolver total\nfim",
     );
     assert_eq!(resultado.status.code(), Some(26));
 }
@@ -389,7 +389,7 @@ fn compila_laco_para_e_controle() {
 fn variavel_local_sombreia_global_sem_altera_la() {
     let resultado = compilar_e_executar(
         "global-sombreada",
-        "variavel valor: inteiro = 10\nfuncao principal(): inteiro { variavel valor: inteiro = 42; devolver valor }",
+        "variavel valor: inteiro = 10\nfuncao principal(): inteiro\n    variavel valor: inteiro = 42\n    devolver valor\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -398,7 +398,7 @@ fn variavel_local_sombreia_global_sem_altera_la() {
 fn inicializadores_globais_respeitam_ordem_de_declaracao() {
     let resultado = compilar_e_executar(
         "globais-ordem",
-        "variavel base: inteiro = 10\nvariavel total: inteiro = base + 5\nfuncao principal(): inteiro { devolver total }",
+        "variavel base: inteiro = 10\nvariavel total: inteiro = base + 5\nfuncao principal(): inteiro\n    devolver total\nfim",
     );
     assert_eq!(resultado.status.code(), Some(15));
 }
@@ -407,7 +407,7 @@ fn inicializadores_globais_respeitam_ordem_de_declaracao() {
 fn variaveis_globais_sao_compartilhadas_entre_funcoes() {
     let resultado = compilar_e_executar(
         "globais-compartilhadas",
-        "variavel total: inteiro = 40\nfuncao incrementar(): inteiro { devolver total + 2 }\nfuncao principal(): inteiro { total = incrementar(); devolver total }",
+        "variavel total: inteiro = 40\nfuncao incrementar(): inteiro\n    devolver total + 2\nfim\nfuncao principal(): inteiro\n    total = incrementar()\n    devolver total\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -416,7 +416,7 @@ fn variaveis_globais_sao_compartilhadas_entre_funcoes() {
 fn compila_seis_parametros_pelo_abi_system_v() {
     let resultado = compilar_e_executar(
         "seis-parametros",
-        "funcao somar(primeiro: inteiro, segundo: inteiro, terceiro: inteiro, quarto: inteiro, quinto: inteiro, sexto: inteiro): inteiro { devolver primeiro + segundo + terceiro + quarto + quinto + sexto }\nfuncao principal(): inteiro { devolver somar(1, 2, 3, 4, 5, 6) }",
+        "funcao somar(primeiro: inteiro, segundo: inteiro, terceiro: inteiro, quarto: inteiro, quinto: inteiro, sexto: inteiro): inteiro\n    devolver primeiro + segundo + terceiro + quarto + quinto + sexto\nfim\nfuncao principal(): inteiro\n    devolver somar(1, 2, 3, 4, 5, 6)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(21));
 }
@@ -425,7 +425,7 @@ fn compila_seis_parametros_pelo_abi_system_v() {
 fn compila_chamadas_aninhadas_sem_perder_alinhamento() {
     let resultado = compilar_e_executar(
         "chamadas-aninhadas",
-        "funcao dobrar(valor: inteiro): inteiro { devolver valor * 2 }\nfuncao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nfuncao principal(): inteiro { devolver somar(dobrar(2), dobrar(3)) }",
+        "funcao dobrar(valor: inteiro): inteiro\n    devolver valor * 2\nfim\nfuncao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nfuncao principal(): inteiro\n    devolver somar(dobrar(2), dobrar(3))\nfim",
     );
     assert_eq!(resultado.status.code(), Some(10));
 }
@@ -434,7 +434,7 @@ fn compila_chamadas_aninhadas_sem_perder_alinhamento() {
 fn preserva_sombreamento_de_variaveis_em_blocos() {
     let resultado = compilar_e_executar(
         "sombreamento",
-        "funcao principal(): inteiro { variavel valor: inteiro = 1; quando verdadeiro { variavel valor: inteiro = 41; devolver valor }; devolver valor }",
+        "funcao principal(): inteiro\n    variavel valor: inteiro = 1\n    \n    quando verdadeiro\n        variavel valor: inteiro = 41\n        devolver valor\n    fim\n    devolver valor\nfim",
     );
     assert_eq!(resultado.status.code(), Some(41));
 }
@@ -443,7 +443,7 @@ fn preserva_sombreamento_de_variaveis_em_blocos() {
 fn compila_negacao_logica_unaria() {
     let resultado = compilar_e_executar(
         "negacao-logica",
-        "funcao principal(): inteiro { quando nao falso { devolver 42 }; devolver 1 }",
+        "funcao principal(): inteiro\n    quando nao falso\n        devolver 42\n    fim\n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -452,7 +452,7 @@ fn compila_negacao_logica_unaria() {
 fn compila_chamadas_recursivas_com_alinhamento_de_pilha() {
     let resultado = compilar_e_executar(
         "recursao",
-        "funcao fibonacci(n: inteiro): inteiro {\n    quando n <= 1 { devolver n }\n    devolver fibonacci(n - 1) + fibonacci(n - 2)\n}\nfuncao principal(): inteiro { devolver fibonacci(10) }",
+        "funcao fibonacci(n: inteiro): inteiro\n        quando n <= 1\n        devolver n\n    fim\n    \n    devolver fibonacci(n - 1) + fibonacci(n - 2)\nfim\nfuncao principal(): inteiro\n    devolver fibonacci(10)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(55));
 }
@@ -460,7 +460,7 @@ fn compila_chamadas_recursivas_com_alinhamento_de_pilha() {
 #[test]
 fn rejeita_recurso_que_depende_do_runtime_adiado() {
     let (origem, executavel) = caminhos("runtime-adiado");
-    fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
+    fs::write(&origem, "funcao principal(): vazio\n    exibir(42)\nfim").unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
@@ -484,7 +484,7 @@ fn compila_instrucoes_globais_sem_funcao_principal() {
 fn chamada_no_operando_direito_preserva_resultado_e_alinhamento() {
     let resultado = compilar_e_executar(
         "chamada-operando-direito",
-        "funcao identidade(valor: inteiro): inteiro { devolver valor }\nfuncao principal(): inteiro { devolver 40 + identidade(2) }",
+        "funcao identidade(valor: inteiro): inteiro\n    devolver valor\nfim\nfuncao principal(): inteiro\n    devolver 40 + identidade(2)\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -493,7 +493,7 @@ fn chamada_no_operando_direito_preserva_resultado_e_alinhamento() {
 fn compila_retorno_logico_e_constantes_booleanas() {
     let resultado = compilar_e_executar(
         "retorno-logico",
-        "funcao habilitado(): logico { devolver verdadeiro }\nfuncao principal(): inteiro { quando habilitado() e nao falso { devolver 42 }; devolver 1 }",
+        "funcao habilitado(): logico\n    devolver verdadeiro\nfim\nfuncao principal(): inteiro\n    quando habilitado() e nao falso\n        devolver 42\n    fim\n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
