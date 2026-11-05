@@ -88,6 +88,25 @@ pub enum NoAst {
         argumentos: Vec<Expressao>,
         corpo: Vec<NoAst>,
     },
+    Tente {
+        corpo: Vec<NoAst>,
+        capturas: Vec<CapturaAst>,
+        sempre: Vec<NoAst>,
+    },
+    Com {
+        recurso: Expressao,
+        nome: Option<String>,
+        corpo: Vec<NoAst>,
+    },
+    Lancar(Expressao),
+    Verifique {
+        condicao: Expressao,
+        mensagem: Option<Expressao>,
+    },
+    Escopo {
+        externa: bool,
+        nome: String,
+    },
     Classe {
         nome: String,
         herda: Option<String>,
@@ -240,4 +259,11 @@ impl NoAst {
             _ => None,
         }
     }
+}
+
+/// Cláusula de captura de uma instrução tente.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapturaAst {
+    pub tipo: Option<String>,
+    pub corpo: Vec<NoAst>,
 }
