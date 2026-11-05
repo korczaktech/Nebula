@@ -494,13 +494,33 @@ impl Emissor {
         match instrucao {
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
                 self.validar_tipo_abi(tipo)?;
-                self.expressao(valor)?;
-                if self.funcao_atual == NOME_INICIO_INTERNO
+                let global = self.funcao_atual == NOME_INICIO_INTERNO
                     && self.escopos.len() == 1
-                    && self.globais.contains_key(nome)
-                {
+                    && self.globais.contains_key(nome);
+                if global {
+                    if self.layout_agregado_grande(tipo).is_some() {
+                        return Err(format!("Variável global '{nome}' de agregado grande ainda não possui armazenamento estático seguro."));
+                    }
+                    self.expressao(valor)?;
                     self.armazenar_global(nome);
+                } else if let Some((tamanho, alinhamento)) = self.layout_agregado_grande(tipo) {
+                    self.expressao(valor)?;
+                    let origem = self.reservar_agregado(8, 8)?;
+                    self.armazenar_rax(origem);
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let deslocamento = self.declarar_tipado(nome, tipo)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.armazenar_rax(deslocamento);
+                    self.carregar_rax(origem);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                    self.codigo.extend_from_slice(&[0xF3, 0xA4]); // cópia por valor
+                    self.mov_rdx(0);
                 } else {
+                    self.expressao(valor)?;
                     let deslocamento = self.declarar_tipado(nome, tipo)?;
                     self.armazenar_rax(deslocamento);
                     self.armazenar_rdx(deslocamento - 8);
