@@ -295,6 +295,8 @@ impl<'a> Lexer<'a> {
             b'<' => {
                 if self.corresponde(b'=') {
                     self.simples(TipoToken::MenorIgual);
+                } else if self.corresponde(b'-') {
+                    self.simples(TipoToken::Atribui);
                 } else if self.corresponde(b'<') {
                     self.simples(TipoToken::DeslocaEsquerda);
                 } else {
