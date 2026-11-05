@@ -145,24 +145,30 @@ impl<'a> Lexer<'a> {
             );
         }
         let atual = *self.indentacoes.last().unwrap_or(&0);
-        if coluna > atual {
-            self.indentacoes.push(coluna);
-            self.adicionar(TipoToken::Indent, inicio, self.atual);
-        } else if coluna < atual {
-            while self.indentacoes.len() > 1 && coluna < *self.indentacoes.last().unwrap_or(&0) {
-                self.indentacoes.pop();
-                self.adicionar(TipoToken::Dedent, inicio, self.atual);
-            }
-            if coluna != *self.indentacoes.last().unwrap_or(&0) {
-                self.erro(
-                    "N1013",
-                    "A indentação não corresponde a um nível anterior.",
-                    inicio,
-                    self.atual,
-                );
+        match coluna.cmp(&atual) {
+            std::cmp::Ordering::Greater => {
                 self.indentacoes.push(coluna);
                 self.adicionar(TipoToken::Indent, inicio, self.atual);
             }
+            std::cmp::Ordering::Less => {
+                while self.indentacoes.len() > 1
+                    && coluna < *self.indentacoes.last().unwrap_or(&0)
+                {
+                    self.indentacoes.pop();
+                    self.adicionar(TipoToken::Dedent, inicio, self.atual);
+                }
+                if coluna != *self.indentacoes.last().unwrap_or(&0) {
+                    self.erro(
+                        "N1013",
+                        "A indentação não corresponde a um nível anterior.",
+                        inicio,
+                        self.atual,
+                    );
+                    self.indentacoes.push(coluna);
+                    self.adicionar(TipoToken::Indent, inicio, self.atual);
+                }
+            }
+            std::cmp::Ordering::Equal => {}
         }
         self.inicio_linha = false;
     }
