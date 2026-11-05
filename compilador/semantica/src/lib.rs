@@ -3171,7 +3171,7 @@ mod testes {
     #[test]
     fn movimento_parcial_e_mesclado_entre_ramos() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro { variavel nome = conta.nome } senao {}\nexibir(conta.nome)",
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro { variavel nome = conta.nome }\\nsenao {}\nexibir(conta.nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3243,7 +3243,7 @@ mod testes {
     #[test]
     fn reinicializacao_em_todos_os_ramos_remove_estado_de_movido() {
         let r = analisar_codigo(
-            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" } senao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
+            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" }\\nsenao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
         );
         assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
