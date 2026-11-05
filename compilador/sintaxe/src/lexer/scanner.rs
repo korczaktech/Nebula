@@ -151,8 +151,7 @@ impl<'a> Lexer<'a> {
                 self.adicionar(TipoToken::Indent, inicio, self.atual);
             }
             std::cmp::Ordering::Less => {
-                while self.indentacoes.len() > 1
-                    && coluna < *self.indentacoes.last().unwrap_or(&0)
+                while self.indentacoes.len() > 1 && coluna < *self.indentacoes.last().unwrap_or(&0)
                 {
                     self.indentacoes.pop();
                     self.adicionar(TipoToken::Dedent, inicio, self.atual);
@@ -755,7 +754,12 @@ impl<'a> Lexer<'a> {
             }
         }
         if !fechado {
-            self.erro("N1008", "Literal de texto não terminado.", self.inicio, self.atual);
+            self.erro(
+                "N1008",
+                "Literal de texto não terminado.",
+                self.inicio,
+                self.atual,
+            );
         }
         self.adicionar(TipoToken::Texto, self.inicio, self.atual);
     }

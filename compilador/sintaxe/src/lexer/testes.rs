@@ -306,7 +306,13 @@ linha 2""" "#,
         interpolado.diagnosticos
     );
     assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::Texto));
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Texto).count(), 4);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|t| t.tipo == TipoToken::Texto)
+            .count(),
+        4
+    );
     assert!(
         interpolado
             .tokens
