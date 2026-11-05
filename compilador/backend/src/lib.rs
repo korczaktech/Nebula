@@ -2592,35 +2592,16 @@ mod testes {
 
     #[test]
     fn rejeita_construcao_de_enum_com_varios_payloads_no_backend() {
-        let mut programa = programa_com_retorno(0);
-        let principal = programa.funcoes.get_mut("principal").unwrap();
-        principal.retorno = Tipo::Enumeracao("Evento".into());
-        principal.corpo = vec![InstrucaoIr::Devolver(Some(
-            ExpressaoIr::ConstrucaoEnumeracao {
-                nome: "Evento".into(),
-                variante: "Dados".into(),
-                valores: vec![
-                    ExpressaoIr::Constante(ValorIr::Inteiro(1)),
-                    ExpressaoIr::Constante(ValorIr::Inteiro(2)),
-                ],
-            },
-        ))];
-        programa.layouts_tipos.insert(
-            "Evento".into(),
-            nebula_runtime::LayoutRuntime {
-                tamanho: 16,
-                alinhamento: 8,
-                campos: vec![nebula_runtime::CampoLayoutRuntime {
-                    nome: "payload".into(),
-                    deslocamento: 8,
-                    tamanho: 8,
-                    alinhamento: 8,
-                }],
-                tamanho_tag: 1,
-            },
-        );
+        let mut emissor = Emissor::novo(HashMap::new());
+        let erro = emissor.expressao(&ExpressaoIr::ConstrucaoEnumeracao {
+            nome: "Evento".into(),
+            variante: "Dados".into(),
+            valores: vec![
+                ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                ExpressaoIr::Constante(ValorIr::Inteiro(2)),
+            ],
+        }).unwrap_err();
 
-        let erro = gerar_executavel(&programa).unwrap_err();
         assert!(erro.contains("no máximo um valor de payload"));
     }
 
