@@ -119,8 +119,7 @@ impl<'a> Lexer<'a> {
     fn linha_contem_apenas_comentario_bloco(&self) -> bool {
         let mut posicao = self.atual;
         loop {
-            if self.bytes.get(posicao) != Some(&b'/')
-                || self.bytes.get(posicao + 1) != Some(&b'*')
+            if self.bytes.get(posicao) != Some(&b'/') || self.bytes.get(posicao + 1) != Some(&b'*')
             {
                 return false;
             }
@@ -147,16 +146,13 @@ impl<'a> Lexer<'a> {
             while matches!(self.bytes.get(posicao), Some(b' ' | b'\t')) {
                 posicao += 1;
             }
-            if self.bytes.get(posicao) == Some(&b'/')
-                && self.bytes.get(posicao + 1) == Some(&b'*')
+            if self.bytes.get(posicao) == Some(&b'/') && self.bytes.get(posicao + 1) == Some(&b'*')
             {
                 continue;
             }
-            return matches!(
-                self.bytes.get(posicao),
-                None | Some(b'\n' | b'\r' | b'#')
-            ) || (self.bytes.get(posicao) == Some(&b'/')
-                && self.bytes.get(posicao + 1) == Some(&b'/'));
+            return matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r' | b'#'))
+                || (self.bytes.get(posicao) == Some(&b'/')
+                    && self.bytes.get(posicao + 1) == Some(&b'/'));
         }
     }
 
@@ -425,7 +421,10 @@ impl<'a> Lexer<'a> {
 
     fn ultimo_token_exige_continuacao(&self) -> bool {
         let Some(token) = self.tokens.iter().rev().find(|token| {
-            !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent)
+            !matches!(
+                token.tipo,
+                TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent
+            )
         }) else {
             return false;
         };
@@ -505,9 +504,7 @@ impl<'a> Lexer<'a> {
                 }
                 continue;
             }
-            if self.bytes.get(posicao) == Some(&b'/')
-                && self.bytes.get(posicao + 1) == Some(&b'*')
-            {
+            if self.bytes.get(posicao) == Some(&b'/') && self.bytes.get(posicao + 1) == Some(&b'*') {
                 posicao += 2;
                 while posicao + 1 < self.bytes.len()
                     && !(self.bytes[posicao] == b'*' && self.bytes[posicao + 1] == b'/')
@@ -522,9 +519,9 @@ impl<'a> Lexer<'a> {
 
         let restante = &self.fonte[posicao..];
         [
-            ">>>", ">>", "<<", "!==", "!=", "==", ">=", "<=", "&&", "||", "??=", "??",
-            "?.", "...", "::", "+", "-", "*", "/", "\\\\", "%", "^", ">", "<", "=",
-            "!", "&", "|", "~", "?", ".", ",",
+            ">>>", ">>", "<<", "!==", "!=", "==", ">=", "<=", "&&", "||", "??=", "??", "?.", "...",
+            "::", "+", "-", "*", "/", "\\\\", "%", "^", ">", "<", "=", "!", "&", "|", "~", "?",
+            ".", ",",
         ]
         .iter()
         .any(|operador| restante.starts_with(operador))
