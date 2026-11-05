@@ -1532,6 +1532,43 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn inferir_genericos_chamada(
+        funcao: &Funcao,
+        tipos_obtidos: &[Tipo],
+        esperado: Option<&Tipo>,
+    ) -> Option<HashMap<String, Tipo>> {
+        if tipos_obtidos.len() != funcao.parametros.len() {
+            return None;
+        }
+        // A inferência da chamada inteira é uma única transação: nenhum
+        // argumento ou retorno pode deixar vínculos parciais se outro falhar.
+        let mut tentativa = HashMap::new();
+        for (parametro, obtido) in funcao.parametros.iter().zip(tipos_obtidos) {
+            if !Self::inferir_genericos(
+                parametro,
+                obtido,
+                &funcao.genericos,
+                &mut tentativa,
+            ) {
+                return None;
+            }
+        }
+        if let Some(esperado) = esperado {
+            if !Self::inferir_genericos(
+                &funcao.retorno,
+                esperado,
+                &funcao.genericos,
+                &mut tentativa,
+            ) {
+                return None;
+            }
+        }
+        if funcao.genericos.iter().any(|nome| !tentativa.contains_key(nome)) {
+            return None;
+        }
+        Some(tentativa)
+    }
+
     fn inferir_genericos(
         esperado: &Tipo,
         obtido: &Tipo,
