@@ -359,7 +359,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                                 }
                                 evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
                             }
-                            Err(erro) if encerrando => {
+                            Err(_) if encerrando => {
                                 evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
                             }
                             Err(erro) => {
