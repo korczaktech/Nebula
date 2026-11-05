@@ -976,6 +976,122 @@ impl<'a> Lexer<'a> {
                         self.atual,
                     );
                 }
+            } else if self.byte(0) == Some(b'
+        }
+        if !fechado {
+            self.erro(
+                "N1008",
+                "Texto interpolado não terminado.",
+                self.inicio,
+                self.atual,
+            );
+        }
+        self.adicionar(TipoToken::TextoInterpolado, self.inicio, self.atual);
+    }
+    fn interpolacao(&mut self) {
+        let inicio = self.atual;
+        self.atual += 2;
+        let conteudo_inicio = self.atual;
+        let mut profundidade = 1usize;
+        let mut possui_expressao = false;
+
+        while !self.fim() {
+            match self.byte(0) {
+                Some(b'\'' | b'"') => {
+                    let aspas = self.avancar();
+                    possui_expressao = true;
+                    self.pular_texto_de_interpolacao(aspas);
+                }
+                Some(b'{') => {
+                    profundidade += 1;
+                    possui_expressao = true;
+                    self.atual += 1;
+                }
+                Some(b'}') => {
+                    profundidade -= 1;
+                    if profundidade == 0 {
+                        if !possui_expressao
+                            || self.fonte[conteudo_inicio..self.atual].trim().is_empty()
+                        {
+                            self.erro(
+                                "N1017",
+                                "Interpolação exige uma expressão entre ' e '.",
+                                inicio,
+                                self.atual + 1,
+                            );
+                        }
+                        self.atual += 1;
+                        return;
+                    }
+                    self.atual += 1;
+                }
+                Some(b' ' | b'\t' | b'\n' | b'\r') => self.atual += 1,
+                Some(_) => {
+                    possui_expressao = true;
+                    if let Some(caractere) = self.caractere() {
+                        self.atual += caractere.len_utf8();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+
+        self.erro(
+            "N1016",
+            "Interpolação não terminada; esperado '}'.",
+            inicio,
+            self.atual,
+        );
+    }
+
+    fn pular_texto_de_interpolacao(&mut self, aspas: u8) {
+        while !self.fim() {
+            if self.byte(0) == Some(aspas) {
+                self.atual += 1;
+                return;
+            }
+            if self.byte(0) == Some(b'\\') {
+                self.atual += 1;
+                if !self.fim() {
+                    if let Some(caractere) = self.caractere() {
+                        self.atual += caractere.len_utf8();
+                    }
+                }
+            } else if matches!(self.byte(0), Some(b'\n' | b'\r')) {
+                return;
+            } else if let Some(caractere) = self.caractere() {
+                self.atual += caractere.len_utf8();
+            } else {
+                return;
+            }
+        }
+    }
+
+    fn escape_valido(&mut self) -> bool {
+        if self.fim() || matches!(self.byte(0), Some(b'\n' | b'\r')) {
+            return false;
+        }
+        match self.avancar() {
+            b'\\' | b'"' | b'\'' | b'n' | b'r' | b't' | b'0' | b'\x60' | b'$' => true,
+            b'u' if self.corresponde(b'{') => {
+                let inicio = self.atual;
+                while self.byte(0).is_some_and(|b| b.is_ascii_hexdigit()) {
+                    self.atual += 1;
+                }
+                let digitos = self.fonte.get(inicio..self.atual).unwrap_or("");
+                let escalar = u32::from_str_radix(digitos, 16)
+                    .ok()
+                    .and_then(char::from_u32);
+                self.corresponde(b'}') && escalar.is_some() && !digitos.is_empty()
+            }
+            _ => false,
+        }
+    }
+}
+) && self.byte(1) == Some(b'{') {
+                self.interpolacao();
             } else if let Some(c) = self.caractere() {
                 self.atual += c.len_utf8();
             } else {
