@@ -1548,7 +1548,10 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"estrutura Ponto { x: inteiro64, y: inteiro64 }
+            r#"estrutura Ponto:
+    x: inteiro64
+    y: inteiro64
+fim
 funcao deslocar(ponto: Ponto): Ponto
     devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
 fim
@@ -1651,7 +1654,11 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"enumeracao Resposta { Sucesso(inteiro64), Falha(inteiro64), Vazio }
+            r#"enumeracao Resposta:
+    Sucesso(inteiro64)
+    Falha(inteiro64)
+    Vazio
+fim
 funcao transformar(resposta: Resposta): Resposta
     escolha resposta
         caso Resposta::Sucesso(valor)
