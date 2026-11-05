@@ -178,38 +178,43 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let mut frames = Vec::new();
                         for indice_topo in 0..nomes.len() {
                             let indice_funcao = nomes.len() - 1 - indice_topo;
-                            let intervalo = if indice_topo == 0 {
-                                atual.and_then(|evento| evento.intervalo_fonte)
-                            } else {
-                                atual.and_then(|evento| evento.locais_chamada.get(indice_funcao + 1).copied().flatten())
-                            };
-                            let (linha, coluna) = intervalo
-                                .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
+                            let localizacao = atual.and_then(|evento| {
+                                if indice_topo == 0 {
+                                    localizacao_evento(evento, &estado.caminho_principal)
+                                } else {
+                                    localizacao_chamada(evento, indice_funcao + 1, &estado.caminho_principal)
+                                }
+                            });
+                            let (caminho, intervalo) = localizacao.unwrap_or((estado.caminho_principal.clone(), IntervaloFonte { inicio: 0, fim: 0 }));
+                            let (linha, coluna) = estado.fontes.get(&caminho)
+                                .and_then(|fonte| linha_coluna_dap(fonte, intervalo.inicio))
                                 .unwrap_or((1, 1));
                             frames.push(json!({
                                 "id": indice_topo as i64 + 1,
                                 "name": nomes[indice_funcao],
                                 "line": linha,
                                 "column": coluna,
-                                "source": {"name": estado.caminhos.first().cloned().unwrap_or_default(), "path": estado.caminhos.first().cloned().unwrap_or_default()}
+                                "source": fonte_json(&caminho)
                             }));
                         }
-                        let intervalo_programa = atual.and_then(|evento| {
+                        let localizacao_programa = atual.and_then(|evento| {
                             if nomes.is_empty() {
-                                evento.intervalo_fonte
+                                localizacao_evento(evento, &estado.caminho_principal)
                             } else {
-                                evento.locais_chamada.first().copied().flatten()
+                                localizacao_chamada(evento, 0, &estado.caminho_principal)
                             }
                         });
-                        let (linha_programa, coluna_programa) = intervalo_programa
-                            .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
+                        let (caminho_programa, intervalo_programa) = localizacao_programa
+                            .unwrap_or((estado.caminho_principal.clone(), IntervaloFonte { inicio: 0, fim: 0 }));
+                        let (linha_programa, coluna_programa) = estado.fontes.get(&caminho_programa)
+                            .and_then(|fonte| linha_coluna_dap(fonte, intervalo_programa.inicio))
                             .unwrap_or((1, 1));
                         frames.push(json!({
                             "id": nomes.len() as i64 + 1,
                             "name": "Programa",
                             "line": linha_programa,
                             "column": coluna_programa,
-                            "source": {"name": estado.caminhos.first().cloned().unwrap_or_default(), "path": estado.caminhos.first().cloned().unwrap_or_default()}
+                            "source": fonte_json(&caminho_programa)
                         }));
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"stackFrames": frames, "totalFrames": frames.len()}))?;
                     }
