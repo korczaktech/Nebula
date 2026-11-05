@@ -457,7 +457,16 @@ impl<'a> Lexer<'a> {
         } else if self.corresponde(b'/') {
             self.simples(TipoToken::DivideAtribui);
         } else if self.corresponde(b'\\') {
-            self.simples(TipoToken::DivideInteiraAtribui);
+            if self.corresponde(b'\\') {
+                self.simples(TipoToken::DivideInteiraAtribui);
+            } else {
+                self.erro(
+                    "N1003",
+                    "Operador de atribuição de divisão inteira incompleto.",
+                    self.inicio,
+                    self.atual,
+                );
+            }
         } else if self.corresponde(b'%') {
             self.simples(TipoToken::RestoAtribui);
         } else {
