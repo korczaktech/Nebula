@@ -457,3 +457,69 @@ fn recuperacao_aninhada_e_deterministica_e_nao_contamina_analise_seguinte() {
         "o erro aninhado não pode contaminar a declaração posterior de nível superior"
     );
 }
+
+
+#[test]
+fn tipos_genericos_preservam_argumentos_constantes_e_tipos_de_funcao_sem_retorno() {
+    assert_eq!(
+        TipoAst::analisar("Vetor<inteiro, 4096>"),
+        TipoAst::Generico {
+            nome: "Vetor".into(),
+            argumentos: vec![
+                TipoAst::Nome("inteiro".into()),
+                TipoAst::Constante("4096".into())
+            ]
+        }
+    );
+    assert_eq!(
+        TipoAst::analisar("funcao(inteiro)"),
+        TipoAst::Funcao {
+            parametros: vec![TipoAst::Nome("inteiro".into())],
+            retorno: Box::new(TipoAst::Nome("vazio".into()))
+        }
+    );
+}
+
+#[test]
+fn operadores_ast_cobrem_operadores_aritmeticos_logicos_bitwise_e_compostos() {
+    use crate::TipoToken as T;
+    let pares = [
+        (T::DivideInteira, OperadorAst::DivisaoInteira),
+        (T::SomaAtribui, OperadorAst::SomaAtribuicao),
+        (T::DivideInteiraAtribui, OperadorAst::DivisaoInteiraAtribuicao),
+        (T::CoalesceAtribui, OperadorAst::CoalesceAtribuicao),
+        (T::EBit, OperadorAst::EBit),
+        (T::OuBit, OperadorAst::OuBit),
+        (T::XorBit, OperadorAst::XorBit),
+        (T::NaoBit, OperadorAst::NaoBit),
+        (T::DeslocaEsquerda, OperadorAst::DeslocamentoEsquerda),
+        (T::DeslocaDireita, OperadorAst::DeslocamentoDireita),
+        (T::DeslocaDireitaSemSinal, OperadorAst::DeslocamentoDireitaSemSinal),
+        (T::AcessoOpcional, OperadorAst::AcessoOpcional),
+        (T::DiferenteEstrito, OperadorAst::DiferenteEstrito),
+        (T::Dentro, OperadorAst::Dentro),
+        (T::Fora, OperadorAst::Fora),
+        (T::TipoDe, OperadorAst::TipoDe),
+        (T::InstanciaDe, OperadorAst::InstanciaDe),
+    ];
+    for (token, esperado) in pares {
+        assert_eq!(OperadorAst::try_from(token), Ok(esperado), "token {token:?}");
+    }
+}
+
+#[test]
+fn padrao_preserva_expressao_complexa_sem_serializar_debug() {
+    let expressao = Expressao::Binaria {
+        esquerda: Box::new(Expressao::Nome("valor".into())),
+        operador: crate::TipoToken::Mais,
+        direita: Box::new(Expressao::Literal("1".into())),
+    };
+    let caso = CasoEscolha {
+        enumeracao: None,
+        variante: None,
+        vinculacoes: vec![],
+        expressao: Some(expressao.clone()),
+        corpo: vec![],
+    };
+    assert_eq!(caso.padrao(), PadraoAst::Expressao(expressao));
+}
