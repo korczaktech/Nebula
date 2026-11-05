@@ -2312,7 +2312,7 @@ mod testes {
     #[test]
     fn rejeita_igualdade_de_tipos_sem_implementacao() {
         let r = analisar_codigo(
-            "funcao nada(): vazio {}\nvariavel comparacao = nada() == nada()",
+            "funcao nada(): vazio\n    passar\nfim\n\nvariavel comparacao = nada() == nada()",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3056"), "{:?}", r.diagnosticos);
     }
@@ -2355,7 +2355,7 @@ mod testes {
     #[test]
     fn valida_valores_de_funcao_e_chamada_indireta() {
         let r = analisar_codigo(
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nvariavel callback: funcao(inteiro): inteiro = somar\nvariavel resultado = callback(41)",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\nvariavel callback: funcao(inteiro): inteiro = somar\nvariavel resultado = callback(41)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("callback"), Some(&Tipo::Funcao(
@@ -2368,7 +2368,7 @@ mod testes {
     #[test]
     fn rejeita_referencia_generica_sem_instanciacao() {
         let r = analisar_codigo_fase5(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel callback = identidade",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel callback = identidade",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3057"), "{:?}", r.diagnosticos);
     }
@@ -2386,7 +2386,7 @@ mod testes {
     #[test]
     fn infere_generico_a_partir_do_tipo_esperado_do_retorno() {
         let r = analisar_codigo(
-            "funcao opcionalVazio<T>(): Opcional<T> { devolver Opcional::Nenhum() }\nvariavel valor: Opcional<inteiro> = opcionalVazio()",
+            "funcao opcionalVazio<T>(): Opcional<T>\n    devolver Opcional::Nenhum()\nfim\n\nvariavel valor: Opcional<inteiro> = opcionalVazio()",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(
@@ -2467,7 +2467,7 @@ mod testes {
     #[test]
     fn valida_escolha_exaustiva_e_vinculos_de_payload() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2475,11 +2475,11 @@ mod testes {
     #[test]
     fn valida_escolha_exaustiva_de_opcional_e_resultado() {
         let opcional = analisar_codigo(
-            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }",
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor\n    caso Opcional::Algum(numero)\n        exibir(numero)\n    caso Opcional::Nenhum\n        exibir(0)\nfim",
         );
         assert!(opcional.diagnosticos.is_empty(), "{:?}", opcional.diagnosticos);
         let resultado = analisar_codigo(
-            "variavel valor: Resultado<inteiro,texto> = Resultado::Falha(\"erro\")\nescolha valor { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "variavel valor: Resultado<inteiro,texto> = Resultado::Falha(\"erro\")\nescolha valor\n    caso Resultado::Sucesso(numero)\n        exibir(numero)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
     }
@@ -2487,7 +2487,7 @@ mod testes {
     #[test]
     fn exige_caso_curinga_ao_final() {
         let r = analisar_codigo(
-            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso _ { exibir(0) } caso Estado::Ativo { exibir(1) } }",
+            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado\n    caso _\n        exibir(0)\n    caso Estado::Ativo\n        exibir(1)\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
     }
@@ -2495,7 +2495,7 @@ mod testes {
     #[test]
     fn rejeita_escolha_nao_exaustiva_e_payload_incorreto() {
         let r = analisar_codigo(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso() { exibir(1) } }",
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso()\n        exibir(1)\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3050"), "{:?}", r.diagnosticos);
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3053"), "{:?}", r.diagnosticos);
@@ -2513,7 +2513,7 @@ mod testes {
     #[test]
     fn resolve_tipos_nominais_em_assinaturas_de_funcoes() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa { devolver pessoa }",
+            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2587,17 +2587,17 @@ mod testes {
     }
     #[test]
     fn valida_assinatura_e_chamada_de_funcao() {
-        let r = analisar_codigo("funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel x = soma(1, 2)");
+        let r = analisar_codigo("funcao soma(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\n\nvariavel x = soma(1, 2)");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
     fn rejeita_argumento_de_tipo_incorreto() {
-        let r = analisar_codigo("funcao soma(a: inteiro): inteiro { devolver a }\nsoma(\"x\")");
+        let r = analisar_codigo("funcao soma(a: inteiro): inteiro\n    devolver a\nfim\n\nsoma(\"x\")");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
     #[test]
     fn verifica_condicao_logica() {
-        let r = analisar_codigo("quando 1 { exibir(\"x\") }");
+        let r = analisar_codigo("quando 1\n    exibir(\"x\")\nfim");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
     #[test]
@@ -2680,13 +2680,13 @@ mod testes {
 
     #[test]
     fn rejeita_funcao_que_pode_terminar_sem_retorno() {
-        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } }");
+        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro\n    quando condicao\n        devolver 1\n    fim\nfim");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3024"));
     }
 
     #[test]
     fn aceita_retorno_em_todos_os_caminhos_condicionais() {
-        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 }\nsenao { devolver 2 } }");
+        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro\n    quando condicao\n        devolver 1\n    \n    senao\n        devolver 2\n    fim\nfim");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
@@ -2700,7 +2700,7 @@ mod testes {
     fn inteiro_padrao_e_alias_semantico_de_inteiro64() {
         assert!(Analisador::tipos_compativeis(&Tipo::Inteiro, &Tipo::Inteiro64));
         assert!(Analisador::tipos_compativeis(&Tipo::Inteiro64, &Tipo::Inteiro));
-        let r = analisar_codigo("funcao consultar(): inteiro64 { devolver 42 }\nvariavel valor: inteiro = consultar()");
+        let r = analisar_codigo("funcao consultar(): inteiro64\n    devolver 42\nfim\n\nvariavel valor: inteiro = consultar()");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
@@ -2719,20 +2719,20 @@ mod testes {
 
     #[test]
     fn rejeita_variavel_com_nome_de_funcao() {
-        let r = analisar_codigo("funcao calcular(): inteiro { devolver 1 }\nvariavel calcular = 2");
+        let r = analisar_codigo("funcao calcular(): inteiro\n    devolver 1\nfim\n\nvariavel calcular = 2");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3019"));
     }
 
 
     #[test]
     fn permite_sombreamento_em_escopo_interno() {
-        let r = analisar_codigo("variavel valor = 1\nquando verdadeiro { variavel valor = 2\nexibir(valor) }");
+        let r = analisar_codigo("variavel valor = 1\nquando verdadeiro\n    variavel valor = 2\n    exibir(valor)\nfim");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
     #[test]
     fn impede_acesso_a_variavel_apos_fim_do_escopo() {
-        let r = analisar_codigo("quando verdadeiro { variavel interna = 1 }\nexibir(interna)");
+        let r = analisar_codigo("quando verdadeiro\n    variavel interna = 1\nfim\n\nexibir(interna)");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3007"));
     }
 
@@ -2795,7 +2795,7 @@ mod testes {
         modulos.insert("Matematica".into(), HashMap::new());
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "incluir Matematica como calcular\nfuncao calcular(): inteiro { devolver 1 }",
+            "incluir Matematica como calcular\nfuncao calcular(): inteiro\n    devolver 1\nfim",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -2941,7 +2941,7 @@ mod testes {
     #[test]
     fn resolve_tipos_genericos_aninhados_em_assinaturas() {
         let r = analisar_codigo(
-            "funcao recebe(valor: Opcional<[inteiro]>) { exibir(\"ok\") }\nfuncao tenta(valor: Resultado<texto,inteiro>) { exibir(\"ok\") }",
+            "funcao recebe(valor: Opcional<[inteiro]>)\n    exibir(\"ok\")\nfim\nfuncao tenta(valor: Resultado<texto,inteiro>)\n    exibir(\"ok\")\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2949,14 +2949,14 @@ mod testes {
     #[test]
     fn resolve_tupla_generica_com_mais_de_dois_elementos() {
         let r = analisar_codigo(
-            "funcao recebe(valor: Tupla<inteiro,texto,logico>) { exibir(\"ok\") }",
+            "funcao recebe(valor: Tupla<inteiro,texto,logico>)\n    exibir(\"ok\")\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
     #[test]
     fn rejeita_aridade_incorreta_de_tipo_generico() {
-        let r = analisar_codigo("funcao recebe(valor: Resultado<inteiro>) { exibir(\"ok\") }");
+        let r = analisar_codigo("funcao recebe(valor: Resultado<inteiro>)\n    exibir(\"ok\")\nfim");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", r.diagnosticos);
     }
 
@@ -2965,10 +2965,10 @@ mod testes {
         let alias = analisar_codigo("tipo Dados = [TipoAusente]");
         assert!(alias.diagnosticos.iter().any(|d| d.codigo == "N3003"), "{:?}", alias.diagnosticos);
 
-        let parametro = analisar_codigo("funcao receber(valor: [TipoAusente]) { exibir(1) }");
+        let parametro = analisar_codigo("funcao receber(valor: [TipoAusente])\n    exibir(1)\nfim");
         assert!(parametro.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", parametro.diagnosticos);
 
-        let retorno = analisar_codigo("funcao produzir(): [TipoAusente] { devolver [] }");
+        let retorno = analisar_codigo("funcao produzir(): [TipoAusente]\n    devolver []\nfim");
         assert!(retorno.diagnosticos.iter().any(|d| d.codigo == "N3021"), "{:?}", retorno.diagnosticos);
 
         let variavel = analisar_codigo("variavel dados: [TipoAusente] = []");
@@ -2984,7 +2984,7 @@ mod testes {
     #[test]
     fn infere_generico_em_funcao_de_identidade() {
         let r = analisar_codigo_fase5(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("numero"), Some(&Tipo::Inteiro));
@@ -2994,7 +2994,7 @@ mod testes {
     #[test]
     fn infere_generico_aninhado_em_lista() {
         let r = analisar_codigo(
-            "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([1, 2, 3])",
+            "funcao primeiro<T>(valores: [T]): T\n    devolver valores[0]\nfim\n\nvariavel numero = primeiro([1, 2, 3])",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("numero"), Some(&Tipo::Inteiro));
@@ -3003,7 +3003,7 @@ mod testes {
     #[test]
     fn infere_genericos_em_tuplas_resultados_opcionais_e_funcoes() {
         let r = analisar_codigo_fase5(
-            "funcao empacotar<T>(valor: T): Tupla<T,texto> { devolver (valor, \"ok\") }\nfuncao receber<T>(valor: Resultado<Opcional<T>,texto>) { exibir(\"ok\") }\nvariavel pacote = empacotar(42)\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
+            "funcao empacotar<T>(valor: T): Tupla<T,texto>\n    devolver (valor, \"ok\")\nfim\nfuncao receber<T>(valor: Resultado<Opcional<T>,texto>)\n    exibir(\"ok\")\nfim\n\nvariavel pacote = empacotar(42)\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(
@@ -3015,7 +3015,7 @@ mod testes {
     #[test]
     fn rejeita_inferencia_generica_conflitante() {
         let r = analisar_codigo(
-            "funcao escolher<T>(a: T, b: T): T { devolver a }\nvariavel valor = escolher(1, \"texto\")",
+            "funcao escolher<T>(a: T, b: T): T\n    devolver a\nfim\n\nvariavel valor = escolher(1, \"texto\")",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3032"), "{:?}", r.diagnosticos);
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
@@ -3024,7 +3024,7 @@ mod testes {
     #[test]
     fn rejeita_parametro_generico_sem_inferencia() {
         let r = analisar_codigo(
-            "funcao produzir<T>(valor: inteiro): T { devolver valor }\nvariavel resultado = produzir(1)",
+            "funcao produzir<T>(valor: inteiro): T\n    devolver valor\nfim\n\nvariavel resultado = produzir(1)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3033"), "{:?}", r.diagnosticos);
     }
@@ -3032,7 +3032,7 @@ mod testes {
     #[test]
     fn tipos_genericos_aninhados_inferem_recursivamente() {
         let r = analisar_codigo(
-            "funcao recebe<T>(valor: Opcional<[T]>) { exibir(\"ok\") }",
+            "funcao recebe<T>(valor: Opcional<[T]>)\n    exibir(\"ok\")\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3101,7 +3101,7 @@ mod testes {
     #[test]
     fn move_campo_aninhado_preserva_campos_irmãos() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco.numero }",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3109,7 +3109,7 @@ mod testes {
     #[test]
     fn rejeita_acesso_ao_agregado_que_contem_campo_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco }",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3117,7 +3117,7 @@ mod testes {
     #[test]
     fn permite_irmao_apos_movimento_de_campo_aninhado() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco.numero }",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3125,7 +3125,7 @@ mod testes {
     #[test]
     fn rejeita_reuso_de_campo_aninhado_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_rua(pessoa: Pessoa): texto { variavel rua = pessoa.endereco.rua\n devolver pessoa.endereco.rua }",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_rua(pessoa: Pessoa): texto\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.rua\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3189,7 +3189,7 @@ mod testes {
     #[test]
     fn escolha_consume_enum_nao_copiavel() {
         let r = analisar_codigo(
-            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta { caso Resposta::Sucesso(valor) { exibir(valor) } caso Resposta::Falha(falha) { exibir(falha) } }\nexibir(resposta)",
+            "enumeracao Resposta { Sucesso(texto), Falha(texto) }\nvariavel resposta = Resposta::Sucesso(\"ok\")\nescolha resposta\n    caso Resposta::Sucesso(valor)\n        exibir(valor)\n    caso Resposta::Falha(falha)\n        exibir(falha)\nfim\n\nexibir(resposta)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3197,11 +3197,11 @@ mod testes {
     #[test]
     fn escolha_consume_opcional_e_resultado_nao_copiaveis() {
         let opcional = analisar_codigo(
-            "variavel valor = Opcional::Algum(\"texto\")\nescolha valor { caso Opcional::Algum(conteudo) { exibir(conteudo) } caso Opcional::Nenhum { } }\nexibir(valor)",
+            "variavel valor = Opcional::Algum(\"texto\")\nescolha valor\n    caso Opcional::Algum(conteudo)\n        exibir(conteudo)\n    caso Opcional::Nenhum\n        passar\nfim\n\nexibir(valor)",
         );
         assert!(opcional.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", opcional.diagnosticos);
         let resultado = analisar_codigo(
-            "variavel valor = Resultado::Sucesso(\"texto\")\nescolha valor { caso Resultado::Sucesso(conteudo) { exibir(conteudo) } caso Resultado::Falha(falha) { exibir(falha) } }\nexibir(valor)",
+            "variavel valor = Resultado::Sucesso(\"texto\")\nescolha valor\n    caso Resultado::Sucesso(conteudo)\n        exibir(conteudo)\n    caso Resultado::Falha(falha)\n        exibir(falha)\nfim\n\nexibir(valor)",
         );
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", resultado.diagnosticos);
     }
@@ -3209,7 +3209,7 @@ mod testes {
     #[test]
     fn movimento_parcial_e_mesclado_entre_ramos() {
         let r = analisar_codigo(
-            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro { variavel nome = conta.nome }\nsenao {}\nexibir(conta.nome)",
+            "estrutura Conta { nome: texto, idade: inteiro }\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro\n    variavel nome = conta.nome\n\nsenao\n    passar\nfim\n\nexibir(conta.nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3217,7 +3217,7 @@ mod testes {
     #[test]
     fn movimento_em_um_ramo_e_propagado_apos_a_juncao() {
         let r = analisar_codigo(
-            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel destino = texto }\nexibir(texto)",
+            "variavel texto = \"Nebula\"\nquando verdadeiro\n    variavel destino = texto\nfim\n\nexibir(texto)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3225,7 +3225,7 @@ mod testes {
     #[test]
     fn movimento_em_laco_e_considerado_possivel_apos_o_laco() {
         let r = analisar_codigo(
-            "variavel texto = \"Nebula\"\nenquanto verdadeiro { variavel destino = texto }\nexibir(texto)",
+            "variavel texto = \"Nebula\"\nenquanto verdadeiro\n    variavel destino = texto\nfim\n\nexibir(texto)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3233,7 +3233,7 @@ mod testes {
     #[test]
     fn resolve_tipo_de_campo_de_estrutura() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nfuncao obter_nome(pessoa: Pessoa): texto { devolver pessoa.nome }",
+            "estrutura Pessoa { nome: texto, idade: inteiro }\nfuncao obter_nome(pessoa: Pessoa): texto\n    devolver pessoa.nome\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3241,7 +3241,7 @@ mod testes {
     #[test]
     fn rejeita_campo_inexistente_em_estrutura() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto }\nfuncao obter_id(pessoa: Pessoa): inteiro { devolver pessoa.id }",
+            "estrutura Pessoa { nome: texto }\nfuncao obter_id(pessoa: Pessoa): inteiro\n    devolver pessoa.id\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3040"), "{:?}", r.diagnosticos);
     }
@@ -3249,7 +3249,7 @@ mod testes {
     #[test]
     fn rejeita_acesso_a_campo_em_tipo_primitivo() {
         let r = analisar_codigo(
-            "funcao obter_campo(valor: inteiro): texto { devolver valor.nome }",
+            "funcao obter_campo(valor: inteiro): texto\n    devolver valor.nome\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3041"), "{:?}", r.diagnosticos);
     }
@@ -3281,7 +3281,7 @@ mod testes {
     #[test]
     fn reinicializacao_em_todos_os_ramos_remove_estado_de_movido() {
         let r = analisar_codigo(
-            "variavel texto = \"Nebula\"\nquando verdadeiro { variavel a = texto\ntexto = \"A\" }\nsenao { variavel b = texto\ntexto = \"B\" }\nexibir(texto)",
+            "variavel texto = \"Nebula\"\nquando verdadeiro\n    variavel a = texto\n    texto = \"A\"\n\nsenao\n    variavel b = texto\n    texto = \"B\"\nfim\n\nexibir(texto)",
         );
         assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3301,7 +3301,7 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn rejeita_instancia_generica_com_tipo_aninhado_nao_inferido() {
         let r = analisar_codigo_fase5(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel ausente = identidade(Opcional::Nenhum())",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel ausente = identidade(Opcional::Nenhum())",
         );
         assert!(
             r.diagnosticos.iter().any(|d| d.codigo == "N3032"),
@@ -3321,14 +3321,14 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn valida_cada_sobre_lista_intervalo_e_texto() {
         let valido = analisar_codigo(
-            "variavel total = 0\ncada numero em [1, 2, 3] { total = total + numero }\ncada caractere em \"abc\" { exibir(caractere) }\ncada indice em 1..3 { exibir(indice) }",
+            "variavel total = 0\ncada numero em [1, 2, 3]\n    total = total + numero\nfim\ncada caractere em \"abc\"\n    exibir(caractere)\nfim\ncada indice em 1..3\n    exibir(indice)\nfim",
         );
         assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
     }
 
     #[test]
     fn rejeita_cada_sobre_valor_nao_iteravel() {
-        let invalido = analisar_codigo("cada item em 42 { exibir(item) }");
+        let invalido = analisar_codigo("cada item em 42\n    exibir(item)\nfim");
         assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", invalido.diagnosticos);
     }
 
@@ -3347,13 +3347,13 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
 
     #[test]
     fn valida_pulso_com_intervalo_inteiro() {
-        let r = analisar_codigo("pulso(10) { encerrar }");
+        let r = analisar_codigo("pulso(10)\n    encerrar\nfim");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
     #[test]
     fn rejeita_pulso_com_intervalo_nao_inteiro() {
-        let r = analisar_codigo("pulso(\"um segundo\") { encerrar }");
+        let r = analisar_codigo("pulso(\"um segundo\")\n    encerrar\nfim");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3059"), "{:?}", r.diagnosticos);
     }
 
@@ -3361,7 +3361,7 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn valida_em_paralelo_com_funcoes_sem_parametros_e_retorno_igual() {
         let r = analisar_codigo(
-            "funcao um(): inteiro { devolver 1 }\nfuncao dois(): inteiro { devolver 2 }\nvariavel resultados = em_paralelo(um, dois)",
+            "funcao um(): inteiro\n    devolver 1\nfim\nfuncao dois(): inteiro\n    devolver 2\nfim\n\nvariavel resultados = em_paralelo(um, dois)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3369,7 +3369,7 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn rejeita_em_paralelo_com_retorno_incompativel() {
         let r = analisar_codigo(
-            "funcao um(): inteiro { devolver 1 }\nfuncao dois(): texto { devolver \"dois\" }\nvariavel resultados = em_paralelo(um, dois)",
+            "funcao um(): inteiro\n    devolver 1\nfim\nfuncao dois(): texto\n    devolver \"dois\"\nfim\n\nvariavel resultados = em_paralelo(um, dois)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3061"), "{:?}", r.diagnosticos);
     }
@@ -3377,7 +3377,7 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn rejeita_inferencia_generica_inconsistente_em_tipos_compostos() {
         let r = analisar_codigo_fase5(
-            "funcao par<T>(primeiro: T, segundo: T): T { devolver primeiro }\nvariavel resultado = par([1], [verdadeiro])",
+            "funcao par<T>(primeiro: T, segundo: T): T\n    devolver primeiro\nfim\n\nvariavel resultado = par([1], [verdadeiro])",
         );
         assert!(
             r.diagnosticos.iter().any(|d| d.codigo == "N3032"),
@@ -3525,23 +3525,7 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     #[test]
     fn matriz_de_tipos_primitivos_da_fase5_permanece_tipavel() {
         let r = analisar_codigo(
-            "variavel logico_valor: logico = verdadeiro\n\
-             variavel i8: inteiro8 = -128\n\
-             variavel i16: inteiro16 = 32767\n\
-             variavel i32: inteiro32 = 2147483647\n\
-             variavel i64: inteiro64 = 42\n\
-             variavel i128: inteiro128 = 42\n\
-             variavel u8: inteiro_u8 = 255\n\
-             variavel u16: inteiro_u16 = 65535\n\
-             variavel u32: inteiro_u32 = 42\n\
-             variavel u64: inteiro_u64 = 42\n\
-             variavel u128: inteiro_u128 = 42\n\
-             variavel d32: decimal32 = 1.25\n\
-             variavel d64: decimal64 = 2.5\n\
-             variavel byte_valor: byte = 255\n\
-             variavel caractere_valor: caractere = 'Ω'\n\
-             variavel texto_valor: texto = \"Nebula\"\n\
-             funcao sem_retorno(): vazio {}",
+            "variavel logico_valor: logico = verdadeiro\n\\\n             variavel i8: inteiro8 = -128\n\\\n             variavel i16: inteiro16 = 32767\n\\\n             variavel i32: inteiro32 = 2147483647\n\\\n             variavel i64: inteiro64 = 42\n\\\n             variavel i128: inteiro128 = 42\n\\\n             variavel u8: inteiro_u8 = 255\n\\\n             variavel u16: inteiro_u16 = 65535\n\\\n             variavel u32: inteiro_u32 = 42\n\\\n             variavel u64: inteiro_u64 = 42\n\\\n             variavel u128: inteiro_u128 = 42\n\\\n             variavel d32: decimal32 = 1.25\n\\\n             variavel d64: decimal64 = 2.5\n\\\n             variavel byte_valor: byte = 255\n\\\n             variavel caractere_valor: caractere = 'Ω'\n\\\n             variavel texto_valor: texto = \"Nebula\"\n\\\n             funcao sem_retorno(): vazio\n    passar\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("i128"), Some(&Tipo::Inteiro128));
