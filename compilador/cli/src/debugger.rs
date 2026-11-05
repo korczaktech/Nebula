@@ -6,7 +6,6 @@ use nebula_ir::{
 use nebula_semantica::ModulosDisponiveis;
 use nebula_sintaxe::analisar;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -19,7 +18,6 @@ enum Entrada {
 
 struct Estado {
     fonte: ArquivoFonte,
-    programa: ProgramaIr,
     comandos: Sender<ComandoDepuracao>,
     atual: Option<EventoDepuracao>,
     localizacoes: Vec<IntervaloFonte>,
@@ -31,11 +29,11 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
     let localizacoes = localizacoes_programa(&programa);
     let (tx_entrada, rx_entrada) = mpsc::channel();
     thread::spawn(move || ler_requisicoes(tx_entrada));
+    drop(tx_entrada);
 
     let mut saida = std::io::stdout().lock();
     let mut sequencia = 1_i64;
     let mut estado: Option<Estado> = None;
-    let mut worker_iniciado = false;
 
     while let Ok(entrada) = rx_entrada.recv() {
         match entrada {
@@ -63,7 +61,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             .and_then(Value::as_str)
                             .map(PathBuf::from)
                             .unwrap_or_else(|| caminho.to_path_buf());
-                        if programa_lancado != caminho {
+                        if programa_lancado != caminho.to_path_buf() {
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "O arquivo solicitado difere do arquivo iniciado pelo CLI.")?;
                             continue;
                         }
@@ -81,13 +79,11 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         });
                         estado = Some(Estado {
                             fonte: fonte.clone(),
-                            programa: programa.clone(),
                             comandos: tx_comandos.clone(),
                             atual: None,
                             localizacoes: localizacoes.clone(),
                             caminhos: vec![caminho.to_string_lossy().into_owned()],
                         });
-                        worker_iniciado = true;
                         if continuar_inicializacao {
                             let _ = tx_comandos.send(ComandoDepuracao::Continuar);
                         }
@@ -214,6 +210,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let Some(estado) = estado.as_mut() else { continue; };
                         let primeira = estado.atual.is_none();
                         estado.atual = Some(atual.clone());
+                        if primeira && continuar_inicializacao { continue; }
                         let (linha, coluna) = atual.intervalo_fonte
                             .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
                             .unwrap_or((1, 1));
@@ -243,7 +240,6 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                 }
             }
         }
-        if !worker_iniciado && estado.is_some() { worker_iniciado = true; }
     }
     Ok(())
 }
