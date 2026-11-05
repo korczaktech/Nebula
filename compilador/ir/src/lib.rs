@@ -1253,6 +1253,130 @@ pub struct EventoDepuracao {
 
 type ObservadorDepuracao<'a> = &'a mut (dyn FnMut(&EventoDepuracao) -> Result<(), String> + 'a);
 
+/// Comando recebido pelo controlador de depuração.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ComandoDepuracao {
+    /// Continua até o próximo ponto de parada ou o fim do programa.
+    Continuar,
+    /// Executa uma instrução e pausa novamente.
+    Avancar,
+    /// Executa até sair da função atual.
+    Sair,
+    /// Substitui os pontos de parada por índices de instrução.
+    DefinirPontos(Vec<usize>),
+    /// Encerra a execução depurada.
+    Encerrar,
+}
+
+/// Evento emitido pelo controlador ao terminar a execução.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EventoControleDepuracao {
+    /// A máquina pausou antes de executar a instrução indicada.
+    Pausado(EventoDepuracao),
+    /// A execução terminou normalmente.
+    Finalizado(ResultadoExecucao, String),
+}
+
+/// Executa a IR sob controle síncrono de um depurador externo.
+///
+/// O canal de eventos informa estado e escopos antes da instrução. O canal de
+/// comandos aceita continuar, avançar, sair, substituir pontos de parada ou
+/// encerrar. Os pontos são índices de instrução, não linhas de arquivo.
+pub fn executar_controlado(
+    programa: &ProgramaIr,
+    limite_passos: usize,
+    comandos: std::sync::mpsc::Receiver<ComandoDepuracao>,
+    eventos: std::sync::mpsc::Sender<EventoControleDepuracao>,
+) -> Result<ResultadoExecucao, String> {
+    use std::collections::HashSet;
+    let mut pontos = HashSet::new();
+    let mut pausado = true;
+    let mut passo_pendente = false;
+    let mut profundidade_saida = None;
+    let resultado = executar_observado(programa, limite_passos, |evento| {
+        while let Ok(comando) = comandos.try_recv() {
+            match comando {
+                ComandoDepuracao::Continuar => {
+                    pausado = false;
+                    passo_pendente = false;
+                    profundidade_saida = None;
+                }
+                ComandoDepuracao::Avancar => {
+                    pausado = false;
+                    passo_pendente = true;
+                    profundidade_saida = None;
+                }
+                ComandoDepuracao::Sair => {
+                    pausado = false;
+                    passo_pendente = false;
+                    profundidade_saida = Some(evento.profundidade_chamada);
+                }
+                ComandoDepuracao::DefinirPontos(novos) => {
+                    pontos = novos.into_iter().collect();
+                }
+                ComandoDepuracao::Encerrar => {
+                    return Err("Execução encerrada pelo depurador.".into());
+                }
+            }
+        }
+        let ponto_atingido = pontos.contains(&evento.passo);
+        let retorno_funcao = profundidade_saida
+            .is_some_and(|profundidade| evento.profundidade_chamada < profundidade);
+        if ponto_atingido || retorno_funcao || pausado {
+            eventos.send(EventoControleDepuracao::Pausado(evento.clone()))
+                .map_err(|_| "Canal de eventos do depurador foi encerrado.".to_owned())?;
+            loop {
+                match comandos.recv() {
+                    Ok(ComandoDepuracao::Continuar) => {
+                        pausado = false;
+                        passo_pendente = false;
+                        profundidade_saida = None;
+                        break;
+                    }
+                    Ok(ComandoDepuracao::Avancar) => {
+                        pausado = false;
+                        passo_pendente = true;
+                        profundidade_saida = None;
+                        break;
+                    }
+                    Ok(ComandoDepuracao::Sair) => {
+                        pausado = false;
+                        passo_pendente = false;
+                        profundidade_saida = Some(evento.profundidade_chamada);
+                        break;
+                    }
+                    Ok(ComandoDepuracao::DefinirPontos(novos)) => {
+                        pontos = novos.into_iter().collect();
+                    }
+                    Ok(ComandoDepuracao::Encerrar) => {
+                        return Err("Execução encerrada pelo depurador.".into());
+                    }
+                    Err(_) => return Err("Canal de comandos do depurador foi encerrado.".into()),
+                }
+            }
+        } else if passo_pendente {
+            pausado = true;
+            passo_pendente = false;
+        }
+        Ok(())
+    });
+    match resultado {
+        Ok(resultado) => {
+            let _ = eventos.send(EventoControleDepuracao::Finalizado(
+                resultado.clone(), String::new()
+            ));
+            Ok(resultado)
+        }
+        Err(erro) => {
+            let _ = eventos.send(EventoControleDepuracao::Finalizado(
+                ResultadoExecucao { saida: Vec::new(), globais: HashMap::new() },
+                erro.clone()
+            ));
+            Err(erro)
+        }
+    }
+}
+
 /// Executa a IR notificando o chamador antes de cada instrução.
 ///
 /// O observador pode bloquear para aguardar comandos de depuração. Retornar
