@@ -881,6 +881,24 @@ impl<'a> Lexer<'a> {
                 self.inicio,
                 self.atual,
             );
+        } else if self
+            .caractere()
+            .is_some_and(|caractere| caractere == '_' || is_xid_start(caractere))
+        {
+            let mut fim = self.atual;
+            for caractere in self.fonte[self.atual..].chars() {
+                if caractere == '_' || is_xid_continue(caractere) {
+                    fim += caractere.len_utf8();
+                } else {
+                    break;
+                }
+            }
+            self.erro(
+                "N1005",
+                "Literal numérico não pode ser seguido diretamente por identificador.",
+                self.inicio,
+                fim,
+            );
         }
         self.adicionar(tipo, self.inicio, self.atual);
     }
