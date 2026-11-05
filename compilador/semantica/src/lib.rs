@@ -3463,13 +3463,13 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
                 Box::new(Tipo::Opcional(Box::new(Tipo::Texto))),
             ),
         ];
-        let (argumentos_validos, inferidos_parciais) =
+        let (inferencia_argumentos_valida, inferidos_parciais) =
             Analisador::inferir_genericos_chamada(
                 &funcao,
                 &argumentos_conflitantes,
                 Some(&esperado),
             );
-        assert!(!argumentos_validos, "conflito em argumento deve invalidar a chamada");
+        assert!(!inferencia_argumentos_valida, "conflito em argumento deve invalidar a chamada");
         assert_eq!(inferidos_parciais.get("T"), Some(&Tipo::Inteiro128));
 
         let retorno_conflitante = Tipo::Resultado(
