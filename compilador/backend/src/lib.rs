@@ -62,6 +62,8 @@ struct Emissor {
     lacos: Vec<Laco>,
     globais: HashMap<String, usize>,
     tipos_globais: HashMap<String, Tipo>,
+    retornos_funcoes: HashMap<String, Tipo>,
+    retorno_oculto_atual: Option<(i32, u64)>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
     referencias_globais: Vec<(usize, String, i32)>,
     funcao_atual: String,
@@ -88,6 +90,8 @@ impl Emissor {
             lacos: Vec::new(),
             globais,
             tipos_globais: HashMap::new(),
+            retornos_funcoes: HashMap::new(),
+            retorno_oculto_atual: None,
             layouts_tipos: HashMap::new(),
             referencias_globais: Vec::new(),
             funcao_atual: String::new(),
@@ -96,6 +100,9 @@ impl Emissor {
     }
 
     fn carregar_layouts(&mut self, programa: &ProgramaIr) {
+        self.retornos_funcoes = programa.funcoes.iter()
+            .map(|(nome, funcao)| (nome.clone(), funcao.retorno.clone()))
+            .collect();
         self.tipos_globais = programa.instrucoes.iter().filter_map(|instrucao| {
             if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
                 Some((nome.clone(), tipo.clone()))
@@ -109,6 +116,12 @@ impl Emissor {
             }).collect();
             (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, alinhamento: layout.alinhamento, campos })
         }).collect();
+    }
+
+    fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
+        let Tipo::Estrutura(nome) = tipo else { return None; };
+        let layout = self.layouts_tipos.get(nome)?;
+        (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
     }
 
     fn validar_tipo_abi(&self, tipo: &Tipo) -> Result<(), String> {
@@ -338,6 +351,7 @@ impl Emissor {
         self.tipos_escopos.push(HashMap::new());
         self.proximo_slot = 0;
         self.proximo_agregado = INICIO_AREA_AGREGADOS;
+        self.retorno_oculto_atual = None;
         self.pilha = 0;
         self.lacos.clear();
 
@@ -345,11 +359,17 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x55, 0x48, 0x89, 0xE5, 0x48, 0x81, 0xEC]);
         self.codigo.extend_from_slice(&TAMANHO_QUADRO.to_le_bytes());
 
+        let retorno_grande = self.layout_agregado_grande(&funcao.retorno);
+        if retorno_grande.is_some() {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xBD]);
+            self.codigo.extend_from_slice(&(-(TAMANHO_QUADRO as i32)).to_le_bytes()); // salva RDI no fim do quadro
+            self.retorno_oculto_atual = retorno_grande;
+        }
         if funcao.parametros.len() > 6 {
             return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
         }
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
-        let mut indice_registrador = 0usize;
+        let mut indice_registrador = usize::from(retorno_grande.is_some());
         let mut slots_superiores = Vec::new();
         for (nome, tipo) in &funcao.parametros {
             self.validar_tipo_abi(tipo)?;
@@ -382,7 +402,19 @@ impl Emissor {
         for instrucao in &funcao.corpo {
             self.instrucao(instrucao)?;
         }
-        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xC9, 0xC3]); // retorno implícito zero
+        if let Some((tamanho, _)) = retorno_grande {
+            let deslocamento = -(TAMANHO_QUADRO as i32);
+            self.carregar_rax(deslocamento);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]); // zera retorno implícito
+            self.carregar_rax(deslocamento);
+        } else {
+            self.codigo.extend_from_slice(&[0x31, 0xC0]); // retorno implícito zero
+        }
+        self.codigo.extend_from_slice(&[0xC9, 0xC3]);
+        self.retorno_oculto_atual = None;
         self.escopos.clear();
         self.tipos_escopos.clear();
         Ok(())
@@ -418,8 +450,23 @@ impl Emissor {
             InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
             InstrucaoIr::Bloco(instrucoes) => self.bloco(instrucoes)?,
             InstrucaoIr::Devolver(valor) => {
-                if let Some(valor) = valor { self.expressao(valor)?; }
-                else { self.codigo.extend_from_slice(&[0x31, 0xC0]); }
+                if let Some((tamanho, deslocamento)) = self.retorno_oculto_atual {
+                    let valor = valor.as_ref().ok_or("Retorno agregado grande exige um valor.")?;
+                    self.expressao(valor)?;
+                    self.push_rax(); // origem
+                    self.carregar_rax(deslocamento);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.pop_rax();
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                    self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+                    self.carregar_rax(deslocamento); // ABI retorna o destino em RAX
+                } else if let Some(valor) = valor {
+                    self.expressao(valor)?;
+                } else {
+                    self.codigo.extend_from_slice(&[0x31, 0xC0]);
+                }
                 self.codigo.extend_from_slice(&[0xC9, 0xC3]);
             }
             InstrucaoIr::Escolha { valor, casos } => self.escolha(valor, casos)?,
