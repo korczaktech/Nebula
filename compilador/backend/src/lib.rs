@@ -11,7 +11,8 @@ use nebula_semantica::Tipo;
 use std::collections::HashMap;
 
 const TAMANHO_CABECALHO: usize = 4096;
-const TAMANHO_QUADRO: u32 = 8192;
+const TAMANHO_QUADRO: u32 = 65536;
+const INICIO_AREA_AGREGADOS: u64 = (LIMITE_VARIAVEIS as u64) * 16 + 8;
 const LIMITE_VARIAVEIS: usize = 512;
 const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 
@@ -56,6 +57,7 @@ struct Emissor {
     escopos: Vec<HashMap<String, i32>>,
     tipos_escopos: Vec<HashMap<String, Tipo>>,
     proximo_slot: usize,
+    proximo_agregado: u64,
     pilha: usize,
     lacos: Vec<Laco>,
     globais: HashMap<String, usize>,
@@ -81,6 +83,7 @@ impl Emissor {
             escopos: Vec::new(),
             tipos_escopos: Vec::new(),
             proximo_slot: 0,
+            proximo_agregado: INICIO_AREA_AGREGADOS,
             pilha: 0,
             lacos: Vec::new(),
             globais,
@@ -327,6 +330,7 @@ impl Emissor {
         self.tipos_escopos.clear();
         self.tipos_escopos.push(HashMap::new());
         self.proximo_slot = 0;
+        self.proximo_agregado = INICIO_AREA_AGREGADOS;
         self.pilha = 0;
         self.lacos.clear();
 
@@ -1433,6 +1437,25 @@ impl Emissor {
         let deslocamento = -((self.proximo_slot * 16 - 8) as i32);
         self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
         self.tipos_escopos.last_mut().expect("escopo tipado ativo").insert(nome.to_owned(), tipo.clone());
+        Ok(deslocamento)
+    }
+
+    fn reservar_agregado(&mut self, tamanho: u64, alinhamento: u64) -> Result<i32, String> {
+        if tamanho == 0 || alinhamento == 0 || !alinhamento.is_power_of_two() || alinhamento > 16 {
+            return Err("Layout de agregado incompatível com o quadro nativo.".into());
+        }
+        let inicio = Self::alinhar_layout(self.proximo_agregado, alinhamento)
+            .ok_or("Alinhamento da área de agregados excedeu o limite.")?;
+        let fim = inicio.checked_add(tamanho)
+            .ok_or("Área de agregados excedeu o limite do quadro.")?;
+        if fim > u64::from(TAMANHO_QUADRO) {
+            return Err("A função excedeu a área reservada para agregados no quadro nativo.".into());
+        }
+        let deslocamento = i32::try_from(inicio)
+            .ok()
+            .and_then(i32::checked_neg)
+            .ok_or("Deslocamento do agregado excedeu o endereçamento x86-64.")?;
+        self.proximo_agregado = fim;
         Ok(deslocamento)
     }
 
@@ -2792,6 +2815,23 @@ mod testes {
             assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x84]));
             assert!(emissor.codigo.windows(2).any(|janela| janela == [0x0F, 0x05]));
         }
+    }
+
+    #[test]
+    fn reserva_area_de_agregados_alinhada_sem_colidir_com_slots() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let primeiro = emissor.reservar_agregado(24, 8).unwrap();
+        let segundo = emissor.reservar_agregado(32, 16).unwrap();
+        assert_eq!(primeiro, -8200);
+        assert_eq!(segundo % 16, 0);
+        assert!(segundo < primeiro);
+    }
+
+    #[test]
+    fn rejeita_agregado_que_excede_quadro_nativo() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        assert!(emissor.reservar_agregado(u64::from(TAMANHO_QUADRO), 8).is_err());
+        assert!(emissor.reservar_agregado(8, 32).is_err());
     }
 
     #[test]
