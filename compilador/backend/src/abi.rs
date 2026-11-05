@@ -4,6 +4,8 @@
 //! são passados indiretamente por endereço e retornados em destino oculto.
 //! Este módulo também calcula áreas de pilha e armazenamento sem truncar valores.
 
+#![allow(missing_docs)]
+
 /// Representação física de um agregado.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClasseAgregado {
