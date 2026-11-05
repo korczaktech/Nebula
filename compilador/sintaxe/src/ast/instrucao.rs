@@ -3,6 +3,7 @@
 use super::{declaracao::Visibilidade, expressao::Expressao, padroes::CasoEscolha};
 use nebula_diagnosticos::Diagnostico;
 use nebula_fonte::IntervaloFonte;
+use std::path::PathBuf;
 
 /// Declarações e instruções reconhecidas pelo parser.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +103,8 @@ pub struct TipoLocalizado {
 /// Programa analisado, incluindo nós, expressões e tipos com seus intervalos de origem.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Programa {
+    /// Caminho do arquivo que originou o programa, quando disponível.
+    pub caminho: Option<PathBuf>,
     pub itens: Vec<NoAst>,
     /// Nós localizados, incluindo instruções aninhadas nos blocos.
     pub nos_localizados: Vec<NoLocalizado>,
