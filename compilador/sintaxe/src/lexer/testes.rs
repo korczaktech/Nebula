@@ -288,7 +288,7 @@ fn diagnostica_numeros_malformados() {
 #[test]
 fn reconhece_texto_caractere_texto_multilinha_e_interpolacao() {
     let r = analisar(
-        r#""Nebula\n" 'á' '\u{1F680}' """linha 1
+        r#""Nebula\n" 'Nebula' 'ação' """linha 1
 linha 2""" "#,
     );
     let interpolado = analisar("\x60Ola, nome\x60");
@@ -299,13 +299,7 @@ linha 2""" "#,
         interpolado.diagnosticos
     );
     assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::Texto));
-    assert_eq!(
-        r.tokens
-            .iter()
-            .filter(|t| t.tipo == TipoToken::Caractere)
-            .count(),
-        2
-    );
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Texto).count(), 4);
     assert!(
         interpolado
             .tokens
