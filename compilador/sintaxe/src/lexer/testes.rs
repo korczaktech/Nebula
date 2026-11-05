@@ -18,7 +18,7 @@ fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
 #[test]
 fn reconhece_palavras_reservadas_da_sintaxe_principal() {
     let r = analisar(
-        "variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao fora e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe obter definir vazio exportar construtor estatico privado publico protegido",
+        "variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao fora e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe definir exportar construtor estatico privado publico protegido",
     );
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     let esperados = [
@@ -88,6 +88,13 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
         .map(|t| t.tipo)
         .collect();
     assert_eq!(tokens, esperados);
+}
+
+#[test]
+fn nomes_de_tipos_e_metodos_da_biblioteca_permanecem_identificadores() {
+    let r = analisar("vazio obter");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert!(r.tokens.iter().take(2).all(|t| t.tipo == TipoToken::Identificador));
 }
 
 #[test]
