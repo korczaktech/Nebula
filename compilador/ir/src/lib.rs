@@ -20,6 +20,7 @@ use nebula_runtime::{
     OperacaoDecimal, OperacaoInteira, Valor as ValorRuntime,
 };
 use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 /// Valor constante ou resultado de execução na IR.
@@ -74,7 +75,7 @@ pub enum InstrucaoIr {
     Devolver(Option<ExpressaoIr>),
     Parar,
     Seguir,
-    Localizada { intervalo: IntervaloFonte, instrucao: Box<InstrucaoIr> },
+    Localizada { caminho: PathBuf, intervalo: IntervaloFonte, instrucao: Box<InstrucaoIr> },
 }
 
 /// Caso de enumeração convertido para IR.
@@ -171,6 +172,7 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             mapa.entry(format!("{:?}", localizado.no)).or_default().push_back(localizado.intervalo);
             mapa
         }),
+        caminho_fonte: programa.caminho.clone().unwrap_or_default(),
     };
     let mut layouts_tipos = HashMap::new();
     for item in &programa.itens {
@@ -265,6 +267,7 @@ struct Lowerer {
     escopos_tipos: Vec<HashMap<String, Tipo>>,
     substituicoes: HashMap<String, String>,
     localizacoes: HashMap<String, VecDeque<IntervaloFonte>>,
+    caminho_fonte: PathBuf,
 }
 
 impl Lowerer {
@@ -426,7 +429,7 @@ impl Lowerer {
         instrucao.map(|instrucao| {
             let chave = format!("{:?}", item);
             match self.localizacoes.get_mut(&chave).and_then(VecDeque::pop_front) {
-                Some(intervalo) => InstrucaoIr::Localizada { intervalo, instrucao: Box::new(instrucao) },
+                Some(intervalo) => InstrucaoIr::Localizada { caminho: self.caminho_fonte.clone(), intervalo, instrucao: Box::new(instrucao) },
                 None => instrucao,
             }
         })
