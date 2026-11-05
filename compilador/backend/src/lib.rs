@@ -1077,9 +1077,6 @@ impl Emissor {
                 if caminho.len() != 1 {
                     return Err("Atribuição nativa suporta somente campos diretos de estrutura.".into());
                 }
-                if tipo_decimal(tipo) {
-                    return Err("Atribuição de campos decimais em agregados ainda não possui classificação de registradores.".into());
-                }
                 let tipo_raiz = self.buscar_tipo_local(raiz)
                     .or_else(|| self.tipos_globais.get(raiz))
                     .cloned()
@@ -1088,33 +1085,53 @@ impl Emissor {
                     return Err("Atribuição de campo exige uma variável de estrutura.".into());
                 };
                 self.validar_tipo_abi(&tipo_raiz)?;
-                let (deslocamento, tamanho) = self.layouts_tipos.get(nome)
-                    .and_then(|layout| layout.campos.get(&caminho[0]).copied())
+                let (deslocamento, tamanho, tamanho_agregado) = self.layouts_tipos.get(nome)
+                    .and_then(|layout| layout.campos.get(&caminho[0]).map(|(offset, size)| (*offset, *size, layout.tamanho)))
                     .ok_or_else(|| format!("Campo '{}' não encontrado em '{nome}'.", caminho[0]))?;
                 let largura = self.largura_abi_tipo(tipo)?;
-                if (tamanho == 16 && largura != 2) || (tamanho <= 8 && largura != 1) {
+                let largura_esperada = if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 };
+                if largura != largura_esperada {
                     return Err("Tipo do valor não corresponde à largura do campo no ABI.".into());
                 }
-                self.expressao(valor)?;
-                if let Some(base) = self.buscar_local(raiz) {
-                    match (deslocamento, tamanho) {
-                        (0, 16) => {
-                            self.armazenar_rax(base);
-                            self.armazenar_rdx(base - 8);
-                        }
-                        (0, _) => self.armazenar_rax(base),
-                        (8, _) => self.armazenar_rax(base - 8),
-                        _ => return Err("Campo não está em um registrador ABI.".into()),
+                if tamanho_agregado > 16 {
+                    let base = self.buscar_local(raiz)
+                        .ok_or_else(|| "Agregado grande global não possui armazenamento estático seguro.".to_owned())?;
+                    let temporario = self.reservar_agregado(16, 16)?;
+                    self.expressao(valor)?;
+                    self.armazenar_rax(temporario);
+                    if largura == 2 {
+                        self.armazenar_rdx(temporario + 8);
                     }
-                } else if self.globais.contains_key(raiz) {
-                    match (deslocamento, tamanho) {
-                        (0, 16) => self.armazenar_global(raiz),
-                        (0, _) => self.armazenar_global_parte(raiz, 0),
-                        (8, _) => self.armazenar_global_parte(raiz, 8),
-                        _ => return Err("Campo não está em um registrador ABI.".into()),
+                    self.carregar_rax(base);
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = agregado
+                    self.carregar_rax(temporario);
+                    if largura == 2 {
+                        self.carregar_rdx(temporario + 8);
                     }
+                    self.armazenar_campo_r11(deslocamento, tamanho)?;
                 } else {
-                    return Err(format!("Variável '{raiz}' não encontrada no backend."));
+                    if tipo_decimal(tipo) {
+                        return Err("Atribuição de campos decimais pequenos ainda não está disponível.".into());
+                    }
+                    self.expressao(valor)?;
+                    if let Some(base) = self.buscar_local(raiz) {
+                        match (deslocamento, tamanho) {
+                            (0, 16) => {
+                                self.armazenar_rax(base);
+                                self.armazenar_rdx(base - 8);
+                            }
+                            (0, _) => self.armazenar_rax(base),
+                            (8, _) => self.armazenar_rax(base - 8),
+                            _ => return Err("Campo não está em um registrador ABI.".into()),
+                        }
+                    } else if self.globais.contains_key(raiz) {
+                        match (deslocamento, tamanho) {
+                            (0, 16) => self.armazenar_global(raiz),
+                            (0, _) => self.armazenar_global_parte(raiz, 0),
+                            (8, _) => self.armazenar_global_parte(raiz, 8),
+                            _ => return Err("Campo não está em um registrador ABI.".into()),
+                        }
+                    }
                 }
             }
             ExpressaoIr::Atribuicao { nome, valor, .. } => {
@@ -1784,10 +1801,14 @@ impl Emissor {
         deslocamento: u64,
         tamanho: u64,
     ) -> Result<(), String> {
-        let deslocamento = i32::try_from(deslocamento)
-            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
         self.codigo.extend_from_slice(&[0x4C, 0x8D, 0x9D]);
         self.codigo.extend_from_slice(&base.to_le_bytes()); // r11 = início do agregado
+        self.armazenar_campo_r11(deslocamento, tamanho)
+    }
+
+    fn armazenar_campo_r11(&mut self, deslocamento: u64, tamanho: u64) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
         if tamanho > 16 {
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
             self.codigo.extend_from_slice(&[0x49, 0x8D, 0xBB]);
