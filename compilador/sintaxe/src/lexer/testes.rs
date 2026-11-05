@@ -631,19 +631,27 @@ fn emite_fim_unico_e_dedents_no_final_do_arquivo() {
     );
 }
 
-
 #[test]
 fn reconhece_async_e_nao_reserva_assinc() {
     let resultado = analisar("async funcao carregar() assinc");
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     assert_eq!(resultado.tokens[0].tipo, TipoToken::Async);
     assert_eq!(resultado.tokens[5].tipo, TipoToken::Identificador);
 }
 
 #[test]
 fn reconhece_delimitadores_do_function_body_e_importacao() {
-    let resultado = analisar("funcao teste(): { fim } incluir(modulo: arquivos, biblioteca: sistema)");
-    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    let resultado =
+        analisar("funcao teste(): { fim } incluir(modulo: arquivos, biblioteca: sistema)");
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "{:?}",
+        resultado.diagnosticos
+    );
     let tipos: Vec<_> = resultado.tokens.iter().map(|token| token.tipo).collect();
     assert!(tipos.contains(&TipoToken::AbreChave));
     assert!(tipos.contains(&TipoToken::FimBloco));
