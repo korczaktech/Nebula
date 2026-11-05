@@ -120,7 +120,7 @@ A instrução `cada` percorre os valores do intervalo em passos unitários, na d
 
 Uma função possui nome, parâmetros tipados, retorno declarado ou inferido quando permitido, e corpo. Tipos de função são definidos pela sequência ordenada dos tipos dos parâmetros e pelo tipo de retorno. A aridade e cada tipo de argumento são verificados antes da execução.
 
-Parâmetros genéricos são variáveis de tipo com escopo limitado à declaração. A inferência usa unificação estrutural determinística. Um mesmo parâmetro genérico deve receber o mesmo tipo em todas as ocorrências da instância. Quando não houver informação suficiente, o compilador deve solicitar anotação em vez de escolher um tipo arbitrário.
+Parâmetros genéricos são variáveis de tipo com escopo limitado à declaração. A inferência usa unificação estrutural determinística. Um mesmo parâmetro genérico deve receber o mesmo tipo em todas as ocorrências da instância. Quando não houver informação suficiente, o compilador deve solicitar anotação em vez de escolher um tipo arbitrário. A inferência de uma chamada é uma transação única que abrange todos os argumentos e, quando disponível, o tipo esperado do retorno: se qualquer unificação falhar, nenhuma vinculação parcial de parâmetro genérico pode ser usada para formar a instância.
 
 A monomorfização gera uma instância concreta para cada conjunto distinto de argumentos de tipo utilizado. A chave de instância inclui a identidade da função e todos os tipos concretos, incluindo tipos aninhados. Recursão genérica deve reutilizar a instância já registrada e não pode gerar expansão infinita por reentrada. Erros de inferência devem apontar a declaração e as ocorrências incompatíveis.
 
