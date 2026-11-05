@@ -1,4 +1,8 @@
 estrutura VetorGrande { a: inteiro64, b: inteiro64, c: inteiro64 }
-funcao principal(): VetorGrande {
+funcao construir(): VetorGrande {
     devolver VetorGrande { a: 1, b: 2, c: 3 }
+}
+funcao principal(): inteiro64 {
+    construir()
+    devolver 0
 }
