@@ -161,6 +161,19 @@ fn diagnostica_tabulacao_e_nivel_de_indentacao_inexistente() {
 }
 
 #[test]
+fn tabulacao_em_linhas_sem_codigo_nao_altera_indentacao() {
+    let r = analisar("a\n\t# comentario\n\t/* comentario */\n    b");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(
+        r.tokens
+            .iter()
+            .filter(|token| token.tipo == TipoToken::Indent)
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn reconhece_operadores_da_especificacao_principal() {
     let r = analisar(
         "+ - * / \\\\ % ** ^ == iguais != !== > < >= <= = =+ =- =* =/ =\\\\ =% =** ++ -- -> && || ! ?? ?. ??= ... & | ~ << >> >>> ? : :: @ .. .",
