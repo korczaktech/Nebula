@@ -14,7 +14,7 @@ use std::thread;
 enum Entrada {
     Requisicao(Value),
     Evento(EventoControleDepuracao),
-    FimEntrada,
+    Fechou,
 }
 
 struct Estado {
@@ -253,7 +253,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                     _ => responder_erro(&mut saida, &mut sequencia, seq, comando, "Comando DAP não suportado pela Nebula.")?,
                 }
             }
-            Entrada::FimEntrada => {
+            Entrada::Fechou => {
                 if let Some(estado) = estado.as_ref() {
                     let _ = estado.comandos.send(ComandoDepuracao::Encerrar);
                 } else {
@@ -430,7 +430,7 @@ fn ler_requisicoes(saida: Sender<Entrada>) {
             linha.clear();
             match leitor.read_line(&mut linha) {
                 Ok(0) | Err(_) => {
-                    let _ = saida.send(Entrada::FimEntrada);
+                    let _ = saida.send(Entrada::Fechou);
                     return;
                 },
                 Ok(_) => {}
@@ -443,7 +443,7 @@ fn ler_requisicoes(saida: Sender<Entrada>) {
         let Some(tamanho) = tamanho else { continue; };
         let mut corpo = vec![0; tamanho];
         if leitor.read_exact(&mut corpo).is_err() {
-            let _ = saida.send(Entrada::FimEntrada);
+            let _ = saida.send(Entrada::Fechou);
             return;
         }
         let Ok(requisicao) = serde_json::from_slice::<Value>(&corpo) else { continue; };
