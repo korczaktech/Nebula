@@ -360,10 +360,10 @@ impl Emissor {
         self.codigo.extend_from_slice(&TAMANHO_QUADRO.to_le_bytes());
 
         let retorno_grande = self.layout_agregado_grande(&funcao.retorno);
-        if retorno_grande.is_some() {
+        if let Some((tamanho, _)) = retorno_grande {
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xBD]);
             self.codigo.extend_from_slice(&(-(TAMANHO_QUADRO as i32)).to_le_bytes()); // salva RDI no fim do quadro
-            self.retorno_oculto_atual = Some((-(TAMANHO_QUADRO as i32), retorno_grande.unwrap().0));
+            self.retorno_oculto_atual = Some((-(TAMANHO_QUADRO as i32), tamanho));
         }
         if funcao.parametros.len() > 6 {
             return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
