@@ -2703,8 +2703,8 @@ mod testes {
         );
 
         assert!(emissor.validar_tipo_abi(&Tipo::Estrutura("ParDuplo".into())).is_ok());
-        let erro = emissor.validar_tipo_abi(&Tipo::Estrutura("AgregadoGrande".into())).unwrap_err();
-        assert!(erro.contains("24 bytes") || erro.contains("16 bytes"));
+        assert!(emissor.validar_tipo_abi(&Tipo::Estrutura("AgregadoGrande".into())).is_ok());
+        assert_eq!(emissor.largura_abi_tipo(&Tipo::Estrutura("AgregadoGrande".into())).unwrap(), 1);
         assert!(emissor.validar_tipo_abi(&Tipo::Tupla(vec![
             Tipo::Inteiro64,
             Tipo::Inteiro64,
@@ -2714,6 +2714,34 @@ mod testes {
             Tipo::Inteiro64,
             Tipo::Inteiro64,
         ])).is_err());
+    }
+
+    #[test]
+    fn construi_estrutura_maior_que_dezesseis_bytes_em_memoria() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "RegistroGrande".into(),
+            LayoutAgregado {
+                tamanho: 24,
+                alinhamento: 8,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 8)),
+                    ("segundo".into(), (8, 8)),
+                    ("terceiro".into(), (16, 8)),
+                ]),
+            },
+        );
+        emissor.expressao(&ExpressaoIr::ConstrucaoEstrutura {
+            nome: "RegistroGrande".into(),
+            campos: vec![
+                ("primeiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(11))),
+                ("segundo".into(), ExpressaoIr::Constante(ValorIr::Inteiro(22))),
+                ("terceiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(33))),
+            ],
+        }).unwrap();
+        assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xAA]));
+        assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xA4]) == false);
+        assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0x49, 0x89, 0x83]));
     }
 
     #[test]
