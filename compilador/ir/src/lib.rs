@@ -1280,6 +1280,8 @@ pub enum ComandoDepuracao {
     Sair,
     /// Substitui os pontos de parada por índices de instrução.
     DefinirPontos(Vec<usize>),
+    /// Substitui pontos de parada por offsets de bytes na fonte original.
+    DefinirPontosFonte(Vec<usize>),
     /// Encerra a execução depurada.
     Encerrar,
 }
@@ -1306,6 +1308,7 @@ pub fn executar_controlado(
 ) -> Result<ResultadoExecucao, String> {
     use std::collections::HashSet;
     let mut pontos = HashSet::new();
+    let mut pontos_fonte = HashSet::new();
     let mut pausado = true;
     let mut pausar_no_proximo = false;
     let mut profundidade_saida = None;
@@ -1330,6 +1333,9 @@ pub fn executar_controlado(
                 ComandoDepuracao::DefinirPontos(novos) => {
                     pontos = novos.into_iter().collect();
                 }
+                ComandoDepuracao::DefinirPontosFonte(novos) => {
+                    pontos_fonte = novos.into_iter().collect();
+                }
                 ComandoDepuracao::Encerrar => {
                     return Err("Execução encerrada pelo depurador.".into());
                 }
@@ -1339,7 +1345,8 @@ pub fn executar_controlado(
             pausado = true;
             pausar_no_proximo = false;
         }
-        let ponto_atingido = pontos.contains(&evento.passo);
+        let ponto_atingido = pontos.contains(&evento.passo)
+            || evento.intervalo_fonte.is_some_and(|intervalo| pontos_fonte.contains(&intervalo.inicio));
         let retorno_funcao = profundidade_saida
             .is_some_and(|profundidade| evento.profundidade_chamada < profundidade);
         if retorno_funcao {
@@ -1371,6 +1378,9 @@ pub fn executar_controlado(
                     }
                     Ok(ComandoDepuracao::DefinirPontos(novos)) => {
                         pontos = novos.into_iter().collect();
+                    }
+                    Ok(ComandoDepuracao::DefinirPontosFonte(novos)) => {
+                        pontos_fonte = novos.into_iter().collect();
                     }
                     Ok(ComandoDepuracao::Encerrar) => {
                         return Err("Execução encerrada pelo depurador.".into());
