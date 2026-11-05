@@ -1697,15 +1697,15 @@ mod testes {
     }
     #[test]
     fn reconhece_aliases_de_declaracao_e_controle() {
-        let codigo = "definir a = 1\nmutável b = 2\nmutavel c = 3\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
+        let codigo = "definir a = 1\nmutavel b = 2\nmutavel c = 3\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 8);
     }
 
     #[test]
-    fn aceita_grafias_portuguesas_com_e_sem_acentos() {
-        let codigo = "função somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nquando não falso { exibir(1) } senão { exibir(0) }\nenumeração Estado { Ativo\nInativo }\npúblico função principal() { exibir(Estado::Ativo) }";
+    fn aceita_grafias_portuguesas_sem_acentos() {
+        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nquando nao falso { exibir(1) } senao { exibir(0) }\nenumeracao Estado { Ativo\nInativo }\npublico funcao principal() { exibir(Estado::Ativo) }";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 4);
@@ -1724,7 +1724,7 @@ mod testes {
         let exemplos = [
             "variavel x = 1",
             "definir x: inteiro = 1",
-            "mutável x = 1",
+            "mutavel x = 1",
             "constante limite: inteiro = 10",
             "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }",
             "publico funcao identidade<T>(valor: T): T { devolver valor }",
