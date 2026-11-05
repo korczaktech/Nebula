@@ -21,7 +21,8 @@ use unicode_normalization::UnicodeNormalization;
 pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     let lexico = analisar_lexico(fonte);
     let mut parser = Parser::novo(lexico.tokens);
-    let programa = parser.programa();
+    let mut programa = parser.programa();
+    programa.caminho = Some(fonte.caminho().to_path_buf());
     let mut diagnosticos = lexico.diagnosticos;
     diagnosticos.extend(parser.diagnosticos);
     // A ordem de apresentação acompanha a ordem da fonte, não a ordem em que
@@ -77,6 +78,7 @@ impl Parser {
         self.tipos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
         self.casos_localizados.sort_by(|a, b| ordenar(&a.intervalo, &b.intervalo));
         Programa {
+            caminho: None,
             itens,
             nos_localizados: std::mem::take(&mut self.nos_localizados),
             expressoes_localizadas: std::mem::take(&mut self.expressoes_localizadas),
