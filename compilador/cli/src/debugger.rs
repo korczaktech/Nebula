@@ -145,7 +145,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         };
                         let atual = estado.atual.as_ref();
                         let (linha, coluna) = atual.and_then(|evento| evento.intervalo_fonte)
-                            .and_then(|intervalo| estado.linha_coluna_dap(fonte, intervalo.inicio))
+                            .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
                             .unwrap_or((1, 1));
                         let mut nomes = atual.map(|evento| evento.pilha_chamadas.clone()).unwrap_or_default();
                         if nomes.is_empty() { nomes.push("Programa".into()); }
@@ -203,7 +203,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             "next" => {
                                 let linha_atual = estado.atual.as_ref()
                                     .and_then(|evento| evento.intervalo_fonte)
-                                    .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
+                                    .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
                                     .map(|(linha, _)| linha);
                                 let offsets = estado.localizacoes.iter().filter_map(|intervalo| {
                                     let (linha, _) = estado.fonte.linha_coluna(intervalo.inicio)?;
