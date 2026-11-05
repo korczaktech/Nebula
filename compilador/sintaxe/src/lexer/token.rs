@@ -47,7 +47,7 @@ pub enum TipoToken {
     Lancar,
     Verifique,
     Com,
-    Assinc,
+    Async,
     Aguarda,
     Global,
     Externa,
