@@ -16,6 +16,17 @@ fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
 }
 
 #[test]
+fn palavras_reservadas_acentuadas_nao_sao_aceitas() {
+    let r = analisar("função senão não enumeração mutável");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert!(
+        r.tokens[..5]
+            .iter()
+            .all(|token| token.tipo == TipoToken::Identificador)
+    );
+}
+
+#[test]
 fn reconhece_palavras_reservadas_da_sintaxe_principal() {
     let r = analisar(
         "variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao fora e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe definir exportar construtor estatico privado publico protegido",
