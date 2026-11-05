@@ -30,7 +30,7 @@ fn instrucao_base(mut instrucao: &InstrucaoIr) -> &InstrucaoIr {
 pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     let mut globais = HashMap::new();
     for instrucao in &programa.instrucoes {
-        if let InstrucaoIr::Declarar { nome, .. } = instrucao {
+        if let InstrucaoIr::Declarar { nome, .. } = instrucao_base(instrucao) {
             let deslocamento = globais.len().checked_mul(16)
                 .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
             if globais.insert(nome.clone(), deslocamento).is_some() {
@@ -41,7 +41,7 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     let mut emissor = Emissor::novo(globais);
     emissor.carregar_layouts(programa);
     for instrucao in &programa.instrucoes {
-        if let InstrucaoIr::Declarar { tipo, .. } = instrucao {
+        if let InstrucaoIr::Declarar { tipo, .. } = instrucao_base(instrucao) {
             emissor.validar_tipo_abi(tipo)?;
         }
     }
@@ -153,7 +153,7 @@ impl Emissor {
             .map(|(nome, funcao)| (nome.clone(), funcao.retorno.clone()))
             .collect();
         self.tipos_globais = programa.instrucoes.iter().filter_map(|instrucao| {
-            if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+            if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao_base(instrucao) {
                 Some((nome.clone(), tipo.clone()))
             } else {
                 None
