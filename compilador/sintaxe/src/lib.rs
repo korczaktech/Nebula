@@ -171,6 +171,7 @@ impl Parser {
             TipoToken::Parar | TipoToken::Encerrar | TipoToken::Pare => { self.avancar(); Some(NoAst::Parar) }
             TipoToken::Seguir | TipoToken::Prossiga => { self.avancar(); Some(NoAst::Seguir) }
             TipoToken::Passar => { self.avancar(); Some(NoAst::Passar) }
+            TipoToken::Ceder => { self.avancar(); let valor = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Ceder(valor)) }
             _ => self.expressao(0).map(NoAst::Expressao),
         }
     }
@@ -943,10 +944,11 @@ impl Parser {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
-            TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(9)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
+            TipoToken::Isto | TipoToken::TipoDe | TipoToken::InstanciaDe | TipoToken::Obter => Expressao::Nome(self.avancar().lexema),
             TipoToken::Identificador => {
                 let nome = self.avancar().lexema.nfc().collect::<String>();
                 let indice_abertura = self.atual;
@@ -1220,7 +1222,7 @@ impl Parser {
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
-            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Menos
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
             | TipoToken::Mais
         )
     }
