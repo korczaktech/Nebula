@@ -628,23 +628,7 @@ impl Parser {
         if self.verifica(TipoToken::FimBloco) {
             self.avancar();
         } else {
-            self.erro_atual("N2009", "Condicional precisa terminar com 'fim'.");
-        }
-        for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
-            senao = vec![NoAst::Quando {
-                condicao: condicao_alternativa,
-                entao: corpo_alternativo,
-                senao,
-            }];
-        }
-        Some(NoAst::Quando { condicao, entao, senao })
-    }
-    fn escolha(&mut self) -> Option<NoAst> {
-        self.avancar();
-        let valor = self.expressao_antes_de_bloco()?;
-        let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
-        if delimitado_por_chaves {
-            self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
+            self.erro_atual("N2009", "Condicional precisa terminar com 'fim'.");\n        }\n        for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {\n            senao = vec![NoAst::Quando\n    condicao: condicao_alternativa,\n    entao: corpo_alternativo,\n    senao,\nfim\n];\n        }\n        Some(NoAst::Quando { condicao, entao, senao })\n    }\n    fn escolha(&mut self) -> Option<NoAst> {\n        self.avancar();\n        let valor = self.expressao_antes_de_bloco()?;\n        let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);\n        if delimitado_por_chaves {\n            self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
         }
         let indentado = if delimitado_por_chaves {
             false
@@ -1069,7 +1053,7 @@ impl Parser {
             } else {
                 "vazio".into()
             };
-            return Some(format!("funcao({}):{retorno}", parametros.join(",")));
+            return Some(format!("funcao(\n    passar\nfim\n):{retorno}", parametros.join(",")));
         }
         if self.corresponde(TipoToken::AbreColchete) {
             let interno = self.caminho_tipo()?;
@@ -1807,7 +1791,7 @@ mod testes {
     fn nao_aceita_palavras_reservadas_como_identificadores() {
         for codigo in [
             "variavel estrutura = 1",
-            "funcao testar(enumeracao: inteiro) { devolver enumeracao }",
+            "funcao testar(enumeracao: inteiro)\n    devolver enumeracao\nfim",
         ] {
             let r = analisar(&fonte(codigo));
             assert!(
@@ -1849,7 +1833,7 @@ mod testes {
 
     #[test]
     fn analisa_escolha_de_enumeracao_com_payload_e_curinga() {
-        let r = analisar(&fonte("escolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }"));
+        let r = analisar(&fonte("escolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         let NoAst::Escolha { casos, .. } = &r.programa.itens[0] else { panic!("AST não contém escolha"); };
         assert_eq!(casos.len(), 3);
@@ -1988,14 +1972,14 @@ mod testes {
     }
     #[test]
     fn analisa_funcao_condicional_e_precedencia() {
-        let r = analisar(&fonte("funcao principal(): vazio {\n variavel x: inteiro = 1 + 2 * 3\n quando x > 2 { devolver x } senao { devolver 0 }\n}"));
+        let r = analisar(&fonte("funcao principal(): vazio\n     variavel x: inteiro = 1 + 2 * 3\n     quando x > 2\n        devolver x\n    senao\n        devolver 0\n    fim\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 1);
     }
     #[test]
     fn analisa_funcao_generica_com_um_e_varios_parametros() {
         let r = analisar(&fonte(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao combinar<T, U>(a: T, b: U): T { devolver a }",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\nfuncao combinar<T, U>(a: T, b: U): T\n    devolver a\nfim",
         ));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(
@@ -2010,13 +1994,13 @@ mod testes {
 
     #[test]
     fn rejeita_parametro_generico_duplicado() {
-        let r = analisar(&fonte("funcao combinar<T, T>(a: T) { devolver }"));
+        let r = analisar(&fonte("funcao combinar<T, T>(a: T)\n    devolver\nfim"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2014"));
     }
 
     #[test]
     fn preserva_visibilidade_de_funcao_na_ast() {
-        let r = analisar(&fonte("publico funcao abrir() { devolver }"));
+        let r = analisar(&fonte("publico funcao abrir()\n    devolver\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { visibilidade: Some(Visibilidade::Publico), .. }));
     }
@@ -2048,7 +2032,7 @@ mod testes {
     }
     #[test]
     fn analisa_laco_para_e_inclusao_de_modulo() {
-        let r = analisar(&fonte("incluir Matematica como Mat\npara (variavel i = 0; i < 3; i = i + 1) { exibir(i) }"));
+        let r = analisar(&fonte("incluir Matematica como Mat\npara (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
     }
@@ -2056,7 +2040,7 @@ mod testes {
 
     #[test]
     fn analisa_pulso_com_intervalo() {
-        let r = analisar(&fonte("pulso(100) { encerrar }"));
+        let r = analisar(&fonte("pulso(100)\n    encerrar\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Pulso { .. }));
     }
@@ -2070,13 +2054,13 @@ mod testes {
 
     #[test]
     fn condicional_sem_senao_preserva_separador_da_proxima_instrucao() {
-        let r = analisar(&fonte("quando verdadeiro { exibir(1) }\nvariavel depois = 2"));
+        let r = analisar(&fonte("quando verdadeiro\n    exibir(1)\nfim\n\nvariavel depois = 2"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
     }
     #[test]
     fn aceita_quando_senao_em_linhas_separadas() {
-        let r = analisar(&fonte("quando verdadeiro {\n exibir(1)\n}\nsenao {\n exibir(0)\n}"));
+        let r = analisar(&fonte("quando verdadeiro\n    exibir(1)\n\nsenao\n    exibir(0)\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
@@ -2126,7 +2110,7 @@ mod testes {
     }
     #[test]
     fn cabecalho_para_rejeita_declaracao_constante() {
-        let r = analisar(&fonte("para (constante i = 0; i < 3; i = i + 1) { parar }"));
+        let r = analisar(&fonte("para (constante i = 0; i < 3; i = i + 1)\n    parar\nfim"));
         assert!(!r.diagnosticos.is_empty());
     }
     #[test]
@@ -2232,7 +2216,7 @@ mod testes {
     }
     #[test]
     fn reconhece_aliases_de_declaracao_e_controle() {
-        let codigo = "definir a = 1\nmutavel b = 2\nmutavel c = 3\nalterar a <- 3\navaliar a { caso _ { exibir(b) } }\ndurante falso { encerrar }\nrepetir falso { seguir }\ncada item em [1, 2] { exibir(item) }";
+        let codigo = "definir a = 1\nmutavel b = 2\nmutavel c = 3\nalterar a <- 3\navaliar a\n    caso _\n        exibir(b)\nfim\ndurante falso\n    encerrar\nfim\nrepetir falso\n    seguir\nfim\ncada item em [1, 2]\n    exibir(item)\nfim";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 8);
@@ -2240,7 +2224,7 @@ mod testes {
 
     #[test]
     fn aceita_grafias_portuguesas_sem_acentos() {
-        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nquando nao falso { exibir(1) } senao { exibir(0) }\nenumeracao Estado { Ativo\nInativo }\npublico funcao principal() { exibir(Estado::Ativo) }";
+        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nquando nao falso\n    exibir(1)\nsenao\n    exibir(0)\nfim\n\nenumeracao Estado { Ativo\nInativo }\npublico funcao principal()\n    exibir(Estado::Ativo)\nfim";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 4);
@@ -2275,7 +2259,7 @@ mod testes {
             "enquanto verdadeiro\n    parar\nfim",
             "durante verdadeiro\n    seguir\nfim",
             "repetir falso\n    encerrar\nfim",
-            "cada item em [1, 2, 3] { exibir(item) }",
+            "cada item em [1, 2, 3]\n    exibir(item)\nfim",
             "pulso(100)\n    exibir(1)\nfim",
             "para (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim",
             "alterar total <- 3",
@@ -2356,7 +2340,7 @@ mod testes {
             "",
             "variavel anotada: inteiro = 1",
             "constante seta <- 2",
-            "privado funcao sem_retorno() {}",
+            "privado funcao sem_retorno()\n    passar\nfim",
             "funcao bloco_fim()\n    retorne\nfim",
             "tipo Alias = Texto",
             "tipo AliasSeta <- Texto",
@@ -2371,10 +2355,10 @@ mod testes {
             "incluir Biblioteca",
             "incluir Biblioteca::Interna como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa {})\n    passar\nfim",
-            "escolha (Pessoa {})\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa {})\n    passar\nfim",
-            "cada item em (Pessoa {})\n    passar\nfim",
+            "quando (Pessoa\n    passar\nfim\n)\n    passar\nfim",
+            "escolha (Pessoa\n    passar\nfim\n)\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa\n    passar\nfim\n)\n    passar\nfim",
+            "cada item em (Pessoa\n    passar\nfim\n)\n    passar\nfim",
             "quando primeiro\n    passar\nsendo segundo\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2481,17 +2465,17 @@ mod testes {
             "estrutura Separadores { a: inteiro\nb: texto,\nc: logico; }",
             "enumeracao Variantes { A\nB(), C(inteiro, texto), }",
             "incluir Modulo\n::Interno como Alias",
-            "funcao sem_retorno() {}",
-            "funcao sem_parametros(): vazio {}",
-            "funcao multiplos(a: inteiro, b: texto, c: [logico]) {}",
-            "quando verdadeiro {}",
-            "quando falso {} senao quando verdadeiro {} senao {}",
-            "escolha valor { caso Enum::Vazio {} caso Enum::Unico() {} caso Enum::Par(a, b) {} caso _ {} }",
-            "para (inicial = 1; condicao; atualizacao = 2) {}",
-            "para (; condicao; atualizacao = 2) {}",
-            "para (inicial = 1; ; atualizacao = 2) {}",
-            "para (inicial = 1; condicao; ) {}",
-            "para (; ; ) {}",
+            "funcao sem_retorno()\n    passar\nfim",
+            "funcao sem_parametros(): vazio\n    passar\nfim",
+            "funcao multiplos(a: inteiro, b: texto, c: [logico])\n    passar\nfim",
+            "quando verdadeiro\n    passar\nfim",
+            "quando falso\n    passar\nsenao quando verdadeiro\n    passar\nfim\nsenao\n    passar\nfim",
+            "escolha valor\n    caso Enum::Vazio\n        passar\n    caso Enum::Unico()\n        passar\n    caso Enum::Par(a, b)\n        passar\n    caso _\n        passar\nfim",
+            "para (inicial = 1; condicao; atualizacao = 2)\n    passar\nfim",
+            "para (; condicao; atualizacao = 2)\n    passar\nfim",
+            "para (inicial = 1; ; atualizacao = 2)\n    passar\nfim",
+            "para (inicial = 1; condicao; )\n    passar\nfim",
+            "para (; ; )\n    passar\nfim",
             "variavel encadeada = funcao_alvo(1, 2)[0].campo::interno",
             "variavel tupla_unitaria = (valor,)",
             "variavel construcao_multilinha = Pessoa {\n nome: \"Ana\",\n idade: 20,\n}",
@@ -2500,8 +2484,8 @@ mod testes {
             "variavel potencia_direita = 2 ** 3 ** 4",
             "variavel agrupamento_relacional = (1 < 2) e (3 > 2)",
             "variavel separadores = 1; constante outro = 2",
-            "funcao bloco_com_separadores() {\n\n variavel a = 1;;\n variavel b = 2;\n}",
-            "funcao bloco_fim_vazio()\nfim",
+            "funcao bloco_com_separadores()\n    variavel a = 1\n    \n    \n    variavel b = 2\nfim",
+            "funcao bloco_fim_vazio()\n    passar\nfim",
         ];
 
         for codigo in exemplos {
@@ -2537,17 +2521,17 @@ mod testes {
         let exemplos = [
             "variavel = 1",
             "constante limite =",
-            "funcao sem_parametros( { devolver }",
-            "funcao incompleta(valor inteiro) { devolver }",
+            "funcao sem_parametros(\n    devolver\nfim",
+            "funcao incompleta(valor inteiro)\n    devolver\nfim",
             "tipo SemDestino =",
             "estrutura Pessoa { nome texto }",
             "enumeracao Estado {}",
             "incluir [inteiro]",
             "quando verdadeiro { exibir(1)",
-            "escolha valor { caso _ { exibir(1) }",
-            "cada item [1, 2] { exibir(item) }",
-            "pulso { exibir(1) }",
-            "para (variavel i = 0; i < 3) { parar }",
+            "escolha valor {\ncaso _\n    exibir(1)\n",
+            "cada item [1, 2]\n    exibir(item)\nfim",
+            "pulso\n    exibir(1)\nfim",
+            "para (variavel i = 0; i < 3)\n    parar\nfim",
             "alterar total",
             "variavel lista = [1, 2",
             "variavel chamada = funcao(1, 2",
@@ -2601,12 +2585,12 @@ mod testes {
     #[test]
     fn reconhece_blocos_vazios_e_construcoes_vazias() {
         for codigo in [
-            "funcao vazia() {}",
+            "funcao vazia()\n    passar\nfim",
             "estrutura Vazia {}",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
             "variavel pessoa = Pessoa {}",
-            "escolha valor { caso _ {} }",
+            "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2621,9 +2605,9 @@ mod testes {
     #[test]
     fn rejeita_tokens_extras_entre_padrao_e_bloco_de_escolha() {
         for codigo in [
-            "escolha x { caso Estado::Ok extra {} }",
-            "escolha x { caso Estado::Ok( valor ) inesperado {} }",
-            "escolha x { caso _ 123 {} }",
+            "escolha x\n    caso Estado::Ok extra\n        passar\nfim",
+            "escolha x\n    caso Estado::Ok( valor ) inesperado\n        passar\nfim",
+            "escolha x\n    caso _ 123\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2644,7 +2628,7 @@ mod testes {
     #[test]
     fn padroes_invalidos_nao_contaminam_duplicidade_de_variantes() {
         let resultado = analisar(&fonte(
-            "escolha x { caso Estado::Ok(valor, valor) {} caso Estado::Ok(item) {} caso _ {} }"
+            "escolha x\n    caso Estado::Ok(valor, valor)\n        passar\n    caso Estado::Ok(item)\n        passar\n    caso _\n        passar\nfim"
         ));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2046"));
         assert!(
@@ -2662,11 +2646,11 @@ mod testes {
 
     #[test]
     fn alias_avaliar_e_blocos_fim_cobrem_formas_normativas_de_escolha() {
-        let codigo = "avaliar resultado {\n caso Estado::Vazio\n exibir(0)\n fim\n caso Estado::Valor(item) { exibir(item) }\n caso _ { exibir(1) }\n}";
+        let codigo = "avaliar resultado\n    caso Estado::Vazio\n    exibir(0)\n    fim\n    caso Estado::Valor(item)\n       exibir(item)\n    \n    caso _\n       exibir(1)\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.is_empty(),
-            "alias avaliar, bloco fim e bloco com chaves devem ser aceitos: {:?}",
+            "alias avaliar e blocos indentados devem ser aceitos: {:?}",
             resultado.diagnosticos
         );
         let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
@@ -2681,8 +2665,8 @@ mod testes {
     #[test]
     fn escolha_permite_curinga_antes_ou_depois_de_variantes_sem_repeticao() {
         for codigo in [
-            "escolha x { caso _ {} caso Estado::Ok {} }",
-            "escolha x { caso Estado::Ok {} caso _ {} }",
+            "escolha x\n    caso _\n        passar\n    caso Estado::Ok\n        passar\nfim",
+            "escolha x\n    caso Estado::Ok\n        passar\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2695,7 +2679,7 @@ mod testes {
 
     #[test]
     fn aceita_todas_as_formas_validas_de_padroes_escolha() {
-        let codigo = "escolha resultado {\n caso Resultado::Vazio {}\n caso Resultado::Unico() {}\n caso Resultado::Um(valor) {}\n caso Resultado::Dois(primeiro, segundo) {}\n caso _ {}\n}";
+        let codigo = "escolha resultado\n    caso Resultado::Vazio\n       passar\n    \n    caso Resultado::Unico()\n       passar\n    \n    caso Resultado::Um(valor)\n       passar\n    \n    caso Resultado::Dois(primeiro, segundo)\n       passar\n    \n    caso _\n       passar\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Escolha { casos, .. }) = resultado.programa.itens.first() else {
@@ -2712,14 +2696,14 @@ mod testes {
     #[test]
     fn rejeita_padroes_escolha_malformados() {
         let casos = [
-            ("escolha x { caso Variante {} }", "N2042"),
-            ("escolha x { caso Enum:: {} }", "N2010"),
-            ("escolha x { caso Enum::Variante(1) {} }", "N2045"),
-            ("escolha x { caso Enum::Variante(valor, valor) {} }", "N2046"),
-            ("escolha x { caso _() {} }", "N2042"),
-            ("escolha x { caso Enum::Variante(valor,) {} }", "N2045"),
-            ("escolha x { caso Enum::Variante::Aninhada {} }", "N2042"),
-            ("escolha x { caso _ {} caso _ {} }", "N2043"),
+            ("escolha x\n    caso Variante\n        passar\nfim", "N2042"),
+            ("escolha x\n    caso Enum::\n        passar\nfim", "N2010"),
+            ("escolha x\n    caso Enum::Variante(1)\n        passar\nfim", "N2045"),
+            ("escolha x\n    caso Enum::Variante(valor, valor)\n        passar\nfim", "N2046"),
+            ("escolha x\n    caso _()\n        passar\nfim", "N2042"),
+            ("escolha x\n    caso Enum::Variante(valor,)\n        passar\nfim", "N2045"),
+            ("escolha x\n    caso Enum::Variante::Aninhada\n        passar\nfim", "N2042"),
+            ("escolha x\n    caso _\n        passar\n    caso _\n        passar\nfim", "N2043"),
         ];
 
         for (codigo, esperado) in casos {
@@ -2734,7 +2718,7 @@ mod testes {
 
     #[test]
     fn padroes_escolha_validam_limites_e_isolamento_de_vinculos() {
-        let codigo = "escolha valor {\n caso A::Mesmo(item) {}\n caso B::Mesmo(item) {}\n caso A::Outro(primeiro, segundo) {}\n caso _ {}\n}";
+        let codigo = "escolha valor\n    caso A::Mesmo(item)\n       passar\n    \n    caso B::Mesmo(item)\n       passar\n    \n    caso A::Outro(primeiro, segundo)\n       passar\n    \n    caso _\n       passar\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -2753,7 +2737,7 @@ mod testes {
     #[test]
     fn normaliza_nomes_de_padroes_e_vinculos_antes_de_validar_duplicidade() {
         let variantes = analisar(&fonte(
-            "escolha x { caso Estado::Café {} caso Estado::Cafe\u{301} {} }"
+            "escolha x\n    caso Estado::Café\n        passar\n    caso Estado::Cafe\\u\n        301\n    \n    {}\nfim"
         ));
         assert!(
             variantes.diagnosticos.iter().any(|d| d.codigo == "N2048"),
@@ -2762,7 +2746,7 @@ mod testes {
         );
 
         let vinculacoes = analisar(&fonte(
-            "escolha x { caso Estado::Ok(café, cafe\u{301}) {} }"
+            "escolha x\n    caso Estado::Ok(café, cafe\\u\n        301\n    \n    ) {}\nfim"
         ));
         assert!(
             vinculacoes.diagnosticos.iter().any(|d| d.codigo == "N2046"),
@@ -2774,8 +2758,8 @@ mod testes {
     #[test]
     fn curinga_invalido_nao_reserva_o_unico_curinga() {
         for codigo in [
-            "escolha x { caso _() {} caso _ {} }",
-            "escolha x { caso _ {} caso _() {} }",
+            "escolha x\n    caso _()\n        passar\n    caso _\n        passar\nfim",
+            "escolha x\n    caso _\n        passar\n    caso _()\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2793,14 +2777,14 @@ mod testes {
 
     #[test]
     fn escolha_rejeita_ausencia_de_casos_e_recupera_casos_sequenciais() {
-        let vazio = analisar(&fonte("escolha valor {}"));
+        let vazio = analisar(&fonte("escolha valor\n    passar\nfim"));
         assert!(
             vazio.diagnosticos.iter().any(|d| d.codigo == "N2044"),
-            "escolha vazia precisa ser rejeitada: {:?}",
+            "escolha vazia precisa ser rejeitada:\n    :?\nfim",
             vazio.diagnosticos
         );
 
-        let codigo = "escolha valor { caso Estado::Erro(1) {} caso Estado::Ok(item) {} caso _ {} }";
+        let codigo = "escolha valor\n    caso Estado::Erro(1)\n        passar\n    caso Estado::Ok(item)\n        passar\n    caso _\n        passar\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2045"),
@@ -2817,10 +2801,10 @@ mod testes {
     #[test]
     fn padroes_escolha_rejeitam_quebras_e_caminhos_qualificados_extras() {
         for codigo in [
-            "escolha x { caso Estado::Erro\n() {} }",
-            "escolha x { caso Estado::Erro::Interno {} }",
-            "escolha x { caso Estado:: {} }",
-            "escolha x { caso ::Erro {} }",
+            "escolha x\n    caso Estado::Erro\n    () {}\nfim",
+            "escolha x\n    caso Estado::Erro::Interno\n        passar\nfim",
+            "escolha x\n    caso Estado::\n        passar\nfim",
+            "escolha x\n    caso ::Erro\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -2833,7 +2817,7 @@ mod testes {
     #[test]
     fn padrao_invalido_nao_e_confundido_com_curinga() {
         let resultado = analisar(&fonte(
-            "escolha x { caso VarianteInvalida {} caso _ {} }"
+            "escolha x\n    caso VarianteInvalida\n        passar\n    caso _\n        passar\nfim"
         ));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2042"));
         assert!(
@@ -2852,7 +2836,7 @@ mod testes {
     #[test]
     fn rejeita_variante_repetida_em_escolha() {
         let resultado = analisar(&fonte(
-            "escolha x { caso Resultado::Ok(valor) {} caso Resultado::Ok(outro) {} }"
+            "escolha x\n    caso Resultado::Ok(valor)\n        passar\n    caso Resultado::Ok(outro)\n        passar\nfim"
         ));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2048"),
@@ -2967,7 +2951,7 @@ mod testes {
 
     #[test]
     fn recupera_operadores_sem_operando_em_expressoes_aninhadas() {
-        let codigo = "funcao principal() {\n variavel quebrada = calcular(1 + , 2)\n variavel outra = [3 * , 4]\n variavel final = 99\n}";
+        let codigo = "funcao principal()\n    variavel quebrada = calcular(1 + , 2)\n    variavel outra = [3 * , 4]\n    variavel final = 99\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
             "operandos ausentes precisam gerar diagnóstico: {:?}", resultado.diagnosticos);
@@ -3007,7 +2991,7 @@ mod testes {
 
         let mut blocos = "exibir(1)".to_string();
         for _ in 0..150 {
-            blocos = format!("quando verdadeiro {{ {blocos} }}");
+            blocos = format!("quando verdadeiro\n    { {blocos} }\nfim");
         }
         let resultado = analisar(&fonte(&blocos));
         assert!(
@@ -3111,7 +3095,7 @@ mod testes {
         for codigo in [
             "variavel quebrada = ) variavel preservada = 42",
             "variavel quebrada = )\nvariavel preservada = 42",
-            "funcao principal() { variavel quebrada = ) variavel preservada = 42 }",
+            "funcao principal()\n    variavel quebrada = ) variavel preservada = 42\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(!resultado.diagnosticos.is_empty(),
@@ -3131,10 +3115,10 @@ mod testes {
 
     #[test]
     fn recupera_apos_erros_consecutivos_preservando_todos_os_itens_validos() {
-        let codigo = "variavel a = ) variavel b = ] variavel c = 3\nfuncao depois() { devolver c }";
+        let codigo = "variavel a = ) variavel b = ] variavel c = 3\nfuncao depois()\n    devolver c\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.len() >= 2,
-            "cada região inválida deve ser diagnosticada: {:?}", resultado.diagnosticos);
+            "cada região inválida deve ser diagnosticada:\n    :?\nfim", resultado.diagnosticos);
         assert!(resultado.programa.itens.iter().any(
             |item| matches!(item, NoAst::Variavel { nome, .. } if nome == "c")
         ), "a declaração válida após erros consecutivos foi perdida: {:?}", resultado.programa);
@@ -3145,7 +3129,7 @@ mod testes {
 
     #[test]
     fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
-        let codigo = "funcao principal() {\n variavel pessoa = Pessoa { nome: , idade: 20 }\n variavel valores = [1, , 3]\n variavel chamada = calcular(1, , 3)\n variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n variavel depois = 99\n}";
+        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20 }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n    variavel depois = 99\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3163,7 +3147,7 @@ mod testes {
 
     #[test]
     fn recupera_delimitadores_aninhados_sem_perder_o_fechamento_externo() {
-        let codigo = "funcao principal() {\n variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n variavel final = 7\n}";
+        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n    variavel final = 7\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3181,7 +3165,7 @@ mod testes {
 
     #[test]
     fn recupera_campos_e_variantes_invalidos_sem_perder_declaracoes_sequenciais() {
-        let codigo = "funcao principal() {\n estrutura Pessoa { nome: , idade: inteiro }\n enumeracao Estado { Ativo(, texto), Inativo(inteiro) }\n variavel depois = 1\n}";
+        let codigo = "funcao principal()\n    estrutura Pessoa { nome: , idade: inteiro }\n    enumeracao Estado { Ativo(, texto), Inativo(inteiro) }\n    variavel depois = 1\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             !resultado.diagnosticos.is_empty(),
@@ -3207,7 +3191,7 @@ mod testes {
 
     #[test]
     fn recupera_parametros_de_funcao_e_preserva_o_corpo() {
-        let codigo = "funcao principal(a: , b: inteiro) { devolver b }\nfuncao outra(a inteiro, b: texto) {}\nvariavel depois = 1";
+        let codigo = "funcao principal(a: , b: inteiro)\n    devolver b\nfim\nfuncao outra(a inteiro, b: texto)\n    passar\nfim\n\nvariavel depois = 1";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2010" || d.codigo == "N2005"),
@@ -3222,10 +3206,10 @@ mod testes {
 
     #[test]
     fn rejeita_parametros_duplicados_e_genericos_malformados_sem_perder_funcao() {
-        let duplicado = analisar(&fonte("funcao duplicar(a: inteiro, a: texto) {}"));
+        let duplicado = analisar(&fonte("funcao duplicar(a: inteiro, a: texto)\n    passar\nfim"));
         assert!(duplicado.diagnosticos.iter().any(|d| d.codigo == "N2050"));
 
-        let generico = analisar(&fonte("funcao combinar<T,>(valor: T) { devolver valor }"));
+        let generico = analisar(&fonte("funcao combinar<T,>(valor: T)\n    devolver valor\nfim"));
         assert!(generico.diagnosticos.iter().any(|d| d.codigo == "N2015"));
         assert!(matches!(generico.programa.itens.first(), Some(NoAst::Funcao { .. })));
     }
@@ -3234,9 +3218,9 @@ mod testes {
     #[test]
     fn recupera_assinatura_de_funcao_com_retorno_ou_fechamento_ausente() {
         for codigo in [
-            "funcao principal(): { exibir(1) }\nvariavel depois = 1",
-            "funcao principal(a: inteiro { exibir(a) }\nvariavel depois = 1",
-            "funcao principal(a: ) { exibir(1) }\nvariavel depois = 1",
+            "funcao principal():\n    exibir(1)\nfim\n\nvariavel depois = 1",
+            "funcao principal(a: inteiro\n    exibir(a)\nfim\n\nvariavel depois = 1",
+            "funcao principal(a: )\n    exibir(1)\nfim\n\nvariavel depois = 1",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -3254,7 +3238,7 @@ mod testes {
     #[test]
     fn recupera_caso_sem_bloco_e_continua_escolha() {
         let resultado = analisar(&fonte(
-            "escolha x { caso Resultado::Ok caso _ {} }"
+            "escolha x\n    caso Resultado::Ok caso _\n        passar\nfim"
         ));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2007"),
@@ -3285,11 +3269,11 @@ mod testes {
         }
 
         verifica(
-            "funcao duplicar(item: inteiro, item: texto) {}",
+            "funcao duplicar(item: inteiro, item: texto)\n    passar\nfim",
             "N2050", "item", 1
         );
         verifica(
-            "funcao generica<T, T>() {}",
+            "funcao generica<T, T>()\n    passar\nfim",
             "N2014", "T", 1
         );
         verifica(
@@ -3305,15 +3289,15 @@ mod testes {
             "N2037", "nome", 1
         );
         verifica(
-            "escolha x { caso _ {} caso _ {} }",
+            "escolha x\n    caso _\n        passar\n    caso _\n        passar\nfim",
             "N2043", "_", 1
         );
         verifica(
-            "escolha x { caso Resultado::Ok {} caso Resultado::Ok {} }",
+            "escolha x\n    caso Resultado::Ok\n        passar\n    caso Resultado::Ok\n        passar\nfim",
             "N2048", "Resultado", 1
         );
         verifica(
-            "escolha x { caso Resultado::Ok(item, item) {} }",
+            "escolha x\n    caso Resultado::Ok(item, item)\n        passar\nfim",
             "N2046", "item", 1
         );
     }
@@ -3323,7 +3307,7 @@ mod testes {
     #[test]
     fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
         let valido = analisar(&fonte(
-            "funcao principal() {\n variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n variavel final = 9\n}",
+            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n    variavel final = 9\nfim",
         ));
         assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
@@ -3332,7 +3316,7 @@ mod testes {
         assert!(corpo.iter().any(|item| matches!(item, NoAst::Variavel { nome, .. } if nome == "final")));
 
         let quebrado = analisar(&fonte(
-            "funcao principal() {\n variavel quebrada = calcular([1, 2)\n variavel preservada = 7\n}",
+            "funcao principal()\n    variavel quebrada = calcular([1, 2)\n    variavel preservada = 7\nfim",
         ));
         assert!(
             quebrado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
@@ -3379,7 +3363,7 @@ mod testes {
             "variavel indice = valores[0",
             "estrutura Pessoa { nome: texto",
             "enumeracao Estado { Ativo(inteiro)",
-            "escolha valor { caso Resultado::Ok { exibir(1) }",
+            "escolha valor {\ncaso Resultado::Ok\n    exibir(1)\n",
             "variavel pessoa = Pessoa { nome: \"Ana\"",
             "tipo Lista = [inteiro",
             "tipo Acao = funcao(inteiro",
@@ -3398,9 +3382,9 @@ mod testes {
     #[test]
     fn aceita_blocos_aninhados_com_chaves_e_terminadores_fim() {
         for codigo in [
-            "funcao principal() { quando verdadeiro { exibir(1) } }",
+            "funcao principal()\n    quando verdadeiro\n        exibir(1)\n    fim\nfim",
             "funcao principal()\n quando verdadeiro\n  enquanto verdadeiro\n   exibir(1)\n  fim\n fim\nfim",
-            "funcao principal() { quando verdadeiro\n exibir(1)\n fim\n variavel depois = 2 }",
+            "funcao principal()\n    quando verdadeiro\n     exibir(1)\n     fim\n     variavel depois = 2\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -3415,10 +3399,10 @@ mod testes {
     fn diagnosticos_sintaticos_tem_codigo_severidade_mensagem_e_intervalo_validos() {
         let casos = [
             "variavel = 1",
-            "funcao f(a inteiro) {}",
+            "funcao f(a inteiro)\n    passar\nfim",
             "estrutura Pessoa { nome: }",
             "enumeracao Estado { Ativo(, texto) }",
-            "escolha valor { caso Estado::Erro(1) {} }",
+            "escolha valor\n    caso Estado::Erro(1)\n        passar\nfim",
             "variavel resultado = 1 < 2 < 3",
             "funcao f() {",
         ];
@@ -3477,8 +3461,8 @@ mod testes {
             ("N2001", "variavel a = 1 variavel b = 2"),
             ("N2002", "publico variavel a = 1"),
             ("N2003", "variavel a 1"),
-            ("N2004", "funcao f {}"),
-            ("N2005", "funcao f(a inteiro) {}"),
+            ("N2004", "funcao f\n    passar\nfim"),
+            ("N2005", "funcao f(a inteiro)\n    passar\nfim"),
             ("N2006", "tipo A inteiro"),
             ("N2007", "funcao f() exibir(1)"),
             ("N2008", "variavel a ="),
@@ -3487,8 +3471,8 @@ mod testes {
             ("N2011", "variavel tentar = 1"),
             ("N2012", "variavel a = 1 < 2 < 3"),
             ("N2013", "variavel a = 1..2..3"),
-            ("N2014", "funcao f<T, T>() {}"),
-            ("N2015", "funcao f<>() {}"),
+            ("N2014", "funcao f<T, T>()\n    passar\nfim"),
+            ("N2015", "funcao f<>()\n    passar\nfim"),
             ("N2016", "tentar"),
             ("N2030", "estrutura Pessoa nome: texto }"),
             ("N2031", "estrutura Pessoa { nome: texto, nome: inteiro }"),
@@ -3499,16 +3483,16 @@ mod testes {
             ("N2036", "enumeracao Estado {}"),
             ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
             ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
-            ("N2040", "escolha valor caso _ {}"),
-            ("N2041", "escolha valor { outro {} }"),
-            ("N2042", "escolha valor { caso Variante {} }"),
-            ("N2043", "escolha valor { caso _ {} caso _ {} }"),
-            ("N2044", "escolha valor {}"),
-            ("N2045", "escolha valor { caso Estado::Erro(1) {} }"),
-            ("N2046", "escolha valor { caso Estado::Erro(item, item) {} }"),
+            ("N2040", "escolha valor caso _\n    passar\nfim"),
+            ("N2041", "escolha valor\n    outro {}\nfim"),
+            ("N2042", "escolha valor\n    caso Variante\n        passar\nfim"),
+            ("N2043", "escolha valor\n    caso _\n        passar\n    caso _\n        passar\nfim"),
+            ("N2044", "escolha valor\n    passar\nfim"),
+            ("N2045", "escolha valor\n    caso Estado::Erro(1)\n        passar\nfim"),
+            ("N2046", "escolha valor\n    caso Estado::Erro(item, item)\n        passar\nfim"),
             ("N2047", "alterar total"),
-            ("N2048", "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }"),
-            ("N2050", "funcao f(item: inteiro, item: texto) {}"),
+            ("N2048", "escolha valor\n    caso Estado::Erro\n        passar\n    caso Estado::Erro\n        passar\nfim"),
+            ("N2050", "funcao f(item: inteiro, item: texto)\n    passar\nfim"),
             ("N2051", "variavel valor = 1)"),
         ];
 
@@ -3538,7 +3522,7 @@ mod testes {
     fn separadores_repetidos_e_finais_sao_aceitos_em_todos_os_blocos() {
         let exemplos = [
             "\n;\nvariavel a = 1;;\n\nvariavel b = 2;\n",
-            "funcao principal() {\n;; variavel a = 1;;\n\nvariavel b = 2;;\n}",
+            "funcao principal()\n    variavel a = 1\n    \n    \n    \n    variavel b = 2\nfim",
             "funcao principal()\n    ;; variavel a = 1;;\n\n    variavel b = 2;;\nfim",
             "estrutura Pessoa { ; nome: texto;; idade: inteiro; }",
             "enumeracao Estado { ; Ativo;; Inativo; }",
@@ -3660,7 +3644,7 @@ mod testes {
     #[test]
     fn quebra_antes_de_senao_preserva_a_associacao_com_quando() {
         let resultado = analisar(&fonte(
-            "quando verdadeiro {\n exibir(1)\n}\n\nsenao {\n exibir(2)\n}"
+            "quando verdadeiro\n    exibir(1)\n\n\nsenao\n    exibir(2)\nfim"
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         assert!(matches!(
@@ -3723,7 +3707,7 @@ mod testes {
             valido.diagnosticos
         );
         let aninhado = analisar(&fonte(
-            "funcao principal()\n    se sim { passar }\nfim"
+            "funcao principal()\n    se sim\n    passar\nfim\n\nfim"
         ));
         assert!(
             aninhado.diagnosticos.is_empty(),
@@ -3735,7 +3719,7 @@ mod testes {
     #[test]
     fn ponto_e_virgula_nao_substitui_quebra_antes_de_senao() {
         let resultado = analisar(&fonte(
-            "quando verdadeiro {} ; senao {}"
+            "quando verdadeiro\n    passar\nfim\n;\nsenao\n    passar\nfim"
         ));
         assert!(
             !resultado.diagnosticos.is_empty(),
