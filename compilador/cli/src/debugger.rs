@@ -22,6 +22,8 @@ struct Estado {
     atual: Option<EventoDepuracao>,
     localizacoes: Vec<IntervaloFonte>,
     caminhos: Vec<String>,
+    expansoes: HashMap<usize, Vec<(String, ValorIr)>>,
+    proxima_referencia: usize,
 }
 
 pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), String> {
@@ -51,7 +53,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             "supportsStepBack": false,
                             "supportsConditionalBreakpoints": false,
                             "supportsHitConditionalBreakpoints": false,
-                            "supportsEvaluateForHovers": false,
+                            "supportsEvaluateForHovers": true,
                             "supportsSetVariable": false,
                             "supportsExceptionInfoRequest": false
                         }))?;
@@ -84,6 +86,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             atual: None,
                             localizacoes: localizacoes.clone(),
                             caminhos: vec![caminho.to_string_lossy().into_owned()],
+                            expansoes: HashMap::new(),
+                            proxima_referencia: 1,
                         });
                         if continuar_inicializacao {
                             let _ = tx_comandos.send(ComandoDepuracao::Continuar);
@@ -154,8 +158,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let mut scopes = Vec::new();
                         for indice in (0..escopos).rev() {
                             scopes.push(json!({
-                                "name": if indice == 0 { "Globais" } else { "Locais" },
-                                "variablesReference": indice as i64 + 1,
+                                "name": if indice == 0 { "Globais" } else { format!("Escopo {indice}") },
+                                "variablesReference": indice as i64 + 1000,
                                 "expensive": false
                             }));
                         }
@@ -167,15 +171,18 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             continue;
                         };
                         let referencia = argumentos.get("variablesReference").and_then(Value::as_u64).unwrap_or(0) as usize;
-                        let variaveis = estado.atual.as_ref()
-                            .and_then(|evento| evento.escopos.get(referencia.saturating_sub(1)))
-                            .map(|escopo| escopo.iter().map(|(nome, valor)| json!({
-                                "name": nome,
-                                "value": format!("{valor:?}"),
-                                "type": tipo_valor(valor),
-                                "variablesReference": 0
-                            })).collect::<Vec<_>>())
-                            .unwrap_or_default();
+                        let itens = if referencia >= 1000 {
+                            estado.atual.as_ref()
+                                .and_then(|evento| evento.escopos.get(referencia - 1000))
+                                .map(|escopo| {
+                                    let mut itens = escopo.iter().map(|(nome, valor)| (nome.clone(), valor.clone())).collect::<Vec<_>>();
+                                    itens.sort_by(|a, b| a.0.cmp(&b.0));
+                                    itens
+                                })
+                        } else {
+                            estado.expansoes.get(&referencia).cloned()
+                        }.unwrap_or_default();
+                        let variaveis = criar_variaveis(estado, itens);
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"variables": variaveis}))?;
                     }
                     "continue" | "next" | "stepIn" | "stepOut" => {
@@ -203,6 +210,26 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"allThreadsContinued": true}))?;
                         evento(&mut saida, &mut sequencia, "continued", json!({"threadId": 1, "allThreadsContinued": true}))?;
                     }
+                    "evaluate" => {
+                        let Some(estado) = estado.as_mut() else {
+                            responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
+                            continue;
+                        };
+                        let expressao = argumentos.get("expression").and_then(Value::as_str).unwrap_or("").trim();
+                        let valor = estado.atual.as_ref()
+                            .and_then(|evento| evento.escopos.iter().rev().find_map(|escopo| escopo.get(expressao)))
+                            .cloned();
+                        if let Some(valor) = valor {
+                            let variavel = criar_variavel(estado, expressao.to_owned(), valor);
+                            responder(&mut saida, &mut sequencia, seq, comando, true, json!({
+                                "result": variavel["value"],
+                                "type": variavel["type"],
+                                "variablesReference": variavel["variablesReference"]
+                            }))?;
+                        } else {
+                            responder_erro(&mut saida, &mut sequencia, seq, comando, "A expressão não corresponde a uma variável visível.")?;
+                        }
+                    }
                     "pause" => {
                         let Some(estado) = estado.as_ref() else {
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
@@ -229,6 +256,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let Some(estado) = estado.as_mut() else { continue; };
                         let primeira = estado.atual.is_none();
                         estado.atual = Some(atual.clone());
+                        estado.expansoes.clear();
+                        estado.proxima_referencia = 1;
                         if primeira && continuar_inicializacao { continue; }
                         let (linha, coluna) = atual.intervalo_fonte
                             .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
@@ -331,6 +360,31 @@ fn offset_linha(fonte: &ArquivoFonte, linha: usize) -> Option<usize> {
         return Some(0);
     }
     None
+}
+
+fn criar_variaveis(estado: &mut Estado, itens: Vec<(String, ValorIr)>) -> Vec<Value> {
+    itens.into_iter().map(|(nome, valor)| criar_variavel(estado, nome, valor)).collect()
+}
+
+fn criar_variavel(estado: &mut Estado, nome: String, valor: ValorIr) -> Value {
+    let filhos = match &valor {
+        ValorIr::Lista(itens) => Some(itens.iter().enumerate()
+            .map(|(indice, valor)| (indice.to_string(), valor.clone())).collect::<Vec<_>>()),
+        ValorIr::Estrutura { campos, .. } => Some(campos.clone()),
+        _ => None,
+    };
+    let referencia = filhos.filter(|itens| !itens.is_empty()).map_or(0, |itens| {
+        let referencia = estado.proxima_referencia;
+        estado.proxima_referencia += 1;
+        estado.expansoes.insert(referencia, itens);
+        referencia
+    });
+    json!({
+        "name": nome,
+        "value": format!("{valor:?}"),
+        "type": tipo_valor(&valor),
+        "variablesReference": referencia
+    })
 }
 
 fn tipo_valor(valor: &ValorIr) -> &'static str {
