@@ -1,0 +1,2 @@
+enumeracao Evento { Vazio, Dados(inteiro64, inteiro64) }
+variavel evento = Evento::Dados(10, 20)
