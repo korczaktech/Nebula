@@ -2255,7 +2255,7 @@ fim"#,
         std::fs::create_dir_all(&externo).unwrap();
         std::fs::write(
             externo.join("Segredo.nbx"),
-            "publico funcao valor(): inteiro { devolver 42 }",
+            "publico funcao valor(): inteiro\n    devolver 42\nfim",
         )
         .unwrap();
         symlink(externo.join("Segredo.nbx"), raiz.join("Atalho.nbx")).unwrap();
@@ -2338,7 +2338,7 @@ fim"#,
         let origem =
             std::env::temp_dir().join(format!("nebula-invalido-{}.nbx", std::process::id()));
         let saida = std::env::temp_dir().join(format!("nebula-preservado-{}", std::process::id()));
-        std::fs::write(&origem, "funcao principal(): vazio { exibir(42) }").unwrap();
+        std::fs::write(&origem, "funcao principal(): vazio\n    variavel quebrada =\nfim").unwrap();
         std::fs::write(&saida, b"executavel anterior").unwrap();
         assert!(compilar_arquivo(&origem, &saida).is_err());
         assert_eq!(std::fs::read(&saida).unwrap(), b"executavel anterior");
@@ -2366,7 +2366,7 @@ fim"#,
     fn compilacao_nao_sobrescreve_o_arquivo_fonte() {
         let origem =
             std::env::temp_dir().join(format!("nebula-fonte-protegido-{}.nbx", std::process::id()));
-        let conteudo = "funcao principal(): inteiro { devolver 42 }";
+        let conteudo = "funcao principal(): inteiro\n    devolver 42\nfim";
         std::fs::write(&origem, conteudo).unwrap();
         let erro = validar_caminhos_compilacao(&origem, &origem).unwrap_err();
         assert!(erro.contains("não pode sobrescrever"));
