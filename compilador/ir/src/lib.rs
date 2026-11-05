@@ -2951,7 +2951,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_retorno_de_funcao() {
         let ir = compilar(
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao obter(): funcao(inteiro): inteiro { devolver somar }\nexibir(obter()(41))",
+            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao consultar(): funcao(inteiro): inteiro { devolver somar }\nexibir(consultar()(41))",
         );
         let resultado = executar(&ir, 200).expect("chamada de função retornada válida");
         assert_eq!(resultado.saida, vec!["42"]);
