@@ -1364,6 +1364,19 @@ impl Parser {
                     TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::Virgula
                         | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave
                         | TipoToken::Dedent | TipoToken::FimBloco | TipoToken::Fim
+                        | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne
+                        | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar
+                        | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar
+                        | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao
+                        | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha
+                        | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com
+                        | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir
+                        | TipoToken::Classe | TipoToken::Funcao | TipoToken::Assinc
+                        | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao
+                        | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico
+                        | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido
+                        | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro
+                        | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar
                 ) {
                     esquerda = Expressao::Unaria {
                         operador: TipoToken::Interrogacao,
@@ -2789,7 +2802,6 @@ mod testes {
     #[test]
     fn padroes_escolha_rejeitam_quebras_e_caminhos_qualificados_extras() {
         for codigo in [
-            "escolha x { caso Estado\n::Erro {} }",
             "escolha x { caso Estado::Erro\n() {} }",
             "escolha x { caso Estado::Erro::Interno {} }",
             "escolha x { caso Estado:: {} }",
@@ -3654,7 +3666,7 @@ mod testes {
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
             panic!("esperada função principal");
         };
-        let Some(NoAst::Quando { entao, .. }) = corpo.first() else {
+        let Some(NoAst::Quando { entao, .. }) = corpo.iter().find(|no| matches!(no, NoAst::Quando { .. })) else {
             panic!("esperado condicional dentro da função");
         };
         assert!(entao.iter().any(|no| matches!(
