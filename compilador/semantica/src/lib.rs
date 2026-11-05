@@ -251,6 +251,21 @@ impl<'a> Analisador<'a> {
                 }
             }
             NoAst::Atributada { declaracao, .. } => self.item(declaracao),
+            NoAst::Tente { corpo, capturas, sempre } => {
+                self.abrir_escopo();
+                for instrucao in corpo { self.item(instrucao); }
+                for captura in capturas { self.abrir_escopo(); for instrucao in &captura.corpo { self.item(instrucao); } self.fechar_escopo(); }
+                for instrucao in sempre { self.item(instrucao); }
+                self.fechar_escopo();
+            }
+            NoAst::Com { recurso, corpo, .. } => { self.expressao(recurso); self.abrir_escopo(); for instrucao in corpo { self.item(instrucao); } self.fechar_escopo(); }
+            NoAst::Lancar(expressao) => { self.expressao(expressao); }
+            NoAst::Verifique { condicao, mensagem } => {
+                let tipo = self.expressao(condicao);
+                self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'verifique'");
+                if let Some(mensagem) = mensagem { self.expressao(mensagem); }
+            }
+            NoAst::Escopo { .. } => {}
             NoAst::BlocoContextual { corpo, .. } => {
                 self.abrir_escopo();
                 for instrucao in corpo { self.item(instrucao); }
