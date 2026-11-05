@@ -329,7 +329,6 @@ variavel construcao = Pessoa { nome: "Ana" }
     );
 }
 
-
 #[test]
 fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
     let codigo = "funcao principal()\\n    quando verdadeiro\\n        variavel inicio = 1\\n        enquanto falso\\n            variavel lista = [1, , 3]\\n            variavel preservada = 2\\n        fim\\n        variavel depois = 3\\n    senao\\n        variavel alternativa = 4\\n    fim\\n    variavel final = 5\\nfim";
