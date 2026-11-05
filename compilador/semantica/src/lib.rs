@@ -547,7 +547,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn expressao_com_tipo_esperado(&mut self, expressao: &Expressao, esperado: &Tipo) -> Tipo {
-        let Expressao::Chamada { alvo, argumentos } = expressao else {
+        let Expressao::Chamada { alvo, argumentos, .. } = expressao else {
             return self.expressao(expressao);
         };
         if let Expressao::Membro { alvo: base, operador: TipoToken::Escopo, nome: variante } = alvo.as_ref() {
@@ -748,7 +748,7 @@ impl<'a> Analisador<'a> {
                     }
                 }
             }
-            Expressao::Chamada { alvo, argumentos } => {
+            Expressao::Chamada { alvo, argumentos, .. } => {
                 if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome == "copiar") {
                     if argumentos.len() != 1 {
                         self.erro("N3058", "'copiar' exige exatamente um argumento.");
@@ -2026,7 +2026,7 @@ impl<'a> Analisador<'a> {
                 }
                 let _ = indice;
             }
-            Expressao::Chamada { alvo, argumentos } => {
+            Expressao::Chamada { alvo, argumentos, .. } => {
                 let construtor_algebrico = matches!(
                     alvo.as_ref(),
                     Expressao::Membro {
