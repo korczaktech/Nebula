@@ -2093,8 +2093,14 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"estrutura Medidas { curta: decimal32, longa: decimal64 }
-enumeracao Evento { Vazio, Medida(decimal64) }
+            r#"estrutura Medidas:
+    curta: decimal32
+    longa: decimal64
+fim
+enumeracao Evento:
+    Vazio
+    Medida(decimal64)
+fim
 funcao identidade(valor: Medidas): Medidas
     devolver valor
 fim
