@@ -2002,6 +2002,2033 @@ impl Emissor {
         if tipos.len() != valores.len() {
             return Err("Quantidade de elementos da tupla não corresponde ao tipo declarado.".into());
         }
+        let (tamanho, campos) = self.layout_tupla(tipos)
+            .ok_or("Layout de tupla não suportado pela ABI nativa.")?;
+        if tamanho > 16 {
+            let alinhamento = tipos.iter()
+                .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
+                .collect::<Option<Vec<_>>>()
+                .ok_or("Alinhamento de elemento da tupla não suportado.")?
+                .into_iter()
+                .max()
+                .unwrap_or(1);
+            let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+            self.emitir_endereco_rbp_rax(armazenamento);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]);
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
+            for (indice, (deslocamento, tamanho_campo)) in campos.iter().enumerate() {
+                self.expressao(&valores[indice])?;
+                self.armazenar_campo_agregado(armazenamento, *deslocamento, *tamanho_campo)?;
+            }
+            self.emitir_endereco_rbp_rax(armazenamento);
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        #![forbid(unsafe_code)]
+
+/// Classificação e planejamento da convenção ABI interna.
+pub mod abi;
+
+#[rustfmt::skip]
+mod implementacao {
+use nebula_ir::{CasoEscolhaIr, ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
+use nebula_semantica::Tipo;
+use std::collections::HashMap;
+
+const TAMANHO_CABECALHO: usize = 4096;
+const TAMANHO_QUADRO: u32 = 65536;
+const INICIO_AREA_AGREGADOS: u64 = (LIMITE_VARIAVEIS as u64) * 16 + 8;
+const LIMITE_VARIAVEIS: usize = 512;
+const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
+
+/// Compila a IR em um executável ELF64 estático para Linux x86-64.
+///
+/// O arquivo é construído diretamente em Rust. Não gera C/C++, assembly textual,
+/// objeto intermediário nem invoca linker ou compilador externo.
+pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
+    let mut globais = HashMap::new();
+    for instrucao in &programa.instrucoes {
+        if let InstrucaoIr::Declarar { nome, .. } = instrucao {
+            let deslocamento = globais.len().checked_mul(16)
+                .ok_or("Quantidade de variáveis globais excedeu o limite do alvo.")?;
+            if globais.insert(nome.clone(), deslocamento).is_some() {
+                return Err(format!("Variável global '{nome}' declarada mais de uma vez."));
+            }
+        }
+    }
+    let mut emissor = Emissor::novo(globais);
+    emissor.carregar_layouts(programa);
+    for instrucao in &programa.instrucoes {
+        if let InstrucaoIr::Declarar { tipo, .. } = instrucao {
+            emissor.validar_tipo_abi(tipo)?;
+        }
+    }
+    emissor.iniciar_programa(programa)?;
+    let (codigo, tamanho_dados) = emissor.finalizar()?;
+    gerar_elf(&codigo, tamanho_dados)
+}
+
+struct LayoutAgregado {
+    tamanho: u64,
+    alinhamento: u64,
+    campos: HashMap<String, (u64, u64)>,
+}
+
+struct Emissor {
+    codigo: Vec<u8>,
+    funcoes: HashMap<String, usize>,
+    chamadas: Vec<(usize, String)>,
+    referencias_funcoes: Vec<(usize, String)>,
+    escopos: Vec<HashMap<String, i32>>,
+    tipos_escopos: Vec<HashMap<String, Tipo>>,
+    proximo_slot: usize,
+    proximo_agregado: u64,
+    pilha: usize,
+    lacos: Vec<Laco>,
+    globais: HashMap<String, usize>,
+    tipos_globais: HashMap<String, Tipo>,
+    retornos_funcoes: HashMap<String, Tipo>,
+    retorno_oculto_atual: Option<(i32, u64)>,
+    layouts_tipos: HashMap<String, LayoutAgregado>,
+    referencias_globais: Vec<(usize, String, i32)>,
+    funcao_atual: String,
+    erro_salto: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+enum PosicaoArgumento {
+    Registradores(usize),
+    Pilha { deslocamento: u64, largura: usize },
+}
+
+fn planejar_posicoes_argumentos(
+    larguras: &[usize],
+    inicio_registrador: usize,
+) -> Result<Vec<PosicaoArgumento>, String> {
+    if inicio_registrador > 6 || larguras.iter().any(|largura| !matches!(largura, 1 | 2)) {
+        return Err("Largura ou início de registradores inválido no ABI x86-64.".into());
+    }
+    let mut proximo_registrador = inicio_registrador;
+    let mut topo_pilha = 0u64;
+    let mut posicoes = Vec::with_capacity(larguras.len());
+    for largura in larguras {
+        if proximo_registrador + largura <= 6 {
+            posicoes.push(PosicaoArgumento::Registradores(proximo_registrador));
+            proximo_registrador += largura;
+        } else {
+            let alinhamento = if *largura == 2 { 16 } else { 8 };
+            topo_pilha = topo_pilha.checked_add(alinhamento - 1)
+                .map(|valor| valor & !(alinhamento - 1))
+                .ok_or("Overflow ao alinhar argumentos na pilha.")?;
+            posicoes.push(PosicaoArgumento::Pilha {
+                deslocamento: topo_pilha,
+                largura: *largura,
+            });
+            topo_pilha = topo_pilha.checked_add((*largura as u64) * 8)
+                .ok_or("Área de argumentos excede o limite x86-64.")?;
+        }
+    }
+    Ok(posicoes)
+}
+
+fn alinhar_pilha_16(valor: u64) -> Result<u64, String> {
+    valor.checked_add(15)
+        .map(|valor| valor & !15)
+        .ok_or_else(|| "Overflow ao alinhar argumentos na pilha.".into())
+}
+
+struct Laco {
+    saidas: Vec<usize>,
+    continuacoes: Vec<usize>,
+}
+
+impl Emissor {
+    fn novo(globais: HashMap<String, usize>) -> Self {
+        Self {
+            codigo: Vec::new(),
+            funcoes: HashMap::new(),
+            chamadas: Vec::new(),
+            referencias_funcoes: Vec::new(),
+            escopos: Vec::new(),
+            tipos_escopos: Vec::new(),
+            proximo_slot: 0,
+            proximo_agregado: INICIO_AREA_AGREGADOS,
+            pilha: 0,
+            lacos: Vec::new(),
+            globais,
+            tipos_globais: HashMap::new(),
+            retornos_funcoes: HashMap::new(),
+            retorno_oculto_atual: None,
+            layouts_tipos: HashMap::new(),
+            referencias_globais: Vec::new(),
+            funcao_atual: String::new(),
+            erro_salto: None,
+        }
+    }
+
+    fn carregar_layouts(&mut self, programa: &ProgramaIr) {
+        self.retornos_funcoes = programa.funcoes.iter()
+            .map(|(nome, funcao)| (nome.clone(), funcao.retorno.clone()))
+            .collect();
+        self.tipos_globais = programa.instrucoes.iter().filter_map(|instrucao| {
+            if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+                Some((nome.clone(), tipo.clone()))
+            } else {
+                None
+            }
+        }).collect();
+        self.layouts_tipos = programa.layouts_tipos.iter().map(|(nome, layout)| {
+            let campos = layout.campos.iter().map(|campo| {
+                (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
+            }).collect();
+            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, alinhamento: layout.alinhamento, campos })
+        }).collect();
+    }
+
+    fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
+        match tipo {
+            Tipo::Estrutura(nome) => {
+                let layout = self.layouts_tipos.get(nome)?;
+                (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
+            }
+            Tipo::Tupla(tipos) => {
+                let (tamanho, _) = self.layout_tupla(tipos)?;
+                let alinhamento = tipos.iter()
+                    .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
+                    .collect::<Option<Vec<_>>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(1);
+                (tamanho > 16).then_some((tamanho, alinhamento))
+            }
+            _ => None,
+        }
+    }
+
+    fn validar_tipo_abi(&self, tipo: &Tipo) -> Result<(), String> {
+        match tipo {
+            Tipo::Funcao(parametros, retorno) => {
+                for parametro in parametros {
+                    if *parametro == Tipo::Vazio {
+                        return Err("Parâmetro de função não pode ter tipo vazio no ABI x86-64.".into());
+                    }
+                    self.validar_tipo_abi(parametro)?;
+                }
+                self.validar_tipo_abi(retorno)
+            }
+            Tipo::Estrutura(nome) => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' não foi fornecido à ABI nativa."))?;
+                if layout.tamanho == 0 {
+                    return Err(format!("A estrutura '{nome}' possui tamanho inválido."));
+                }
+                for (campo, (deslocamento, tamanho)) in &layout.campos {
+                    let fim = deslocamento.checked_add(*tamanho)
+                        .ok_or_else(|| format!("Campo '{campo}' excede o layout de '{nome}'."))?;
+                    if *tamanho == 0 || fim > layout.tamanho {
+                        return Err(format!("Campo '{campo}' excede os limites da estrutura '{nome}'."));
+                    }
+                    if layout.tamanho <= 16 {
+                        let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
+                        let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
+                        if !campo_em_dois_registros && !campo_escalar {
+                            return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores ABI."));
+                        }
+                    }
+                }
+                Ok(())
+            }
+            Tipo::Tupla(tipos) => {
+                let (tamanho, campos) = self.layout_tupla(tipos)
+                    .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
+                if tamanho == 0 {
+                    return Err("Tupla possui tamanho inválido.".into());
+                }
+                for (deslocamento, tamanho_campo) in campos {
+                    let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
+                    let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
+                    if !campo_em_dois_registros && !campo_escalar {
+                        return Err("Elemento de tupla não cabe nos dois registradores da ABI inicial.".into());
+                    }
+                }
+                Ok(())
+            }
+            Tipo::Enumeracao(nome) => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da enumeração '{nome}' não foi fornecido à ABI nativa."))?;
+                if layout.tamanho == 0 || layout.tamanho > 16 {
+                    return Err(format!("A enumeração '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                }
+                if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 8) {
+                    return Err(format!("Payload da enumeração '{nome}' excede um registrador da ABI inicial."));
+                }
+                Ok(())
+            }
+            Tipo::Opcional(tipo) => {
+                if self.largura_abi_tipo(tipo)? > 1 {
+                    return Err("Payload de Opcional excede um registrador da ABI inicial.".into());
+                }
+                Ok(())
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                if self.largura_abi_tipo(sucesso)? > 1 || self.largura_abi_tipo(falha)? > 1 {
+                    return Err("Payload de Resultado excede um registrador da ABI inicial.".into());
+                }
+                Ok(())
+            }
+            _ if validar_tipo(tipo).is_ok() => Ok(()),
+            _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
+        }
+    }
+
+    fn alinhar_layout(valor: u64, alinhamento: u64) -> Option<u64> {
+        valor.checked_add(alinhamento.checked_sub(1)?)
+            .map(|v| v & !(alinhamento - 1))
+    }
+
+    fn tamanho_alinhamento_tipo(&self, tipo: &Tipo) -> Option<(u64, u64)> {
+        match tipo {
+            Tipo::Vazio => Some((0, 1)),
+            Tipo::Logico | Tipo::Byte | Tipo::Inteiro8 | Tipo::InteiroU8 => Some((1, 1)),
+            Tipo::Inteiro16 | Tipo::InteiroU16 => Some((2, 2)),
+            Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
+            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
+            | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
+            Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
+                .map(|layout| (layout.tamanho, layout.alinhamento)),
+            Tipo::Opcional(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(interno)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento)?;
+                Some((Self::alinhar_layout(deslocamento.checked_add(tamanho)?, alinhamento)?, alinhamento))
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                let (tamanho_ok, alinhamento_ok) = self.tamanho_alinhamento_tipo(sucesso)?;
+                let (tamanho_erro, alinhamento_erro) = self.tamanho_alinhamento_tipo(falha)?;
+                let alinhamento = alinhamento_ok.max(alinhamento_erro);
+                let tamanho = tamanho_ok.max(tamanho_erro);
+                let deslocamento = Self::alinhar_layout(1, alinhamento)?;
+                Some((Self::alinhar_layout(deslocamento.checked_add(tamanho)?, alinhamento)?, alinhamento))
+            }
+            Tipo::Tupla(tipos) => {
+                let (tamanho, _) = self.layout_tupla(tipos)?;
+                let alinhamento = tipos.iter()
+                    .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
+                    .collect::<Option<Vec<_>>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(1);
+                Some((tamanho, alinhamento))
+            }
+            _ => None,
+        }
+    }
+
+    fn layout_tupla(&self, tipos: &[Tipo]) -> Option<(u64, Vec<(u64, u64)>)> {
+        let mut deslocamento = 0u64;
+        let mut alinhamento_maximo = 1u64;
+        let mut campos = Vec::with_capacity(tipos.len());
+        for tipo in tipos {
+            let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+            deslocamento = Self::alinhar_layout(deslocamento, alinhamento)?;
+            campos.push((deslocamento, tamanho));
+            deslocamento = deslocamento.checked_add(tamanho)?;
+            alinhamento_maximo = alinhamento_maximo.max(alinhamento);
+        }
+        Some((Self::alinhar_layout(deslocamento, alinhamento_maximo)?, campos))
+    }
+
+    fn largura_abi_tipo(&self, tipo: &Tipo) -> Result<usize, String> {
+        self.validar_tipo_abi(tipo)?;
+        if tipo_inteiro_128(tipo) {
+            return Ok(2);
+        }
+        if let Tipo::Estrutura(nome) = tipo {
+            let layout = self.layouts_tipos.get(nome)
+                .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
+            return Ok(if layout.tamanho > 16 { 1 } else if layout.tamanho > 8 { 2 } else { 1 });
+        }
+        if let Tipo::Tupla(tipos) = tipo {
+            let (tamanho, _) = self.layout_tupla(tipos)
+                .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
+            return Ok(if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 });
+        }
+        if let Tipo::Enumeracao(nome) = tipo {
+            let layout = self.layouts_tipos.get(nome)
+                .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente."))?;
+            return Ok(if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) { 2 } else { 1 });
+        }
+        if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+            return Ok(2);
+        }
+        if tipo_decimal(tipo) {
+            return Ok(1);
+        }
+        Ok(1)
+    }
+
+    fn largura_abi_expressao(&self, expressao: &ExpressaoIr) -> Result<usize, String> {
+        if let ExpressaoIr::Normalizar { tipo, .. } = expressao {
+            self.largura_abi_tipo(tipo)
+        } else if inteiro_128_expressao(expressao) {
+            Ok(2)
+        } else {
+            Ok(1)
+        }
+    }
+
+    fn iniciar_programa(&mut self, programa: &ProgramaIr) -> Result<(), String> {
+        let principal = programa.funcoes.get("principal");
+        if principal.is_none() && programa.instrucoes.is_empty() {
+            return Err("Declare a função principal ou instruções globais.".into());
+        }
+        if principal.is_some_and(|f| !f.parametros.is_empty()) {
+            return Err("A função principal não pode receber parâmetros no alvo inicial.".into());
+        }
+        if principal.is_some_and(|funcao| self.layout_agregado_grande(&funcao.retorno).is_some()) {
+            return Err("A função principal não pode retornar agregado grande no ponto de entrada ELF.".into());
+        }
+
+        // O ponto de entrada chama as rotinas geradas e encerra pelo syscall Linux.
+        let mut chamadas_inicio = Vec::new();
+        if !programa.instrucoes.is_empty() {
+            self.codigo.push(0xE8);
+            chamadas_inicio.push((self.codigo.len(), NOME_INICIO_INTERNO.to_owned()));
+            self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+        }
+        if let Some(funcao) = principal {
+            self.codigo.push(0xE8);
+            chamadas_inicio.push((self.codigo.len(), funcao.nome.clone()));
+            self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
+
+        if !programa.instrucoes.is_empty() {
+            let inicio = FuncaoIr {
+                nome: NOME_INICIO_INTERNO.into(),
+                parametros: Vec::new(),
+                retorno: Tipo::Vazio,
+                corpo: programa.instrucoes.clone(),
+            };
+            self.compilar_funcao(&inicio)?;
+        }
+
+        let mut nomes: Vec<_> = programa.funcoes.keys().cloned().collect();
+        nomes.sort();
+        for nome in nomes {
+            self.compilar_funcao(&programa.funcoes[&nome])?;
+        }
+        self.chamadas.extend(chamadas_inicio);
+        Ok(())
+    }
+
+    fn compilar_funcao(&mut self, funcao: &FuncaoIr) -> Result<(), String> {
+        if self.funcoes.contains_key(&funcao.nome) {
+            return Err(format!("Função duplicada no backend: '{}'.", funcao.nome));
+        }
+        self.validar_tipo_abi(&funcao.retorno)?;
+        self.funcoes.insert(funcao.nome.clone(), self.codigo.len());
+        self.funcao_atual = funcao.nome.clone();
+        self.escopos.clear();
+        self.escopos.push(HashMap::new());
+        self.tipos_escopos.clear();
+        self.tipos_escopos.push(HashMap::new());
+        self.proximo_slot = 0;
+        self.proximo_agregado = INICIO_AREA_AGREGADOS;
+        self.retorno_oculto_atual = None;
+        self.pilha = 0;
+        self.lacos.clear();
+
+        // Prólogo e quadro fixo: mantém alinhamento ABI e evita alocação dinâmica no compilador.
+        self.codigo.extend_from_slice(&[0x55, 0x48, 0x89, 0xE5, 0x48, 0x81, 0xEC]);
+        self.codigo.extend_from_slice(&TAMANHO_QUADRO.to_le_bytes());
+
+        let retorno_grande = self.layout_agregado_grande(&funcao.retorno);
+        if let Some((tamanho, _)) = retorno_grande {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xBD]);
+            self.codigo.extend_from_slice(&(-(TAMANHO_QUADRO as i32)).to_le_bytes()); // salva RDI no fim do quadro
+            self.retorno_oculto_atual = Some((-(TAMANHO_QUADRO as i32), tamanho));
+        }
+        let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
+        let larguras = funcao.parametros.iter()
+            .map(|(_, tipo)| self.largura_abi_tipo(tipo))
+            .collect::<Result<Vec<_>, _>>()?;
+        let posicoes = planejar_posicoes_argumentos(&larguras, usize::from(retorno_grande.is_some()))?;
+        let mut slots_superiores = Vec::new();
+        for ((nome, tipo), posicao) in funcao.parametros.iter().zip(posicoes) {
+            self.validar_tipo_abi(tipo)?;
+            let largura = self.largura_abi_tipo(tipo)?;
+            let deslocamento = self.declarar_tipado(nome, tipo)?;
+            match posicao {
+                PosicaoArgumento::Registradores(indice) => {
+                    self.mover_registrador_rax(registradores[indice]);
+                    if largura == 2 {
+                        self.armazenar_rax(deslocamento);
+                        self.mover_registrador_rax(registradores[indice + 1]);
+                        self.armazenar_rax(deslocamento - 8);
+                        continue;
+                    }
+                }
+                PosicaoArgumento::Pilha { deslocamento: pilha, largura: largura_pilha } => {
+                    let origem = i32::try_from(16u64.checked_add(pilha)
+                        .ok_or("Deslocamento de parâmetro excedeu o ABI x86-64.")?)
+                        .map_err(|_| "Deslocamento de parâmetro excedeu o ABI x86-64.")?;
+                    self.carregar_rax(origem);
+                    if largura_pilha == 2 {
+                        self.carregar_rdx(origem + 8);
+                    }
+                }
+            }
+            if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                self.normalizar_tipo(tipo)?;
+            }
+            self.armazenar_rax(deslocamento);
+            if largura == 2 {
+                self.armazenar_rdx(deslocamento - 8);
+            } else {
+                slots_superiores.push(deslocamento - 8);
+            }
+        }
+        // Só zerar os slots auxiliares depois de capturar todos os argumentos:
+        // RDX é também o terceiro registrador de entrada do ABI System V.
+        for deslocamento in slots_superiores {
+            self.mov_rdx(0);
+            self.armazenar_rdx(deslocamento);
+        }
+
+        // Parâmetros e declarações do corpo compartilham o escopo da função.
+        for instrucao in &funcao.corpo {
+            self.instrucao(instrucao)?;
+        }
+        if let Some((tamanho, _)) = retorno_grande {
+            let deslocamento = -(TAMANHO_QUADRO as i32);
+            self.carregar_rax(deslocamento);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]); // zera retorno implícito
+            self.carregar_rax(deslocamento);
+        } else {
+            self.codigo.extend_from_slice(&[0x31, 0xC0]); // retorno implícito zero
+        }
+        self.codigo.extend_from_slice(&[0xC9, 0xC3]);
+        self.retorno_oculto_atual = None;
+        self.escopos.clear();
+        self.tipos_escopos.clear();
+        Ok(())
+    }
+
+    fn bloco(&mut self, instrucoes: &[InstrucaoIr]) -> Result<(), String> {
+        self.escopos.push(HashMap::new());
+        self.tipos_escopos.push(HashMap::new());
+        for instrucao in instrucoes {
+            self.instrucao(instrucao)?;
+        }
+        let _ = self.escopos.pop();
+        let _ = self.tipos_escopos.pop();
+        Ok(())
+    }
+
+    fn instrucao(&mut self, instrucao: &InstrucaoIr) -> Result<(), String> {
+        match instrucao {
+            InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
+                self.validar_tipo_abi(tipo)?;
+                let global = self.funcao_atual == NOME_INICIO_INTERNO
+                    && self.escopos.len() == 1
+                    && self.globais.contains_key(nome);
+                if global {
+                    if self.layout_agregado_grande(tipo).is_some() {
+                        return Err(format!("Variável global '{nome}' de agregado grande ainda não possui armazenamento estático seguro."));
+                    }
+                    self.expressao(valor)?;
+                    self.armazenar_global(nome);
+                } else if let Some((tamanho, alinhamento)) = self.layout_agregado_grande(tipo) {
+                    self.expressao(valor)?;
+                    let origem = self.reservar_agregado(8, 8)?;
+                    self.armazenar_rax(origem);
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let deslocamento = self.declarar_tipado(nome, tipo)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.armazenar_rax(deslocamento);
+                    self.carregar_rax(origem);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                    self.codigo.extend_from_slice(&[0xF3, 0xA4]); // cópia por valor
+                    self.mov_rdx(0);
+                } else {
+                    self.expressao(valor)?;
+                    let deslocamento = self.declarar_tipado(nome, tipo)?;
+                    self.armazenar_rax(deslocamento);
+                    self.armazenar_rdx(deslocamento - 8);
+                }
+            }
+            InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
+            InstrucaoIr::Bloco(instrucoes) => self.bloco(instrucoes)?,
+            InstrucaoIr::Devolver(valor) => {
+                if let Some((deslocamento, tamanho)) = self.retorno_oculto_atual {
+                    let valor = valor.as_ref().ok_or("Retorno agregado grande exige um valor.")?;
+                    self.expressao(valor)?;
+                    self.push_rax(); // origem
+                    self.carregar_rax(deslocamento);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.pop_rax();
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                    self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+                    self.carregar_rax(deslocamento); // ABI retorna o destino em RAX
+                } else if let Some(valor) = valor {
+                    self.expressao(valor)?;
+                } else {
+                    self.codigo.extend_from_slice(&[0x31, 0xC0]);
+                }
+                self.codigo.extend_from_slice(&[0xC9, 0xC3]);
+            }
+            InstrucaoIr::Escolha { valor, casos } => self.escolha(valor, casos)?,
+            InstrucaoIr::Se { condicao, entao, senao } => {
+                self.expressao(condicao)?;
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let desvio_senao = self.emitir_jcc(0x84);
+                self.bloco(entao)?;
+                if senao.is_empty() {
+                    self.aplicar_salto(desvio_senao, self.codigo.len());
+                } else {
+                    let fim = self.emitir_jmp();
+                    self.aplicar_salto(desvio_senao, self.codigo.len());
+                    self.bloco(senao)?;
+                    self.aplicar_salto(fim, self.codigo.len());
+                }
+            }
+            InstrucaoIr::Enquanto { condicao, corpo } => {
+                let inicio = self.codigo.len();
+                self.expressao(condicao)?;
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let fim = self.emitir_jcc(0x84);
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
+                self.bloco(corpo)?;
+                let laco = self.lacos.pop().expect("laço ativo");
+                self.emitir_salto_para(inicio);
+                let destino_fim = self.codigo.len();
+                self.aplicar_salto(fim, destino_fim);
+                for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
+                for salto in laco.continuacoes { self.aplicar_salto(salto, inicio); }
+            }
+            InstrucaoIr::Cada { .. } => {
+                return Err("O laço 'cada' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
+            }
+            InstrucaoIr::Pulso { .. } => {
+                return Err("'pulso' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
+            }
+            InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+                self.escopos.push(HashMap::new());
+                self.tipos_escopos.push(HashMap::new());
+                if let Some(inicial) = inicial { self.instrucao(inicial)?; }
+                let inicio_condicao = self.codigo.len();
+                let fim_condicao = if let Some(condicao) = condicao {
+                    self.expressao(condicao)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    Some(self.emitir_jcc(0x84))
+                } else { None };
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
+                self.bloco(corpo)?;
+                let inicio_atualizacao = self.codigo.len();
+                if let Some(atualizacao) = atualizacao { self.expressao(atualizacao)?; }
+                let laco = self.lacos.pop().expect("laço ativo");
+                self.emitir_salto_para(inicio_condicao);
+                for salto in laco.continuacoes { self.aplicar_salto(salto, inicio_atualizacao); }
+                let destino_fim = self.codigo.len();
+                if let Some(salto) = fim_condicao { self.aplicar_salto(salto, destino_fim); }
+                for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
+                let _ = self.escopos.pop();
+                let _ = self.tipos_escopos.pop();
+            }
+            InstrucaoIr::Parar => {
+                let salto = self.emitir_jmp();
+                self.lacos.last_mut().ok_or("parar fora de laço no backend.")?.saidas.push(salto);
+            }
+            InstrucaoIr::Seguir => {
+                let salto = self.emitir_jmp();
+                self.lacos.last_mut().ok_or("seguir fora de laço no backend.")?.continuacoes.push(salto);
+            }
+        }
+        Ok(())
+    }
+
+    fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
+        match expressao {
+            ExpressaoIr::Normalizar { tipo, valor } => {
+                if let ExpressaoIr::Membro { alvo, campo } = valor.as_ref() {
+                    if self.alvo_estrutura_grande(alvo) {
+                        self.carregar_membro_agregado(alvo, campo, tipo)?;
+                        if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                            self.normalizar_tipo(tipo)?;
+                        }
+                        return Ok(());
+                    }
+                }
+                if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                    self.validar_tipo_abi(tipo)?;
+                    self.expressao(valor)?;
+                } else if let Tipo::Tupla(tipos) = tipo {
+                    self.validar_tipo_abi(tipo)?;
+                    if let ExpressaoIr::Tupla(valores) = valor.as_ref() {
+                        self.construir_tupla(tipos, valores)?;
+                    } else {
+                        self.expressao(valor)?;
+                    }
+                } else if tipo_inteiro_128(tipo) {
+                    match valor.as_ref() {
+                        ExpressaoIr::Unaria { operador, valor: interno }
+                            if *operador == OperadorIr::Menos =>
+                        {
+                            let interno = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: interno.clone(),
+                            };
+                            self.expressao(&ExpressaoIr::Unaria {
+                                operador: *operador,
+                                valor: Box::new(interno),
+                            })?;
+                        }
+                        ExpressaoIr::Binaria { esquerda, operador, direita }
+                            if matches!(operador, OperadorIr::Mais | OperadorIr::Menos
+                                | OperadorIr::Vezes | OperadorIr::Divide | OperadorIr::Resto) =>
+                        {
+                            let esquerda = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: esquerda.clone(),
+                            };
+                            let direita = ExpressaoIr::Normalizar {
+                                tipo: tipo.clone(),
+                                valor: direita.clone(),
+                            };
+                            self.expressao(&ExpressaoIr::Binaria {
+                                esquerda: Box::new(esquerda),
+                                operador: *operador,
+                                direita: Box::new(direita),
+                            })?;
+                        }
+                        _ => self.expressao(valor)?,
+                    }
+                } else {
+                    self.expressao(valor)?;
+                }
+                if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                    self.normalizar_tipo(tipo)?;
+                }
+            },
+            ExpressaoIr::ReferenciaFuncao { nome, .. } => self.emitir_referencia_funcao(nome),
+            ExpressaoIr::ReferenciaFuncaoQualificada { modulo, nome, .. } => {
+                self.emitir_referencia_funcao(&format!("{modulo}::{nome}"));
+            }
+            ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+                let retorno_grande = tipo_expressao_ir(alvo).and_then(|tipo| {
+                    if let Tipo::Funcao(_, retorno) = tipo {
+                        self.layout_agregado_grande(retorno)
+                    } else {
+                        None
+                    }
+                });
+                self.expressao(alvo)?;
+                let funcao_slot = self.reservar_agregado(8, 8)?;
+                self.armazenar_rax(funcao_slot);
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
+                    self.mover_rax_registrador(7);
+                    preparado
+                } else {
+                    self.preparar_argumentos(argumentos)?
+                };
+                self.carregar_rax(funcao_slot);
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = função
+                self.codigo.extend_from_slice(&[0x41, 0xFF, 0xD3]); // call r11
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
+            }
+            ExpressaoIr::Conversao { tipo, origem, valor } => {
+                self.expressao(valor)?;
+                self.converter_tipo_explicito(tipo, origem)?;
+            },
+            ExpressaoIr::Constante(ValorIr::Inteiro(valor)) => {
+                self.mov_rax(*valor as u64 as i64);
+                self.mov_rdx((*valor >> 64) as i64);
+            }
+            ExpressaoIr::Constante(ValorIr::InteiroSemSinal(valor)) => {
+                self.mov_rax(*valor as u64 as i64);
+                self.mov_rdx((*valor >> 64) as i64);
+            }
+            ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
+            ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
+            ExpressaoIr::Constante(ValorIr::Caractere(valor)) => self.mov_rax(*valor as i64),
+            ExpressaoIr::Constante(ValorIr::Texto(_)
+                | ValorIr::Lista(_)
+                | ValorIr::Estrutura { .. }
+                | ValorIr::Intervalo(_, _)
+                | ValorIr::IntervaloSemSinal(_, _)
+                | ValorIr::IntervaloDecimal(_, _)
+                | ValorIr::Nulo
+                | ValorIr::Funcao(_)
+                | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
+            ExpressaoIr::Variavel(nome) => {
+                if let Some(deslocamento) = self.buscar_local(nome) {
+                    self.carregar_rax(deslocamento);
+                    self.carregar_rdx(deslocamento - 8);
+                } else if self.globais.contains_key(nome) {
+                    self.carregar_global(nome);
+                } else {
+                    return Err(format!("Variável '{nome}' não encontrada no backend."));
+                }
+            }
+            ExpressaoIr::Lista(_) => {
+                return Err("Listas aguardam a implementação do suporte de memória/runtime.".into());
+            }
+            ExpressaoIr::Tupla(_) => {
+                return Err("Tupla precisa de tipo contextual para a ABI nativa.".into());
+            }
+            ExpressaoIr::Indexacao { alvo, indice } => {
+                let Some(Tipo::Tupla(tipos)) = tipo_expressao_ir(alvo) else {
+                    return Err("Indexação nativa está disponível somente para tuplas tipadas.".into());
+                };
+                let posicao = indice_literal_ir(indice)
+                    .ok_or("A indexação nativa de tupla exige índice literal.")?;
+                let (_, campos) = self.layout_tupla(tipos)
+                    .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
+                let (deslocamento, _) = campos.get(posicao)
+                    .ok_or("Índice de tupla fora dos limites.")?;
+                self.expressao(alvo)?;
+                match deslocamento {
+                    0 => {}
+                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                    _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                }
+            }
+            ExpressaoIr::Membro { alvo, campo } => {
+                let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+                    return Err("Acesso de campo nativo exige uma estrutura com tipo conhecido.".into());
+                };
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
+                let (deslocamento, tamanho_campo, tamanho_agregado) = layout.campos.get(campo)
+                    .map(|(deslocamento, tamanho)| (*deslocamento, *tamanho, layout.tamanho))
+                    .ok_or_else(|| format!("Campo '{campo}' não encontrado no layout de '{nome}'."))?;
+                if tamanho_agregado > 16 {
+                    let tipo_campo = match tamanho_campo {
+                        1 => Tipo::Byte,
+                        2 => Tipo::InteiroU16,
+                        4 => Tipo::InteiroU32,
+                        8 => Tipo::Inteiro64,
+                        9..=16 => Tipo::Inteiro128,
+                        _ => Tipo::Estrutura(nome.clone()),
+                    };
+                    self.carregar_membro_agregado(alvo, campo, &tipo_campo)?;
+                    return Ok(());
+                }
+                self.expressao(alvo)?;
+                match deslocamento {
+                    0 => {}
+                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                    _ => return Err(format!("Campo '{campo}' não está em um dos dois registradores ABI.")),
+                }
+            }
+            ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
+                let layout = self.layouts_tipos.get(nome)
+                    .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
+                if layout.tamanho > 16 {
+                    let tamanho = layout.tamanho;
+                    let alinhamento = layout.alinhamento;
+                    let offsets = layout.campos.clone();
+                    let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+                    self.emitir_endereco_rbp_rax(armazenamento);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes()); // rcx = tamanho
+                    self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]); // zero com rep stosb
+                    for (campo, valor) in campos {
+                        let (deslocamento, tamanho_campo) = offsets.get(campo)
+                            .copied()
+                            .ok_or_else(|| format!("Campo '{campo}' não existe em '{nome}'."))?;
+                        self.expressao(valor)?;
+                        self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                    }
+                    self.emitir_endereco_rbp_rax(armazenamento);
+                    self.mov_rdx(0);
+                    return Ok(());
+                }
+                let primeiro = campos.iter().find(|(campo, _)| {
+                    layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 0)
+                }).ok_or_else(|| format!("Estrutura '{nome}' não possui campo inicializável no primeiro registrador."))?;
+                let tamanho_primeiro = layout.campos.get(&primeiro.0).map(|(_, tamanho)| *tamanho).unwrap_or(0);
+                if tamanho_primeiro == 16 {
+                    return self.expressao(&primeiro.1);
+                }
+                let segundo = campos.iter().find(|(campo, _)| {
+                    layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 8)
+                });
+                self.expressao(&primeiro.1)?;
+                self.push_rax();
+                if let Some((_, valor)) = segundo {
+                    self.expressao(valor)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]);
+                } else {
+                    self.mov_rdx(0);
+                }
+                self.pop_rax();
+            }
+            ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
+                if valores.len() > 1 {
+                    return Err("A ABI inicial de enumerações aceita no máximo um valor de payload por variante.".into());
+                }
+                if let Some(valor) = valores.first() {
+                    if self.largura_abi_expressao(valor)? > 1 {
+                        return Err("Payload de enumeração não pode ocupar mais de um registrador na ABI inicial.".into());
+                    }
+                    self.expressao(valor)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                } else {
+                    self.mov_rdx(0);
+                }
+                self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
+            }
+            ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
+                if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
+                self.mov_rax(i64::MIN);
+            }
+            ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
+                if inteiro_128_expressao(valor) => {
+                if inteiro_128_sem_sinal_expressao(valor) {
+                    return Err("Negação de inteiro_u128 não é suportada como operação assinada.".into());
+                }
+                self.expressao(valor)?;
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = low original
+                self.mov_rax(i64::MIN);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC2]); // cmp rdx, rax
+                let nao_minimo_alto = self.emitir_jcc(0x85);
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test low original
+                let nao_minimo_baixo = self.emitir_jcc(0x85);
+                self.encerrar_com_erro(2);
+                let continuar = self.codigo.len();
+                self.aplicar_salto(nao_minimo_alto, continuar);
+                self.aplicar_salto(nao_minimo_baixo, continuar);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = low original
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let baixo_zero = self.emitir_jcc(0x84);
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+                let fim_negacao = self.emitir_jmp();
+                let destino_baixo_zero = self.codigo.len();
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xDA]); // neg rdx
+                self.codigo.extend_from_slice(&[0x48, 0x31, 0xC0]); // xor rax, rax
+                let fim = self.codigo.len();
+                self.aplicar_salto(baixo_zero, destino_baixo_zero);
+                self.aplicar_salto(fim_negacao, fim);
+            }
+            ExpressaoIr::Unaria { operador, valor } => {
+                self.expressao(valor)?;
+                match operador {
+                    OperadorIr::Menos => {
+                        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]);
+                        self.verificar_overflow();
+                    }
+                    OperadorIr::Nao | OperadorIr::Negacao => {
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x94, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                    }
+                    OperadorIr::Mais => {}
+                    _ => return Err("Operador unário não suportado.".into()),
+                }
+            }
+            ExpressaoIr::Binaria { esquerda, operador, direita } => {
+                if inteiro_128_expressao(esquerda) {
+                    self.expressao(esquerda)?;
+                    self.codigo.push(0x52); // push rdx = lhs high
+                    self.pilha += 1;
+                    self.push_rax(); // push rax = lhs low
+                    self.expressao(direita)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = rhs low
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xD6]); // rsi = rhs high
+                    self.pop_rax();
+                    self.codigo.extend_from_slice(&[0x5A]); // pop rdx = lhs high
+                    self.pilha = self.pilha.saturating_sub(1);
+                    let sem_sinal = inteiro_128_sem_sinal_expressao(esquerda);
+                    match operador {
+                        OperadorIr::Mais => {
+                            self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); // add rax, rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x11, 0xF2]); // adc rdx, rsi
+                            if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                        }
+                        OperadorIr::Vezes => self.multiplicar_inteiro_128(sem_sinal)?,
+                        OperadorIr::Divide | OperadorIr::Resto =>
+                            self.dividir_inteiro_128(*operador == OperadorIr::Resto, sem_sinal)?,
+                        OperadorIr::Menos => {
+                            self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // sub rax, rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x19, 0xF2]); // sbb rdx, rsi
+                            if sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                        }
+                        OperadorIr::Igual | OperadorIr::Diferente => {
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xC8]); // xor low
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xF2]); // xor high
+                            self.codigo.extend_from_slice(&[0x48, 0x09, 0xD0]); // or halves
+                            self.codigo.extend_from_slice(if *operador == OperadorIr::Igual {
+                                &[0x0F, 0x94, 0xC0]
+                            } else {
+                                &[0x0F, 0x95, 0xC0]
+                            });
+                            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+                        }
+                        OperadorIr::Menor | OperadorIr::MenorIgual
+                        | OperadorIr::Maior | OperadorIr::MaiorIgual => {
+                            self.comparar_inteiro_128(operador, sem_sinal);
+                        }
+                        _ => return Err("Operação de 128 bits ainda não suportada no backend nativo.".into()),
+                    }
+                    return Ok(());
+                }
+                let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
+                let tipo_decimal = tipo_decimal_expressao(esquerda);
+                self.expressao(esquerda)?;
+                if *operador == OperadorIr::E || *operador == OperadorIr::Ou {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    let salto_curto = self.emitir_jcc(if *operador == OperadorIr::E { 0x84 } else { 0x85 });
+                    self.expressao(direita)?;
+                    self.normalizar_logico();
+                    let fim = self.emitir_jmp();
+                    self.aplicar_salto(salto_curto, self.codigo.len());
+                    self.mov_rax(i64::from(*operador == OperadorIr::Ou));
+                    self.aplicar_salto(fim, self.codigo.len());
+                    return Ok(());
+                }
+                self.push_rax(); // preserva o operando esquerdo
+                self.expressao(direita)?;
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx=rhs
+                self.pop_rax(); // rax=lhs
+                if let Some(tipo) = tipo_decimal {
+                    match operador {
+                        OperadorIr::Mais | OperadorIr::Menos | OperadorIr::Vezes | OperadorIr::Divide =>
+                            self.operar_decimal(&tipo, operador)?,
+                        OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor
+                        | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual =>
+                            self.comparar_decimal(&tipo, operador),
+                        _ => return Err("Operação não suportada para tipos decimais no backend nativo.".into()),
+                    }
+                    return Ok(());
+                }
+                match operador {
+                    OperadorIr::Mais => {
+                        self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]);
+                        if operacao_sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                    }
+                    OperadorIr::Menos => {
+                        self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]);
+                        if operacao_sem_sinal { self.verificar_carry(); } else { self.verificar_overflow(); }
+                    }
+                    OperadorIr::Vezes => {
+                        if operacao_sem_sinal {
+                            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xE1]); // mul rcx
+                            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                            let valido = self.emitir_jcc(0x84);
+                            self.encerrar_com_erro(2);
+                            self.aplicar_salto(valido, self.codigo.len());
+                        } else {
+                            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC1]);
+                            self.verificar_overflow();
+                        }
+                    }
+                    OperadorIr::Divide | OperadorIr::Resto => {
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let divisor_valido = self.emitir_jcc(0x85);
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(divisor_valido, self.codigo.len());
+                        if operacao_sem_sinal {
+                            self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2, 0x48, 0xF7, 0xF1]); // xor rdx,rdx; div rcx
+                        } else {
+                            self.codigo.extend_from_slice(&[0x48, 0x83, 0xF9, 0xFF]);
+                            let divisor_normal = self.emitir_jcc(0x85);
+                            self.codigo.extend_from_slice(&[0x48, 0xBA]);
+                            self.codigo.extend_from_slice(&i64::MIN.to_le_bytes());
+                            self.codigo.extend_from_slice(&[0x48, 0x39, 0xD0]);
+                            let dividendo_normal = self.emitir_jcc(0x85);
+                            self.encerrar_com_erro(2);
+                            let inicio_divisao = self.codigo.len();
+                            self.aplicar_salto(divisor_normal, inicio_divisao);
+                            self.aplicar_salto(dividendo_normal, inicio_divisao);
+                            self.codigo.extend_from_slice(&[0x48, 0x99, 0x48, 0xF7, 0xF9]);
+                        }
+                        if *operador == OperadorIr::Resto { self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); }
+                    }
+                    OperadorIr::Potencia => {
+                        // Exponenciação inteira por quadratura: O(log expoente), sem runtime.
+                        // Expoente negativo é rejeitado com código de saída 2.
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let expoente_nao_negativo = self.emitir_jcc(0x89); // JNS
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(expoente_nao_negativo, self.codigo.len());
+                        // A IR de referência define expoentes inteiros no intervalo u32.
+                        self.codigo.extend_from_slice(&[0x41, 0xB8, 0xFF, 0xFF, 0xFF, 0xFF, 0x4C, 0x39, 0xC1]); // r8d = u32::MAX; cmp rcx, r8
+                        let expoente_no_intervalo = self.emitir_jcc(0x86); // JBE
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(expoente_no_intervalo, self.codigo.len());
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // rdx = base
+                        self.mov_rax(1); // acumulador
+                        let inicio = self.codigo.len();
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]);
+                        let fim = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0xF6, 0xC1, 0x01]);
+                        let multiplicar = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xC2]);
+                        self.verificar_overflow();
+                        self.aplicar_salto(multiplicar, self.codigo.len());
+                        self.codigo.extend_from_slice(&[0x48, 0xD1, 0xE9]); // expoente >>= 1
+                        let terminar = self.emitir_jcc(0x84);
+                        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xD2]); // base *= base
+                        self.verificar_overflow();
+                        self.emitir_salto_para(inicio);
+                        let destino_fim = self.codigo.len();
+                        self.aplicar_salto(fim, destino_fim);
+                        self.aplicar_salto(terminar, destino_fim);
+                    }
+                    OperadorIr::Igual | OperadorIr::Diferente | OperadorIr::Menor | OperadorIr::MenorIgual | OperadorIr::Maior | OperadorIr::MaiorIgual => {
+                        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
+                        let set = match operador {
+                            OperadorIr::Igual => 0x94, OperadorIr::Diferente => 0x95,
+                            OperadorIr::Menor if operacao_sem_sinal => 0x92,
+                            OperadorIr::MenorIgual if operacao_sem_sinal => 0x96,
+                            OperadorIr::Maior if operacao_sem_sinal => 0x97,
+                            OperadorIr::MaiorIgual if operacao_sem_sinal => 0x93,
+                            OperadorIr::Menor => 0x9C, OperadorIr::MenorIgual => 0x9E,
+                            OperadorIr::Maior => 0x9F, OperadorIr::MaiorIgual => 0x9D,
+                            _ => unreachable!(),
+                        };
+                        self.codigo.extend_from_slice(&[0x0F, set, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                    }
+                    OperadorIr::E | OperadorIr::Ou => unreachable!(),
+                    OperadorIr::Intervalo | OperadorIr::Negacao | OperadorIr::Nao => {
+                        return Err("Operador ainda não implementado no backend nativo.".into());
+                    }
+                }
+            }
+            ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo } => {
+                if caminho.len() != 1 {
+                    return Err("Atribuição nativa suporta somente campos diretos de estrutura.".into());
+                }
+                let tipo_raiz = self.buscar_tipo_local(raiz)
+                    .or_else(|| self.tipos_globais.get(raiz))
+                    .cloned()
+                    .ok_or_else(|| format!("Tipo da variável '{raiz}' não foi encontrado para atribuição de campo."))?;
+                let Tipo::Estrutura(nome) = &tipo_raiz else {
+                    return Err("Atribuição de campo exige uma variável de estrutura.".into());
+                };
+                self.validar_tipo_abi(&tipo_raiz)?;
+                let (deslocamento, tamanho, tamanho_agregado) = self.layouts_tipos.get(nome)
+                    .and_then(|layout| layout.campos.get(&caminho[0]).map(|(offset, size)| (*offset, *size, layout.tamanho)))
+                    .ok_or_else(|| format!("Campo '{}' não encontrado em '{nome}'.", caminho[0]))?;
+                let largura = self.largura_abi_tipo(tipo)?;
+                let largura_esperada = if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 };
+                if largura != largura_esperada {
+                    return Err("Tipo do valor não corresponde à largura do campo no ABI.".into());
+                }
+                if tamanho_agregado > 16 {
+                    let base = self.buscar_local(raiz)
+                        .ok_or_else(|| "Agregado grande global não possui armazenamento estático seguro.".to_owned())?;
+                    let temporario = self.reservar_agregado(16, 16)?;
+                    self.expressao(valor)?;
+                    self.armazenar_rax(temporario);
+                    if largura == 2 {
+                        self.armazenar_rdx(temporario + 8);
+                    }
+                    self.carregar_rax(base);
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = agregado
+                    self.carregar_rax(temporario);
+                    if largura == 2 {
+                        self.carregar_rdx(temporario + 8);
+                    }
+                    self.armazenar_campo_r11(deslocamento, tamanho)?;
+                } else {
+                    if tipo_decimal(tipo) {
+                        return Err("Atribuição de campos decimais pequenos ainda não está disponível.".into());
+                    }
+                    self.expressao(valor)?;
+                    if let Some(base) = self.buscar_local(raiz) {
+                        match (deslocamento, tamanho) {
+                            (0, 16) => {
+                                self.armazenar_rax(base);
+                                self.armazenar_rdx(base - 8);
+                            }
+                            (0, _) => self.armazenar_rax(base),
+                            (8, _) => self.armazenar_rax(base - 8),
+                            _ => return Err("Campo não está em um registrador ABI.".into()),
+                        }
+                    } else if self.globais.contains_key(raiz) {
+                        match (deslocamento, tamanho) {
+                            (0, 16) => self.armazenar_global(raiz),
+                            (0, _) => self.armazenar_global_parte(raiz, 0),
+                            (8, _) => self.armazenar_global_parte(raiz, 8),
+                            _ => return Err("Campo não está em um registrador ABI.".into()),
+                        }
+                    }
+                }
+            }
+            ExpressaoIr::Atribuicao { nome, valor, .. } => {
+                let tipo_local = self.buscar_tipo_local(nome).cloned();
+                if let Some(tipo) = tipo_local.as_ref() {
+                    if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
+                        let destino = self.buscar_local(nome)
+                            .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))?;
+                        let origem = self.reservar_agregado(8, 8)?;
+                        self.expressao(valor)?;
+                        self.armazenar_rax(origem);
+                        self.carregar_rax(destino);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                        self.carregar_rax(origem);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                        self.codigo.extend_from_slice(&[0xF3, 0xA4]); // cópia por valor
+                        self.carregar_rax(destino);
+                        self.mov_rdx(0);
+                        return Ok(());
+                    }
+                }
+                self.expressao(valor)?;
+                if let Some(deslocamento) = self.buscar_local(nome) {
+                    self.armazenar_rax(deslocamento);
+                    self.armazenar_rdx(deslocamento - 8);
+                } else if self.globais.contains_key(nome) {
+                    self.armazenar_global(nome);
+                } else {
+                    return Err(format!("Variável '{nome}' não encontrada no backend."));
+                }
+            }
+            ExpressaoIr::Chamada { nome, argumentos } => {
+                if nome == "exibir" || nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
+                    return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
+                }
+                let retorno_grande = self.retornos_funcoes.get(nome)
+                    .and_then(|tipo| self.layout_agregado_grande(tipo));
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
+                    self.mover_rax_registrador(7);
+                    preparado
+                } else {
+                    self.preparar_argumentos(argumentos)?
+                };
+                self.codigo.push(0xE8);
+                let posicao = self.codigo.len();
+                self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+                self.chamadas.push((posicao, nome.clone()));
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
+            }
+            ExpressaoIr::ChamadaQualificada { modulo, nome, argumentos } => {
+                let nome_completo = format!("{modulo}::{nome}");
+                let retorno_grande = self.retornos_funcoes.get(&nome_completo)
+                    .and_then(|tipo| self.layout_agregado_grande(tipo));
+                let (tamanho_pilha, preenchimento) = if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    let destino_slot = self.reservar_agregado(8, 8)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.armazenar_rax(destino_slot);
+                    let preparado = self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.carregar_rax(destino_slot);
+                    self.mover_rax_registrador(7);
+                    preparado
+                } else {
+                    self.preparar_argumentos(argumentos)?
+                };
+                self.codigo.push(0xE8);
+                let posicao = self.codigo.len();
+                self.codigo.extend_from_slice(&[0, 0, 0, 0]);
+                self.chamadas.push((posicao, nome_completo));
+                self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn emitir_referencia_funcao(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0xB8]); // mov rax, imm64
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 8]);
+        self.referencias_funcoes.push((posicao, nome.to_owned()));
+    }
+
+    fn normalizar_tipo(&mut self, tipo: &Tipo) -> Result<(), String> {
+        let bits_assinados = match tipo {
+            Tipo::Inteiro8 => Some(8),
+            Tipo::Inteiro16 => Some(16),
+            Tipo::Inteiro32 => Some(32),
+            _ => None,
+        };
+        if let Some(bits) = bits_assinados {
+            let deslocamento = 64 - bits;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = valor original
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xE0, deslocamento]); // shl rax
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xF8, deslocamento]); // sar rax
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+            let valido = self.emitir_jcc(0x84);
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(valido, self.codigo.len());
+            return Ok(());
+        }
+
+        let bits_sem_sinal = match tipo {
+            Tipo::InteiroU8 | Tipo::Byte => Some(8),
+            Tipo::InteiroU16 => Some(16),
+            Tipo::InteiroU32 => Some(32),
+            _ => None,
+        };
+        if let Some(bits) = bits_sem_sinal {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = valor original
+            self.codigo.extend_from_slice(&[0x48, 0xC1, 0xE8, bits]); // shr rax
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+            let valido = self.emitir_jcc(0x84);
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(valido, self.codigo.len());
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = rcx
+            return Ok(());
+        }
+
+        if *tipo == Tipo::Caractere {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = escalar original
+            self.mov_rax(0x10FFFF);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]); // cmp rcx, rax
+            let dentro_do_unicode = self.emitir_jcc(0x86); // JBE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(dentro_do_unicode, self.codigo.len());
+
+            self.mov_rax(0xD800);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]);
+            let abaixo_dos_surrogates = self.emitir_jcc(0x82); // JB
+            self.mov_rax(0xDFFF);
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC1]);
+            let acima_dos_surrogates = self.emitir_jcc(0x87); // JA
+            self.encerrar_com_erro(2);
+            let fim = self.codigo.len();
+            self.aplicar_salto(abaixo_dos_surrogates, fim);
+            self.aplicar_salto(acima_dos_surrogates, fim);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC8]); // rax = escalar original
+            return Ok(());
+        }
+
+        match tipo {
+            Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro128 | Tipo::InteiroU128 => Ok(()),
+            Tipo::Logico => {
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+                Ok(())
+            }
+            Tipo::Decimal32 => {
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+                self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
+                self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0, xmm0
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+                Ok(())
+            }
+            Tipo::Decimal | Tipo::Decimal64 => Ok(()),
+            _ => Err(format!("Normalização de '{}' não é suportada pelo backend nativo.", tipo.nome())),
+        }
+    }
+
+    fn converter_tipo_explicito(
+        &mut self,
+        destino: &Tipo,
+        tipo_origem: &Tipo,
+    ) -> Result<(), String> {
+        let origem_inteira = tipo_inteiro_abi(tipo_origem);
+        let destino_inteiro = tipo_inteiro_abi(destino);
+
+        if let Some((128, destino_assinado)) = destino_inteiro {
+            if let Some((bits_origem, origem_assinada)) = origem_inteira {
+                if bits_origem == 128 {
+                    if destino_assinado != origem_assinada {
+                        self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                        let valido = self.emitir_jcc(0x89); // JNS
+                        self.encerrar_com_erro(2);
+                        self.aplicar_salto(valido, self.codigo.len());
+                    }
+                    return Ok(());
+                }
+                if origem_assinada && !destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+                    let valido = self.emitir_jcc(0x89); // JNS
+                    self.encerrar_com_erro(2);
+                    self.aplicar_salto(valido, self.codigo.len());
+                }
+                if origem_assinada && destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                    self.codigo.extend_from_slice(&[0x48, 0xC1, 0xFA, 0x3F]); // sar rdx, 63
+                } else {
+                    self.mov_rdx(0);
+                }
+                return Ok(());
+            }
+        }
+
+        if let Some((128, _)) = origem_inteira {
+            if let Some((_, destino_assinado)) = destino_inteiro {
+                if destino_assinado {
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = low
+                    self.codigo.extend_from_slice(&[0x48, 0xC1, 0xF9, 0x3F]); // sar rcx, 63
+                    self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp rdx, rcx
+                } else {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+                }
+                let valido = self.emitir_jcc(0x84);
+                self.encerrar_com_erro(2);
+                self.aplicar_salto(valido, self.codigo.len());
+                return self.normalizar_tipo(destino);
+            }
+            if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return self.converter_inteiro128_para_decimal(
+                    origem_inteira.is_some_and(|(_, assinado)| assinado),
+                    destino,
+                );
+            }
+        }
+
+        if let Some((64, destino_assinado)) = destino_inteiro {
+            if let Some((_, origem_assinada)) = origem_inteira {
+                if destino_assinado != origem_assinada {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                    let valido = self.emitir_jcc(0x89);
+                    self.encerrar_com_erro(2);
+                    self.aplicar_salto(valido, self.codigo.len());
+                }
+                return Ok(());
+            }
+        }
+        if destino_inteiro.is_some() {
+            if origem_inteira.is_some() {
+                return self.normalizar_tipo(destino);
+            }
+            if matches!(tipo_origem, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return self.converter_decimal_para_inteiro(destino);
+            }
+        }
+
+        if matches!(destino, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+            if matches!(tipo_origem, Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64) {
+                return self.normalizar_tipo(destino);
+            }
+            if let Some((_, assinado)) = origem_inteira {
+                if assinado {
+                    self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+                } else {
+                    // Conversão u64 -> f64 sem reinterpretar valores acima de i64::MAX.
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+                    self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC0]); // addsd xmm0, xmm0
+                    self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC9]); // cvtsi2sd xmm1, rcx
+                    self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC1]); // addsd xmm0, xmm1
+                }
+                self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+                return self.normalizar_tipo(destino);
+            }
+        }
+        Err(format!(
+            "Conversão explícita de '{}' para '{}' não é suportada pelo backend nativo.",
+            tipo_origem.nome(),
+            destino.nome()
+        ))
+    }
+
+    fn converter_inteiro128_para_decimal(
+        &mut self,
+        origem_assinada: bool,
+        destino: &Tipo,
+    ) -> Result<(), String> {
+        if origem_assinada {
+            self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // r11d = sinal
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xD2]); // test rdx, rdx
+            let positivo = self.emitir_jcc(0x89); // jns
+            self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+            self.codigo.extend_from_slice(&[0xF5]); // cmc
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD2]); // not rdx
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xD2, 0x00]); // adc rdx, 0
+            self.aplicar_salto(positivo, self.codigo.len());
+        }
+
+        // Converte cada metade unsigned64 sem interpretar o bit 63 como sinal.
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2sd xmm0, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC0]); // addsd xmm0, xmm0
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC9]); // movq xmm1, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xC9]); // cvtsi2sd xmm1, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC1]); // addsd xmm0, xmm1
+
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD0]); // movq xmm2, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD0]); // cvtsi2sd xmm2, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xD2]); // addsd xmm2, xmm2
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD9]); // movq xmm3, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD9]); // cvtsi2sd xmm3, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xD3]); // addsd xmm2, xmm3
+        self.mov_rax(0x43F0_0000_0000_0000u64 as i64); // 2^64
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD8]); // movq xmm3, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x59, 0xD3]); // mulsd xmm2, xmm3
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xC2]); // addsd xmm0, xmm2
+
+        if origem_assinada {
+            self.codigo.extend_from_slice(&[0x45, 0x85, 0xDB]); // test r11d, r11d
+            let positivo = self.emitir_jcc(0x84);
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x57, 0xC1]); // xorpd xmm0, xmm1
+            self.aplicar_salto(positivo, self.codigo.len());
+        }
+
+        if *destino == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss
+            self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd
+        }
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        Ok(())
+    }
+
+    fn converter_decimal_para_inteiro(&mut self, destino: &Tipo) -> Result<(), String> {
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC0]); // ucomisd xmm0, xmm0
+        let finito = self.emitir_jcc(0x8B); // JNP: rejeita NaN
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(finito, self.codigo.len());
+
+        let Some((largura, assinado)) = tipo_inteiro_abi(destino) else {
+            return Err(format!("Tipo '{}' não possui conversão inteira nativa.", destino.nome()));
+        };
+        if largura == 128 {
+            return self.converter_decimal_para_inteiro128(destino);
+        }
+        if assinado {
+            // -2^63 <= x < 2^63; o limite inferior é inclusivo e o superior exclusivo.
+            self.mov_rax(0xC3E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
+            let acima_minimo = self.emitir_jcc(0x83); // JAE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(acima_minimo, self.codigo.len());
+
+            self.mov_rax(0x43E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_maximo = self.emitir_jcc(0x82); // JB
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(abaixo_maximo, self.codigo.len());
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
+        } else {
+            // 0 <= x < 2^64.
+            self.mov_rax(0);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let nao_negativo = self.emitir_jcc(0x83); // JAE
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(nao_negativo, self.codigo.len());
+
+            self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_limite = self.emitir_jcc(0x82); // JB
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(abaixo_limite, self.codigo.len());
+
+            self.mov_rax(0x43E0_0000_0000_0000u64 as i64);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]);
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]);
+            let abaixo_metade = self.emitir_jcc(0x82);
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5C, 0xC1]); // subsd xmm0, xmm1
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
+            self.codigo.extend_from_slice(&[0x48, 0x0F, 0xBA, 0xE8, 0x3F]); // bts rax, 63
+            let convertido = self.emitir_jmp();
+            self.aplicar_salto(abaixo_metade, self.codigo.len());
+            self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax, xmm0
+            self.aplicar_salto(convertido, self.codigo.len());
+        }
+        self.normalizar_tipo(destino)
+    }
+
+    fn converter_decimal_para_inteiro128(&mut self, destino: &Tipo) -> Result<(), String> {
+        let assinado = matches!(destino, Tipo::Inteiro128);
+        self.codigo.extend_from_slice(&[0x41, 0xBB, 0, 0, 0, 0]); // r11d = sinal
+        if assinado {
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax (sinal do double)
+            let positivo = self.emitir_jcc(0x89);
+            self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
+            self.aplicar_salto(positivo, self.codigo.len());
+        } else {
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+            let nao_negativo = self.emitir_jcc(0x89);
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(nao_negativo, self.codigo.len());
+        }
+
+        // Trabalha com a magnitude e preserva a entrada original em xmm2.
+        self.mov_rax(i64::MAX);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x54, 0xC1]); // andpd xmm0, xmm1
+        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x28, 0xD0]); // movapd xmm2, xmm0
+
+        // high = trunc(magnitude / 2^64), com verificação unsigned64.
+        self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5E, 0xC1]); // divsd xmm0, xmm1
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        self.converter_decimal_para_inteiro(&Tipo::InteiroU64)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // high -> rdx
+
+        // Converte high para double unsigned64 e subtrai high * 2^64.
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0xD1, 0xE8, 0x83, 0xE1, 0x01]);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xD8]); // movq xmm3, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xD8]); // cvtsi2sd xmm3, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xDB]); // addsd xmm3, xmm3
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xE1]); // movq xmm4, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2A, 0xE1]); // cvtsi2sd xmm4, rcx
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x58, 0xDC]); // addsd xmm3, xmm4
+        self.mov_rax(0x43F0_0000_0000_0000u64 as i64);
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x59, 0xD9]); // mulsd xmm3, xmm1
+        self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5C, 0xD3]); // subsd xmm2, xmm3
+        self.codigo.extend_from_slice(&[0x66, 0x0F, 0x28, 0xC2]); // movapd xmm0, xmm2
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        self.converter_decimal_para_inteiro(&Tipo::InteiroU64)?;
+
+        if assinado {
+            self.codigo.extend_from_slice(&[0x41, 0xF6, 0xC3, 0x01]); // test r11b, 1
+            let positivo = self.emitir_jcc(0x84);
+
+            // Negativo: magnitude <= 2^127; igualdade exige low == 0.
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // restore low in rax
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
+            let acima_limite_negativo = self.emitir_jcc(0x87); // ja
+            let abaixo_limite_negativo = self.emitir_jcc(0x82); // jb
+            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test low, low
+            let baixo_nao_zero = self.emitir_jcc(0x85); // jnz
+            let limite_negativo_valido = self.emitir_jmp();
+
+            let negativo_valido = self.codigo.len();
+            self.aplicar_salto(abaixo_limite_negativo, negativo_valido);
+            self.aplicar_salto(limite_negativo_valido, negativo_valido);
+            self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8, 0xF5, 0x48, 0xF7, 0xD2, 0x48, 0x83, 0xD2, 0x00]);
+            let fim_negativo = self.emitir_jmp();
+
+            let positivo_inicio = self.codigo.len();
+            self.aplicar_salto(positivo, positivo_inicio);
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // save low in r9
+            self.mov_rax(i64::MIN);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = 2^63
+            self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // restore low in rax
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xCA]); // cmp high, 2^63
+            let positivo_fora_faixa = self.emitir_jcc(0x83); // jae
+            let fim_positivo = self.emitir_jmp();
+
+            let erro = self.codigo.len();
+            self.aplicar_salto(acima_limite_negativo, erro);
+            self.aplicar_salto(baixo_nao_zero, erro);
+            self.aplicar_salto(positivo_fora_faixa, erro);
+            self.encerrar_com_erro(2);
+            let fim = self.codigo.len();
+            self.aplicar_salto(fim_negativo, fim);
+            self.aplicar_salto(fim_positivo, fim);
+        } else {
+            self.normalizar_tipo(destino)?;
+            return Ok(());
+        }
+        self.normalizar_tipo(destino)
+    }
+
+    fn carregar_decimais_sse(&mut self, tipo: &Tipo) {
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC0]); // movq xmm0, rax
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC9]); // movq xmm1, rcx
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
+            self.codigo.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC9]); // cvtsd2ss xmm1, xmm1
+        }
+    }
+
+    fn operar_decimal(&mut self, tipo: &Tipo, operador: &OperadorIr) -> Result<(), String> {
+        self.carregar_decimais_sse(tipo);
+        let (prefixo, opcode) = match (tipo, operador) {
+            (Tipo::Decimal32, OperadorIr::Mais) => (0xF3, 0x58),
+            (Tipo::Decimal32, OperadorIr::Menos) => (0xF3, 0x5C),
+            (Tipo::Decimal32, OperadorIr::Vezes) => (0xF3, 0x59),
+            (Tipo::Decimal32, OperadorIr::Divide) => (0xF3, 0x5E),
+            (_, OperadorIr::Mais) => (0xF2, 0x58),
+            (_, OperadorIr::Menos) => (0xF2, 0x5C),
+            (_, OperadorIr::Vezes) => (0xF2, 0x59),
+            (_, OperadorIr::Divide) => (0xF2, 0x5E),
+            _ => return Err("Operador decimal não suportado.".into()),
+        };
+        self.codigo.extend_from_slice(&[prefixo, 0x0F, opcode, 0xC1]);
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0, xmm0
+        }
+        self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
+        Ok(())
+    }
+
+    fn comparar_decimal(&mut self, tipo: &Tipo, operador: &OperadorIr) {
+        self.carregar_decimais_sse(tipo);
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0x0F, 0x2E, 0xC1]); // ucomiss xmm0, xmm1
+        } else {
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
+        }
+        match operador {
+            OperadorIr::Igual => {
+                self.codigo.extend_from_slice(&[0x0F, 0x94, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::Diferente => {
+                self.codigo.extend_from_slice(&[0x0F, 0x95, 0xC0, 0x0F, 0x9A, 0xC1, 0x08, 0xC8]);
+            }
+            OperadorIr::Menor => {
+                self.codigo.extend_from_slice(&[0x0F, 0x92, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::MenorIgual => {
+                self.codigo.extend_from_slice(&[0x0F, 0x96, 0xC0, 0x0F, 0x9B, 0xC1, 0x20, 0xC8]);
+            }
+            OperadorIr::Maior => self.codigo.extend_from_slice(&[0x0F, 0x97, 0xC0]),
+            OperadorIr::MaiorIgual => self.codigo.extend_from_slice(&[0x0F, 0x93, 0xC0]),
+            _ => unreachable!(),
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]); // movzx rax, al
+    }
+
+    fn declarar(&mut self, nome: &str) -> Result<i32, String> {
+        self.declarar_tipado(nome, &Tipo::Vazio)
+    }
+
+    fn declarar_tipado(&mut self, nome: &str, tipo: &Tipo) -> Result<i32, String> {
+        if self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome)) {
+            return Err(format!("Identificador '{nome}' declarado mais de uma vez no mesmo escopo."));
+        }
+        if self.proximo_slot >= LIMITE_VARIAVEIS {
+            return Err("A função excedeu o limite inicial de 512 posições locais.".into());
+        }
+        self.proximo_slot += 1;
+        let deslocamento = -((self.proximo_slot * 16 - 8) as i32);
+        self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
+        self.tipos_escopos.last_mut().expect("escopo tipado ativo").insert(nome.to_owned(), tipo.clone());
+        Ok(deslocamento)
+    }
+
+    fn alvo_estrutura_grande(&self, alvo: &ExpressaoIr) -> bool {
+        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+            return false;
+        };
+        self.layouts_tipos.get(nome).is_some_and(|layout| layout.tamanho > 16)
+    }
+
+    fn carregar_membro_agregado(
+        &mut self,
+        alvo: &ExpressaoIr,
+        campo: &str,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+            return Err("Acesso a agregado grande exige estrutura tipada.".into());
+        };
+        let (deslocamento, tamanho) = self.layouts_tipos.get(nome)
+            .and_then(|layout| layout.campos.get(campo).copied())
+            .ok_or_else(|| format!("Campo '{campo}' não encontrado em '{nome}'."))?;
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
+        self.expressao(alvo)?;
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço do agregado
+
+        if tamanho > 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        if tamanho == 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            return Ok(());
+        }
+        if (9..16).contains(&tamanho) {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            let bytes_superiores = tamanho - 8;
+            let mascara = (1u64 << (bytes_superiores * 8)) - 1;
+            self.mov_rax(mascara as i64);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0x21, 0xCA]); // rdx &= mask
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            return Ok(());
+        }
+
+        let bits = tipo_inteiro_abi(tipo);
+        match bits {
+            Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x83]),
+            Some((8, false)) | None if tamanho == 1 => {
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB6, 0x83])
+            }
+            Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x83]),
+            Some((16, false)) | None if tamanho == 2 => {
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB7, 0x83])
+            }
+            Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x83]),
+            Some((32, false)) | None if tamanho == 4 => {
+                self.codigo.extend_from_slice(&[0x41, 0x8B, 0x83])
+            }
+            Some((64, _)) | None if tamanho == 8 => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83])
+            }
+            Some((128, _)) => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+                self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+                return Ok(());
+            }
+            _ => return Err(format!("Campo '{campo}' possui layout incompatível com o tipo '{}'.", tipo.nome())),
+        }
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0, 0x66, 0x48, 0x0F, 0x7E, 0xC0]);
+        }
+        self.mov_rdx(0);
+        Ok(())
+    }
+
+    fn emitir_endereco_rbp_rax(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x8D, 0x85]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn armazenar_registro_r11(&mut self, deslocamento: i32, registro: u8, largura: u8) {
+        if largura == 2 {
+            self.codigo.push(0x66);
+        }
+        self.codigo.push(if largura == 8 { 0x49 } else { 0x41 });
+        self.codigo.push(if largura == 1 { 0x88 } else { 0x89 });
+        self.codigo.push(0x80 | ((registro & 7) << 3) | 3);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn armazenar_fragmentos_r11(&mut self, mut deslocamento: i32, mut tamanho: u64, registro: u8) {
+        if tamanho >= 8 {
+            self.armazenar_registro_r11(deslocamento, registro, 8);
+            return;
+        }
+        if tamanho >= 4 {
+            self.armazenar_registro_r11(deslocamento, registro, 4);
+            deslocamento += 4;
+            tamanho -= 4;
+            self.codigo.extend_from_slice(if registro == 0 {
+                &[0x48, 0xC1, 0xE8, 32]
+            } else {
+                &[0x48, 0xC1, 0xEA, 32]
+            });
+        }
+        if tamanho >= 2 {
+            self.armazenar_registro_r11(deslocamento, registro, 2);
+            deslocamento += 2;
+            tamanho -= 2;
+            self.codigo.extend_from_slice(if registro == 0 {
+                &[0x48, 0xC1, 0xE8, 16]
+            } else {
+                &[0x48, 0xC1, 0xEA, 16]
+            });
+        }
+        if tamanho == 1 {
+            self.armazenar_registro_r11(deslocamento, registro, 1);
+        }
+    }
+
+    fn armazenar_campo_agregado(
+        &mut self,
+        base: i32,
+        deslocamento: u64,
+        tamanho: u64,
+    ) -> Result<(), String> {
+        self.codigo.extend_from_slice(&[0x4C, 0x8D, 0x9D]);
+        self.codigo.extend_from_slice(&base.to_le_bytes()); // r11 = início do agregado
+        self.armazenar_campo_r11(deslocamento, tamanho)
+    }
+
+    fn armazenar_campo_r11(&mut self, deslocamento: u64, tamanho: u64) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
+        if tamanho > 16 {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0xBB]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes()); // rdi = destino
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+        } else if tamanho <= 8 {
+            self.armazenar_fragmentos_r11(deslocamento, tamanho, 0);
+        } else {
+            self.armazenar_registro_r11(deslocamento, 0, 8);
+            let restante = tamanho - 8;
+            self.armazenar_fragmentos_r11(deslocamento + 8, restante, 2);
+        }
+        Ok(())
+    }
+
+    fn reservar_agregado(&mut self, tamanho: u64, alinhamento: u64) -> Result<i32, String> {
+        if tamanho == 0 || alinhamento == 0 || !alinhamento.is_power_of_two() || alinhamento > 16 {
+            return Err("Layout de agregado incompatível com o quadro nativo.".into());
+        }
+        let topo = self.proximo_agregado.checked_add(tamanho)
+            .ok_or("Área de agregados excedeu o limite do quadro.")?;
+        let fim = Self::alinhar_layout(topo, alinhamento)
+            .ok_or("Alinhamento da área de agregados excedeu o limite.")?;
+        if fim > u64::from(TAMANHO_QUADRO - 16) {
+            return Err("A função excedeu a área reservada para agregados no quadro nativo.".into());
+        }
+        let deslocamento = i32::try_from(fim)
+            .ok()
+            .and_then(i32::checked_neg)
+            .ok_or("Deslocamento do agregado excedeu o endereçamento x86-64.")?;
+        self.proximo_agregado = fim;
+        Ok(deslocamento)
+    }
+
+    fn buscar_tipo_local(&self, nome: &str) -> Option<&Tipo> {
+        self.tipos_escopos.iter().rev().find_map(|escopo| escopo.get(nome))
+    }
+
+    fn buscar_local(&self, nome: &str) -> Option<i32> {
+        self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
+    }
+
+    fn carregar_global(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x05]); // mov rax, [rip + disp32]
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned(), 0));
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0x15]); // mov rdx, [rip + disp32]
+        let posicao_alto = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
+    }
+
+    fn armazenar_global_parte(&mut self, nome: &str, parte: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned(), parte));
+    }
+
+    fn armazenar_global(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip + disp32], rax
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned(), 0));
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x15]); // mov [rip + disp32], rdx
+        let posicao_alto = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao_alto, nome.to_owned(), 8));
+    }
+
+    fn verificar_carry(&mut self) {
+        let sem_carry = self.emitir_jcc(0x83); // JNC
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(sem_carry, self.codigo.len());
+    }
+
+    fn verificar_overflow(&mut self) {
+        // A semântica inteira é checked: overflow encerra o processo com código 2.
+        let sem_overflow = self.emitir_jcc(0x81); // JNO
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(sem_overflow, self.codigo.len());
+    }
+
+    fn encerrar_com_erro(&mut self, codigo: u8) {
+        // Linux x86-64: exit(codigo), syscall 60.
+        self.codigo.extend_from_slice(&[0xBF, codigo, 0, 0, 0, 0xB8, 0x3C, 0, 0, 0, 0x0F, 0x05]);
+    }
+
+    fn normalizar_logico(&mut self) {
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
+    }
+
+    fn escolha(&mut self, valor: &ExpressaoIr, casos: &[CasoEscolhaIr]) -> Result<(), String> {
+        let tipo = tipo_expressao_ir(valor)
+            .ok_or("Correspondência de padrões exige tipo algébrico conhecido.")?;
+        self.validar_tipo_abi(tipo)?;
+        self.expressao(valor)?;
+        let nome_tag = format!("\\0nebula_tag_{}", self.proximo_slot);
+        let slot_tag = self.declarar(&nome_tag)?;
+        self.armazenar_rax(slot_tag);
+        let nome_payload = format!("\\0nebula_payload_{}", self.proximo_slot);
+        let slot_payload = self.declarar(&nome_payload)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx
+        self.armazenar_rax(slot_payload);
+
+        let mut saltos_fim = Vec::new();
+        let mut possui_curinga = false;
+        for caso in casos {
+            let proximo_caso = if let (Some(enumeracao), Some(variante)) =
+                (&caso.enumeracao, &caso.variante)
+            {
+                let enumeracao = nome_enum_canonico(enumeracao);
+                self.mov_rax(tag_enumeracao(enumeracao, variante));
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // mov rcx, tag esperada
+                self.carregar_rax(slot_tag);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+                Some(self.emitir_jcc(0x85))
+            } else {
+                possui_curinga = true;
+                None
+            };
+
+            if caso.vinculacoes.len() > 1 {
+                return Err("A ABI inicial de enumerações suporta um único vínculo de payload por caso.".into());
+            }
+            self.escopos.push(HashMap::new());
+            self.tipos_escopos.push(HashMap::new());
+            if let Some(vinculo) = caso.vinculacoes.first() {
+                let deslocamento = self.declarar(vinculo)?;
+                self.carregar_rax(slot_payload);
+                self.armazenar_rax(deslocamento);
+                self.mov_rdx(0);
+                self.armazenar_rdx(deslocamento - 8);
+            }
+            self.bloco(&caso.corpo)?;
+            let _ = self.escopos.pop();
+            let _ = self.tipos_escopos.pop();
+            saltos_fim.push(self.emitir_jmp());
+            if let Some(salto) = proximo_caso {
+                self.aplicar_salto(salto, self.codigo.len());
+            }
+        }
+        if !possui_curinga {
+            self.encerrar_com_erro(2);
+        }
+        let fim = self.codigo.len();
+        for salto in saltos_fim {
+            self.aplicar_salto(salto, fim);
+        }
+        Ok(())
+    }
+
+    fn construir_tupla(&mut self, tipos: &[Tipo], valores: &[ExpressaoIr]) -> Result<(), String> {
+        if tipos.len() != valores.len() {
+            return Err("Quantidade de elementos da tupla não corresponde ao tipo declarado.".into());
+        }
         let (_, campos) = self.layout_tupla(tipos)
             .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
         if tipos.len() == 1 && campos[0].1 == 16 {
