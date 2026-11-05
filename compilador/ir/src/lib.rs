@@ -1278,6 +1278,8 @@ pub enum ComandoDepuracao {
     Avancar,
     /// Avança até uma linha diferente, sem entrar em chamadas.
     AvancarLinha(Vec<usize>),
+    /// Pausa antes da próxima instrução executada.
+    Pausar,
     /// Executa até sair da função atual.
     Sair,
     /// Substitui os pontos de parada por índices de instrução.
@@ -1300,8 +1302,8 @@ pub enum EventoControleDepuracao {
 /// Executa a IR sob controle síncrono de um depurador externo.
 ///
 /// O canal de eventos informa estado e escopos antes da instrução. O canal de
-/// comandos aceita continuar, avançar, sair, substituir pontos de parada ou
-/// encerrar. Os pontos são índices de instrução, não linhas de arquivo.
+/// comandos aceita continuar, avançar, sair, pausar, definir pontos por índice
+/// ou por offset de origem e encerrar.
 pub fn executar_controlado(
     programa: &ProgramaIr,
     limite_passos: usize,
@@ -1323,8 +1325,17 @@ pub fn executar_controlado(
                     pausado = false;
                     pausar_no_proximo = false;
                     profundidade_saida = None;
+                    offsets_linha_passo.clear();
+                    profundidade_passo = None;
                 }
                 ComandoDepuracao::Avancar => {
+                    pausado = false;
+                    pausar_no_proximo = true;
+                    profundidade_saida = None;
+                    offsets_linha_passo.clear();
+                    profundidade_passo = None;
+                }
+                ComandoDepuracao::Pausar => {
                     pausado = false;
                     pausar_no_proximo = true;
                     profundidade_saida = None;
@@ -1384,9 +1395,19 @@ pub fn executar_controlado(
                         pausado = false;
                         pausar_no_proximo = false;
                         profundidade_saida = None;
+                        offsets_linha_passo.clear();
+                        profundidade_passo = None;
                         break;
                     }
                     Ok(ComandoDepuracao::Avancar) => {
+                        pausado = false;
+                        pausar_no_proximo = true;
+                        profundidade_saida = None;
+                        offsets_linha_passo.clear();
+                        profundidade_passo = None;
+                        break;
+                    }
+                    Ok(ComandoDepuracao::Pausar) => {
                         pausado = false;
                         pausar_no_proximo = true;
                         profundidade_saida = None;
