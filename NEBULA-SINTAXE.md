@@ -463,13 +463,13 @@ variavel somar = (a, b) -> a + b
 variavel quadrado = x -> x ** 2
 ```
 
-Para funções com bloco:
+Para funções com bloco, a seta é seguida por um bloco indentado, encerrado com `fim`:
 
 ```nbx
-variavel calcular = (a, b) -> {
+variavel calcular = (a, b) ->
     variavel resultado = a + b
     retorne resultado
-}
+fim
 ```
 
 ## 12.6. `ceder`
