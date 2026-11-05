@@ -132,7 +132,6 @@ pub enum TipoToken {
     Interrogacao,
     Escopo,
     // Tokens legados mantidos durante a migração do Parser.
-    Definir,
     Mutavel,
     Alterar,
     Quando,
@@ -140,6 +139,9 @@ pub enum TipoToken {
     Cada,
     Em,
     Pulso,
+    Tipo,
+    Estrutura,
+    Enumeracao,
     Durante,
     Repetir,
     Devolver,
