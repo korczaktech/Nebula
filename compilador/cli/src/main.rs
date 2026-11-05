@@ -361,7 +361,7 @@ fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
         .map_err(|erro| format!("não foi possível criar '{}': {erro}", diretorio.display()))?;
 
     let manifesto = format!("[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n");
-    let fonte = "funcao principal(): vazio {\n}\n";
+    let fonte = "funcao principal(): vazio\n    passar\nfim\n";
     let resultado = (|| {
         escrever_novo(
             diretorio.join("nebula.toml").as_path(),
@@ -1977,34 +1977,34 @@ fim"#,
     #[test]
     fn rejeita_nan_faixas_e_conversoes_128_invalidas() {
         let programas = [
-            r#"funcao principal(): inteiro64 {
+            r#"funcao principal(): inteiro64
     variavel valor: decimal64 = 1e100
     devolver inteiro64(valor)
-}"#,
-            r#"funcao principal(): inteiro64 {
+fim"#,
+            r#"funcao principal(): inteiro64
     variavel valor: decimal64 = 0.0 / 0.0
     devolver inteiro64(valor)
-}"#,
-            r#"funcao principal(): inteiro_u64 {
+fim"#,
+            r#"funcao principal(): inteiro_u64
     variavel valor: decimal64 = -1.0
     devolver inteiro_u64(valor)
-}"#,
-            r#"funcao principal(): inteiro_u64 {
+fim"#,
+            r#"funcao principal(): inteiro_u64
     variavel valor: decimal64 = 18446744073709551616.0
     devolver inteiro_u64(valor)
-}"#,
-            r#"funcao principal(): inteiro64 {
+fim"#,
+            r#"funcao principal(): inteiro64
     variavel valor: inteiro128 = 9223372036854775808
     devolver inteiro64(valor)
-}"#,
-            r#"funcao principal(): inteiro128 {
+fim"#,
+            r#"funcao principal(): inteiro128
     variavel valor: inteiro_u128 = 170141183460469231731687303715884105728
     devolver inteiro128(valor)
-}"#,
-            r#"funcao principal(): inteiro_u128 {
+fim"#,
+            r#"funcao principal(): inteiro_u128
     variavel valor: inteiro128 = -1
     devolver inteiro_u128(valor)
-}"#,
+fim"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
             let sufixo = std::time::SystemTime::now()
