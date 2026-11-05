@@ -4,6 +4,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TipoAst {
     Nome(String),
+    /// Argumento inteiro constante de um tipo genérico.
+    Constante(String),
     Caminho(Vec<String>),
     Lista(Box<TipoAst>),
     Generico {
@@ -26,6 +28,13 @@ impl TipoAst {
             return Self::Desconhecido(texto.to_owned());
         }
 
+        // A gramática permite argumentos inteiros constantes em tipos genéricos.
+        if texto.chars().any(|c| c.is_ascii_digit())
+            && texto.chars().all(|c| c.is_ascii_digit() || c == '_')
+        {
+            return Self::Constante(texto.to_owned());
+        }
+
         if let Some(conteudo) = texto.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
             return Self::Lista(Box::new(Self::analisar(conteudo)));
         }
@@ -38,12 +47,14 @@ impl TipoAst {
                     .map(Self::analisar)
                     .collect();
 
-                if let Some(retorno) = resto[fecho + 1..].trim().strip_prefix(':') {
-                    return Self::Funcao {
-                        parametros,
-                        retorno: Box::new(Self::analisar(retorno)),
-                    };
-                }
+                let retorno = match resto[fecho + 1..].trim().strip_prefix(':') {
+                    Some(retorno) => Self::analisar(retorno),
+                    None => Self::Nome("vazio".to_owned()),
+                };
+                return Self::Funcao {
+                    parametros,
+                    retorno: Box::new(retorno),
+                };
             }
             return Self::Desconhecido(texto.to_owned());
         }
@@ -51,7 +62,10 @@ impl TipoAst {
         if texto.starts_with('(') && texto.ends_with(')') {
             let partes = separar_nivel_superior(&texto[1..texto.len() - 1], ',');
             if partes.len() > 1 {
-                return Self::Tupla(partes.into_iter().map(Self::analisar).collect());
+                let partes: Vec<_> = partes.into_iter().filter(|parte| !parte.is_empty()).collect();
+                if partes.len() > 1 {
+                    return Self::Tupla(partes.into_iter().map(Self::analisar).collect());
+                }
             }
         }
 
@@ -85,7 +99,7 @@ impl TipoAst {
     /// Devolve a grafia canônica do tipo.
     pub fn para_texto(&self) -> String {
         match self {
-            Self::Nome(nome) => nome.clone(),
+            Self::Nome(nome) | Self::Constante(nome) => nome.clone(),
             Self::Caminho(partes) => partes.join("::"),
             Self::Lista(tipo) => format!("[{}]", tipo.para_texto()),
             Self::Generico { nome, argumentos } => format!(
