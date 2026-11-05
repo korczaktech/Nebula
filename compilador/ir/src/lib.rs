@@ -3855,7 +3855,6 @@ mod testes {
             rx_eventos.recv().expect("pausa inicial"),
             EventoControleDepuracao::Pausado(_)
         ));
-        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
         tx_comandos.send(ComandoDepuracao::Pausar).unwrap();
         let pausado = rx_eventos.recv().expect("pausa solicitada");
         let EventoControleDepuracao::Pausado(pausado) = pausado else {
