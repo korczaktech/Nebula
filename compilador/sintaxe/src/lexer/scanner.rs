@@ -689,7 +689,7 @@ impl<'a> Lexer<'a> {
             if is_combining_mark(caractere) {
                 base_latina
             } else {
-                base_latina = caractere.is_ascii_alphabetic();
+                base_latina |= caractere.is_ascii_alphabetic();
                 false
             }
         });
