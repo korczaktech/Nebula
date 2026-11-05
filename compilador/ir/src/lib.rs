@@ -1276,6 +1276,8 @@ pub enum ComandoDepuracao {
     Continuar,
     /// Executa uma instrução e pausa novamente.
     Avancar,
+    /// Avança até uma linha diferente, sem entrar em chamadas.
+    AvancarLinha(Vec<usize>),
     /// Executa até sair da função atual.
     Sair,
     /// Substitui os pontos de parada por índices de instrução.
@@ -1312,6 +1314,8 @@ pub fn executar_controlado(
     let mut pausado = true;
     let mut pausar_no_proximo = false;
     let mut profundidade_saida = None;
+    let mut offsets_linha_passo = HashSet::new();
+    let mut profundidade_passo = None;
     let resultado = executar_observado(programa, limite_passos, |evento| {
         while let Ok(comando) = comandos.try_recv() {
             match comando {
@@ -1324,6 +1328,15 @@ pub fn executar_controlado(
                     pausado = false;
                     pausar_no_proximo = true;
                     profundidade_saida = None;
+                    offsets_linha_passo.clear();
+                    profundidade_passo = None;
+                }
+                ComandoDepuracao::AvancarLinha(offsets) => {
+                    pausado = false;
+                    pausar_no_proximo = false;
+                    profundidade_saida = None;
+                    offsets_linha_passo = offsets.into_iter().collect();
+                    profundidade_passo = Some(evento.profundidade_chamada);
                 }
                 ComandoDepuracao::Sair => {
                     pausado = false;
@@ -1353,6 +1366,15 @@ pub fn executar_controlado(
             pausado = true;
             profundidade_saida = None;
         }
+        let linha_seguinte = profundidade_passo.is_some_and(|profundidade| {
+            evento.profundidade_chamada <= profundidade
+                && evento.intervalo_fonte.is_some_and(|intervalo| !offsets_linha_passo.contains(&intervalo.inicio))
+        });
+        if linha_seguinte {
+            pausado = true;
+            profundidade_passo = None;
+            offsets_linha_passo.clear();
+        }
         if ponto_atingido || pausado {
             eventos.send(EventoControleDepuracao::Pausado(evento.clone()))
                 .map_err(|_| "Canal de eventos do depurador foi encerrado.".to_owned())?;
@@ -1368,6 +1390,16 @@ pub fn executar_controlado(
                         pausado = false;
                         pausar_no_proximo = true;
                         profundidade_saida = None;
+                        offsets_linha_passo.clear();
+                        profundidade_passo = None;
+                        break;
+                    }
+                    Ok(ComandoDepuracao::AvancarLinha(offsets)) => {
+                        pausado = false;
+                        pausar_no_proximo = false;
+                        profundidade_saida = None;
+                        offsets_linha_passo = offsets.into_iter().collect();
+                        profundidade_passo = Some(evento.profundidade_chamada);
                         break;
                     }
                     Ok(ComandoDepuracao::Sair) => {
