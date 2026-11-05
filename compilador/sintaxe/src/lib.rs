@@ -3669,6 +3669,14 @@ mod testes {
             "a forma delimitada por chaves continua compatível: {:?}",
             valido.diagnosticos
         );
+        let aninhado = analisar(&fonte(
+            "funcao principal()\n    se sim { passar }\nfim"
+        ));
+        assert!(
+            aninhado.diagnosticos.is_empty(),
+            "o 'fim' da função externa não pode ser consumido pelo condicional com chaves: {:?}",
+            aninhado.diagnosticos
+        );
     }
 
     #[test]
