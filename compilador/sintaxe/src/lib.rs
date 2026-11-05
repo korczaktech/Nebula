@@ -3013,8 +3013,8 @@ mod testes {
                 .lines()
                 .map(|linha| format!("{indentacao_corpo}{linha}"))
                 .collect::<Vec<_>>()
-                .join("\\n");
-            blocos = format!("{indentacao}quando verdadeiro\\n{corpo}\\n{indentacao}fim");
+                .join("\n");
+            blocos = format!("{indentacao}quando verdadeiro\n{corpo}\n{indentacao}fim");
         }
         let resultado = analisar(&fonte(&blocos));
         assert!(
