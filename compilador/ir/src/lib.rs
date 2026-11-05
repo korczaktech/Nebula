@@ -1238,6 +1238,19 @@ pub fn executar_com_entrada(
     executar_interno(programa, limite_passos, Some(entrada.into_iter().collect()), None)
 }
 
+/// Estado observável da máquina no instante anterior à execução de uma instrução.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventoDepuracao {
+    /// Número sequencial do passo atual.
+    pub passo: usize,
+    /// Profundidade atual de chamadas.
+    pub profundidade_chamada: usize,
+    /// Funções ativas, da mais antiga à mais recente.
+    pub pilha_chamadas: Vec<String>,
+    /// Escopos ativos, do global ao local.
+    pub escopos: Vec<HashMap<String, ValorIr>>,
+}
+
 /// Executa a IR notificando o chamador antes de cada instrução.
 ///
 /// O observador pode bloquear para aguardar comandos de depuração. Retornar
@@ -1248,7 +1261,7 @@ pub fn executar_observado<F>(
     mut observador: F,
 ) -> Result<ResultadoExecucao, String>
 where
-    F: FnMut(usize, usize) -> Result<(), String>,
+    F: FnMut(&EventoDepuracao) -> Result<(), String>,
 {
     executar_interno(programa, limite_passos, None, Some(&mut observador))
 }
@@ -1257,7 +1270,7 @@ fn executar_interno(
     programa: &ProgramaIr,
     limite_passos: usize,
     entrada: Option<VecDeque<String>>,
-    observador: Option<&mut dyn FnMut(usize, usize) -> Result<(), String>>,
+    observador: Option<&mut dyn FnMut(&EventoDepuracao) -> Result<(), String>>,
 ) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
@@ -1268,6 +1281,7 @@ fn executar_interno(
         passos: 0,
         limite: limite_passos.max(1),
         profundidade_chamada: 0,
+        pilha_chamadas: Vec::new(),
     };
     let resultado = (|| {
         let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
@@ -1570,6 +1584,7 @@ struct Maquina<'p, 'o> {
     passos: usize,
     limite: usize,
     profundidade_chamada: usize,
+    pilha_chamadas: Vec<String>,
 }
 
 impl Maquina<'_, '_> {
@@ -1582,8 +1597,21 @@ impl Maquina<'_, '_> {
         if self.passos > self.limite {
             return Err("Limite de passos da IR excedido.".into());
         }
-        if let Some(observador) = self.observador.as_mut() {
-            observador(self.passos, self.profundidade_chamada)?;
+        if self.observador.is_some() {
+            let escopos = self.contexto.memoria().escopos().into_iter()
+                .map(|escopo| escopo.into_iter()
+                    .map(|(nome, valor)| Ok((nome, converter_para_ir(valor)?)))
+                    .collect::<Result<HashMap<_, _>, String>>())
+                .collect::<Result<Vec<_>, String>>()?;
+            let evento = EventoDepuracao {
+                passo: self.passos,
+                profundidade_chamada: self.profundidade_chamada,
+                pilha_chamadas: self.pilha_chamadas.clone(),
+                escopos,
+            };
+            if let Some(observador) = self.observador.as_mut() {
+                observador(&evento)?;
+            }
         }
         Ok(())
     }
@@ -1912,6 +1940,7 @@ impl Maquina<'_, '_> {
                                     passos: 0,
                                     limite,
                                     profundidade_chamada: 0,
+                                    pilha_chamadas: Vec::new(),
                                 };
                                 let retorno = maquina.chamar_funcao(&nome, funcao, Vec::new())?;
                                 let saida = maquina.saida.clone();
@@ -2279,6 +2308,7 @@ impl Maquina<'_, '_> {
         }
         self.profundidade_chamada += 1;
         self.memoria_mutavel()?.abrir_escopo();
+        self.pilha_chamadas.push(nome.to_owned());
         let fluxo = (|| {
             for ((parametro, tipo), valor) in funcao.parametros.iter().zip(valores) {
                 let valor = normalizar_valor(tipo, valor)?;
@@ -2290,6 +2320,7 @@ impl Maquina<'_, '_> {
         })();
         let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
         self.profundidade_chamada -= 1;
+        self.pilha_chamadas.pop();
         let fluxo = match (fluxo, fechamento) {
             (Err(erro), _) => return Err(erro),
             (Ok(_), Err(erro)) => return Err(erro),
@@ -3376,20 +3407,23 @@ mod testes {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let mut eventos = Vec::new();
 
-        let resultado = executar_observado(&programa, 100, |passo, profundidade| {
-            eventos.push((passo, profundidade));
+        let resultado = executar_observado(&programa, 100, |evento| {
+            eventos.push((evento.passo, evento.profundidade_chamada, evento.escopos.clone()));
             Ok(())
         }).expect("execução observada válida");
 
-        assert_eq!(eventos, vec![(1, 0), (2, 0)]);
+        assert_eq!(eventos.len(), 2);
+        assert_eq!((eventos[0].0, eventos[0].1), (1, 0));
+        assert_eq!((eventos[1].0, eventos[1].1), (2, 0));
+        assert_eq!(eventos[1].2[0].get("contador"), Some(&ValorIr::Inteiro(1)));
         assert_eq!(resultado.globais.get("contador"), Some(&ValorIr::Inteiro(2)));
     }
 
     #[test]
     fn observador_pode_interromper_a_execucao_com_erro() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
-        let resultado = executar_observado(&programa, 100, |passo, _| {
-            if passo == 2 {
+        let resultado = executar_observado(&programa, 100, |evento| {
+            if evento.passo == 2 {
                 Err("pausa solicitada pelo depurador".into())
             } else {
                 Ok(())
