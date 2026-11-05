@@ -945,8 +945,21 @@ impl Parser {
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
             TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
-                let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(9)?;
+                let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
+            }
+            TipoToken::Lambda => {
+                self.avancar();
+                let mut parametros = Vec::new();
+                if !self.verifica(TipoToken::DoisPontos) {
+                    loop {
+                        parametros.push(self.consumir_nome("Esperado parâmetro após 'lambda'.")?);
+                        if !self.corresponde(TipoToken::Virgula) { break; }
+                    }
+                }
+                self.esperar(TipoToken::DoisPontos, "Esperado ':' após parâmetros de lambda.");
+                let corpo = self.expressao(0)?;
+                Expressao::Lambda { parametros, corpo: Box::new(corpo) }
             }
             TipoToken::Isto | TipoToken::TipoDe | TipoToken::InstanciaDe | TipoToken::Obter => Expressao::Nome(self.avancar().lexema),
             TipoToken::Identificador => {
@@ -1135,7 +1148,7 @@ impl Parser {
                 }
             }
             let tipo = self.tipo();
-            if tipo == TipoToken::AbrePar && 14 >= minimo {
+            if tipo == TipoToken::AbrePar && 16 >= minimo {
                 self.avancar();
                 let mut args = Vec::new();
                 if !self.verifica(TipoToken::FechaPar) {
@@ -1154,7 +1167,7 @@ impl Parser {
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
                 esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args }; continue;
             }
-            if tipo == TipoToken::AbreColchete && 14 >= minimo {
+            if tipo == TipoToken::AbreColchete && 16 >= minimo {
                 self.avancar();
                 let indice = match self.expressao(0) {
                     Some(indice) => indice,
@@ -1168,7 +1181,37 @@ impl Parser {
                 esquerda = Expressao::Indexacao { alvo: Box::new(esquerda), indice: Box::new(indice) };
                 continue;
             }
-            if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo) && 14 >= minimo {
+            if tipo == TipoToken::Seta && 1 >= minimo {
+                self.avancar();
+                let parametros = match esquerda {
+                    Expressao::Nome(nome) => vec![nome],
+                    Expressao::Tupla(valores) => {
+                        let mut nomes = Vec::with_capacity(valores.len());
+                        for valor in valores {
+                            if let Expressao::Nome(nome) = valor {
+                                nomes.push(nome);
+                            } else {
+                                self.erro_atual("N2008", "Parâmetros de função de seta devem ser identificadores.");
+                                return None;
+                            }
+                        }
+                        nomes
+                    }
+                    _ => {
+                        self.erro_atual("N2008", "Esperado identificador ou tupla de parâmetros antes de '->'.");
+                        return None;
+                    }
+                };
+                if self.verifica(TipoToken::AbreChave) {
+                    let corpo = self.bloco()?;
+                    esquerda = Expressao::LambdaBloco { parametros, corpo };
+                } else {
+                    let corpo = self.expressao(0)?;
+                    esquerda = Expressao::Lambda { parametros, corpo: Box::new(corpo) };
+                }
+                continue;
+            }
+            if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo | TipoToken::AcessoOpcional) && 16 >= minimo {
                 let operador = self.avancar().tipo;
                 self.pular_novas_linhas();
                 let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
