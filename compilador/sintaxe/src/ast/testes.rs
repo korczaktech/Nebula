@@ -340,7 +340,10 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
         "a expressão malformada precisa produzir diagnóstico"
     );
     let Some(NoAst::Funcao { nome, corpo, .. }) = resultado.programa.itens.first() else {
-        panic!("a função externa precisa permanecer na AST parcial: {:?}", resultado.programa.itens);
+        panic!(
+            "a função externa precisa permanecer na AST parcial: {:?}",
+            resultado.programa.itens
+        );
     };
     assert_eq!(nome, "principal");
 
@@ -349,32 +352,52 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
     else {
         panic!("o bloco condicional externo precisa permanecer íntegro: {corpo:?}");
     };
-    assert!(entao.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "inicio")
-    ));
-    assert!(entao.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
-    ));
-    assert!(senao.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "alternativa")
-    ));
+    assert!(
+        entao
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "inicio"))
+    );
+    assert!(
+        entao
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois"))
+    );
+    assert!(
+        senao
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "alternativa"))
+    );
 
-    let Some(NoAst::Enquanto { corpo: corpo_laco, .. }) =
-        entao.iter().find(|no| matches!(no, NoAst::Enquanto { .. }))
+    let Some(NoAst::Enquanto {
+        corpo: corpo_laco, ..
+    }) = entao.iter().find(|no| matches!(no, NoAst::Enquanto { .. }))
     else {
         panic!("o laço interno precisa permanecer na AST: {entao:?}");
     };
-    assert!(corpo_laco.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "lista")
-    ));
-    assert!(corpo_laco.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "preservada")
-    ));
-    assert!(corpo.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "final")
-    ));
+    assert!(
+        corpo_laco
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "lista"))
+    );
+    assert!(
+        corpo_laco
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "preservada"))
+    );
+    assert!(
+        corpo
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "final"))
+    );
 
-    for nome in ["inicio", "lista", "preservada", "depois", "alternativa", "final"] {
+    for nome in [
+        "inicio",
+        "lista",
+        "preservada",
+        "depois",
+        "alternativa",
+        "final",
+    ] {
         assert!(
             resultado.programa.iter_localizados().any(
                 |localizado| matches!(&localizado.no, NoAst::Variavel { nome: encontrado, .. } if encontrado == nome)
@@ -387,7 +410,10 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
             let trecho = &codigo[localizado.intervalo.inicio..localizado.intervalo.fim];
             trecho.starts_with(tipo)
         });
-        assert!(encontrado, "a localização do bloco '{tipo}' precisa ser preservada");
+        assert!(
+            encontrado,
+            "a localização do bloco '{tipo}' precisa ser preservada"
+        );
     }
 
     for localizado in resultado.programa.iter_localizados() {
@@ -413,13 +439,22 @@ fn recuperacao_aninhada_e_deterministica_e_nao_contamina_analise_seguinte() {
 
     assert_eq!(primeira, segunda, "a recuperação deve ser determinística");
     assert!(!primeira.diagnosticos.is_empty());
-    assert!(matches!(
-        primeira.programa.itens.first(),
-        Some(NoAst::Funcao { corpo, .. })
-            if corpo.iter().any(|no| matches!(no, NoAst::Quando { entao, .. }
-                if entao.iter().any(|interno| matches!(interno, NoAst::Variavel { nome, .. } if nome == "preservada"))))
-    ), "a hierarquia interna válida precisa sobreviver ao erro: {:?}", primeira.programa.itens);
-    assert!(primeira.programa.itens.iter().any(
-        |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "externa")
-    ), "o erro aninhado não pode contaminar a declaração posterior de nível superior");
+    assert!(
+        matches!(
+            primeira.programa.itens.first(),
+            Some(NoAst::Funcao { corpo, .. })
+                if corpo.iter().any(|no| matches!(no, NoAst::Quando { entao, .. }
+                    if entao.iter().any(|interno| matches!(interno, NoAst::Variavel { nome, .. } if nome == "preservada"))))
+        ),
+        "a hierarquia interna válida precisa sobreviver ao erro: {:?}",
+        primeira.programa.itens
+    );
+    assert!(
+        primeira
+            .programa
+            .itens
+            .iter()
+            .any(|no| matches!(no, NoAst::Variavel { nome, .. } if nome == "externa")),
+        "o erro aninhado não pode contaminar a declaração posterior de nível superior"
+    );
 }
