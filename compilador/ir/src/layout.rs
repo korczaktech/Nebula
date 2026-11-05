@@ -346,7 +346,9 @@ mod testes {
 
     #[test]
     fn calcula_layout_de_estrutura_declarada() {
-        let ast = programa("estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nfim");
+        let ast = programa(
+            "estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nfim",
+        );
         let tipo = Tipo::Estrutura("Pessoa".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
         assert_eq!(layout.alinhamento, 8);
