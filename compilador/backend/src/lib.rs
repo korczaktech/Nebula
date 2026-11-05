@@ -2202,7 +2202,7 @@ impl Emissor {
 
         let tamanho_pilha = posicoes.iter().filter_map(|posicao| {
             if let PosicaoArgumento::Pilha { deslocamento, largura } = posicao {
-                Some((deslocamento + (largura as u64) * 8))
+                Some(*deslocamento + (*largura as u64) * 8)
             } else {
                 None
             }
