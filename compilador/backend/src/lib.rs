@@ -161,9 +161,23 @@ impl Emissor {
     }
 
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
-        let Tipo::Estrutura(nome) = tipo else { return None; };
-        let layout = self.layouts_tipos.get(nome)?;
-        (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
+        match tipo {
+            Tipo::Estrutura(nome) => {
+                let layout = self.layouts_tipos.get(nome)?;
+                (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
+            }
+            Tipo::Tupla(tipos) => {
+                let (tamanho, _) = self.layout_tupla(tipos)?;
+                let alinhamento = tipos.iter()
+                    .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
+                    .collect::<Option<Vec<_>>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(1);
+                (tamanho > 16).then_some((tamanho, alinhamento))
+            }
+            _ => None,
+        }
     }
 
     fn validar_tipo_abi(&self, tipo: &Tipo) -> Result<(), String> {
@@ -202,8 +216,8 @@ impl Emissor {
             Tipo::Tupla(tipos) => {
                 let (tamanho, campos) = self.layout_tupla(tipos)
                     .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
-                if tamanho == 0 || tamanho > 16 {
-                    return Err("Tupla excede o limite inicial de 16 bytes da ABI nativa.".into());
+                if tamanho == 0 {
+                    return Err("Tupla possui tamanho inválido.".into());
                 }
                 for (deslocamento, tamanho_campo) in campos {
                     let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
@@ -312,7 +326,7 @@ impl Emissor {
         if let Tipo::Tupla(tipos) = tipo {
             let (tamanho, _) = self.layout_tupla(tipos)
                 .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
-            return Ok(if tamanho > 8 { 2 } else { 1 });
+            return Ok(if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 });
         }
         if let Tipo::Enumeracao(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
