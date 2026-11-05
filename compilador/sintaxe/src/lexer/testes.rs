@@ -16,9 +16,14 @@ fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
 }
 
 #[test]
-fn palavras_reservadas_acentuadas_nao_sao_aceitas() {
+fn diagnostica_acentos_em_identificadores() {
     let r = analisar("função senão não enumeração mutável");
-    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.diagnosticos.len(), 5, "{:?}", r.diagnosticos);
+    assert!(
+        r.diagnosticos
+            .iter()
+            .all(|diagnostico| diagnostico.codigo == "N1019")
+    );
     assert!(
         r.tokens[..5]
             .iter()
@@ -286,16 +291,14 @@ fn respeita_maior_correspondencia_de_operadores() {
 
 #[test]
 fn reconhece_identificadores_unicode_e_normaliza_classificacao() {
-    let r = analisar("ação ação função funcao público publico");
+    let r = analisar("Ωmega 变量 funcao publico");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert_eq!(r.tokens[0].tipo, TipoToken::Identificador);
-    assert_eq!(r.tokens[0].lexema, "ação");
+    assert_eq!(r.tokens[0].lexema, "Ωmega");
     assert_eq!(r.tokens[1].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[1].lexema, "ação");
-    assert_eq!(r.tokens[2].tipo, TipoToken::Identificador);
-    assert_eq!(r.tokens[3].tipo, TipoToken::Funcao);
-    assert_eq!(r.tokens[4].tipo, TipoToken::Identificador);
-    assert_eq!(r.tokens[5].tipo, TipoToken::Publico);
+    assert_eq!(r.tokens[2].tipo, TipoToken::Funcao);
+    assert_eq!(r.tokens[3].tipo, TipoToken::Publico);
 }
 
 #[test]
