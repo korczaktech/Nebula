@@ -2796,7 +2796,7 @@ mod testes {
         let vazio = analisar(&fonte("escolha valor\n    passar\nfim"));
         assert!(
             vazio.diagnosticos.iter().any(|d| d.codigo == "N2044"),
-            "escolha vazia precisa ser rejeitada:\n    :?\nfim",
+            "escolha vazia precisa ser rejeitada: {:#?}",
             vazio.diagnosticos
         );
 
@@ -3006,8 +3006,15 @@ mod testes {
         );
 
         let mut blocos = "exibir(1)".to_string();
-        for _ in 0..150 {
-            blocos = format!("quando verdadeiro\n    { {blocos} }\nfim");
+        for nivel in 0..150 {
+            let indentacao = "    ".repeat(nivel);
+            let indentacao_corpo = "    ".repeat(nivel + 1);
+            let corpo = blocos
+                .lines()
+                .map(|linha| format!("{indentacao_corpo}{linha}"))
+                .collect::<Vec<_>>()
+                .join("\\n");
+            blocos = format!("{indentacao}quando verdadeiro\\n{corpo}\\n{indentacao}fim");
         }
         let resultado = analisar(&fonte(&blocos));
         assert!(
@@ -3134,7 +3141,7 @@ mod testes {
         let codigo = "variavel a = ) variavel b = ] variavel c = 3\nfuncao depois()\n    devolver c\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.len() >= 2,
-            "cada região inválida deve ser diagnosticada:\n    :?\nfim", resultado.diagnosticos);
+            "cada região inválida deve ser diagnosticada: {:?}", resultado.diagnosticos);
         assert!(resultado.programa.itens.iter().any(
             |item| matches!(item, NoAst::Variavel { nome, .. } if nome == "c")
         ), "a declaração válida após erros consecutivos foi perdida: {:?}", resultado.programa);
