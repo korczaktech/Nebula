@@ -1,4 +1,7 @@
-estrutura Conta { nome: texto, idade: inteiro }
+estrutura Conta:
+    nome: texto
+    idade: inteiro
+fim
 variavel conta = Conta { nome: "Lia", idade: 20 }
 variavel nome = conta.nome
 exibir(conta)
