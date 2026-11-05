@@ -29,7 +29,7 @@ Regras:
 8. Não criar sinônimos redundantes para a mesma operação.
 9. Manter a mesma nomenclatura no Lexer, Parser, biblioteca padrão, documentação e ferramentas.
 
-Exemplos: `lerTexto()`, `criarArquivo()`, `removerItem()`, `verificarTipo()`, `aguarda`, `retorne`, `assinc`.
+Exemplos: `lerTexto()`, `criarArquivo()`, `removerItem()`, `verificarTipo()`, `aguarda`, `retorne`, `async`.
 
 # 2. Regras obrigatórias da sintaxe
 
@@ -90,6 +90,54 @@ fim
 principal()
 ```
 
+## 2.5. Function Body obrigatório
+
+Toda construção que introduz um corpo executável ou estrutural deve utilizar obrigatoriamente um **Function Body**. Não é permitido escrever o corpo dessas construções como uma sequência livre de linhas sem delimitador de abertura.
+
+A regra aplica-se obrigatoriamente a:
+
+- funções (`funcao`);
+- tratamento e captura de erros (`tente`, `erro));
+- condicionais (`se`, `sendo`, `senao));
+- laços (`sempre`, `para`, `enquanto`);
+- seleção (`escolha`, `caso`);
+- exportações com corpo (`exportar`);
+- classes (`classe));
+- corpos de objetos e dicionários;
+- blocos de variáveis (não se aplica a declarações comuns de variável);
+- funções assíncronas (`async)).
+
+A abertura do corpo é escrita com `:` seguida de `{`. O encerramento é escrito com `fim` na última linha do conteúdo do bloco e, em seguida, `}` para fechar o delimitador visual. Cada bloco aninhado precisa encerrar o próprio conteúdo com seu próprio `fim` antes de fechar seu `}`.
+
+O `fim` deve ficar na coluna correspondente ao conteúdo final do bloco: imediatamente depois do último comando, argumento ou símbolo pertencente àquele corpo. Ele significa **“bloco fechado aqui”**. Não substitui o `}`, e o `}` não substitui o `fim`.
+
+Exemplo normativo:
+
+```nbx
+funcao teste(): {
+    se isso == isso: {
+        exibir(x)
+        se aquilo == aquilo: {
+            exibir(y)
+            fim
+        }
+        fim
+    }
+    fim
+}
+fim
+```
+
+Neste exemplo, cada estrutura possui seu próprio encerramento. O `fim` mais interno encerra o bloco do segundo `se`; o seguinte encerra o primeiro `se`; o seguinte encerra o corpo da função; e o último encerra a declaração da função.
+
+Uma quebra de linha que inicia um corpo também exige `fim`, mesmo quando a forma não utiliza chaves. Portanto, nenhuma construção pode depender apenas da indentação para determinar onde termina seu corpo. A indentação continua obrigatória para legibilidade e validação estrutural, mas não substitui o encerramento explícito.
+
+Os delimitadores de objetos e dicionários também seguem a regra: quando suas chaves representam um bloco/estrutura multilinha, o conteúdo deve terminar em `fim` antes do `}`. Declarações comuns de variável não passam a exigir Function Body apenas por serem declarações.
+
+## 2.6. Proibição de formas antigas
+
+Formas sem Function Body, como `funcao teste()` seguida diretamente por linhas indentadas, ou `se condicao` sem `:` e abertura de corpo, não são formas alternativas válidas da sintaxe atual. Exemplos antigos em qualquer documento devem ser interpretados segundo a regra normativa desta seção e atualizados para a forma com Function Body.
+
 # 3. Palavras reservadas
 
 | Conceito de referência | Nebula |
@@ -119,7 +167,7 @@ principal()
 | raise / throw | `lancar` |
 | assert | `verifique` |
 | with | `com` |
-| async | `assinc` |
+| async | `async` |
 | await | `aguarda` |
 | global | `global` |
 | nonlocal | `externa` |
@@ -554,40 +602,36 @@ fim
 
 # 14. Importações e exportações
 
-O comando principal é `incluir`. A palavra `biblioteca` é opcional.
+A importação possui uma única forma canônica: `incluir(modulo(opcional), biblioteca)`. O argumento `biblioteca` é obrigatório; `modulo` é opcional. Não existem formas alternativas por palavras soltas, como `incluir matematica`, `incluir modulo arquivos` ou `incluir biblioteca matematica`.
 
 ## 14.1. Importar uma biblioteca
 
 ```nbx
-incluir biblioteca matematica
-incluir matematica
+incluir(biblioteca: matematica)
 ```
 
-## 14.2. Importar um módulo
+## 14.2. Importar um módulo de uma biblioteca
 
 ```nbx
-incluir modulo arquivos
-incluir arquivos
+incluir(modulo: arquivos, biblioteca: sistema)
 ```
 
-## 14.3. Importar um componente
+## 14.3. Criar apelidos
 
 ```nbx
-incluir raiz de matematica
-```
-
-## 14.4. Criar apelidos
-
-```nbx
-incluir biblioteca matematica como mat
+incluir(biblioteca: matematica) como mat
 exibir(mat.raiz(25))
 ```
 
-## 14.5. Exportar
+## 14.4. Exportar
+
+`exportar` também exige Function Body quando introduzir uma declaração com corpo:
 
 ```nbx
-exportar funcao somar(a, b)
+exportar funcao somar(a, b): {
     retorne a + b
+    fim
+}
 fim
 ```
 
@@ -639,13 +683,15 @@ fim
 
 # 17. Programação assíncrona
 
-## 17.1. `assinc`
+## 17.1. `async`
 
-Declara uma função assíncrona.
+Declara uma função assíncrona. A palavra reservada obrigatória é `async`.
 
 ```nbx
-assinc funcao buscarDados()
+async funcao buscarDados(): {
     exibir("Buscando...")
+    fim
+}
 fim
 ```
 
@@ -654,9 +700,11 @@ fim
 Aguarda a conclusão de uma operação assíncrona.
 
 ```nbx
-assinc funcao principal()
+async funcao principal(): {
     variavel resultado = aguarda buscarDados()
     exibir(resultado)
+    fim
+}
 fim
 ```
 
@@ -999,7 +1047,7 @@ principal()
 | `finally` | `finally` | `sempre` |
 | `raise` | `throw` | `lancar` |
 | `yield` | `yield` | `ceder` |
-| `async` | `async` | `assinc` |
+| `async` | `async` | `async` |
 | `await` | `await` | `aguarda` |
 | `True` | `true` | `sim` |
 | `False` | `false` | `nao` |
