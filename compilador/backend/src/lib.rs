@@ -2989,6 +2989,29 @@ mod testes {
     }
 
     #[test]
+    fn distribui_argumentos_excedentes_na_pilha_sem_dividir_agregados() {
+        let posicoes = planejar_posicoes_argumentos(&[1, 1, 1, 1, 1, 2, 1], 0).unwrap();
+        assert!(matches!(posicoes[0], PosicaoArgumento::Registradores(0)));
+        assert!(matches!(posicoes[4], PosicaoArgumento::Registradores(4)));
+        assert!(matches!(posicoes[5], PosicaoArgumento::Pilha { deslocamento: 0, largura: 2 }));
+        assert!(matches!(posicoes[6], PosicaoArgumento::Registradores(5)));
+    }
+
+    #[test]
+    fn prepara_chamada_com_setimo_argumento_na_pilha() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.expressao(&ExpressaoIr::Chamada {
+            nome: "funcao_com_sete_argumentos".into(),
+            argumentos: (0..7)
+                .map(|valor| ExpressaoIr::Constante(ValorIr::Inteiro(valor)))
+                .collect(),
+        }).unwrap();
+        assert!(emissor.codigo.windows(7).any(|bytes| bytes == [0x48, 0x81, 0xEC, 16, 0, 0, 0]));
+        assert!(emissor.codigo.windows(4).any(|bytes| bytes == [0x48, 0x89, 0x84, 0x24]));
+        assert_eq!(emissor.pilha, 0);
+    }
+
+    #[test]
     fn valida_limites_de_layout_dos_agregados_na_abi() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.layouts_tipos.insert(
