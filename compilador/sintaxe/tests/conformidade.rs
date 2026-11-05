@@ -248,7 +248,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2043",
             "escolha valor:\n    caso _\n        passar\n    caso _\n        passar\nfim",
         ),
-        ("escolha vazia", "N2044", "escolha valor:\nfim"),
+        ("escolha vazia", "N2044", "escolha valor:\n    variavel x = 1\nfim"),
         (
             "vinculo de payload ausente",
             "N2045",
@@ -492,7 +492,7 @@ fim
 
 #[test]
 fn matriz_ast_cobre_todas_as_variantes_de_expressao() {
-    use nebula_sintaxe::ast::Expressao;
+    use nebula_sintaxe::ast::{Expressao, NoAst};
 
     let codigo = r#"
 variavel nome = identificador
@@ -540,9 +540,18 @@ variavel propagacao = resultado?
     exige(|e| matches!(e, Expressao::Tupla(_)), "Tupla");
     exige(|e| matches!(e, Expressao::Unaria { .. }), "Unaria");
     exige(|e| matches!(e, Expressao::Binaria { .. }), "Binaria");
-    exige(
-        |e| matches!(e, Expressao::ArgumentoNomeado { .. }),
-        "ArgumentoNomeado",
+    assert!(
+        resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Variavel {
+                valor: Expressao::Chamada { argumentos, .. },
+                ..
+            } if argumentos.iter().any(|argumento| matches!(
+                argumento,
+                Expressao::ArgumentoNomeado { .. }
+            ))
+        )),
+        "a chamada deve preservar Expressao::ArgumentoNomeado nos argumentos"
     );
     exige(|e| matches!(e, Expressao::Atribuicao { .. }), "Atribuicao");
     exige(|e| matches!(e, Expressao::Chamada { .. }), "Chamada");
