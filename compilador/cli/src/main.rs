@@ -2044,8 +2044,8 @@ funcao principal(): inteiro {
         std::fs::write(
             &origem,
             r#"funcao principal(): inteiro {
-    variavel letra: texto = "🛰"
-    quando letra == "🛰" {
+    variavel letra: caractere = '🛰'
+    quando letra == '🛰' {
         devolver 42
     } senao {
         devolver 0
