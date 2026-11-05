@@ -1520,7 +1520,15 @@ impl Parser {
             let op = self.avancar().tipo;
             let proximo = if direita { precedencia } else { precedencia + 1 };
             self.pular_novas_linhas();
+            let indentacao_continuada = self.corresponde(TipoToken::Indent);
+            self.pular_novas_linhas();
             let valor = self.expressao(proximo)?;
+            if indentacao_continuada {
+                self.esperar(
+                    TipoToken::Dedent,
+                    "Indentação de continuação de expressão não foi encerrada corretamente.",
+                );
+            }
             let operador_composto = match op {
                 TipoToken::SomaAtribui => Some(TipoToken::Mais),
                 TipoToken::SubtraiAtribui => Some(TipoToken::Menos),
