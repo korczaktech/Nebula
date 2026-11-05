@@ -270,7 +270,7 @@ mod testes {
         let plano = planejar_argumentos(&[(8, 8), (24, 8), (16, 8)], Some((32, 16))).unwrap();
         assert!(plano.destino_oculto);
         assert_eq!(plano.argumentos[0], vec![LocalArgumento::Registrador(1)]);
-        assert_eq!(plano.argumentos[1], vec![LocalArgumento::Registrador(2)]);
+        assert_eq!(plano.argumentos[1], vec![LocalArgumento::PonteiroRegistrador(2)]);
         assert_eq!(
             plano.argumentos[2],
             vec![
