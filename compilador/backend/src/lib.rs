@@ -495,6 +495,15 @@ impl Emissor {
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
+                if let ExpressaoIr::Membro { alvo, campo } = valor.as_ref() {
+                    if self.alvo_estrutura_grande(alvo) {
+                        self.carregar_membro_agregado(alvo, campo, tipo)?;
+                        if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                            self.normalizar_tipo(tipo)?;
+                        }
+                        return Ok(());
+                    }
+                }
                 if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.validar_tipo_abi(tipo)?;
                     self.expressao(valor)?;
@@ -1466,6 +1475,91 @@ impl Emissor {
         self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
         self.tipos_escopos.last_mut().expect("escopo tipado ativo").insert(nome.to_owned(), tipo.clone());
         Ok(deslocamento)
+    }
+
+    fn alvo_estrutura_grande(&self, alvo: &ExpressaoIr) -> bool {
+        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+            return false;
+        };
+        self.layouts_tipos.get(nome).is_some_and(|layout| layout.tamanho > 16)
+    }
+
+    fn carregar_membro_agregado(
+        &mut self,
+        alvo: &ExpressaoIr,
+        campo: &str,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+            return Err("Acesso a agregado grande exige estrutura tipada.".into());
+        };
+        let (deslocamento, tamanho) = self.layouts_tipos.get(nome)
+            .and_then(|layout| layout.campos.get(campo).copied())
+            .ok_or_else(|| format!("Campo '{campo}' não encontrado em '{nome}'."))?;
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
+        self.expressao(alvo)?;
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço do agregado
+
+        if tamanho > 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        if tamanho == 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            return Ok(());
+        }
+        if (9..16).contains(&tamanho) {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            let bytes_superiores = tamanho - 8;
+            let mascara = (1u64 << (bytes_superiores * 8)) - 1;
+            self.mov_rax(mascara as i64);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1, 0x48, 0x21, 0xCA]); // rdx &= mask
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            return Ok(());
+        }
+
+        let bits = tipo_inteiro_abi(tipo);
+        match bits {
+            Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x83]),
+            Some((8, false)) | None if tamanho == 1 => {
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB6, 0x83])
+            }
+            Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x83]),
+            Some((16, false)) | None if tamanho == 2 => {
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB7, 0x83])
+            }
+            Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x83]),
+            Some((32, false)) | None if tamanho == 4 => {
+                self.codigo.extend_from_slice(&[0x41, 0x8B, 0x83])
+            }
+            Some((64, _)) | None if tamanho == 8 => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83])
+            }
+            Some((128, _)) => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+                self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+                return Ok(());
+            }
+            _ => return Err(format!("Campo '{campo}' possui layout incompatível com o tipo '{}'.", tipo.nome())),
+        }
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0, 0x66, 0x48, 0x0F, 0x7E, 0xC0]);
+        }
+        self.mov_rdx(0);
+        Ok(())
     }
 
     fn emitir_endereco_rbp_rax(&mut self, deslocamento: i32) {
