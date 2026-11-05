@@ -26,6 +26,7 @@ struct Estado {
     expansoes: HashMap<usize, Vec<(String, ValorIr)>>,
     proxima_referencia: usize,
     pontos_parada: HashSet<usize>,
+    encerrando: bool,
 }
 
 pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), String> {
@@ -90,6 +91,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             expansoes: HashMap::new(),
                             proxima_referencia: 1,
                             pontos_parada: HashSet::new(),
+                            encerrando: false,
                         });
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                         evento(&mut saida, &mut sequencia, "thread", json!({"reason":"started","threadId":1}))?;
@@ -298,7 +300,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                     }
                     "terminate" | "disconnect" => {
-                        let sessao_ativa = if let Some(estado) = estado.as_ref() {
+                        let sessao_ativa = if let Some(estado) = estado.as_mut() {
+                            estado.encerrando = true;
                             let _ = estado.comandos.send(ComandoDepuracao::Encerrar);
                             true
                         } else {
@@ -314,7 +317,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                 }
             }
             Entrada::Fechou => {
-                if let Some(estado) = estado.as_ref() {
+                if let Some(estado) = estado.as_mut() {
+                    estado.encerrando = true;
                     let _ = estado.comandos.send(ComandoDepuracao::Encerrar);
                 } else {
                     break;
@@ -347,11 +351,15 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         }))?;
                     }
                     EventoControleDepuracao::Finalizado(resultado) => {
+                        let encerrando = estado.as_ref().is_some_and(|estado| estado.encerrando);
                         match resultado {
                             Ok(resultado) => {
                                 for linha in resultado.saida {
                                     evento(&mut saida, &mut sequencia, "output", json!({"category":"stdout","output":format!("{linha}\n")}))?;
                                 }
+                                evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
+                            }
+                            Err(erro) if encerrando => {
                                 evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
                             }
                             Err(erro) => {
