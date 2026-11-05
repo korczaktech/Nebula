@@ -291,17 +291,19 @@ fn corpus_combinado_preserva_a_ordem_dos_itens() {
 variavel nome = "Nebula"
 estrutura Pessoa { nome: texto, idade: inteiro }
 enumeracao Estado { Ativo, Inativo }
-funcao principal(pessoa: Pessoa): vazio {
-    quando verdadeiro {
+funcao principal(pessoa: Pessoa): vazio
+    quando verdadeiro
         exibir(pessoa.nome)
-    } senao {
+    senao
         devolver
-    }
-    escolha Estado::Ativo {
-        caso Estado::Ativo {}
-        caso _ {}
-    }
-}
+    fim
+    escolha Estado::Ativo
+        caso Estado::Ativo
+            passar
+        caso _
+            passar
+    fim
+fim
 "#;
     let resultado = analisar_codigo(codigo);
     assert!(
