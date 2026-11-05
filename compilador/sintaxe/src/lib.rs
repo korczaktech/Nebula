@@ -33,14 +33,14 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     ResultadoSintatico { programa, diagnosticos }
 }
 
-const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
+const LIMITE_PROFUNDIDADE_PARSER: usize = 128;
 
 struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
     fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
-            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
+            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (128 níveis). Reduza o aninhamento.");
             return None;
         }
         self.profundidade += 1;
@@ -609,17 +609,21 @@ impl Parser {
         let mut senao = if self.proximo_tipo_significativo() == TipoToken::Senao {
             self.pular_novas_linhas();
             self.avancar();
-            self.bloco_sem_fim()?
+            if matches!(self.proximo_tipo_significativo(), TipoToken::Quando | TipoToken::Se) {
+                self.pular_novas_linhas();
+                vec![self.quando()?]
+            } else {
+                self.bloco_sem_fim()?
+            }
         } else {
             Vec::new()
         };
-        if !delimitado_por_chaves {
-            if self.proximo_tipo_significativo() == TipoToken::FimBloco {
-                self.pular_novas_linhas();
-                self.avancar();
-            } else {
-                self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
-            }
+        if self.proximo_tipo_significativo() == TipoToken::FimBloco
+            && (!delimitado_por_chaves || self.token_significativo_anterior() != Some(TipoToken::Dedent)) {
+            self.pular_novas_linhas();
+            self.avancar();
+        } else if !delimitado_por_chaves {
+            self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
         }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
@@ -1514,6 +1518,12 @@ impl Parser {
         }
         Some(esquerda)
     }
+    fn token_significativo_anterior(&self) -> Option<TipoToken> {
+        self.tokens[..self.atual].iter().rev()
+            .find(|token| token.tipo != TipoToken::NovaLinha)
+            .map(|token| token.tipo)
+    }
+
     fn proximo_tipo_significativo(&self) -> TipoToken {
         self.tokens.iter().skip(self.atual)
             .find(|token| token.tipo != TipoToken::NovaLinha)
