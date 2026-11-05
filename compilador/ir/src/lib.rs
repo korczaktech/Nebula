@@ -1263,6 +1263,10 @@ pub struct EventoDepuracao {
     pub profundidade_chamada: usize,
     /// Funções ativas, da mais antiga à mais recente.
     pub pilha_chamadas: Vec<String>,
+    /// Índices de início dos escopos pertencentes a cada chamada ativa.
+    pub limites_escopos: Vec<usize>,
+    /// Localizações em que cada função ativa foi chamada.
+    pub locais_chamada: Vec<Option<IntervaloFonte>>,
     /// Escopos ativos, do global ao local.
     pub escopos: Vec<HashMap<String, ValorIr>>,
 }
@@ -1483,6 +1487,8 @@ fn executar_interno(
         limite: limite_passos.max(1),
         profundidade_chamada: 0,
         pilha_chamadas: Vec::new(),
+        limites_escopos: Vec::new(),
+        locais_chamada: Vec::new(),
         intervalo_fonte: None,
     };
     let resultado = (|| {
@@ -1787,6 +1793,8 @@ struct Maquina<'p, 'o> {
     limite: usize,
     profundidade_chamada: usize,
     pilha_chamadas: Vec<String>,
+    limites_escopos: Vec<usize>,
+    locais_chamada: Vec<Option<IntervaloFonte>>,
     intervalo_fonte: Option<IntervaloFonte>,
 }
 
@@ -2165,6 +2173,8 @@ impl Maquina<'_, '_> {
                                     limite,
                                     profundidade_chamada: 0,
                                     pilha_chamadas: Vec::new(),
+                                    limites_escopos: Vec::new(),
+                                    locais_chamada: Vec::new(),
                                     intervalo_fonte: None,
                                 };
                                 let retorno = maquina.chamar_funcao(&nome, funcao, Vec::new())?;
@@ -2532,6 +2542,9 @@ impl Maquina<'_, '_> {
             return Err("Limite de profundidade de chamadas da IR excedido.".into());
         }
         self.profundidade_chamada += 1;
+        let limite_escopos = self.contexto.memoria().escopos().len();
+        self.limites_escopos.push(limite_escopos);
+        self.locais_chamada.push(self.intervalo_fonte);
         self.memoria_mutavel()?.abrir_escopo();
         self.pilha_chamadas.push(nome.to_owned());
         let fluxo = (|| {
@@ -2546,6 +2559,8 @@ impl Maquina<'_, '_> {
         let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
         self.profundidade_chamada -= 1;
         self.pilha_chamadas.pop();
+        self.limites_escopos.pop();
+        self.locais_chamada.pop();
         let fluxo = match (fluxo, fechamento) {
             (Err(erro), _) => return Err(erro),
             (Ok(_), Err(erro)) => return Err(erro),
