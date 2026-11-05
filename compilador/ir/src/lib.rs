@@ -3369,6 +3369,35 @@ mod testes {
         );
     }
 
+
+    #[test]
+    fn observador_recebe_eventos_antes_de_cada_instrucao() {
+        let programa = compilar("variavel contador = 1\ncontador = contador + 1");
+        let mut eventos = Vec::new();
+
+        let resultado = executar_observado(&programa, 100, |passo, profundidade| {
+            eventos.push((passo, profundidade));
+            Ok(())
+        }).expect("execução observada válida");
+
+        assert_eq!(eventos, vec![(1, 0), (2, 0)]);
+        assert_eq!(resultado.globais.get("contador"), Some(&ValorIr::Inteiro(2)));
+    }
+
+    #[test]
+    fn observador_pode_interromper_a_execucao_com_erro() {
+        let programa = compilar("variavel contador = 1\ncontador = contador + 1");
+        let resultado = executar_observado(&programa, 100, |passo, _| {
+            if passo == 2 {
+                Err("pausa solicitada pelo depurador".into())
+            } else {
+                Ok(())
+            }
+        });
+
+        assert_eq!(resultado, Err("pausa solicitada pelo depurador".into()));
+    }
+
 }
 }
 
