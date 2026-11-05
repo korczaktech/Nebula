@@ -12,8 +12,8 @@ pub use declaracao::{
 };
 pub use expressao::Expressao;
 pub use instrucao::{
-    CapturaAst, CasoEscolhaLocalizado, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico,
-    TipoLocalizado,
+    CapturaAst, CasoEscolhaLocalizado, ExpressaoLocalizada, NoAst, NoLocalizado, Programa,
+    ResultadoSintatico, TipoLocalizado,
 };
 pub use operadores::OperadorAst;
 pub use padroes::{CasoEscolha, PadraoAst};
