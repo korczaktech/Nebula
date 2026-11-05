@@ -325,7 +325,7 @@ impl Parser {
             None
         };
         let corpo = self.bloco()?;
-        Some(NoAst::Funcao { visibilidade, assincrona: false, nome, genericos, parametros, parametros_padrao, retorno, corpo })
+        Some(NoAst::Funcao { visibilidade, assincrona: false, estatica: false, nome, genericos, parametros, parametros_padrao, retorno, corpo })
     }
     fn atributada(&mut self) -> Option<NoAst> {
         let mut atributos = Vec::new();
@@ -894,7 +894,7 @@ impl Parser {
                     continue;
                 }
                 let no = self.item();
-                let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+                let bloco_recuperado = no.as_ref().is_some_and(|no| Self::eh_bloco(no))
                     && self.diagnosticos.len() > diagnosticos_antes
                     && self.inicia_item();
                 if let Some(no) = no { itens.push(no); }
