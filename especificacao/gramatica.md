@@ -213,7 +213,7 @@ instrucao_quando        = ("quando" | "se"), expressao_antes_bloco,
                           "fim" ;
 
 instrucao_escolha       = ("escolha" | "avaliar"), expressao_antes_bloco,
-                          ":", NOVA_LINHA, { separador }, INDENT,
+                          [ ":" ], NOVA_LINHA, { separador }, INDENT,
                           lista_casos_escolha, DEDENT, "fim" ;
 lista_casos_escolha     = caso_escolha, { separador, caso_escolha },
                           { separador } ;
