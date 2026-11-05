@@ -40,7 +40,7 @@ impl Parser {
     fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, profundidade_blocos_chaves: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
-            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (128 níveis). Reduza o aninhamento.");
+            self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
             return None;
         }
         self.profundidade += 1;
