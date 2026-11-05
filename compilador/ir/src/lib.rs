@@ -1291,21 +1291,24 @@ pub fn executar_controlado(
     use std::collections::HashSet;
     let mut pontos = HashSet::new();
     let mut pausado = true;
+    let mut pausar_no_proximo = false;
     let mut profundidade_saida = None;
     let resultado = executar_observado(programa, limite_passos, |evento| {
         while let Ok(comando) = comandos.try_recv() {
             match comando {
                 ComandoDepuracao::Continuar => {
                     pausado = false;
+                    pausar_no_proximo = false;
                     profundidade_saida = None;
                 }
                 ComandoDepuracao::Avancar => {
                     pausado = false;
-                    pausado = true;
+                    pausar_no_proximo = true;
                     profundidade_saida = None;
                 }
                 ComandoDepuracao::Sair => {
                     pausado = false;
+                    pausar_no_proximo = false;
                     profundidade_saida = Some(evento.profundidade_chamada);
                 }
                 ComandoDepuracao::DefinirPontos(novos) => {
@@ -1316,27 +1319,37 @@ pub fn executar_controlado(
                 }
             }
         }
+        if pausar_no_proximo {
+            pausado = true;
+            pausar_no_proximo = false;
+        }
         let ponto_atingido = pontos.contains(&evento.passo);
         let retorno_funcao = profundidade_saida
             .is_some_and(|profundidade| evento.profundidade_chamada < profundidade);
-        if ponto_atingido || retorno_funcao || pausado {
+        if retorno_funcao {
+            pausado = true;
+            profundidade_saida = None;
+        }
+        if ponto_atingido || pausado {
             eventos.send(EventoControleDepuracao::Pausado(evento.clone()))
                 .map_err(|_| "Canal de eventos do depurador foi encerrado.".to_owned())?;
             loop {
                 match comandos.recv() {
                     Ok(ComandoDepuracao::Continuar) => {
                         pausado = false;
+                        pausar_no_proximo = false;
                         profundidade_saida = None;
                         break;
                     }
                     Ok(ComandoDepuracao::Avancar) => {
                         pausado = false;
-                        pausado = true;
+                        pausar_no_proximo = true;
                         profundidade_saida = None;
                         break;
                     }
                     Ok(ComandoDepuracao::Sair) => {
                         pausado = false;
+                        pausar_no_proximo = false;
                         profundidade_saida = Some(evento.profundidade_chamada);
                         break;
                     }
@@ -1349,14 +1362,11 @@ pub fn executar_controlado(
                     Err(_) => return Err("Canal de comandos do depurador foi encerrado.".into()),
                 }
             }
+        }
         Ok(())
     });
-    match resultado {
-        resultado => {
-            let _ = eventos.send(EventoControleDepuracao::Finalizado(resultado.clone()));
-            resultado
-        }
-    }
+    let _ = eventos.send(EventoControleDepuracao::Finalizado(resultado.clone()));
+    resultado
 }
 
 /// Executa a IR notificando o chamador antes de cada instrução.
