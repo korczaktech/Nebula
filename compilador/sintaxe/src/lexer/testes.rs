@@ -464,6 +464,22 @@ fn comentarios_de_linha_nao_iniciam_continuacao_por_engano() {
 }
 
 #[test]
+fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
+    let r = analisar("inicio\n    /* comentario */\n    meio\nfim");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 1);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 1);
+}
+
+#[test]
+fn comentarios_de_bloco_nao_criam_niveis_em_linhas_vazias() {
+    let r = analisar("inicio\n    /* comentario */\nfim");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Indent).count(), 0);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Dedent).count(), 0);
+}
+
+#[test]
 fn emite_fim_unico_e_dedents_no_final_do_arquivo() {
     let r = analisar("inicio\n    meio");
     assert_eq!(
