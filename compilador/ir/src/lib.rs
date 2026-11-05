@@ -3849,6 +3849,26 @@ mod testes {
     }
 
     #[test]
+    fn depuracao_nao_consume_o_canal_de_protocolo_com_receber() {
+        let programa = compilar("variavel nome = receber()");
+        let (tx_comandos, rx_comandos) = std::sync::mpsc::channel();
+        let (tx_eventos, rx_eventos) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || executar_controlado(&programa, 100, rx_comandos, tx_eventos));
+
+        assert!(matches!(
+            rx_eventos.recv().expect("pausa inicial"),
+            EventoControleDepuracao::Pausado(_)
+        ));
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        let finalizado = rx_eventos.recv().expect("falha de entrada");
+        let EventoControleDepuracao::Finalizado(Err(erro)) = finalizado else {
+            panic!("receber sem entrada deve falhar sem ler o protocolo DAP");
+        };
+        assert!(erro.contains("entrada fornecida"));
+        assert!(worker.join().expect("thread").is_err());
+    }
+
+    #[test]
     fn observador_pode_interromper_a_execucao_com_erro() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let resultado = executar_observado(&programa, 100, |evento| {
