@@ -2714,6 +2714,7 @@ mod testes {
             fila_instancias: Vec::new(),
             escopos_tipos: vec![HashMap::new()],
             substituicoes: HashMap::new(),
+            localizacoes: HashMap::new(),
         };
         let genericos = vec!["T".to_owned()];
         let mut substituicoes = HashMap::new();
