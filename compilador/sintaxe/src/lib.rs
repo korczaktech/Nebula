@@ -439,17 +439,31 @@ impl Parser {
         self.com_profundidade(|parser| parser.quando_interno())
     }
     fn quando_interno(&mut self) -> Option<NoAst> {
-        self.avancar(); let condicao = self.expressao_antes_de_bloco()?; let entao = self.bloco()?;
-        let mut senao = Vec::new();
-        let proximo_significativo = self.tokens.iter().skip(self.atual)
-            .find(|token| token.tipo != TipoToken::NovaLinha)
-            .map(|token| token.tipo);
-        if proximo_significativo == Some(TipoToken::Senao) {
+        self.avancar();
+        let condicao = self.expressao_antes_de_bloco()?;
+        let entao = self.bloco()?;
+        let mut alternativas = Vec::new();
+        loop {
             self.pular_novas_linhas();
+            if !self.corresponde(TipoToken::Sendo) {
+                break;
+            }
+            let condicao_alternativa = self.expressao_antes_de_bloco()?;
+            let corpo_alternativo = self.bloco()?;
+            alternativas.push((condicao_alternativa, corpo_alternativo));
         }
-        if self.corresponde(TipoToken::Senao) {
-            if self.verifica(TipoToken::Quando) { senao.push(self.quando()?); }
-            else { senao = self.bloco()?; }
+        self.pular_novas_linhas();
+        let mut senao = if self.corresponde(TipoToken::Senao) {
+            self.bloco()?
+        } else {
+            Vec::new()
+        };
+        for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
+            senao = vec![NoAst::Quando {
+                condicao: condicao_alternativa,
+                entao: corpo_alternativo,
+                senao,
+            }];
         }
         Some(NoAst::Quando { condicao, entao, senao })
     }
@@ -654,8 +668,22 @@ impl Parser {
     }
 
     fn para(&mut self) -> Option<NoAst> {
-        self.avancar(); self.esperar(TipoToken::AbrePar, "Esperado '(' após 'para'.");
-        let inicial = if self.verifica(TipoToken::PontoVirgula) { None } else if self.verifica(TipoToken::Variavel) { self.declaracao_variavel(false).map(Box::new) } else { self.expressao(0).map(|e| Box::new(NoAst::Expressao(e))) };
+        self.avancar();
+        if !self.corresponde(TipoToken::AbrePar) {
+            let nome = self.consumir_nome("Esperado variável após 'para'.")?;
+            self.esperar(TipoToken::Dentro, "Esperado 'dentro' após variável do laço.");
+            let iteravel = self.expressao_antes_de_bloco()?;
+            let corpo = self.bloco()?;
+            return Some(NoAst::Cada { nome, iteravel, corpo });
+        }
+
+        let inicial = if self.verifica(TipoToken::PontoVirgula) {
+            None
+        } else if self.verifica(TipoToken::Variavel) {
+            self.declaracao_variavel(false).map(Box::new)
+        } else {
+            self.expressao(0).map(|expressao| Box::new(NoAst::Expressao(expressao)))
+        };
         self.esperar(TipoToken::PontoVirgula, "Esperado ';' após inicialização do laço.");
         let condicao = if self.verifica(TipoToken::PontoVirgula) { None } else { self.expressao(0) };
         self.esperar(TipoToken::PontoVirgula, "Esperado ';' após condição do laço.");
