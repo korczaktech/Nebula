@@ -5,3 +5,5 @@ variavel estado = Estado::Ativo
 variavel opcional = Opcional::Algum(42)
 variavel resultado = Resultado::Sucesso(42)
 variavel par = (42, "Nebula")
+variavel vetor: Vetor<inteiro> = [1, 2]
+variavel matriz: Matriz<inteiro> = [[1, 2], [3, 4]]
