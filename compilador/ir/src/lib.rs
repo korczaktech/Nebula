@@ -1451,7 +1451,6 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 let fim = normalizar_limite_decimal_intervalo(interno, fim)?;
                 Ok(ValorIr::IntervaloDecimal(inicio, fim))
             }
-        (Tipo::Desconhecido, valor) => Ok(valor),
         _ => Err(format!("Valor IR incompatível com o tipo '{}'.", tipo.nome())),
     }
 }
@@ -2541,6 +2540,12 @@ mod testes {
         );
         let resultado = executar(&ir, 100).expect("operações decimal32 válidas");
         assert_eq!(resultado.saida, vec!["16777216"]);
+    }
+
+    #[test]
+    fn normalizacao_da_ir_rejeita_tipo_desconhecido() {
+        assert!(normalizar_valor(&Tipo::Desconhecido, ValorIr::Inteiro(7)).is_err());
+        assert!(normalizar_valor(&Tipo::Desconhecido, ValorIr::Texto("valor".into())).is_err());
     }
 
     #[test]
