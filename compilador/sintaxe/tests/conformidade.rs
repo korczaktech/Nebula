@@ -217,7 +217,11 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2035",
             "enumeracao Estado:\n    Ativo(inteiro,)\nfim",
         ),
-        ("enumeracao vazia", "N2036", "enumeracao Estado:\n    variavel"),
+        (
+            "enumeracao vazia",
+            "N2036",
+            "enumeracao Estado:\n    variavel",
+        ),
         (
             "campo de construcao duplicado",
             "N2037",
