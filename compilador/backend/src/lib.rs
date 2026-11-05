@@ -513,6 +513,7 @@ impl Emissor {
 
     fn instrucao(&mut self, instrucao: &InstrucaoIr) -> Result<(), String> {
         match instrucao {
+            InstrucaoIr::Localizada { instrucao, .. } => self.instrucao(instrucao)?,
             InstrucaoIr::Declarar { nome, tipo, valor, .. } => {
                 self.validar_tipo_abi(tipo)?;
                 let global = self.funcao_atual == NOME_INICIO_INTERNO
