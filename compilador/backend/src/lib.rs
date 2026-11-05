@@ -125,14 +125,21 @@ impl Emissor {
             Tipo::Estrutura(nome) => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' não foi fornecido à ABI nativa."))?;
-                if layout.tamanho == 0 || layout.tamanho > 16 {
-                    return Err(format!("A estrutura '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                if layout.tamanho == 0 {
+                    return Err(format!("A estrutura '{nome}' possui tamanho inválido."));
                 }
                 for (campo, (deslocamento, tamanho)) in &layout.campos {
-                    let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
-                    let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
-                    if !campo_em_dois_registros && !campo_escalar {
-                        return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores da ABI inicial."));
+                    let fim = deslocamento.checked_add(*tamanho)
+                        .ok_or_else(|| format!("Campo '{campo}' excede o layout de '{nome}'."))?;
+                    if *tamanho == 0 || fim > layout.tamanho {
+                        return Err(format!("Campo '{campo}' excede os limites da estrutura '{nome}'."));
+                    }
+                    if layout.tamanho <= 16 {
+                        let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
+                        let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
+                        if !campo_em_dois_registros && !campo_escalar {
+                            return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores ABI."));
+                        }
                     }
                 }
                 Ok(())
@@ -245,7 +252,7 @@ impl Emissor {
         if let Tipo::Estrutura(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
                 .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
-            return Ok(if layout.tamanho > 8 { 2 } else { 1 });
+            return Ok(if layout.tamanho > 16 { 1 } else if layout.tamanho > 8 { 2 } else { 1 });
         }
         if let Tipo::Tupla(tipos) = tipo {
             let (tamanho, _) = self.layout_tupla(tipos)
@@ -634,6 +641,27 @@ impl Emissor {
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
+                if layout.tamanho > 16 {
+                    let tamanho = layout.tamanho;
+                    let alinhamento = layout.alinhamento;
+                    let offsets = layout.campos.clone();
+                    let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+                    self.emitir_endereco_rbp_rax(armazenamento);
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                    self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                    self.codigo.extend_from_slice(&tamanho.to_le_bytes()); // rcx = tamanho
+                    self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]); // zero com rep stosb
+                    for (campo, valor) in campos {
+                        let (deslocamento, tamanho_campo) = offsets.get(campo)
+                            .copied()
+                            .ok_or_else(|| format!("Campo '{campo}' não existe em '{nome}'."))?;
+                        self.expressao(valor)?;
+                        self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                    }
+                    self.emitir_endereco_rbp_rax(armazenamento);
+                    self.mov_rdx(0);
+                    return Ok(());
+                }
                 let primeiro = campos.iter().find(|(campo, _)| {
                     layout.campos.get(campo).is_some_and(|(deslocamento, _)| *deslocamento == 0)
                 }).ok_or_else(|| format!("Estrutura '{nome}' não possui campo inicializável no primeiro registrador."))?;
@@ -1438,6 +1466,78 @@ impl Emissor {
         self.escopos.last_mut().expect("escopo ativo").insert(nome.to_owned(), deslocamento);
         self.tipos_escopos.last_mut().expect("escopo tipado ativo").insert(nome.to_owned(), tipo.clone());
         Ok(deslocamento)
+    }
+
+    fn emitir_endereco_rbp_rax(&mut self, deslocamento: i32) {
+        self.codigo.extend_from_slice(&[0x48, 0x8D, 0x85]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn armazenar_registro_r11(&mut self, deslocamento: i32, registro: u8, largura: u8) {
+        if largura == 2 {
+            self.codigo.push(0x66);
+        }
+        self.codigo.push(if largura == 8 { 0x49 } else { 0x41 });
+        self.codigo.push(if largura == 1 { 0x88 } else { 0x89 });
+        self.codigo.push(0x80 | ((registro & 7) << 3) | 3);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+    }
+
+    fn armazenar_fragmentos_r11(&mut self, mut deslocamento: i32, mut tamanho: u64, registro: u8) {
+        if tamanho >= 8 {
+            self.armazenar_registro_r11(deslocamento, registro, 8);
+            return;
+        }
+        if tamanho >= 4 {
+            self.armazenar_registro_r11(deslocamento, registro, 4);
+            deslocamento += 4;
+            tamanho -= 4;
+            self.codigo.extend_from_slice(if registro == 0 {
+                &[0x48, 0xC1, 0xE8, 32]
+            } else {
+                &[0x48, 0xC1, 0xEA, 32]
+            });
+        }
+        if tamanho >= 2 {
+            self.armazenar_registro_r11(deslocamento, registro, 2);
+            deslocamento += 2;
+            tamanho -= 2;
+            self.codigo.extend_from_slice(if registro == 0 {
+                &[0x48, 0xC1, 0xE8, 16]
+            } else {
+                &[0x48, 0xC1, 0xEA, 16]
+            });
+        }
+        if tamanho == 1 {
+            self.armazenar_registro_r11(deslocamento, registro, 1);
+        }
+    }
+
+    fn armazenar_campo_agregado(
+        &mut self,
+        base: i32,
+        deslocamento: u64,
+        tamanho: u64,
+    ) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Campo agregado excede o deslocamento x86-64.")?;
+        self.codigo.extend_from_slice(&[0x4C, 0x8D, 0x9D]);
+        self.codigo.extend_from_slice(&base.to_le_bytes()); // r11 = início do agregado
+        if tamanho > 16 {
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0xBB]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes()); // rdi = destino
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+        } else if tamanho <= 8 {
+            self.armazenar_fragmentos_r11(deslocamento, tamanho, 0);
+        } else {
+            self.armazenar_registro_r11(deslocamento, 0, 8);
+            let restante = tamanho - 8;
+            self.armazenar_fragmentos_r11(deslocamento + 8, restante, 2);
+        }
+        Ok(())
     }
 
     fn reservar_agregado(&mut self, tamanho: u64, alinhamento: u64) -> Result<i32, String> {
