@@ -1908,8 +1908,10 @@ impl Maquina<'_, '_> {
                 }
             }
             InstrucaoIr::Enquanto { condicao, corpo } => {
+                let intervalo_laco = self.intervalo_fonte;
                 loop {
-                    self.passo()?;
+                    self.intervalo_fonte = intervalo_laco;
+                    self.passo()?
                     let condicao = self.expressao(condicao)?;
                     if !self.logico(condicao)? { break; }
                     match self.bloco(corpo)? {
@@ -1921,6 +1923,7 @@ impl Maquina<'_, '_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Cada { nome, iteravel, corpo } => {
+                let intervalo_laco = self.intervalo_fonte;
                 let valores = match self.expressao(iteravel)? {
                     ValorIr::Lista(valores) => valores,
                     ValorIr::Texto(texto) => texto.chars().map(ValorIr::Caractere).collect(),
@@ -1980,6 +1983,7 @@ impl Maquina<'_, '_> {
                         (Ok(_), Err(erro)) => return Err(erro),
                         (Ok(fluxo), Ok(())) => fluxo,
                     };
+                    self.intervalo_fonte = intervalo_laco;
                     self.passo()?;
                     match fluxo {
                         Fluxo::Normal | Fluxo::Seguir => {}
@@ -1990,6 +1994,7 @@ impl Maquina<'_, '_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Pulso { intervalo, corpo } => {
+                let intervalo_laco = self.intervalo_fonte;
                 let intervalo = match self.expressao(intervalo)? {
                     ValorIr::Inteiro(valor) => u64::try_from(valor),
                     ValorIr::InteiroSemSinal(valor) => u64::try_from(valor),
@@ -1997,6 +2002,7 @@ impl Maquina<'_, '_> {
                 }
                 .map_err(|_| "Intervalo de 'pulso' fora do limite suportado.")?;
                 loop {
+                    self.intervalo_fonte = intervalo_laco;
                     self.passo()?;
                     match self.bloco(corpo)? {
                         Fluxo::Normal | Fluxo::Seguir => dormir_milisegundos(intervalo),
@@ -2007,11 +2013,13 @@ impl Maquina<'_, '_> {
                 Ok(Fluxo::Normal)
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
+                let intervalo_laco = self.intervalo_fonte;
                 self.memoria_mutavel()?.abrir_escopo();
                 let resultado = (|| {
                     if let Some(inicial) = inicial { let _ = self.instrucao(inicial)?; }
                     let mut fluxo_final = Fluxo::Normal;
                     loop {
+                        self.intervalo_fonte = intervalo_laco;
                         self.passo()?;
                         if let Some(condicao) = condicao {
                             let condicao = self.expressao(condicao)?;
