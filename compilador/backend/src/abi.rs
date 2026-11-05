@@ -18,7 +18,10 @@ pub fn classificar_agregado(tamanho: u64, alinhamento: u64) -> Result<ClasseAgre
     Ok(match tamanho {
         1..=8 => ClasseAgregado::UmRegistrador,
         9..=16 => ClasseAgregado::DoisRegistradores,
-        _ => ClasseAgregado::Indireto { tamanho, alinhamento },
+        _ => ClasseAgregado::Indireto {
+            tamanho,
+            alinhamento,
+        },
     })
 }
 
@@ -34,9 +37,13 @@ pub fn classificar_retorno_agregado(
     alinhamento: u64,
 ) -> Result<RetornoAgregado, String> {
     Ok(match classificar_agregado(tamanho, alinhamento)? {
-        ClasseAgregado::Indireto { tamanho, alinhamento } => {
-            RetornoAgregado::DestinoOculto { tamanho, alinhamento }
-        }
+        ClasseAgregado::Indireto {
+            tamanho,
+            alinhamento,
+        } => RetornoAgregado::DestinoOculto {
+            tamanho,
+            alinhamento,
+        },
         classe => RetornoAgregado::Registradores(classe),
     })
 }
@@ -45,7 +52,11 @@ pub fn classificar_retorno_agregado(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocalArgumento {
     Registrador(u8),
-    Pilha { deslocamento: u64, tamanho: u64, alinhamento: u64 },
+    Pilha {
+        deslocamento: u64,
+        tamanho: u64,
+        alinhamento: u64,
+    },
 }
 
 /// Plano de passagem de argumentos e tamanho da área de pilha.
@@ -86,9 +97,14 @@ pub fn planejar_argumentos(
 
         // O argumento agregado é indivisível: ou todos os registradores cabem,
         // ou a representação inteira vai para a área de pilha.
-        if proximo_registrador.checked_add(palavras).is_some_and(|fim| fim <= 6) {
+        if proximo_registrador
+            .checked_add(palavras)
+            .is_some_and(|fim| fim <= 6)
+        {
             for indice in 0..palavras {
-                locais.push(LocalArgumento::Registrador((proximo_registrador + indice) as u8));
+                locais.push(LocalArgumento::Registrador(
+                    (proximo_registrador + indice) as u8,
+                ));
             }
             proximo_registrador += palavras;
         } else {
@@ -98,7 +114,8 @@ pub fn planejar_argumentos(
                 tamanho: tamanho_pilha,
                 alinhamento: alinhamento_pilha,
             });
-            deslocamento_pilha = deslocamento_pilha.checked_add(tamanho_pilha)
+            deslocamento_pilha = deslocamento_pilha
+                .checked_add(tamanho_pilha)
                 .ok_or("Área de argumentos excede o limite de endereçamento.")?;
         }
         argumentos.push(locais);
@@ -129,19 +146,25 @@ pub struct PlanoArmazenamento {
 }
 
 /// Planeja armazenamento local contíguo para agregados em um quadro de pilha.
-pub fn planejar_armazenamento(
-    layouts: &[(u64, u64)],
-) -> Result<PlanoArmazenamento, String> {
+pub fn planejar_armazenamento(layouts: &[(u64, u64)]) -> Result<PlanoArmazenamento, String> {
     let mut topo = 0u64;
     let mut alocacoes = Vec::with_capacity(layouts.len());
     for &(tamanho, alinhamento) in layouts {
         validar_layout(tamanho, alinhamento)?;
-        topo = alinhar(topo.checked_add(tamanho)
-            .ok_or("Quadro de pilha excede o limite de tamanho.")?, alinhamento)?;
+        topo = alinhar(
+            topo.checked_add(tamanho)
+                .ok_or("Quadro de pilha excede o limite de tamanho.")?,
+            alinhamento,
+        )?;
         let deslocamento = i32::try_from(topo)
-            .ok().and_then(i32::checked_neg)
+            .ok()
+            .and_then(i32::checked_neg)
             .ok_or("Deslocamento do agregado excede o endereçamento x86-64.")?;
-        alocacoes.push(AlocacaoAgregado { deslocamento, tamanho, alinhamento });
+        alocacoes.push(AlocacaoAgregado {
+            deslocamento,
+            tamanho,
+            alinhamento,
+        });
     }
     Ok(PlanoArmazenamento {
         alocacoes,
@@ -160,7 +183,8 @@ fn validar_layout(tamanho: u64, alinhamento: u64) -> Result<(), String> {
 }
 
 fn alinhar(valor: u64, alinhamento: u64) -> Result<u64, String> {
-    valor.checked_add(alinhamento - 1)
+    valor
+        .checked_add(alinhamento - 1)
         .map(|v| v & !(alinhamento - 1))
         .ok_or_else(|| "Overflow ao alinhar a área ABI.".into())
 }
@@ -171,10 +195,22 @@ mod testes {
 
     #[test]
     fn classifica_fronteiras_dos_registradores() {
-        assert_eq!(classificar_agregado(1, 1).unwrap(), ClasseAgregado::UmRegistrador);
-        assert_eq!(classificar_agregado(8, 8).unwrap(), ClasseAgregado::UmRegistrador);
-        assert_eq!(classificar_agregado(9, 1).unwrap(), ClasseAgregado::DoisRegistradores);
-        assert_eq!(classificar_agregado(16, 16).unwrap(), ClasseAgregado::DoisRegistradores);
+        assert_eq!(
+            classificar_agregado(1, 1).unwrap(),
+            ClasseAgregado::UmRegistrador
+        );
+        assert_eq!(
+            classificar_agregado(8, 8).unwrap(),
+            ClasseAgregado::UmRegistrador
+        );
+        assert_eq!(
+            classificar_agregado(9, 1).unwrap(),
+            ClasseAgregado::DoisRegistradores
+        );
+        assert_eq!(
+            classificar_agregado(16, 16).unwrap(),
+            ClasseAgregado::DoisRegistradores
+        );
         assert_eq!(
             classificar_agregado(17, 8).unwrap(),
             ClasseAgregado::Indireto {
