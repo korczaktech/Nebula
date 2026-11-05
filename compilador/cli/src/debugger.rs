@@ -6,6 +6,7 @@ use nebula_ir::{
 use nebula_semantica::ModulosDisponiveis;
 use nebula_sintaxe::analisar;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Sender};
@@ -276,9 +277,11 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                                     for linha in resultado.saida {
                                         evento(&mut saida, &mut sequencia, "output", json!({"category":"stdout","output":format!("{linha}\n")}))?;
                                     }
+                                    evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
                                 }
                                 Err(erro) => {
                                     evento(&mut saida, &mut sequencia, "output", json!({"category":"stderr","output":format!("{erro}\n")}))?;
+                                    evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":1}))?;
                                 }
                             }
                         }
