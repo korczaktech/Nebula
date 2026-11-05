@@ -3524,7 +3524,7 @@ mod testes {
         let exemplos = [
             "\n;\nvariavel a = 1;;\n\nvariavel b = 2;\n",
             "funcao principal() {\n;; variavel a = 1;;\n\nvariavel b = 2;;\n}",
-            "funcao principal()\n;; variavel a = 1;;\n\nvariavel b = 2;;\nfim",
+            "funcao principal()\n    ;; variavel a = 1;;\n\n    variavel b = 2;;\nfim",
             "estrutura Pessoa { ; nome: texto;; idade: inteiro; }",
             "enumeracao Estado { ; Ativo;; Inativo; }",
         ];
