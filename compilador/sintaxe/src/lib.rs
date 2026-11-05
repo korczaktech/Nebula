@@ -1347,11 +1347,29 @@ impl Parser {
                 };
                 continue;
             }
+            if tipo == TipoToken::Menor && 16 >= minimo && self.parece_chamada_generica() {
+                self.avancar();
+                let mut tipos_genericos = Vec::new();
+                loop {
+                    tipos_genericos.push(self.caminho_tipo()?);
+                    if !self.corresponde(TipoToken::Virgula) { break; }
+                    self.pular_novas_linhas();
+                }
+                self.esperar(TipoToken::Maior, "Esperado '>' após argumentos genéricos da chamada.");
+                self.esperar(TipoToken::AbrePar, "Esperado '(' após argumentos genéricos.");
+                let argumentos = self.argumentos_chamada(TipoToken::FechaPar)?;
+                esquerda = Expressao::Chamada {
+                    alvo: Box::new(esquerda),
+                    argumentos,
+                    tipos_genericos,
+                };
+                continue;
+            }
             if tipo == TipoToken::AbrePar && 16 >= minimo {
                 self.avancar();
                 let args = self.argumentos_chamada(TipoToken::FechaPar)?;
                 self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
-                esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args }; continue;
+                esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args, tipos_genericos: Vec::new() }; continue;
             }
             if tipo == TipoToken::AbreColchete && 16 >= minimo {
                 self.avancar();
@@ -1471,6 +1489,34 @@ impl Parser {
         }
         Some(esquerda)
     }
+    fn parece_chamada_generica(&self) -> bool {
+        if !matches!(self.tokens.get(self.atual + 1).map(|token| token.tipo),
+            Some(TipoToken::Identificador | TipoToken::Inteiro | TipoToken::Vazio | TipoToken::Funcao)) {
+            return false;
+        }
+        let mut profundidade = 0usize;
+        for token in self.tokens.iter().skip(self.atual) {
+            match token.tipo {
+                TipoToken::Menor => profundidade += 1,
+                TipoToken::Maior => {
+                    profundidade = profundidade.saturating_sub(1);
+                    if profundidade == 0 {
+                        return self.tokens.get(self.atual + 1)
+                            .is_some_and(|_| {
+                                let indice = self.tokens.iter().position(|candidato| std::ptr::eq(candidato, token));
+                                indice.and_then(|i| self.tokens.get(i + 1))
+                                    .is_some_and(|proximo| proximo.tipo == TipoToken::AbrePar)
+                            });
+                    }
+                }
+                TipoToken::Fim | TipoToken::NovaLinha | TipoToken::PontoVirgula
+                    if profundidade > 0 => return false,
+                _ => {}
+            }
+        }
+        false
+    }
+
     fn argumentos_chamada(&mut self, fechamento: TipoToken) -> Option<Vec<Expressao>> {
         let mut argumentos = Vec::new();
         if self.verifica(fechamento) {
