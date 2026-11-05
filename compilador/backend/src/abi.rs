@@ -175,8 +175,20 @@ mod testes {
         assert_eq!(classificar_agregado(8, 8).unwrap(), ClasseAgregado::UmRegistrador);
         assert_eq!(classificar_agregado(9, 1).unwrap(), ClasseAgregado::DoisRegistradores);
         assert_eq!(classificar_agregado(16, 16).unwrap(), ClasseAgregado::DoisRegistradores);
-        assert_eq!(classificar_agregado(17, 8).unwrap(), ClasseAgregado::Indireto { tamanho: 17, alinhamento: 8 });
-        assert_eq!(classificar_agregado(4096, 64).unwrap(), ClasseAgregado::Indireto { tamanho: 4096, alinhamento: 64 });
+        assert_eq!(
+            classificar_agregado(17, 8).unwrap(),
+            ClasseAgregado::Indireto {
+                tamanho: 17,
+                alinhamento: 8
+            }
+        );
+        assert_eq!(
+            classificar_agregado(4096, 64).unwrap(),
+            ClasseAgregado::Indireto {
+                tamanho: 4096,
+                alinhamento: 64
+            }
+        );
     }
 
     #[test]
@@ -188,8 +200,17 @@ mod testes {
 
     #[test]
     fn retorno_grande_usa_destino_oculto() {
-        assert_eq!(classificar_retorno_agregado(24, 8).unwrap(), RetornoAgregado::DestinoOculto { tamanho: 24, alinhamento: 8 });
-        assert_eq!(classificar_retorno_agregado(16, 8).unwrap(), RetornoAgregado::Registradores(ClasseAgregado::DoisRegistradores));
+        assert_eq!(
+            classificar_retorno_agregado(24, 8).unwrap(),
+            RetornoAgregado::DestinoOculto {
+                tamanho: 24,
+                alinhamento: 8
+            }
+        );
+        assert_eq!(
+            classificar_retorno_agregado(16, 8).unwrap(),
+            RetornoAgregado::Registradores(ClasseAgregado::DoisRegistradores)
+        );
     }
 
     #[test]
@@ -198,7 +219,13 @@ mod testes {
         assert!(plano.destino_oculto);
         assert_eq!(plano.argumentos[0], vec![LocalArgumento::Registrador(1)]);
         assert_eq!(plano.argumentos[1], vec![LocalArgumento::Registrador(2)]);
-        assert_eq!(plano.argumentos[2], vec![LocalArgumento::Registrador(3), LocalArgumento::Registrador(4)]);
+        assert_eq!(
+            plano.argumentos[2],
+            vec![
+                LocalArgumento::Registrador(3),
+                LocalArgumento::Registrador(4)
+            ]
+        );
     }
 
     #[test]
@@ -207,7 +234,14 @@ mod testes {
         argumentos.push((16, 16));
         let plano = planejar_argumentos(&argumentos, None).unwrap();
         assert_eq!(plano.argumentos[4], vec![LocalArgumento::Registrador(4)]);
-        assert_eq!(plano.argumentos[5], vec![LocalArgumento::Pilha { deslocamento: 0, tamanho: 16, alinhamento: 16 }]);
+        assert_eq!(
+            plano.argumentos[5],
+            vec![LocalArgumento::Pilha {
+                deslocamento: 0,
+                tamanho: 16,
+                alinhamento: 16
+            }]
+        );
         assert_eq!(plano.tamanho_pilha, 16);
     }
 
