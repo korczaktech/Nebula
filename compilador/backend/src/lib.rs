@@ -70,6 +70,48 @@ struct Emissor {
     erro_salto: Option<String>,
 }
 
+#[derive(Clone, Copy)]
+enum PosicaoArgumento {
+    Registradores(usize),
+    Pilha { deslocamento: u64, largura: usize },
+}
+
+fn planejar_posicoes_argumentos(
+    larguras: &[usize],
+    inicio_registrador: usize,
+) -> Result<Vec<PosicaoArgumento>, String> {
+    if inicio_registrador > 6 || larguras.iter().any(|largura| !matches!(largura, 1 | 2)) {
+        return Err("Largura ou início de registradores inválido no ABI x86-64.".into());
+    }
+    let mut proximo_registrador = inicio_registrador;
+    let mut topo_pilha = 0u64;
+    let mut posicoes = Vec::with_capacity(larguras.len());
+    for largura in larguras {
+        if proximo_registrador + largura <= 6 {
+            posicoes.push(PosicaoArgumento::Registradores(proximo_registrador));
+            proximo_registrador += largura;
+        } else {
+            let alinhamento = if *largura == 2 { 16 } else { 8 };
+            topo_pilha = topo_pilha.checked_add(alinhamento - 1)
+                .map(|valor| valor & !(alinhamento - 1))
+                .ok_or("Overflow ao alinhar argumentos na pilha.")?;
+            posicoes.push(PosicaoArgumento::Pilha {
+                deslocamento: topo_pilha,
+                largura: *largura,
+            });
+            topo_pilha = topo_pilha.checked_add((*largura as u64) * 8)
+                .ok_or("Área de argumentos excede o limite x86-64.")?;
+        }
+    }
+    Ok(posicoes)
+}
+
+fn alinhar_pilha_16(valor: u64) -> Result<u64, String> {
+    valor.checked_add(15)
+        .map(|valor| valor & !15)
+        .ok_or_else(|| "Overflow ao alinhar argumentos na pilha.".into())
+}
+
 struct Laco {
     saidas: Vec<usize>,
     continuacoes: Vec<usize>,
@@ -2120,7 +2162,10 @@ impl Emissor {
         self.aplicar_salto(fim_verdadeiro, fim);
     }
 
-    fn preparar_argumentos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
+    fn preparar_argumentos(
+        &mut self,
+        argumentos: &[ExpressaoIr],
+    ) -> Result<(u64, u64), String> {
         self.preparar_argumentos_desde(argumentos, 0)
     }
 
@@ -2128,36 +2173,90 @@ impl Emissor {
         &mut self,
         argumentos: &[ExpressaoIr],
         inicio_registrador: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(u64, u64), String> {
         let registradores = [7u8, 6, 2, 1, 8, 9];
         let larguras = argumentos.iter()
             .map(|argumento| self.largura_abi_expressao(argumento))
             .collect::<Result<Vec<_>, _>>()?;
-        let quantidade = larguras.iter().sum::<usize>();
-        if inicio_registrador.checked_add(quantidade).is_none_or(|fim| fim > registradores.len()) {
-            return Err("Os argumentos excedem os seis registradores inteiros do ABI x86-64.".into());
-        }
+        let posicoes = planejar_posicoes_argumentos(&larguras, inicio_registrador)?;
+        let mut temporarios = Vec::with_capacity(argumentos.len());
+
         for (argumento, largura) in argumentos.iter().zip(&larguras) {
+            let temporario = self.reservar_agregado(16, 16)?;
             self.expressao(argumento)?;
-            self.push_rax();
+            self.armazenar_rax(temporario);
             if *largura == 2 {
-                self.codigo.extend_from_slice(&[0x52]); // push rdx
-                self.pilha += 1;
+                self.armazenar_rdx(temporario + 8);
+            }
+            temporarios.push(temporario);
+        }
+
+        let tamanho_pilha = posicoes.iter().filter_map(|posicao| {
+            if let PosicaoArgumento::Pilha { deslocamento, largura } = posicao {
+                Some((deslocamento + (largura as u64) * 8))
+            } else {
+                None
+            }
+        }).max().unwrap_or(0);
+        let tamanho_pilha = alinhar_pilha_16(tamanho_pilha)?;
+        let preenchimento = if self.pilha % 2 == 1 { 8u64 } else { 0 };
+        if preenchimento > 0 {
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);
+            self.pilha += 1;
+        }
+        if tamanho_pilha > 0 {
+            self.codigo.extend_from_slice(&[0x48, 0x81, 0xEC]);
+            self.codigo.extend_from_slice(&u32::try_from(tamanho_pilha)
+                .map_err(|_| "Área de argumentos excede o limite x86-64.")?.to_le_bytes());
+            self.pilha += usize::try_from(tamanho_pilha / 8)
+                .map_err(|_| "Área de argumentos excede o limite x86-64.")?;
+        }
+
+        for (indice, posicao) in posicoes.iter().enumerate() {
+            let temporario = temporarios[indice];
+            match posicao {
+                PosicaoArgumento::Registradores(indice_registrador) => {
+                    self.carregar_rax(temporario);
+                    self.mover_rax_registrador(registradores[*indice_registrador]);
+                    if larguras[indice] == 2 {
+                        self.carregar_rax(temporario + 8);
+                        self.mover_rax_registrador(registradores[*indice_registrador + 1]);
+                    }
+                }
+                PosicaoArgumento::Pilha { deslocamento, largura } => {
+                    self.carregar_rax(temporario);
+                    self.armazenar_rax_rsp(*deslocamento)?;
+                    if *largura == 2 {
+                        self.carregar_rax(temporario + 8);
+                        self.armazenar_rax_rsp(deslocamento + 8)?;
+                    }
+                }
             }
         }
-        let mut indice = inicio_registrador + quantidade;
-        for largura in larguras.iter().rev() {
-            if *largura == 2 {
-                indice -= 2;
-                self.pop_rax();
-                self.mover_rax_registrador(registradores[indice + 1]);
-                self.pop_rax();
-                self.mover_rax_registrador(registradores[indice]);
-            } else {
-                indice -= 1;
-                self.pop_rax();
-                self.mover_rax_registrador(registradores[indice]);
-            }
+        Ok((tamanho_pilha, preenchimento))
+    }
+
+    fn armazenar_rax_rsp(&mut self, deslocamento: u64) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Deslocamento de argumento excede o limite x86-64.")?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0x84, 0x24]);
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+        Ok(())
+    }
+
+    fn limpar_pilha_chamada(&mut self, tamanho_pilha: u64, preenchimento: u64) -> Result<(), String> {
+        if tamanho_pilha > 0 {
+            self.codigo.extend_from_slice(&[0x48, 0x81, 0xC4]);
+            self.codigo.extend_from_slice(&u32::try_from(tamanho_pilha)
+                .map_err(|_| "Área de argumentos excede o limite x86-64.")?.to_le_bytes());
+            self.pilha = self.pilha.checked_sub(usize::try_from(tamanho_pilha / 8)
+                .map_err(|_| "Área de argumentos excede o limite x86-64.")?)
+                .ok_or("Contabilidade da pilha inválida após chamada.")?;
+        }
+        if preenchimento > 0 {
+            self.codigo.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);
+            self.pilha = self.pilha.checked_sub(1)
+                .ok_or("Contabilidade do alinhamento da pilha inválida.")?;
         }
         Ok(())
     }
