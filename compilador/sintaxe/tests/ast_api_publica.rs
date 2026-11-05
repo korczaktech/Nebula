@@ -2,10 +2,9 @@
 
 use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::{
-    analisar, AliasTipoAst, AtributoAst, CampoAst, CapturaAst, CasoEscolha,
-    CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado,
-    OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico, TipoAst,
-    TipoLocalizado, TipoToken, VarianteAst, Visibilidade,
+    AliasTipoAst, AtributoAst, CampoAst, CapturaAst, CasoEscolha, CasoEscolhaLocalizado, Expressao,
+    ExpressaoLocalizada, NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa,
+    ResultadoSintatico, TipoAst, TipoLocalizado, TipoToken, VarianteAst, Visibilidade, analisar,
 };
 use std::path::Path;
 
@@ -24,7 +23,10 @@ fn api_publica_integrada_ao_parser_preserva_ast_e_localizacoes() {
     );
 
     let programa: &Programa = &resultado.programa;
-    assert_eq!(programa.caminho.as_deref(), Some(Path::new("consumidor.nbx")));
+    assert_eq!(
+        programa.caminho.as_deref(),
+        Some(Path::new("consumidor.nbx"))
+    );
     assert!(matches!(
         programa.itens.first(),
         Some(NoAst::Funcao { nome, .. }) if nome == "principal"
@@ -32,15 +34,16 @@ fn api_publica_integrada_ao_parser_preserva_ast_e_localizacoes() {
 
     let no: Option<&NoLocalizado> = programa.iter_localizados().next();
     assert!(no.is_some(), "a API pública deve expor nós localizados");
-    let expressao: Option<&ExpressaoLocalizada> =
-        programa.iter_expressoes_localizadas().next();
-    assert!(expressao.is_some(), "a API pública deve expor expressões localizadas");
+    let expressao: Option<&ExpressaoLocalizada> = programa.iter_expressoes_localizadas().next();
+    assert!(
+        expressao.is_some(),
+        "a API pública deve expor expressões localizadas"
+    );
     let tipo: Option<&TipoLocalizado> = programa.iter_tipos_localizados().next();
     assert!(tipo.is_some(), "a API pública deve expor tipos localizados");
 
     assert!(programa.iter_localizados().all(|item| {
-        item.intervalo.inicio <= item.intervalo.fim
-            && item.intervalo.fim <= fonte.conteudo().len()
+        item.intervalo.inicio <= item.intervalo.fim && item.intervalo.fim <= fonte.conteudo().len()
     }));
 }
 
