@@ -106,6 +106,11 @@ impl Parser {
                 self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
                 None
             }
+            TipoToken::Indent | TipoToken::Dedent => {
+                self.erro_atual("N2009", "Indentação inesperada fora de um bloco.");
+                self.avancar();
+                None
+            }
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel => self.declaracao_variavel(false),
             TipoToken::Constante => self.declaracao_variavel(true),
             TipoToken::Alterar => {
@@ -4072,6 +4077,12 @@ criarUsuario(nome = "Ana", idade = 25)
                 resultado.diagnosticos
             );
         }
+
+        let indentacao_superior = analisar(&fonte("    variavel fora = 1"));
+        assert!(
+            indentacao_superior.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "indentação não pode iniciar no escopo superior"
+        );
 
         let recuperacao = analisar(&fonte(
             "funcao quebrada()\\nvariavel depois = 1\\nfim\\nvariavel fora = 2"
