@@ -18,20 +18,32 @@ enum Entrada {
 }
 
 struct Estado {
-    fonte: ArquivoFonte,
+    fontes: HashMap<PathBuf, ArquivoFonte>,
+    caminho_principal: PathBuf,
     comandos: Sender<ComandoDepuracao>,
     atual: Option<EventoDepuracao>,
-    localizacoes: Vec<IntervaloFonte>,
-    caminhos: Vec<String>,
+    localizacoes: Vec<(PathBuf, IntervaloFonte)>,
     expansoes: HashMap<usize, Vec<(String, ValorIr)>>,
     proxima_referencia: usize,
-    pontos_parada: HashSet<usize>,
+    pontos_parada: HashSet<(PathBuf, usize)>,
     encerrando: bool,
 }
 
 pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), String> {
     let (fonte, programa) = carregar_programa(caminho)?;
-    let localizacoes = localizacoes_programa(&programa);
+    let caminho_principal = normalizar_caminho(caminho, caminho);
+    let localizacoes = localizacoes_programa(&programa).into_iter()
+        .map(|(origem, intervalo)| (normalizar_caminho(&origem, &caminho_principal), intervalo))
+        .collect::<Vec<_>>();
+    let mut fontes = HashMap::new();
+    fontes.insert(caminho_principal.clone(), ArquivoFonte::novo(caminho_principal.clone(), fonte.conteudo().to_owned()));
+    for (origem, _) in &localizacoes {
+        if !fontes.contains_key(origem) {
+            if let Ok(conteudo) = std::fs::read_to_string(origem) {
+                fontes.insert(origem.clone(), ArquivoFonte::novo(origem.clone(), conteudo));
+            }
+        }
+    }
     let (tx_entrada, rx_entrada) = mpsc::channel();
     let tx_leitor = tx_entrada.clone();
     thread::spawn(move || ler_requisicoes(tx_leitor));
@@ -66,7 +78,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             .and_then(Value::as_str)
                             .map(PathBuf::from)
                             .unwrap_or_else(|| caminho.to_path_buf());
-                        if programa_lancado != caminho.to_path_buf() {
+                        if normalizar_caminho(&programa_lancado, &caminho_principal) != caminho_principal {
                             responder_erro(&mut saida, &mut sequencia, seq, comando, "O arquivo solicitado difere do arquivo iniciado pelo CLI.")?;
                             continue;
                         }
@@ -83,11 +95,11 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             }
                         });
                         estado = Some(Estado {
-                            fonte: fonte.clone(),
+                            fontes: fontes.clone(),
+                            caminho_principal: caminho_principal.clone(),
                             comandos: tx_comandos.clone(),
                             atual: None,
                             localizacoes: localizacoes.clone(),
-                            caminhos: vec![caminho.to_string_lossy().into_owned()],
                             expansoes: HashMap::new(),
                             proxima_referencia: 1,
                             pontos_parada: HashSet::new(),
