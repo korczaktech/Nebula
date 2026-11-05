@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "compilador/cli/Cargo.toml"
+      - ".github/workflows/atualizar-lock-dap.yml"
   workflow_dispatch:
 
 permissions:
@@ -35,4 +36,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Cargo.lock
           git commit -m "Atualiza dependências DAP"
+          git pull --rebase origin main
           git push
