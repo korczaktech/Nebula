@@ -107,10 +107,10 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             let linha = ponto.get("line").and_then(Value::as_u64).unwrap_or(0) as usize;
                             let offset = offset_linha(&estado.fonte, linha);
                             let intervalo = offset.and_then(|offset| estado.localizacoes.iter()
-                                .find(|intervalo| intervalo.inicio == offset || estado.fonte.linha_coluna(intervalo.inicio).is_some_and(|(l, _)| l == linha)));
+                                .find(|intervalo| intervalo.inicio == offset || linha_coluna_dap(&estado.fonte, intervalo.inicio).is_some_and(|(l, _)| l == linha)));
                             if let Some(intervalo) = intervalo {
                                 offsets.push(intervalo.inicio);
-                                let (linha_real, coluna) = estado.fonte.linha_coluna(intervalo.inicio).unwrap_or((linha, 1));
+                                let (linha_real, coluna) = linha_coluna_dap(&estado.fonte, intervalo.inicio).unwrap_or((linha, 1));
                                 respostas.push(json!({"id": respostas.len()+1, "verified": true, "line": linha_real, "column": coluna}));
                             } else {
                                 respostas.push(json!({"id": respostas.len()+1, "verified": false, "line": linha, "message": "Nenhuma instrução executável nesta linha."}));
@@ -145,7 +145,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         };
                         let atual = estado.atual.as_ref();
                         let (linha, coluna) = atual.and_then(|evento| evento.intervalo_fonte)
-                            .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
+                            .and_then(|intervalo| estado.linha_coluna_dap(fonte, intervalo.inicio))
                             .unwrap_or((1, 1));
                         let mut nomes = atual.map(|evento| evento.pilha_chamadas.clone()).unwrap_or_default();
                         if nomes.is_empty() { nomes.push("Programa".into()); }
@@ -367,6 +367,18 @@ fn localizacoes_programa(programa: &ProgramaIr) -> Vec<IntervaloFonte> {
         for instrucao in &funcao.corpo { coletar(instrucao, &mut saida); }
     }
     saida
+}
+
+fn linha_coluna_dap(fonte: &ArquivoFonte, offset: usize) -> Option<(usize, usize)> {
+    let conteudo = fonte.conteudo();
+    if offset > conteudo.len() || !conteudo.is_char_boundary(offset) {
+        return None;
+    }
+    let prefixo = &conteudo[..offset];
+    let linha = prefixo.bytes().filter(|byte| *byte == b'\\n').count() + 1;
+    let inicio_linha = prefixo.rfind('\\n').map_or(0, |pos| pos + 1);
+    let coluna = conteudo[inicio_linha..offset].encode_utf16().count() + 1;
+    Some((linha, coluna))
 }
 
 fn offset_linha(fonte: &ArquivoFonte, linha: usize) -> Option<usize> {
