@@ -2329,7 +2329,7 @@ mod testes {
             "variavel anotada: inteiro = 1",
             "constante seta <- 2",
             "privado funcao sem_retorno() {}",
-            "funcao bloco_fim()\n devolver\nfim",
+            "funcao bloco_fim()\n    retorne\nfim",
             "tipo Alias = Texto",
             "tipo AliasSeta <- Texto",
             "tipo Lista = [inteiro]",
@@ -2473,7 +2473,7 @@ mod testes {
             "variavel agrupamento_relacional = (1 < 2) e (3 > 2)",
             "variavel separadores = 1; constante outro = 2",
             "funcao bloco_com_separadores() {\n\n variavel a = 1;;\n variavel b = 2;\n}",
-            "funcao bloco_fim_vazio()\n fim",
+            "funcao bloco_fim_vazio()\nfim",
         ];
 
         for codigo in exemplos {
@@ -3462,7 +3462,7 @@ mod testes {
             ("N2013", "variavel a = 1..2..3"),
             ("N2014", "funcao f<T, T>() {}"),
             ("N2015", "funcao f<>() {}"),
-            ("N2016", "tente"),
+            ("N2016", "tentar"),
             ("N2030", "estrutura Pessoa nome: texto }"),
             ("N2031", "estrutura Pessoa { nome: texto, nome: inteiro }"),
             ("N2032", "estrutura Pessoa { nome: texto idade: inteiro }"),
@@ -3895,7 +3895,7 @@ fim
         let codigo = r#"
 funcao operar(a: inteiro, b: inteiro, idade: inteiro)
     variavel bits = (a & b) | (a ^ b) << 2
-    variavel opcional = valor?.campo ?? padrao
+    variavel opcional = valor?.campo ?? valorPadrao
     variavel faixa = 1..10
     variavel condicao = idade >= 18 ? sim : nao
     variavel objeto = novo Pessoa()
