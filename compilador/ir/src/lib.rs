@@ -1905,6 +1905,7 @@ impl Maquina<'_, '_> {
                                 *contexto.memoria_mutavel().map_err(formatar_erro_runtime)? = memoria;
                                 let mut maquina = Maquina {
                                     programa,
+                                    observador: None,
                                     contexto,
                                     saida: Vec::new(),
                                     entrada: entrada.clone(),
