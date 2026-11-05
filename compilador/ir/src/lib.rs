@@ -425,7 +425,7 @@ impl Lowerer {
             NoAst::Parar => Some(InstrucaoIr::Parar),
             NoAst::Seguir => Some(InstrucaoIr::Seguir),
             NoAst::Passar => None,
-            NoAst::Tipo { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. } | NoAst::Funcao { .. } => None,
+            NoAst::Tipo { .. } | NoAst::Classe { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. } | NoAst::Funcao { .. } => None,
         };
         instrucao.map(|instrucao| {
             let chave = format!("{:?}", item);
