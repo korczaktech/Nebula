@@ -186,42 +186,45 @@ fn parser_produz_todos_os_nos_declarativos_e_de_controle() {
 variavel valor = 1
 constante fixa = 2
 tipo Identificador = inteiro
-estrutura Pessoa { nome: texto }
-enumeracao Estado { Pronto, Falha(texto) }
+estrutura Pessoa:
+    nome: texto
+fim
+enumeracao Estado:
+    Pronto
+    Falha(texto)
+fim
 incluir Modulo::Texto como Texto
 funcao executar(item: inteiro): vazio
-        quando verdadeiro
+    quando verdadeiro
         exibir(item)
     senao
         passar
     fim
-        escolha Estado::Pronto
-            caso Estado::Pronto
-        passar
-    
-            caso _
+    escolha Estado::Pronto
+        caso Estado::Pronto
+            passar
+        caso _
+            passar
+    fim
+    enquanto falso
         passar
     fim
-        enquanto falso
+    cada elemento em [1, 2]
         passar
     fim
-        cada elemento em [1, 2]
+    pulso(10)
         passar
     fim
-        pulso(10)
+    para (;;)
         passar
     fim
-        para (;; )
-        passar
-    fim
-    
     devolver
-        parar
-        seguir
+    parar
+    seguir
 fim
 
 executar(1)
-"#;
+
     let resultado = analisar(&ArquivoFonte::novo("nos.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
