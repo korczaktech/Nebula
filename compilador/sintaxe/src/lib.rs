@@ -116,25 +116,10 @@ impl Parser {
                 }
                 Some(NoAst::Expressao(expressao))
             }
-            TipoToken::Funcao => self.funcao(),
-            TipoToken::Estatico => {
-                self.avancar();
-                if self.corresponde(TipoToken::Funcao) {
-                    let mut funcao = self.funcao_corpo(None)?;
-                    if let NoAst::Funcao { estatica, .. } = &mut funcao { *estatica = true; }
-                    Some(funcao)
-                } else { self.erro_atual("N2002", "'estatico' deve anteceder uma função."); None }
-            }
+            TipoToken::Funcao | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido => self.funcao_modificada(false, None),
             TipoToken::Assinc => {
                 self.avancar();
-                if self.corresponde(TipoToken::Funcao) {
-                    let mut funcao = self.funcao_corpo(None)?;
-                    if let NoAst::Funcao { assincrona, .. } = &mut funcao { *assincrona = true; }
-                    Some(funcao)
-                } else {
-                    self.erro_atual("N2016", "'assinc' deve anteceder uma declaração de função.");
-                    None
-                }
+                self.funcao_modificada(true, None)
             }
             TipoToken::Classe => self.classe(),
             TipoToken::Tente => self.tente(),
@@ -162,20 +147,6 @@ impl Parser {
                 self.avancar();
                 if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico)) }
                 else { self.erro_atual("N2002", "'exportar' deve anteceder uma função."); None }
-            }
-            TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido => {
-                let modificador = self.avancar().tipo;
-                let visibilidade = match modificador {
-                    TipoToken::Publico => Visibilidade::Publico,
-                    TipoToken::Protegido => Visibilidade::Protegido,
-                    _ => Visibilidade::Privado,
-                };
-                if self.corresponde(TipoToken::Funcao) {
-                    self.funcao_corpo(Some(visibilidade))
-                } else {
-                    self.erro_atual("N2002", "Esperado 'funcao' após modificador de visibilidade.");
-                    None
-                }
             }
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Estrutura => self.estrutura(),
@@ -213,6 +184,29 @@ impl Parser {
         let valor = self.expressao(0)?;
         Some(NoAst::Variavel { nome, tipo, valor, constante })
     }
+    fn funcao_modificada(&mut self, assincrona: bool, mut visibilidade: Option<Visibilidade>) -> Option<NoAst> {
+        let mut estatica = false;
+        loop {
+            match self.tipo() {
+                TipoToken::Estatico => { estatica = true; self.avancar(); }
+                TipoToken::Publico => { visibilidade = Some(Visibilidade::Publico); self.avancar(); }
+                TipoToken::Privado => { visibilidade = Some(Visibilidade::Privado); self.avancar(); }
+                TipoToken::Protegido => { visibilidade = Some(Visibilidade::Protegido); self.avancar(); }
+                _ => break,
+            }
+        }
+        if !self.corresponde(TipoToken::Funcao) {
+            self.erro_atual("N2002", "Modificadores devem anteceder uma declaração de função.");
+            return None;
+        }
+        let mut funcao = self.funcao_corpo(visibilidade)?;
+        if let NoAst::Funcao { assincrona: destino_assinc, estatica: destino_estatico, .. } = &mut funcao {
+            *destino_assinc = assincrona;
+            *destino_estatico = estatica;
+        }
+        Some(funcao)
+    }
+
     fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo(None) }
     fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
         let nome = if self.verifica(TipoToken::Construtor) { self.avancar().lexema } else { self.consumir_nome("Esperado nome da função.")? };
