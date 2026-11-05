@@ -90,7 +90,7 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
 }
 
 #[test]
-fn nomes_de_tipos_e_metodos_da_biblioteca_permanecem_identificadores() {
+fn reconhece_obter_e_vazio_como_palavras_reservadas() {
     let r = analisar("vazio obter");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert!(r.tokens[0].tipo == TipoToken::Vazio && r.tokens[1].tipo == TipoToken::Obter);
