@@ -94,24 +94,23 @@ fn nomes_de_tipos_e_metodos_da_biblioteca_permanecem_identificadores() {
     let r = analisar("vazio obter");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert!(
-        r.tokens
-            .iter()
-            .take(2)
-            .all(|t| t.tipo == TipoToken::Identificador)
+        r.tokens[0].tipo == TipoToken::Vazio
+            && r.tokens[1].tipo == TipoToken::Obter
     );
 }
 
 #[test]
 fn reconhece_palavras_de_baixo_nivel_e_deixa_apis_como_identificadores() {
     let r = analisar(
-        "critico privilegio montagem u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 endereco enderecoFisico tamanho deslocamento ponteiro ponteiroBruto vetor hardware memoria cpu atomico dma",
+        "seguro critico privilegio montagem u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 endereco enderecoFisico tamanho deslocamento ponteiro ponteiroBruto vetor hardware memoria cpu atomico dma",
     );
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens[0].tipo, TipoToken::Critico);
-    assert_eq!(r.tokens[1].tipo, TipoToken::Privilegio);
-    assert_eq!(r.tokens[2].tipo, TipoToken::Montagem);
+    assert_eq!(r.tokens[0].tipo, TipoToken::Seguro);
+    assert_eq!(r.tokens[1].tipo, TipoToken::Critico);
+    assert_eq!(r.tokens[2].tipo, TipoToken::Privilegio);
+    assert_eq!(r.tokens[3].tipo, TipoToken::Montagem);
     assert!(
-        r.tokens[3..r.tokens.len() - 1]
+        r.tokens[4..r.tokens.len() - 1]
             .iter()
             .all(|t| t.tipo == TipoToken::Identificador)
     );
@@ -266,15 +265,15 @@ fn respeita_maior_correspondencia_de_operadores() {
 
 #[test]
 fn reconhece_identificadores_unicode_e_normaliza_classificacao() {
-    let r = analisar("ação ação função função público publico");
+    let r = analisar("ação ação função funcao público publico");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert_eq!(r.tokens[0].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[0].lexema, "ação");
     assert_eq!(r.tokens[1].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[1].lexema, "ação");
-    assert_eq!(r.tokens[2].tipo, TipoToken::Funcao);
+    assert_eq!(r.tokens[2].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[3].tipo, TipoToken::Funcao);
-    assert_eq!(r.tokens[4].tipo, TipoToken::Publico);
+    assert_eq!(r.tokens[4].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[5].tipo, TipoToken::Publico);
 }
 
