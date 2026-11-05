@@ -2768,7 +2768,7 @@ mod testes {
     #[test]
     fn normaliza_nomes_de_padroes_e_vinculos_antes_de_validar_duplicidade() {
         let variantes = analisar(&fonte(
-            "escolha x\\n    caso Estado::가\\n        passar\\n    caso Estado::가\\n        passar\\nfim"
+            "escolha x\n    caso Estado::가\n        passar\n    caso Estado::가\n        passar\nfim"
         ));
         assert!(
             variantes.diagnosticos.iter().any(|d| d.codigo == "N2048"),
@@ -2777,7 +2777,7 @@ mod testes {
         );
 
         let vinculacoes = analisar(&fonte(
-            "escolha x\\n    caso Estado::Ok(가, 가)\\n        passar\\nfim"
+            "escolha x\n    caso Estado::Ok(가, 가)\n        passar\nfim"
         ));
         assert!(
             vinculacoes.diagnosticos.iter().any(|d| d.codigo == "N2046"),
