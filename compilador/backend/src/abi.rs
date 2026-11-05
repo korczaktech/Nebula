@@ -90,7 +90,7 @@ pub fn planejar_argumentos(
         let classe = classificar_agregado(tamanho, alinhamento)?;
         let (palavras, tamanho_pilha, alinhamento_pilha) = match classe {
             ClasseAgregado::UmRegistrador => (1usize, 8u64, 8u64),
-            ClasseAgregado::DoisRegistradores => (2, 16, alinhamento.max(8).min(16)),
+            ClasseAgregado::DoisRegistradores => (2, 16, alinhamento.clamp(8, 16)),
             ClasseAgregado::Indireto { .. } => (1, 8, 8),
         };
         let mut locais = Vec::with_capacity(palavras);
