@@ -477,7 +477,6 @@ fn tipos_genericos_preservam_argumentos_constantes_e_tipos_de_funcao_sem_retorno
             retorno: Box::new(TipoAst::Nome("vazio".into()))
         }
     );
-}
     for literal in ["0xFF", "0b1010", "0o755", "1_024"] {
         assert_eq!(
             TipoAst::analisar(&format!("Vetor<inteiro, {literal}>")),
@@ -491,7 +490,7 @@ fn tipos_genericos_preservam_argumentos_constantes_e_tipos_de_funcao_sem_retorno
             "literal constante {literal} deve manter sua base e grafia"
         );
     }
-
+}
 
 #[test]
 fn operadores_ast_cobrem_operadores_aritmeticos_logicos_bitwise_e_compostos() {
