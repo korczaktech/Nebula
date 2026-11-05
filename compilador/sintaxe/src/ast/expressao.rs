@@ -1,7 +1,7 @@
 //! Nós que representam expressões da linguagem Nebula.
 
-use crate::lexer::TipoToken;
 use super::instrucao::NoAst;
+use crate::lexer::TipoToken;
 
 /// Expressões reconhecidas pelo parser.
 #[derive(Debug, Clone, PartialEq, Eq)]
