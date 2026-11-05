@@ -120,8 +120,8 @@ fn reconhece_identificadores_unicode_e_normaliza_classificacao() {
 fn reconhece_numeros_decimais_expoentes_e_bases() {
     let r = analisar("0 42 1_000 3.14 0.25 2e10 1E+2 1e-2 0xFF 0b101 0o77");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Inteiro).count(), 7);
-    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Decimal).count(), 4);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Inteiro).count(), 6);
+    assert_eq!(r.tokens.iter().filter(|t| t.tipo == TipoToken::Decimal).count(), 5);
 }
 
 #[test]
