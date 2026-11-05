@@ -71,7 +71,7 @@ pub fn planejar_argumentos(
         ),
         None => false,
     };
-    let mut proximo_registrador = usize::from(destino_oculto);
+    let mut proximo_registrador = if destino_oculto { 1usize } else { 0usize };
     let mut deslocamento_pilha = 0u64;
     let mut argumentos = Vec::with_capacity(agregados.len());
 
