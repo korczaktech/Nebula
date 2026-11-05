@@ -347,8 +347,8 @@ fn diagnostica_escapes_e_caracteres_invalidos() {
         r#""\u{}""#,
         r#""\u{D800}""#,
         r#""\u{110000}""#,
-        r#"'ab'"#,
-        "''",
+        r#"'texto"#,
+        "'\n'",
     ] {
         assert!(
             !analisar(literal).diagnosticos.is_empty(),
