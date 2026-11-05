@@ -35,9 +35,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 128;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, profundidade_blocos_chaves: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, profundidade_blocos_chaves: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (128 níveis). Reduza o aninhamento.");
@@ -638,6 +638,7 @@ impl Parser {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
         let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
+        if delimitado_por_chaves { self.profundidade_blocos_chaves += 1; }
         let indentado = if delimitado_por_chaves {
             false
         } else {
@@ -828,6 +829,7 @@ impl Parser {
         }
         if delimitado_por_chaves {
             self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
+            self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
         } else {
             self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
             if self.verifica(TipoToken::FimBloco) { self.avancar(); }
@@ -899,6 +901,7 @@ impl Parser {
             }
         }
         if self.corresponde(TipoToken::AbreChave) {
+            self.profundidade_blocos_chaves += 1;
             self.separadores();
             let mut itens = Vec::new();
             while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
@@ -927,6 +930,7 @@ impl Parser {
                 self.separadores();
             }
             self.esperar(TipoToken::FechaChave, "Bloco aberto com '{' não foi fechado com '}'.");
+            self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
             return Some(itens);
         }
 
@@ -939,7 +943,7 @@ impl Parser {
         let indentado = self.corresponde(TipoToken::Indent);
         let mut profundidade_indentacao = usize::from(indentado);
         let mut itens = Vec::new();
-        if !indentado && !matches!(self.tipo(),
+        if !indentado && self.profundidade_blocos_chaves == 0 && !matches!(self.tipo(),
             TipoToken::FimBloco | TipoToken::Fim | TipoToken::Senao
                 | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre
         ) {
@@ -1135,7 +1139,7 @@ impl Parser {
                 };
                 Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
             }
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Assinc | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1152,7 +1156,8 @@ impl Parser {
                 let corpo = self.expressao(0)?;
                 Expressao::Lambda { parametros, corpo: Box::new(corpo) }
             }
-            TipoToken::Isto | TipoToken::TipoDe | TipoToken::InstanciaDe | TipoToken::Obter => Expressao::Nome(self.avancar().lexema),
+            TipoToken::Isto | TipoToken::TipoDe | TipoToken::InstanciaDe | TipoToken::Obter
+            | TipoToken::Modulo | TipoToken::Biblioteca => Expressao::Nome(self.avancar().lexema),
             TipoToken::Identificador => {
                 let nome = self.avancar().lexema.nfc().collect::<String>();
                 let indice_abertura = self.atual;
@@ -1446,7 +1451,7 @@ impl Parser {
             if matches!(tipo, TipoToken::Ponto | TipoToken::Escopo | TipoToken::AcessoOpcional) && 16 >= minimo {
                 let operador = self.avancar().tipo;
                 self.pular_novas_linhas();
-                let nome = self.consumir_nome("Esperado nome após operador de acesso.")?;
+                let nome = self.consumir_nome_acesso("Esperado nome após operador de acesso.")?;
                 esquerda = Expressao::Membro { alvo: Box::new(esquerda), operador, nome };
                 continue;
             }
@@ -1661,6 +1666,13 @@ impl Parser {
         } else {
             self.erro_atual("N2010", mensagem);
             None
+        }
+    }
+    fn consumir_nome_acesso(&mut self, mensagem: &str) -> Option<String> {
+        if matches!(self.tipo(), TipoToken::De | TipoToken::Modulo | TipoToken::Biblioteca | TipoToken::Tipo) {
+            Some(self.avancar().lexema.nfc().collect())
+        } else {
+            self.consumir_nome(mensagem)
         }
     }
     fn fechamento_sem_contexto(&self) -> bool {
