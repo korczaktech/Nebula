@@ -2543,6 +2543,7 @@ impl Maquina<'_, '_> {
         if self.profundidade_chamada >= 32 {
             return Err("Limite de profundidade de chamadas da IR excedido.".into());
         }
+        let localizacao_chamada = self.intervalo_fonte;
         self.profundidade_chamada += 1;
         let limite_escopos = self.contexto.memoria().escopos().len();
         self.limites_escopos.push(limite_escopos);
@@ -2563,6 +2564,7 @@ impl Maquina<'_, '_> {
         self.pilha_chamadas.pop();
         self.limites_escopos.pop();
         self.locais_chamada.pop();
+        self.intervalo_fonte = localizacao_chamada;
         let fluxo = match (fluxo, fechamento) {
             (Err(erro), _) => return Err(erro),
             (Ok(_), Err(erro)) => return Err(erro),
