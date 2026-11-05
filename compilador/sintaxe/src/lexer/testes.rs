@@ -392,7 +392,7 @@ fn nova_linha_e_suprimida_em_parenteses_e_colchetes() {
 }
 
 #[test]
-fn chaves_suprimem_quebras_de_linha() {
+fn chaves_preservam_quebras_de_linha() {
     let r = analisar("Pessoa {\n nome: \"Ana\",\n idade: 20\n}");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert!(
