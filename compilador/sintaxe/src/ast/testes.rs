@@ -224,7 +224,7 @@ funcao executar(item: inteiro): vazio
 fim
 
 executar(1)
-
+"#;
     let resultado = analisar(&ArquivoFonte::novo("nos.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
