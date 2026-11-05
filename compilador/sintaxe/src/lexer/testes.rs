@@ -373,13 +373,13 @@ fn valida_expressoes_dentro_de_textos_interpolados() {
 
 #[test]
 fn ignora_chaves_dentro_de_comentarios_da_interpolacao() {
-    let r = analisar("\\x60Valor: ${objeto /* } */ .campo}\\x60");
+    let r = analisar("\x60Valor: ${objeto /* } */ .campo}\x60");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
 }
 
 #[test]
 fn diagnostica_texto_nao_terminado_dentro_da_interpolacao() {
-    assert!(possui_erro("\\x60Valor: ${\\"texto}\\x60", "N1018"));
+    assert!(possui_erro("\x60Valor: ${\"texto}\x60", "N1018"));
 }
 
 #[test]
