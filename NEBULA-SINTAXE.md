@@ -910,29 +910,30 @@ Comentario de varias linhas.
 */
 ```
 
-# 26. Precedência preliminar dos operadores
+# 26. Precedência dos operadores
 
-A tabela abaixo é uma proposta inicial. A gramática formal deverá confirmar a precedência, associatividade e comportamento de cada operador.
+A tabela abaixo corresponde à ordem atualmente implementada no Parser. Prioridade maior significa maior força de ligação.
 
 | Prioridade | Operadores |
-|---|---|
-| 1 | `()`, `[]`, `.`, `?.` |
-| 2 | `**` |
-| 3 | `+x`, `-x`, `~`, `!`, `nao` |
-| 4 | `*`, `/`, `\\`, `%` |
-| 5 | `+`, `-` |
-| 6 | `<<`, `>>`, `>>>` |
-| 7 | `&` |
-| 8 | `^` |
-| 9 | `|` |
-| 10 | `<`, `>`, `<=`, `>=`, `dentro`, `fora` |
-| 11 | `==`, `!=`, `iguais`, `!==` |
-| 12 | `e` |
-| 13 | `ou` |
-| 14 | `??` |
-| 15 | `? :` |
-| 16 | Operadores de atribuição |
-| 17 | `->` em contextos de expressão de seta |
+|---:|---|
+| 16 | Chamadas, indexação e acesso a membros: `()`, `[]`, `.`, `::`, `?.` |
+| 15 | Potenciação: `**` |
+| 14 | Unários: `+x`, `-x`, `~`, `!`, `nao`, `&x`, `...`, `aguarda`, `novo`, `apagar` |
+| 13 | `*`, `/`, `\\\\`, `%` |
+| 12 | `+`, `-` |
+| 11 | `<<`, `>>`, `>>>` |
+| 10 | Intervalo: `..` |
+| 9 | `<`, `<=`, `>`, `>=`, `dentro`, `fora`, `tipoDe`, `instanciaDe` |
+| 8 | `==`, `!=`, `!==`, `iguais`, `identico` |
+| 7 | E bit a bit: `&` |
+| 6 | XOR bit a bit: `^` |
+| 5 | OU bit a bit: `|` |
+| 4 | E lógico: `e`, `&&` |
+| 3 | Coalescência: `??` |
+| 2 | OU lógico: `ou`, `||` |
+| 1 | Atribuição, condicional `? :`, propagação postfix `?` e seta de função em expressão `->` |
+
+Comparações relacionais encadeadas e operadores de intervalo encadeados são rejeitados. Use operadores lógicos ou parênteses para explicitar a intenção. A potenciação associa à direita.
 
 # 27. Exemplo completo
 
