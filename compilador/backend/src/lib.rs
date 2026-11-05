@@ -450,7 +450,7 @@ impl Emissor {
             InstrucaoIr::Expressao(expressao) => self.expressao(expressao)?,
             InstrucaoIr::Bloco(instrucoes) => self.bloco(instrucoes)?,
             InstrucaoIr::Devolver(valor) => {
-                if let Some((tamanho, deslocamento)) = self.retorno_oculto_atual {
+                if let Some((deslocamento, tamanho)) = self.retorno_oculto_atual {
                     let valor = valor.as_ref().ok_or("Retorno agregado grande exige um valor.")?;
                     self.expressao(valor)?;
                     self.push_rax(); // origem
