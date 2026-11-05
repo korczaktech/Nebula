@@ -976,7 +976,7 @@ impl Parser {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
-            TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1251,12 +1251,29 @@ impl Parser {
                 continue;
             }
             let (precedencia, direita) = match tipo {
-                TipoToken::Atribui => (1,true), TipoToken::Ou => (2,false), TipoToken::E => (3,false),
-                TipoToken::Igual | TipoToken::Diferente => (4,false),
-                TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual => (5,false),
-                TipoToken::Intervalo => (6,false), TipoToken::Mais | TipoToken::Menos => (7,false),
-                TipoToken::Vezes | TipoToken::Divide | TipoToken::Resto => (8,false),
-                TipoToken::Potencia => (10,true), _ => break,
+                TipoToken::Atribui | TipoToken::SomaAtribui | TipoToken::SubtraiAtribui
+                | TipoToken::MultiplicaAtribui | TipoToken::DivideAtribui
+                | TipoToken::DivideInteiraAtribui | TipoToken::RestoAtribui
+                | TipoToken::PotenciaAtribui | TipoToken::CoalesceAtribui => (1, true),
+                TipoToken::Ou | TipoToken::OuLogico => (2, false),
+                TipoToken::Coalesce => (3, true),
+                TipoToken::E | TipoToken::ELogico => (4, false),
+                TipoToken::OuBit => (5, false),
+                TipoToken::XorBit => (6, false),
+                TipoToken::EBit => (7, false),
+                TipoToken::Igual | TipoToken::Diferente | TipoToken::DiferenteEstrito
+                | TipoToken::Iguais | TipoToken::Identico => (8, false),
+                TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior
+                | TipoToken::MaiorIgual | TipoToken::Dentro | TipoToken::Fora
+                | TipoToken::TipoDe | TipoToken::InstanciaDe => (9, false),
+                TipoToken::Intervalo => (10, false),
+                TipoToken::DeslocaEsquerda | TipoToken::DeslocaDireita
+                | TipoToken::DeslocaDireitaSemSinal => (11, false),
+                TipoToken::Mais | TipoToken::Menos => (12, false),
+                TipoToken::Vezes | TipoToken::Divide | TipoToken::DivideInteira
+                | TipoToken::Resto => (13, false),
+                TipoToken::Potencia => (15, true),
+                _ => break,
             };
             let relacional = matches!(tipo, TipoToken::Menor | TipoToken::MenorIgual | TipoToken::Maior | TipoToken::MaiorIgual);
             let intervalo = tipo == TipoToken::Intervalo;
@@ -1273,9 +1290,30 @@ impl Parser {
             let proximo = if direita { precedencia } else { precedencia + 1 };
             self.pular_novas_linhas();
             let valor = self.expressao(proximo)?;
+            let operador_composto = match op {
+                TipoToken::SomaAtribui => Some(TipoToken::Mais),
+                TipoToken::SubtraiAtribui => Some(TipoToken::Menos),
+                TipoToken::MultiplicaAtribui => Some(TipoToken::Vezes),
+                TipoToken::DivideAtribui => Some(TipoToken::Divide),
+                TipoToken::DivideInteiraAtribui => Some(TipoToken::DivideInteira),
+                TipoToken::RestoAtribui => Some(TipoToken::Resto),
+                TipoToken::PotenciaAtribui => Some(TipoToken::Potencia),
+                TipoToken::CoalesceAtribui => Some(TipoToken::Coalesce),
+                _ => None,
+            };
             esquerda = if op == TipoToken::Atribui {
                 Expressao::Atribuicao { destino: Box::new(esquerda), valor: Box::new(valor) }
-            } else { Expressao::Binaria { esquerda: Box::new(esquerda), operador: op, direita: Box::new(valor) } };
+            } else if let Some(operador) = operador_composto {
+                let destino = esquerda.clone();
+                let calculo = Expressao::Binaria {
+                    esquerda: Box::new(esquerda),
+                    operador,
+                    direita: Box::new(valor),
+                };
+                Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
+            } else {
+                Expressao::Binaria { esquerda: Box::new(esquerda), operador: op, direita: Box::new(valor) }
+            };
         }
         Some(esquerda)
     }
