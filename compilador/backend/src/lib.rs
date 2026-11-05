@@ -410,31 +410,42 @@ impl Emissor {
             self.codigo.extend_from_slice(&(-(TAMANHO_QUADRO as i32)).to_le_bytes()); // salva RDI no fim do quadro
             self.retorno_oculto_atual = Some((-(TAMANHO_QUADRO as i32), tamanho));
         }
-        if funcao.parametros.len() > 6 {
-            return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
-        }
         let registradores = [7u8, 6, 2, 1, 8, 9]; // rdi, rsi, rdx, rcx, r8, r9
-        let mut indice_registrador = usize::from(retorno_grande.is_some());
+        let larguras = funcao.parametros.iter()
+            .map(|(_, tipo)| self.largura_abi_tipo(tipo))
+            .collect::<Result<Vec<_>, _>>()?;
+        let posicoes = planejar_posicoes_argumentos(&larguras, usize::from(retorno_grande.is_some()))?;
         let mut slots_superiores = Vec::new();
-        for (nome, tipo) in &funcao.parametros {
+        for ((nome, tipo), posicao) in funcao.parametros.iter().zip(posicoes) {
             self.validar_tipo_abi(tipo)?;
             let largura = self.largura_abi_tipo(tipo)?;
-            if indice_registrador + largura > registradores.len() {
-                return Err(format!("A função '{}' excede os seis registradores inteiros do ABI x86-64.", funcao.nome));
-            }
             let deslocamento = self.declarar_tipado(nome, tipo)?;
-            self.mover_registrador_rax(registradores[indice_registrador]);
+            match posicao {
+                PosicaoArgumento::Registradores(indice) => {
+                    self.mover_registrador_rax(registradores[indice]);
+                    if largura == 2 {
+                        self.mover_registrador_rax(registradores[indice + 1]);
+                    }
+                }
+                PosicaoArgumento::Pilha { deslocamento: pilha, largura: largura_pilha } => {
+                    let origem = i32::try_from(16u64.checked_add(pilha)
+                        .ok_or("Deslocamento de parâmetro excedeu o ABI x86-64.")?)
+                        .map_err(|_| "Deslocamento de parâmetro excedeu o ABI x86-64.")?;
+                    self.carregar_rax(origem);
+                    if largura_pilha == 2 {
+                        self.carregar_rdx(origem + 8);
+                    }
+                }
+            }
             if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                 self.normalizar_tipo(tipo)?;
             }
             self.armazenar_rax(deslocamento);
             if largura == 2 {
-                self.mover_registrador_rax(registradores[indice_registrador + 1]);
-                self.armazenar_rax(deslocamento - 8);
+                self.armazenar_rdx(deslocamento - 8);
             } else {
                 slots_superiores.push(deslocamento - 8);
             }
-            indice_registrador += largura;
         }
         // Só zerar os slots auxiliares depois de capturar todos os argumentos:
         // RDX é também o terceiro registrador de entrada do ABI System V.
