@@ -12,7 +12,7 @@ pub enum TipoToken {
     Para, Dentro, Enquanto, Escolha, Caso, Padrao, Pare, Prossiga, Passar,
     Retorne, Lambda, Ceder, Incluir, Biblioteca, Modulo, De, Como,
     Tente, Erro, Sempre, Lancar, Verifique, Com, Assinc, Aguarda,
-    Global, Externa, Isto, Novo, Apagar, Identico, Nao, E, Ou,
+    Global, Externa, Isto, Novo, Apagar, Identico, Nao, Fora, E, Ou,
     Sim, Verdadeiro, Falso, Nulo, Iguais, TipoDe, InstanciaDe,
     Obter, Definir, Vazio, Exportar, Construtor, Estatico, Privado,
     Publico, Protegido, Critico, Privilegio, Montagem,
