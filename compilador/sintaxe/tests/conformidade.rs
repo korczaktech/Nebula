@@ -36,14 +36,14 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "tipos compostos",
             "tipo Lista = [[Resultado<inteiro>]]\ntipo Funcao = funcao(inteiro, texto): Resultado<[texto]>",
         ),
-        ("estrutura vazia", "estrutura Vazia {}"),
+        ("estrutura vazia", "estrutura Vazia:\n    marcador: inteiro\nfim"),
         (
             "estrutura com campos e separadores",
-            "estrutura Pessoa { nome: texto, idade: inteiro; ativo: logico }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\n    ativo: logico\nfim",
         ),
         (
             "enumeracao com variantes",
-            "enumeracao Estado { Vazio, Unidade(), Valor(inteiro, texto) }",
+            "enumeracao Estado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
         ),
         ("inclusao com alias", "incluir Biblioteca::Texto como Texto"),
         ("inclusao sem alias", "incluir Biblioteca::Interna"),
@@ -133,7 +133,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "grafias ortograficas",
-            "função principal()\n    quando não falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeração Estado { Pronto }\npúblico função iniciar()\n    passar\nfim",
+            "função principal()\n    quando não falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeração Estado:\n    Pronto\nfim\npúblico função iniciar()\n    passar\nfim",
         ),
         (
             "fixture de sintaxe visual",
@@ -192,12 +192,12 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "campo duplicado",
             "N2031",
-            "estrutura Pessoa { nome: texto, nome: inteiro }",
+            "estrutura Pessoa:\n    nome: texto\n    nome: inteiro\nfim",
         ),
         (
             "separador de campo ausente",
             "N2032",
-            "estrutura Pessoa { nome: texto idade: inteiro }",
+            "estrutura Pessoa:\n    nome: texto idade: inteiro\nfim",
         ),
         (
             "abertura de enumeracao ausente",
@@ -207,14 +207,14 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "variante duplicada",
             "N2034",
-            "enumeracao Estado { Ativo, Ativo }",
+            "enumeracao Estado:\n    Ativo\n    Ativo\nfim",
         ),
         (
             "payload malformado",
             "N2035",
-            "enumeracao Estado { Ativo(inteiro,) }",
+            "enumeracao Estado:\n    Ativo(inteiro,)\nfim",
         ),
-        ("enumeracao vazia", "N2036", "enumeracao Estado {}"),
+        ("enumeracao vazia", "N2036", "enumeracao Estado:\nfim"),
         (
             "campo de construcao duplicado",
             "N2037",
@@ -230,38 +230,38 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2040",
             "escolha valor caso _ {}",
         ),
-        ("caso ausente", "N2041", "escolha valor { outro {} }"),
+        ("caso ausente", "N2041", "escolha valor:\n    outro\nfim"),
         (
             "padrao invalido",
             "N2042",
-            "escolha valor { caso Variante {} }",
+            "escolha valor:\n    caso Variante\n        passar\n    fim\nfim",
         ),
         (
             "curinga duplicado",
             "N2043",
-            "escolha valor { caso _ {} caso _ {} }",
+            "escolha valor:\n    caso _\n        passar\n    caso _\n        passar\nfim",
         ),
-        ("escolha vazia", "N2044", "escolha valor {}"),
+        ("escolha vazia", "N2044", "escolha valor:\nfim"),
         (
             "vinculo de payload ausente",
             "N2045",
-            "escolha valor { caso Estado::Erro(1) {} }",
+            "escolha valor:\n    caso Estado::Erro(1)\n        passar\nfim",
         ),
         (
             "vinculo duplicado",
             "N2046",
-            "escolha valor { caso Estado::Erro(item, item) {} }",
+            "escolha valor:\n    caso Estado::Erro(item, item)\n        passar\nfim",
         ),
         ("alterar sem atribuicao", "N2047", "alterar total"),
         (
             "padrao de variante duplicado",
             "N2048",
-            "escolha valor { caso Estado::Erro {} caso Estado::Erro {} }",
+            "escolha valor:\n    caso Estado::Erro\n        passar\n    caso Estado::Erro\n        passar\nfim",
         ),
         (
             "parametro duplicado",
             "N2050",
-            "funcao f(item: inteiro, item: texto) {}",
+            "funcao f(item: inteiro, item: texto)\n    passar\nfim",
         ),
         ("fechamento sem abertura", "N2051", "variavel valor = 1)"),
     ];
@@ -301,8 +301,8 @@ fn diagnosticos_do_corpus_preservam_intervalos_utf8_validos() {
 fn corpus_combinado_preserva_a_ordem_dos_itens() {
     let codigo = r#"
 variavel nome = "Nebula"
-estrutura Pessoa { nome: texto, idade: inteiro }
-enumeracao Estado { Ativo, Inativo }
+estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim
+enumeracao Estado:\n    Ativo\n    Inativo\nfim
 funcao principal(pessoa: Pessoa): vazio
     quando verdadeiro
         exibir(pessoa.nome)
