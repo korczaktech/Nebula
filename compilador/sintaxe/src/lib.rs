@@ -1904,10 +1904,7 @@ mod testes {
     #[test]
     fn analisa_tipos_de_funcao_aninhados() {
         let resultado = analisar(&fonte(
-            "estrutura Registro :
-                callback: funcao(inteiro, texto): logico
-                callbackPadrao: funcao(funcao(inteiro): logico): vazio
-            fim",
+            "estrutura Registro :\n    callback: funcao(inteiro, texto): logico\n    callbackPadrao: funcao(funcao(inteiro): logico): vazio\nfim",
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
@@ -1919,14 +1916,7 @@ mod testes {
 
     #[test]
     fn analisa_declaracoes_de_estrutura_e_enumeracao() {
-        let r = analisar(&fonte("estrutura Pessoa :
-            nome: texto
-            idade: inteiro
-        fim\nenumeracao Estado :
-    Ativo
-    Inativo
-    Erro(texto)
-fim"));
+        let r = analisar(&fonte("estrutura Pessoa :\n    nome: texto\n    idade: inteiro\n    fim\nenumeracao Estado :\n    Ativo\n    Inativo\n    Erro(texto)\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Estrutura { nome, campos } if nome == "Pessoa" && campos.len() == 2));
         assert!(matches!(&r.programa.itens[1], NoAst::Enumeracao { nome, variantes } if nome == "Estado" && variantes.len() == 3 && variantes[2].1 == ["texto"]));
@@ -1934,15 +1924,7 @@ fim"));
 
     #[test]
     fn rejeita_campos_e_variantes_duplicados() {
-        let estrutura = analisar(&fonte("estrutura Pessoa :
-            nome: texto
-            nome: inteiro
-        fim"));
-        assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
-        let enumeracao = analisar(&fonte("enumeracao Estado :
-            Ativo
-            Ativo
-        fim"));
+        let estrutura = analisar(&fonte("estrutura Pessoa :\n    nome: texto\n    nome: inteiro\n    fim"));\n    assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));\n    let enumeracao = analisar(&fonte("enumeracao Estado :\n    Ativo\n    Ativo\nfim"));
         assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
     }
 
@@ -2339,10 +2321,7 @@ fim"));
 
     #[test]
     fn aceita_grafias_portuguesas_sem_acentos() {
-        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nquando nao falso\n    exibir(1)\nsenao\n    exibir(0)\nfim\n\nenumeracao Estado :
-    Ativo
-    Inativo
-fim\npublico funcao principal()\n    exibir(Estado::Ativo)\nfim";
+        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nquando nao falso\n    exibir(1)\nsenao\n    exibir(0)\nfim\n\nenumeracao Estado :\n    Ativo\n    Inativo\nfim\npublico funcao principal()\n    exibir(Estado::Ativo)\nfim";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 4);
