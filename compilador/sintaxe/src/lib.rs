@@ -1495,18 +1495,14 @@ impl Parser {
             return false;
         }
         let mut profundidade = 0usize;
-        for token in self.tokens.iter().skip(self.atual) {
-            match token.tipo {
+        for indice in self.atual..self.tokens.len() {
+            match self.tokens[indice].tipo {
                 TipoToken::Menor => profundidade += 1,
                 TipoToken::Maior => {
                     profundidade = profundidade.saturating_sub(1);
                     if profundidade == 0 {
-                        return self.tokens.get(self.atual + 1)
-                            .is_some_and(|_| {
-                                let indice = self.tokens.iter().position(|candidato| std::ptr::eq(candidato, token));
-                                indice.and_then(|i| self.tokens.get(i + 1))
-                                    .is_some_and(|proximo| proximo.tipo == TipoToken::AbrePar)
-                            });
+                        return self.tokens.get(indice + 1)
+                            .is_some_and(|proximo| proximo.tipo == TipoToken::AbrePar);
                     }
                 }
                 TipoToken::Fim | TipoToken::NovaLinha | TipoToken::PontoVirgula
@@ -1516,7 +1512,6 @@ impl Parser {
         }
         false
     }
-
     fn argumentos_chamada(&mut self, fechamento: TipoToken) -> Option<Vec<Expressao>> {
         let mut argumentos = Vec::new();
         if self.verifica(fechamento) {
