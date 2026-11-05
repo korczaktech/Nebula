@@ -23,7 +23,7 @@ impl<'a> Lexer<'a> {
     }
     fn executar(mut self) -> ResultadoLexico {
         while !self.fim() {
-            if self.inicio_linha && !self.suprime_quebras() {
+            if self.inicio_linha && !self.suprime_indentacao() {
                 self.processar_indentacao();
                 if self.fim() { break; }
             }
@@ -56,6 +56,7 @@ impl<'a> Lexer<'a> {
         self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem,
             Some(IntervaloFonte { inicio, fim })));
     }
+    fn suprime_indentacao(&self) -> bool { !self.delimitadores.is_empty() }
     fn suprime_quebras(&self) -> bool {
         self.delimitadores.iter().any(|(b, _)| matches!(b, b'(' | b'['))
     }
