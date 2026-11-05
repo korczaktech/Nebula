@@ -206,7 +206,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                                     .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
                                     .map(|(linha, _)| linha);
                                 let offsets = estado.localizacoes.iter().filter_map(|intervalo| {
-                                    let (linha, _) = estado.fonte.linha_coluna(intervalo.inicio)?;
+                                    let (linha, _) = linha_coluna_dap(&estado.fonte, intervalo.inicio)?;
                                     (Some(linha) == linha_atual).then_some(intervalo.inicio)
                                 }).collect();
                                 ComandoDepuracao::AvancarLinha(offsets)
