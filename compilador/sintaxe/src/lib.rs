@@ -4152,6 +4152,45 @@ criarUsuario(nome = "Ana", idade = 25)
 
 
     #[test]
+    fn estruturas_e_enumeracoes_rejeitam_blocos_com_chaves() {
+        for (codigo, esperado) in [
+            ("estrutura Pessoa { nome: texto }", "N2030"),
+            ("enumeracao Estado { Pronto }", "N2033"),
+            ("estrutura Pessoa: nome: texto fim", "N2030"),
+            ("enumeracao Estado:\nPronto\nfim", "N2033"),
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
+                "a declaração precisa exigir ':' seguido de indentação: {codigo:?}; {:#?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
+    #[test]
+    fn lambda_com_bloco_usa_indentacao_e_terminador() {
+        let codigo = r#"
+variavel transformar = valor ->
+    quando valor > 0
+        devolver valor * 2
+    senao
+        devolver 0
+    fim
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "lambda com corpo em bloco deve seguir a regra geral de indentação: {:#?}",
+            resultado.diagnosticos
+        );
+        assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado|
+            matches!(localizado.expressao, Expressao::LambdaBloco { .. })
+        ));
+    }
+
+    #[test]
     fn analisa_construcoes_de_baixo_nivel_da_sintaxe2() {
         let codigo = r#"
 @representacao(C)
