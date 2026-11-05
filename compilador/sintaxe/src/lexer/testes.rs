@@ -370,7 +370,7 @@ fn diagnostica_interpolacoes_vazias_e_nao_terminadas() {
 
 #[test]
 fn escape_de_cifrao_nao_inicia_interpolacao() {
-    let r = analisar("\x60Literal: \\ ${nome}`");
+    let r = analisar("\x60Literal: \\${nome}`");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
 }
 
