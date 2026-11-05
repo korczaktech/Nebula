@@ -146,8 +146,8 @@ principal()
 | constructor | `construtor` |
 | typeof | `tipoDe` |
 | instanceof | `instanciaDe` |
-| get | `obter` |
-| set | `definir` |
+| get | — | `obter` é nome reservado, sem declaração própria de getter |
+| set | — | `definir` é alias de declaração de variável, não setter de propriedade |
 | void | `vazio` |
 | safe context | `seguro` |
 | critical section | `critico` |
