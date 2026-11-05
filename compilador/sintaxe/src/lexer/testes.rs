@@ -62,6 +62,7 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
         TipoToken::Apagar,
         TipoToken::Identico,
         TipoToken::Nao,
+        TipoToken::Fora,
         TipoToken::E,
         TipoToken::Ou,
         TipoToken::Sim,
