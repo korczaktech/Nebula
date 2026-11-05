@@ -2304,7 +2304,22 @@ mod testes {
     #[test]
     fn permite_igualdade_estrutural_de_tipos_compostos() {
         let r = analisar_codigo(
-            "estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Falha(texto) }\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel equivalentes = a == b\nvariavel estado = Estado::Falha(\"erro\")\nvariavel estados_iguais = estado == Estado::Falha(\"erro\")\nvariavel tupla_igual = (1, \"x\") == (1, \"x\")\nvariavel lista_igual = [1, 2] == [1, 2]\nvariavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)",
+            r#"estrutura Pessoa:
+    nome: texto
+    idade: inteiro
+fim
+enumeracao Estado:
+    Ativo
+    Falha(texto)
+fim
+variavel a = Pessoa { nome: "Lia", idade: 20 }
+variavel b = Pessoa { nome: "Lia", idade: 20 }
+variavel equivalentes = a == b
+variavel estado = Estado::Falha("erro")
+variavel estados_iguais = estado == Estado::Falha("erro")
+variavel tupla_igual = (1, "x") == (1, "x")
+variavel lista_igual = [1, 2] == [1, 2]
+variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
