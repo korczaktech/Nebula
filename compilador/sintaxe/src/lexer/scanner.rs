@@ -471,6 +471,15 @@ impl<'a> Lexer<'a> {
                 | TipoToken::Ponto
                 | TipoToken::Escopo
                 | TipoToken::Virgula
+                | TipoToken::E
+                | TipoToken::Ou
+                | TipoToken::Dentro
+                | TipoToken::Fora
+                | TipoToken::Iguais
+                | TipoToken::Nao
+                | TipoToken::Aguarda
+                | TipoToken::TipoDe
+                | TipoToken::InstanciaDe
         )
     }
 
@@ -578,22 +587,22 @@ impl<'a> Lexer<'a> {
         self.simples(tipo);
     }
     fn fechar(&mut self, esperado: u8, tipo: TipoToken) {
-        if let Some((aberto, _)) = self.delimitadores.pop() {
-            if aberto != esperado {
-                self.erro(
-                    "N1014",
-                    "Delimitadores fechados em ordem incorreta.",
-                    self.inicio,
-                    self.atual,
-                );
+        match self.delimitadores.last() {
+            Some((aberto, _)) if *aberto == esperado => {
+                self.delimitadores.pop();
             }
-        } else {
-            self.erro(
+            Some(_) => self.erro(
+                "N1014",
+                "Delimitadores fechados em ordem incorreta.",
+                self.inicio,
+                self.atual,
+            ),
+            None => self.erro(
                 "N1015",
                 "Delimitador de fechamento sem abertura correspondente.",
                 self.inicio,
                 self.atual,
-            );
+            ),
         }
         self.simples(tipo);
     }
