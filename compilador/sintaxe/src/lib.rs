@@ -1539,12 +1539,6 @@ impl Parser {
         }
         Some(esquerda)
     }
-    fn token_significativo_anterior(&self) -> Option<TipoToken> {
-        self.tokens[..self.atual].iter().rev()
-            .find(|token| token.tipo != TipoToken::NovaLinha)
-            .map(|token| token.tipo)
-    }
-
     fn proximo_tipo_significativo(&self) -> TipoToken {
         self.tokens.iter().skip(self.atual)
             .find(|token| token.tipo != TipoToken::NovaLinha)
