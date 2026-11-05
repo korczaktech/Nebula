@@ -3900,6 +3900,9 @@ fim
 
 variavel endereco: ponteiroBruto<u8> = obter()
 variavel dados: vetor<u8, 16> = criar()
+variavel leitura = memoria.ler<u32>(endereco)
+variavel saudacao = "Ola, {nome}"
+criarUsuario(nome = "Ana", idade = 25)
 "#;
         let resultado = analisar(&fonte(codigo));
         assert!(
@@ -3925,6 +3928,18 @@ variavel dados: vetor<u8, 16> = criar()
             NoAst::Funcao { nome, estatica: true, visibilidade: Some(Visibilidade::Protegido), .. }
                 if nome == "contar"
         )));
+        assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado| matches!(
+            &localizado.expressao,
+            Expressao::Chamada { tipos_genericos, .. } if tipos_genericos == &["u32"]
+        )));
+        assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado| matches!(
+            &localizado.expressao,
+            Expressao::Chamada { argumentos, .. }
+                if argumentos.iter().any(|argumento| matches!(argumento, Expressao::ArgumentoNomeado { nome, .. } if nome == "nome"))
+        )));
+        assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado|
+            matches!(&localizado.expressao, Expressao::Literal(valor) if valor.contains("{nome}"))
+        ));
     }
 
 };
