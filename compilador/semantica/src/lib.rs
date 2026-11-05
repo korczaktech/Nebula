@@ -559,13 +559,11 @@ impl<'a> Analisador<'a> {
         let tipos_obtidos: Vec<Tipo> = argumentos.iter()
             .map(|argumento| self.expressao(argumento))
             .collect();
-        let mut inferidos = HashMap::new();
-        for (parametro, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
-            if !Self::inferir_genericos(parametro, obtido, &funcao.genericos, &mut inferidos) {
+        let inferidos = Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, Some(esperado))
+            .unwrap_or_else(|| {
                 self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
-            }
-        }
-        let _ = Self::inferir_genericos(&funcao.retorno, esperado, &funcao.genericos, &mut inferidos);
+                HashMap::new()
+            });
         for parametro in &funcao.genericos {
             if !inferidos.contains_key(parametro) {
                 self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
@@ -1153,12 +1151,11 @@ impl<'a> Analisador<'a> {
                             return Tipo::Desconhecido;
                         }
                         let tipos_obtidos: Vec<Tipo> = argumentos.iter().map(|argumento| self.expressao(argumento)).collect();
-                        let mut inferidos = HashMap::new();
-                        for (esperado, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
-                            if !Self::inferir_genericos(esperado, obtido, &funcao.genericos, &mut inferidos) {
+                        let inferidos = Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, None)
+                            .unwrap_or_else(|| {
                                 self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
-                            }
-                        }
+                                HashMap::new()
+                            });
                         for parametro in &funcao.genericos {
                             if !inferidos.contains_key(parametro) {
                                 self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
