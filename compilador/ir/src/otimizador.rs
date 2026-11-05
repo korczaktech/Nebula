@@ -155,6 +155,9 @@ fn propagar_constantes_lista(
 ) {
     for instrucao in instrucoes {
         match instrucao {
+            InstrucaoIr::Localizada { instrucao, .. } => {
+                propagar_constantes_lista(std::slice::from_mut(instrucao.as_mut()), constantes, relatorio);
+            }
             InstrucaoIr::Declarar { nome, valor, constante, .. } => {
                 propagar_constantes_expressao(valor, constantes, relatorio);
                 constantes.remove(nome);
@@ -281,6 +284,7 @@ fn otimizar_instrucao(
     relatorio: &mut RelatorioOtimizacao,
 ) {
     match instrucao {
+        InstrucaoIr::Localizada { instrucao, .. } => otimizar_instrucao(instrucao, nivel, relatorio),
         InstrucaoIr::Declarar { valor, .. } | InstrucaoIr::Expressao(valor) => {
             otimizar_expressao(valor, relatorio);
         }
@@ -331,6 +335,7 @@ fn otimizar_instrucao(
 
 fn termina_fluxo(instrucao: &InstrucaoIr) -> bool {
     match instrucao {
+        InstrucaoIr::Localizada { instrucao, .. } => termina_fluxo(instrucao),
         InstrucaoIr::Devolver(_) | InstrucaoIr::Parar | InstrucaoIr::Seguir => true,
         InstrucaoIr::Bloco(itens) => itens.last().is_some_and(termina_fluxo),
         InstrucaoIr::Se { entao, senao, .. } => {
