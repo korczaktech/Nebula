@@ -4164,7 +4164,7 @@ criarUsuario(nome = "Ana", idade = 25)
     #[test]
     fn lambda_com_bloco_usa_indentacao_e_terminador() {
         let codigo = r#"
-variavel transformar = valor ->
+variavel transformar = valor ->:
     quando valor > 0
         devolver valor * 2
     senao
