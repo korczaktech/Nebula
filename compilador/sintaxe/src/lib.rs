@@ -4120,7 +4120,7 @@ criarUsuario(nome = "Ana", idade = 25)
         );
 
         let recuperacao = analisar(&fonte(
-            "funcao quebrada()\\nvariavel depois = 1"
+            "funcao quebrada()\nvariavel depois = 1"
         ));
         assert!(
             recuperacao.diagnosticos.iter().any(|d| d.codigo == "N2009"),
