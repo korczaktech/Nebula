@@ -54,7 +54,7 @@ impl Parser {
             let antes = self.atual;
             let diagnosticos_antes = self.diagnosticos.len();
             let no = self.item();
-            let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+            let bloco_recuperado = no.as_ref().is_some_and(|no| Self::eh_bloco(no))
                 && self.diagnosticos.len() > diagnosticos_antes
                 && self.inicia_item();
             if let Some(no) = no { itens.push(no); }
@@ -1467,9 +1467,9 @@ impl Parser {
         }
         Some(esquerda)
     }
-    fn eh_bloco(&self, no: &NoAst) -> bool {
+    fn eh_bloco(no: &NoAst) -> bool {
         match no {
-            NoAst::Atributada { declaracao, .. } => self.eh_bloco(declaracao),
+            NoAst::Atributada { declaracao, .. } => Self::eh_bloco(declaracao),
             _ => matches!(no,
                 NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
                 | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
