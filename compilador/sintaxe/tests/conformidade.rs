@@ -497,7 +497,7 @@ variavel indexacao = itens[0]
 variavel membro = objeto.campo
 variavel construcao = Pessoa { nome: "Ana" }
 variavel lambda = x -> x + 1
-variavel lambda_bloco = x ->
+variavel lambda_bloco = x ->:
     devolver x
 fim
 variavel condicional = idade >= 18 ? "adulto" : "menor"
