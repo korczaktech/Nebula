@@ -58,7 +58,9 @@ pub enum LocalArgumento {
         tamanho: u64,
         alinhamento: u64,
     },
-    PonteiroPilha { deslocamento: u64 },
+    PonteiroPilha {
+        deslocamento: u64,
+    },
 }
 
 /// Plano de passagem de argumentos e tamanho da área de pilha.
@@ -296,14 +298,23 @@ mod testes {
     #[test]
     fn argumento_grande_e_passado_por_um_ponteiro() {
         let plano = planejar_argumentos(&[(24, 8)], None).unwrap();
-        assert_eq!(plano.argumentos[0], vec![LocalArgumento::PonteiroRegistrador(0)]);
+        assert_eq!(
+            plano.argumentos[0],
+            vec![LocalArgumento::PonteiroRegistrador(0)]
+        );
     }
 
     #[test]
     fn ponteiro_de_agregado_grande_vai_para_pilha_quando_faltam_registradores() {
-        let argumentos = vec![(8, 8); 6].into_iter().chain([(24, 8)]).collect::<Vec<_>>();
+        let argumentos = vec![(8, 8); 6]
+            .into_iter()
+            .chain([(24, 8)])
+            .collect::<Vec<_>>();
         let plano = planejar_argumentos(&argumentos, None).unwrap();
-        assert_eq!(plano.argumentos[6], vec![LocalArgumento::PonteiroPilha { deslocamento: 0 }]);
+        assert_eq!(
+            plano.argumentos[6],
+            vec![LocalArgumento::PonteiroPilha { deslocamento: 0 }]
+        );
         assert_eq!(plano.tamanho_pilha, 16);
     }
 
