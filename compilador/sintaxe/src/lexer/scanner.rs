@@ -489,12 +489,12 @@ impl<'a> Lexer<'a> {
     fn proxima_posicao_significativa(&self) -> usize {
         let mut posicao = self.atual;
         loop {
-            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t' | b'\\n')) {
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\t' | b'\n')) {
                 posicao += 1;
             }
-            if self.bytes.get(posicao) == Some(&b'\\r') {
+            if self.bytes.get(posicao) == Some(&b'\r') {
                 posicao += 1;
-                if self.bytes.get(posicao) == Some(&b'\\n') {
+                if self.bytes.get(posicao) == Some(&b'\n') {
                     posicao += 1;
                 }
                 continue;
@@ -503,7 +503,7 @@ impl<'a> Lexer<'a> {
                 || (self.bytes.get(posicao) == Some(&b'/')
                     && self.bytes.get(posicao + 1) == Some(&b'/'))
             {
-                while !matches!(self.bytes.get(posicao), None | Some(b'\\n' | b'\\r')) {
+                while !matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r')) {
                     posicao += 1;
                 }
                 continue;
