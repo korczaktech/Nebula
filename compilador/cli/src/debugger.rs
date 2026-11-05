@@ -6,7 +6,7 @@ use nebula_ir::{
 use nebula_semantica::ModulosDisponiveis;
 use nebula_sintaxe::analisar;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Sender};
@@ -25,6 +25,7 @@ struct Estado {
     caminhos: Vec<String>,
     expansoes: HashMap<usize, Vec<(String, ValorIr)>>,
     proxima_referencia: usize,
+    pontos_parada: HashSet<usize>,
 }
 
 pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), String> {
@@ -89,6 +90,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             caminhos: vec![caminho.to_string_lossy().into_owned()],
                             expansoes: HashMap::new(),
                             proxima_referencia: 1,
+                            pontos_parada: HashSet::new(),
                         });
                         if continuar_inicializacao {
                             let _ = tx_comandos.send(ComandoDepuracao::Continuar);
@@ -118,6 +120,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                                 respostas.push(json!({"id": respostas.len()+1, "verified": false, "line": linha, "message": "Nenhuma instrução executável nesta linha."}));
                             }
                         }
+                        estado.pontos_parada = offsets.iter().copied().collect();
                         estado.comandos.send(ComandoDepuracao::DefinirPontosFonte(offsets))
                             .map_err(|erro| format!("Não foi possível atualizar breakpoints: {erro}"))?;
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({"breakpoints": respostas}))?;
@@ -263,8 +266,15 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         let (linha, coluna) = atual.intervalo_fonte
                             .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
                             .unwrap_or((1, 1));
+                        let motivo = if primeira {
+                            "entry"
+                        } else if atual.intervalo_fonte.is_some_and(|intervalo| estado.pontos_parada.contains(&intervalo.inicio)) {
+                            "breakpoint"
+                        } else {
+                            "step"
+                        };
                         evento(&mut saida, &mut sequencia, "stopped", json!({
-                            "reason": if primeira { "entry" } else { "step" },
+                            "reason": motivo,
                             "description": format!("Nebula pausada na linha {linha}, coluna {coluna}."),
                             "threadId": 1,
                             "allThreadsStopped": true
