@@ -116,43 +116,51 @@ impl<'a> Lexer<'a> {
             Some(IntervaloFonte { inicio, fim }),
         ));
     }
-    fn linha_contem_apenas_comentario_bloco(&self) -> bool {
+    fn linha_sem_codigo(&self) -> bool {
         let mut posicao = self.atual;
+        while matches!(self.bytes.get(posicao), Some(b' ' | b'\t')) {
+            posicao += 1;
+        }
+
         loop {
-            if self.bytes.get(posicao) != Some(&b'/') || self.bytes.get(posicao + 1) != Some(&b'*')
-            {
-                return false;
-            }
-            posicao += 2;
-            let mut fechado = false;
-            while posicao < self.bytes.len() {
-                if self.bytes.get(posicao) == Some(&b'\n')
-                    || self.bytes.get(posicao) == Some(&b'\r')
-                {
-                    return true;
-                }
-                if self.bytes.get(posicao) == Some(&b'*')
-                    && self.bytes.get(posicao + 1) == Some(&b'/')
-                {
+            match self.bytes.get(posicao) {
+                None | Some(b'\n' | b'\r' | b'#') => return true,
+                Some(b'/') if self.bytes.get(posicao + 1) == Some(&b'/') => return true,
+                Some(b'/') if self.bytes.get(posicao + 1) == Some(&b'*') => {
                     posicao += 2;
-                    fechado = true;
-                    break;
+                    let mut fechado = false;
+                    while posicao < self.bytes.len() {
+                        if matches!(self.bytes.get(posicao), Some(b'\n' | b'\r')) {
+                            return true;
+                        }
+                        if self.bytes.get(posicao) == Some(&b'*')
+                            && self.bytes.get(posicao + 1) == Some(&b'/')
+                        {
+                            posicao += 2;
+                            fechado = true;
+                            break;
+                        }
+                        posicao += 1;
+                    }
+                    if !fechado {
+                        return true;
+                    }
+                    while matches!(self.bytes.get(posicao), Some(b' ' | b'\t')) {
+                        posicao += 1;
+                    }
+                    if self.bytes.get(posicao) == Some(&b'/')
+                        && self.bytes.get(posicao + 1) == Some(&b'*')
+                    {
+                        continue;
+                    }
+                    return matches!(
+                        self.bytes.get(posicao),
+                        None | Some(b'\n' | b'\r' | b'#')
+                    ) || (self.bytes.get(posicao) == Some(&b'/')
+                        && self.bytes.get(posicao + 1) == Some(&b'/'));
                 }
-                posicao += 1;
+                _ => return false,
             }
-            if !fechado {
-                return true;
-            }
-            while matches!(self.bytes.get(posicao), Some(b' ' | b'\t')) {
-                posicao += 1;
-            }
-            if self.bytes.get(posicao) == Some(&b'/') && self.bytes.get(posicao + 1) == Some(&b'*')
-            {
-                continue;
-            }
-            return matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r' | b'#'))
-                || (self.bytes.get(posicao) == Some(&b'/')
-                    && self.bytes.get(posicao + 1) == Some(&b'/'));
         }
     }
 
@@ -165,6 +173,13 @@ impl<'a> Lexer<'a> {
             .any(|(b, _)| matches!(b, b'(' | b'['))
     }
     fn processar_indentacao(&mut self) {
+        if self.linha_sem_codigo() {
+            while matches!(self.byte(0), Some(b' ' | b'\t')) {
+                self.atual += 1;
+            }
+            self.inicio_linha = false;
+            return;
+        }
         let inicio = self.atual;
         let mut coluna = 0usize;
         let mut tab = false;
@@ -175,15 +190,6 @@ impl<'a> Lexer<'a> {
             } else {
                 coluna += 1;
             }
-        }
-        if self.fim()
-            || matches!(self.byte(0), Some(b'\n' | b'\r'))
-            || self.byte(0) == Some(b'#')
-            || (self.byte(0) == Some(b'/') && self.byte(1) == Some(b'/'))
-            || self.linha_contem_apenas_comentario_bloco()
-        {
-            self.inicio_linha = false;
-            return;
         }
         if tab {
             self.erro(
