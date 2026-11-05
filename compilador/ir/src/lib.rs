@@ -6,6 +6,7 @@
 #[rustfmt::skip]
 mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
+use nebula_fonte::IntervaloFonte;
 use nebula_biblioteca::dados::{analisar_json, serializar_json};
 use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoToken};
 use nebula_runtime::{
@@ -73,6 +74,7 @@ pub enum InstrucaoIr {
     Devolver(Option<ExpressaoIr>),
     Parar,
     Seguir,
+    Localizada { intervalo: IntervaloFonte, instrucao: Box<InstrucaoIr> },
 }
 
 /// Caso de enumeração convertido para IR.
@@ -165,6 +167,10 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
         fila_instancias: Vec::new(),
         escopos_tipos: vec![HashMap::new()],
         substituicoes: HashMap::new(),
+        localizacoes: programa.nos_localizados.iter().fold(HashMap::<String, VecDeque<IntervaloFonte>>::new(), |mut mapa, localizado| {
+            mapa.entry(format!("{:?}", localizado.no)).or_default().push_back(localizado.intervalo);
+            mapa
+        }),
     };
     let mut layouts_tipos = HashMap::new();
     for item in &programa.itens {
@@ -258,6 +264,7 @@ struct Lowerer {
     fila_instancias: Vec<(String, String, HashMap<String, String>)>,
     escopos_tipos: Vec<HashMap<String, Tipo>>,
     substituicoes: HashMap<String, String>,
+    localizacoes: HashMap<String, VecDeque<IntervaloFonte>>,
 }
 
 impl Lowerer {
@@ -318,7 +325,7 @@ impl Lowerer {
     }
 
     fn item(&mut self, item: &NoAst) -> Option<InstrucaoIr> {
-        match item {
+        let instrucao = match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
                 let tipo_inferido = if tipo.is_none() { self.inferir_tipo_ast(valor) } else { Tipo::Desconhecido };
                 let mut valor = self.expressao(valor)?;
@@ -415,7 +422,14 @@ impl Lowerer {
             NoAst::Parar => Some(InstrucaoIr::Parar),
             NoAst::Seguir => Some(InstrucaoIr::Seguir),
             NoAst::Tipo { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. } | NoAst::Funcao { .. } => None,
-        }
+        };
+        instrucao.map(|instrucao| {
+            let chave = format!("{:?}", item);
+            match self.localizacoes.get_mut(&chave).and_then(VecDeque::pop_front) {
+                Some(intervalo) => InstrucaoIr::Localizada { intervalo, instrucao: Box::new(instrucao) },
+                None => instrucao,
+            }
+        })
     }
 
     fn registrar_instancia_generica(
@@ -1241,6 +1255,8 @@ pub fn executar_com_entrada(
 /// Estado observável da máquina no instante anterior à execução de uma instrução.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventoDepuracao {
+    /// Intervalo de bytes da instrução atual na fonte original.
+    pub intervalo_fonte: Option<IntervaloFonte>,
     /// Número sequencial do passo atual.
     pub passo: usize,
     /// Profundidade atual de chamadas.
@@ -1400,6 +1416,7 @@ fn executar_interno(
         limite: limite_passos.max(1),
         profundidade_chamada: 0,
         pilha_chamadas: Vec::new(),
+        intervalo_fonte: None,
     };
     let resultado = (|| {
         let fluxo = vm.bloco_raiz(&programa.instrucoes)?;
@@ -1703,6 +1720,7 @@ struct Maquina<'p, 'o> {
     limite: usize,
     profundidade_chamada: usize,
     pilha_chamadas: Vec<String>,
+    intervalo_fonte: Option<IntervaloFonte>,
 }
 
 impl Maquina<'_, '_> {
@@ -1722,6 +1740,7 @@ impl Maquina<'_, '_> {
                     .collect::<Result<HashMap<_, _>, String>>())
                 .collect::<Result<Vec<_>, String>>()?;
             let evento = EventoDepuracao {
+                intervalo_fonte: self.intervalo_fonte,
                 passo: self.passos,
                 profundidade_chamada: self.profundidade_chamada,
                 pilha_chamadas: self.pilha_chamadas.clone(),
@@ -1765,6 +1784,10 @@ impl Maquina<'_, '_> {
 
     fn instrucao(&mut self, item: &InstrucaoIr) -> Result<Fluxo, String> {
         match item {
+            InstrucaoIr::Localizada { intervalo, instrucao } => {
+                self.intervalo_fonte = Some(*intervalo);
+                self.instrucao(instrucao)
+            }
             InstrucaoIr::Declarar { nome, tipo, valor, constante } => {
                 let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
