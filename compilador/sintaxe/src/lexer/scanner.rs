@@ -433,6 +433,9 @@ impl<'a> Lexer<'a> {
         }) else {
             return false;
         };
+        if matches!(token.tipo, TipoToken::Maior | TipoToken::Menor) {
+            return self.proximo_token_pode_ser_operando();
+        }
         matches!(
             token.tipo,
             TipoToken::Atribui
@@ -454,8 +457,6 @@ impl<'a> Lexer<'a> {
                 | TipoToken::Igual
                 | TipoToken::Diferente
                 | TipoToken::DiferenteEstrito
-                | TipoToken::Maior
-                | TipoToken::Menor
                 | TipoToken::MaiorIgual
                 | TipoToken::MenorIgual
                 | TipoToken::ELogico
@@ -488,15 +489,15 @@ impl<'a> Lexer<'a> {
         )
     }
 
-    fn proximo_token_inicia_continuacao(&self) -> bool {
+    fn proxima_posicao_significativa(&self) -> usize {
         let mut posicao = self.atual;
         loop {
-            while matches!(self.bytes.get(posicao), Some(b' ' | b'\t' | b'\n')) {
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t' | b'\\n')) {
                 posicao += 1;
             }
-            if self.bytes.get(posicao) == Some(&b'\r') {
+            if self.bytes.get(posicao) == Some(&b'\\r') {
                 posicao += 1;
-                if self.bytes.get(posicao) == Some(&b'\n') {
+                if self.bytes.get(posicao) == Some(&b'\\n') {
                     posicao += 1;
                 }
                 continue;
@@ -505,7 +506,7 @@ impl<'a> Lexer<'a> {
                 || (self.bytes.get(posicao) == Some(&b'/')
                     && self.bytes.get(posicao + 1) == Some(&b'/'))
             {
-                while !matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r')) {
+                while !matches!(self.bytes.get(posicao), None | Some(b'\\n' | b'\\r')) {
                     posicao += 1;
                 }
                 continue;
@@ -523,8 +524,45 @@ impl<'a> Lexer<'a> {
             }
             break;
         }
+        posicao
+    }
 
-        let restante = &self.fonte[posicao..];
+    fn proximo_token_pode_ser_operando(&self) -> bool {
+        let restante = &self.fonte[self.proxima_posicao_significativa()..];
+        let Some(caractere) = restante.chars().next() else {
+            return false;
+        };
+        if caractere == '_' || is_xid_start(caractere) {
+            let tamanho = restante
+                .char_indices()
+                .take_while(|(_, c)| *c == '_' || is_xid_continue(*c))
+                .map(|(indice, c)| indice + c.len_utf8())
+                .last()
+                .unwrap_or(caractere.len_utf8());
+            let palavra = &restante[..tamanho];
+            return !matches!(
+                palavra,
+                "variavel" | "definir" | "mutavel" | "constante" | "alterar"
+                    | "funcao" | "assinc" | "classe" | "estrutura" | "enumeracao"
+                    | "tipo" | "incluir" | "global" | "externa" | "exportar"
+                    | "publico" | "privado" | "protegido" | "estatico"
+                    | "se" | "quando" | "sendo" | "senao" | "escolha" | "avaliar"
+                    | "caso" | "padrao" | "enquanto" | "durante" | "repetir"
+                    | "para" | "cada" | "pulso" | "tente" | "erro" | "sempre"
+                    | "com" | "critico" | "seguro" | "privilegio" | "montagem"
+                    | "devolver" | "retorne" | "passar" | "parar" | "pare"
+                    | "encerrar" | "seguir" | "prossiga" | "ceder" | "lancar"
+                    | "verifique" | "fim"
+            );
+        }
+        matches!(
+            caractere,
+            '0'..='9' | '"' | '\'' | '(' | '[' | '{' | '+' | '-' | '!' | '~' | '&' | '*' | '`'
+        )
+    }
+
+    fn proximo_token_inicia_continuacao(&self) -> bool {
+        let restante = &self.fonte[self.proxima_posicao_significativa()..];
         [
             ">>>", ">>", "<<", "!==", "!=", "==", ">=", "<=", "&&", "||", "??=", "??", "?.", "...",
             "::", "(", "[", "+", "-", "*", "/", "\\\\", "%", "^", ">", "<", "=", "!", "&", "|",
@@ -542,6 +580,7 @@ impl<'a> Lexer<'a> {
                             .is_none_or(|c| !(c == '_' || is_xid_continue(c)))
                 })
     }
+
     fn comentario_linha(&mut self) {
         while !self.fim() && !matches!(self.byte(0), Some(b'\n' | b'\r')) {
             if let Some(c) = self.caractere() {
