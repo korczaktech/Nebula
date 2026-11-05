@@ -90,6 +90,7 @@ pub fn planejar_argumentos(
 
     for &(tamanho, alinhamento) in agregados {
         let classe = classificar_agregado(tamanho, alinhamento)?;
+        let indireto = matches!(classe, ClasseAgregado::Indireto { .. });
         let (palavras, tamanho_pilha, alinhamento_pilha) = match classe {
             ClasseAgregado::UmRegistrador => (1usize, 8u64, 8u64),
             ClasseAgregado::DoisRegistradores => (2, 16, alinhamento.clamp(8, 16)),
@@ -296,6 +297,14 @@ mod testes {
     fn argumento_grande_e_passado_por_um_ponteiro() {
         let plano = planejar_argumentos(&[(24, 8)], None).unwrap();
         assert_eq!(plano.argumentos[0], vec![LocalArgumento::PonteiroRegistrador(0)]);
+    }
+
+    #[test]
+    fn ponteiro_de_agregado_grande_vai_para_pilha_quando_faltam_registradores() {
+        let argumentos = vec![(8, 8); 6].into_iter().chain([(24, 8)]).collect::<Vec<_>>();
+        let plano = planejar_argumentos(&argumentos, None).unwrap();
+        assert_eq!(plano.argumentos[6], vec![LocalArgumento::PonteiroPilha { deslocamento: 0 }]);
+        assert_eq!(plano.tamanho_pilha, 16);
     }
 
     #[test]
