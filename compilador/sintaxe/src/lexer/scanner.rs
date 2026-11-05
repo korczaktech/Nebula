@@ -1006,9 +1006,17 @@ impl<'a> Lexer<'a> {
         while !self.fim() {
             match self.byte(0) {
                 Some(b'\'' | b'"') => {
+                    let inicio_texto = self.atual;
                     let aspas = self.avancar();
                     possui_expressao = true;
-                    self.pular_texto_de_interpolacao(aspas);
+                    if !self.pular_texto_de_interpolacao(aspas) {
+                        self.erro(
+                            "N1018",
+                            "Texto interno da interpolação não foi terminado.",
+                            inicio_texto,
+                            self.atual,
+                        );
+                    }
                 }
                 Some(b'{') => {
                     profundidade += 1;
@@ -1054,11 +1062,11 @@ impl<'a> Lexer<'a> {
         );
     }
 
-    fn pular_texto_de_interpolacao(&mut self, aspas: u8) {
+    fn pular_texto_de_interpolacao(&mut self, aspas: u8) -> bool {
         while !self.fim() {
             if self.byte(0) == Some(aspas) {
                 self.atual += 1;
-                return;
+                return true;
             }
             if self.byte(0) == Some(b'\\') {
                 self.atual += 1;
@@ -1068,13 +1076,14 @@ impl<'a> Lexer<'a> {
                     }
                 }
             } else if matches!(self.byte(0), Some(b'\n' | b'\r')) {
-                return;
+                return false;
             } else if let Some(caractere) = self.caractere() {
                 self.atual += caractere.len_utf8();
             } else {
-                return;
+                return false;
             }
         }
+        false
     }
 
     fn escape_valido(&mut self) -> bool {
