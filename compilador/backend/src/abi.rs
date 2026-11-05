@@ -58,7 +58,7 @@ pub struct PlanoArgumentos {
 
 /// Planeja argumentos sem dividir um agregado entre registradores e pilha.
 ///
-/// Agregados grandes ocupam um único argumento-p ponteiro. Um retorno grande
+/// Agregados grandes ocupam um único argumento-ponteiro. Um retorno grande
 /// reserva RDI para o endereço de destino antes dos argumentos explícitos.
 pub fn planejar_argumentos(
     agregados: &[(u64, u64)],
@@ -203,7 +203,9 @@ mod testes {
 
     #[test]
     fn agregado_nao_e_dividido_entre_registrador_e_pilha() {
-        let plano = planejar_argumentos(&[(8, 8); 5].into_iter().chain([(16, 16)]).collect::<Vec<_>>(), None).unwrap();
+        let mut argumentos = vec![(8, 8); 5];
+        argumentos.push((16, 16));
+        let plano = planejar_argumentos(&argumentos, None).unwrap();
         assert_eq!(plano.argumentos[4], vec![LocalArgumento::Registrador(4)]);
         assert_eq!(plano.argumentos[5], vec![LocalArgumento::Pilha { deslocamento: 0, tamanho: 16, alinhamento: 16 }]);
         assert_eq!(plano.tamanho_pilha, 16);
