@@ -668,6 +668,7 @@ impl Parser {
     fn escolha(&mut self) -> Option<NoAst> {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
+        self.corresponde(TipoToken::DoisPontos);
         let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
         if delimitado_por_chaves {
             self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
@@ -928,6 +929,7 @@ impl Parser {
         self.com_profundidade(|parser| parser.bloco_interno(false))
     }
     fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
+        self.corresponde(TipoToken::DoisPontos);
         if self.verifica(TipoToken::NovaLinha) {
             let proximo = self.tokens.iter().skip(self.atual)
                 .find(|token| token.tipo != TipoToken::NovaLinha)
