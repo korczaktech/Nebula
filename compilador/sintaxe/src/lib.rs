@@ -730,7 +730,12 @@ impl Parser {
     }
     fn bloco_interno(&mut self) -> Option<Vec<NoAst>> {
         if self.verifica(TipoToken::NovaLinha) {
-            self.pular_novas_linhas();
+            let proximo = self.tokens.iter().skip(self.atual)
+                .find(|token| token.tipo != TipoToken::NovaLinha)
+                .map(|token| token.tipo);
+            if proximo == Some(TipoToken::AbreChave) {
+                self.pular_novas_linhas();
+            }
         }
         if self.corresponde(TipoToken::AbreChave) {
             self.separadores();
