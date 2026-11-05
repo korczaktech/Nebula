@@ -8,6 +8,7 @@ pub struct CasoEscolha {
     pub enumeracao: Option<String>,
     pub variante: Option<String>,
     pub vinculacoes: Vec<String>,
+    pub expressao: Option<super::expressao::Expressao>,
     pub corpo: Vec<NoAst>,
 }
 
@@ -26,6 +27,13 @@ pub enum PadraoAst {
 impl CasoEscolha {
     /// Converte os campos legados do caso em um padrão estruturado.
     pub fn padrao(&self) -> PadraoAst {
+        if let Some(expressao) = &self.expressao {
+            return match expressao {
+                super::expressao::Expressao::Literal(valor) => PadraoAst::Literal(valor.clone()),
+                super::expressao::Expressao::Nome(nome) => PadraoAst::Vinculacao(nome.clone()),
+                _ => PadraoAst::Literal(format!("{expressao:?}")),
+            };
+        }
         match (&self.enumeracao, &self.variante) {
             (None, None) => PadraoAst::Curinga,
             (None, Some(nome)) if nome == "_" => PadraoAst::Curinga,
