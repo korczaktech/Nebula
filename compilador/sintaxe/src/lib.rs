@@ -3614,6 +3614,6 @@ pub use ast::{
     NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
     TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
 };
-pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico
+pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
 pub use implementacao::*;
