@@ -117,6 +117,14 @@ impl Parser {
                 Some(NoAst::Expressao(expressao))
             }
             TipoToken::Funcao => self.funcao(),
+            TipoToken::Estatico => {
+                self.avancar();
+                if self.corresponde(TipoToken::Funcao) {
+                    let mut funcao = self.funcao_corpo(None)?;
+                    if let NoAst::Funcao { estatica, .. } = &mut funcao { *estatica = true; }
+                    Some(funcao)
+                } else { self.erro_atual("N2002", "'estatico' deve anteceder uma função."); None }
+            }
             TipoToken::Assinc => {
                 self.avancar();
                 if self.corresponde(TipoToken::Funcao) {
@@ -155,11 +163,12 @@ impl Parser {
                 if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico)) }
                 else { self.erro_atual("N2002", "'exportar' deve anteceder uma função."); None }
             }
-            TipoToken::Publico | TipoToken::Privado => {
-                let visibilidade = if self.avancar().tipo == TipoToken::Publico {
-                    Visibilidade::Publico
-                } else {
-                    Visibilidade::Privado
+            TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido => {
+                let modificador = self.avancar().tipo;
+                let visibilidade = match modificador {
+                    TipoToken::Publico => Visibilidade::Publico,
+                    TipoToken::Protegido => Visibilidade::Protegido,
+                    _ => Visibilidade::Privado,
                 };
                 if self.corresponde(TipoToken::Funcao) {
                     self.funcao_corpo(Some(visibilidade))
@@ -206,7 +215,7 @@ impl Parser {
     }
     fn funcao(&mut self) -> Option<NoAst> { self.avancar(); self.funcao_corpo(None) }
     fn funcao_corpo(&mut self, visibilidade: Option<Visibilidade>) -> Option<NoAst> {
-        let nome = self.consumir_nome("Esperado nome da função.")?;
+        let nome = if self.verifica(TipoToken::Construtor) { self.avancar().lexema } else { self.consumir_nome("Esperado nome da função.")? };
         let mut genericos = Vec::new();
         if self.corresponde(TipoToken::Menor) {
             let mut generico_sem_parametro = false;
@@ -1480,7 +1489,7 @@ impl Parser {
     fn inicia_item(&self) -> bool {
         matches!(self.tipo(),
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
-            | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Publico | TipoToken::Privado
+            | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido
             | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
             | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
