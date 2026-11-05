@@ -1,0 +1,19 @@
+variavel logico: logico = verdadeiro
+variavel inteiro_padrao: inteiro = 1
+variavel inteiro8: inteiro8 = inteiro8(127)
+variavel inteiro16: inteiro16 = inteiro16(32767)
+variavel inteiro32: inteiro32 = inteiro32(2147483647)
+variavel inteiro64: inteiro64 = inteiro64(9223372036854775807)
+variavel inteiro128: inteiro128 = inteiro128(170141183460469231731687303715884105727)
+variavel inteiro_u8: inteiro_u8 = inteiro_u8(255)
+variavel inteiro_u16: inteiro_u16 = inteiro_u16(65535)
+variavel inteiro_u32: inteiro_u32 = inteiro_u32(4294967295)
+variavel inteiro_u64: inteiro_u64 = inteiro_u64(18446744073709551615)
+variavel inteiro_u128: inteiro_u128 = inteiro_u128(340282366920938463463374607431768211455)
+variavel decimal: decimal = decimal(1.5)
+variavel decimal32: decimal32 = decimal32(1.25)
+variavel decimal64: decimal64 = decimal64(2.5)
+variavel texto: texto = "Nebula"
+variavel caractere: caractere = 'λ'
+variavel byte: byte = byte(255)
+funcao sem_retorno(): vazio { exibir("vazio") }
