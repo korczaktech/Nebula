@@ -16,4 +16,6 @@ variavel decimal64: decimal64 = decimal64(2.5)
 variavel texto: texto = "Nebula"
 variavel caractere: caractere = 'λ'
 variavel byte: byte = byte(255)
-funcao sem_retorno(): vazio { exibir("vazio") }
+funcao sem_retorno(): vazio
+    exibir("vazio")
+fim
