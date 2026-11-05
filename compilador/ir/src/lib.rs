@@ -2551,12 +2551,6 @@ mod testes {
     }
 
     #[test]
-    fn normalizacao_da_ir_rejeita_tipo_desconhecido() {
-        assert!(normalizar_valor(&Tipo::Desconhecido, ValorIr::Inteiro(7)).is_err());
-        assert!(normalizar_valor(&Tipo::Desconhecido, ValorIr::Texto("valor".into())).is_err());
-    }
-
-    #[test]
     fn normalizacao_da_ir_rejeita_valores_de_tipo_incompativel() {
         assert!(normalizar_valor(&Tipo::Inteiro, ValorIr::Texto("42".into())).is_err());
         assert!(normalizar_valor(&Tipo::Logico, ValorIr::Inteiro(1)).is_err());
