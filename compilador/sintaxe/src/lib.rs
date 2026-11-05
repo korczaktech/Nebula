@@ -1324,10 +1324,10 @@ mod testes {
 
     #[test]
     fn reconhece_palavras_identificadores_e_operadores_maiores() {
-        let r = analisar_lexico(&fonte("variavel ação = 2 >= 1 // comentário\n"));
+        let r = analisar_lexico(&fonte("variavel Ωmega = 2 >= 1 // comentário\n"));
         assert!(r.diagnosticos.is_empty());
         assert_eq!(r.tokens[0].tipo, TipoToken::Variavel);
-        assert_eq!(r.tokens[1].lexema, "ação");
+        assert_eq!(r.tokens[1].lexema, "Ωmega");
         assert!(r.tokens.iter().any(|t| t.tipo == TipoToken::MaiorIgual));
     }
     #[test]
