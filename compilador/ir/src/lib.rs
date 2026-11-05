@@ -1724,6 +1724,12 @@ struct Maquina<'p, 'o> {
 }
 
 impl Maquina<'_, '_> {
+    fn marcar_localizacao(&mut self, item: &InstrucaoIr) {
+        if let InstrucaoIr::Localizada { intervalo, .. } = item {
+            self.intervalo_fonte = Some(*intervalo);
+        }
+    }
+
     fn memoria_mutavel(&mut self) -> Result<&mut Memoria, String> {
         self.contexto.memoria_mutavel().map_err(formatar_erro_runtime)
     }
@@ -1756,6 +1762,7 @@ impl Maquina<'_, '_> {
     fn bloco_raiz(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
         let mut fluxo = Fluxo::Normal;
         for item in itens {
+            self.marcar_localizacao(item);
             self.passo()?;
             fluxo = self.instrucao(item)?;
             if !matches!(&fluxo, Fluxo::Normal) { break; }
