@@ -355,7 +355,28 @@ variavel dados: dicionario = {
 | `-` | Subtração |
 | `*` | Multiplicação |
 | `/` | Divisão |
-| `\\` | Divisão inteira |
+| `| Prioridade (maior = mais forte) | Operadores |
+|---:|---|
+| 16 | Chamadas, indexação, acesso a membro e acesso opcional: `()`, `[]`, `.`, `::`, `?.` |
+| 15 | Potenciação: `**` |
+| 14 | Unários: `+x`, `-x`, `!`, `nao`, `~`, `&x`, `...`, `aguarda`, `novo`, `apagar` |
+| 13 | Multiplicação, divisão, divisão inteira e resto: `*`, `/`, `\\\\`, `%` |
+| 12 | Adição e subtração: `+`, `-` |
+| 11 | Deslocamentos: `<<`, `>>`, `>>>` |
+| 10 | Intervalo: `..` |
+| 9 | Relacionais e pertencimento: `<`, `<=`, `>`, `>=`, `dentro`, `fora`, `tipoDe`, `instanciaDe` |
+| 8 | Igualdade: `==`, `!=`, `!==`, `iguais`, `identico` |
+| 7 | E bit a bit: `&` |
+| 6 | OU exclusivo bit a bit: `^` |
+| 5 | OU bit a bit: `|` |
+| 4 | E lógico: `e`, `&&` |
+| 3 | Coalescência: `??` |
+| 2 | OU lógico: `ou`, `||` |
+| 1 | Atribuições, expressão condicional `? :`, propagação postfix `?` e seta de função em contexto de expressão `->` |
+
+A tabela representa os níveis internos do Parser atual. Operadores relacionais e de intervalo encadeados são rejeitados; use operadores lógicos ou parênteses para explicitar a intenção. A associatividade da potenciação é à direita.
+
+\` | Divisão inteira |
 | `%` | Resto da divisão |
 | `**` | Potenciação |
 | `^` | XOR binário |
@@ -1115,3 +1136,15 @@ Antes de considerar a sintaxe congelada e implementar todas as construções, é
 **Nebula — Especificação temporária da sintaxe abrasileirada.**
 
 Este documento define a sintaxe-alvo proposta. A implementação no compilador deverá seguir a especificação formal aprovada e manter testes de conformidade para cada construção.
+
+# 33. Conferência com o compilador
+
+O estado real de cada construção deve ser consultado em [`docs/AUDITORIA-SINTAXE.md`](docs/AUDITORIA-SINTAXE.md). A presença de uma palavra reservada ou de uma chamada em um exemplo não prova que exista implementação semântica ou uma função nativa correspondente.
+
+A gramática formal normativa fica em [`especificacao/gramatica.md`](especificacao/gramatica.md). Esta seção e os exemplos deste documento não substituem essa gramática.
+
+Distinções obrigatórias:
+- **Sintaxe implementada:** Lexer e Parser reconhecem a forma e produzem a AST correspondente.
+- **Validação semântica:** tipos, permissões, efeitos, regras de memória e compatibilidade são efetivamente verificados por etapas posteriores.
+- **API planejada:** a chamada pode ser sintaticamente analisável como identificador, membro, tipo ou chamada genérica, mas sua existência e comportamento não são garantidos.
+- **Não implementado:** o Lexer/Parser rejeita a forma ou ainda não a reconhece como construção da linguagem.
