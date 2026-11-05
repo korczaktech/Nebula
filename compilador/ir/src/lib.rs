@@ -3537,7 +3537,11 @@ mod testes {
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let ir = resultado.programa.expect("IR válida");
         assert_eq!(ir.modulos.get("Mat").map(String::as_str), Some("Matematica"));
-        let InstrucaoIr::Declarar { valor, .. } = &ir.instrucoes[0] else {
+        let instrucao = match &ir.instrucoes[0] {
+            InstrucaoIr::Localizada { instrucao, .. } => instrucao.as_ref(),
+            instrucao => instrucao,
+        };
+        let InstrucaoIr::Declarar { valor, .. } = instrucao else {
             panic!("esperava declaração global");
         };
         assert!(matches!(
