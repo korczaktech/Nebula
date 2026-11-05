@@ -3168,14 +3168,14 @@ mod testes {
 
     #[test]
     fn analisa_campos_de_estrutura_com_todas_as_formas_de_tipo() {
-        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: biblioteca::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
+        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: utilitarios::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
             panic!("a declaração de estrutura deveria produzir AST");
         };
         assert_eq!(campos.len(), 6);
-        assert_eq!(campos[1].1, "biblioteca::Identidade");
+        assert_eq!(campos[1].1, "utilitarios::Identidade");
         assert_eq!(campos[2].1, "[texto]");
         assert_eq!(campos[3].1, "Mapa<texto,[inteiro]>");
         assert_eq!(campos[4].1, "funcao(inteiro,texto):logico");
