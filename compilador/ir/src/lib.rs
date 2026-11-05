@@ -1353,6 +1353,8 @@ pub fn executar_controlado(
                     pausado = false;
                     pausar_no_proximo = false;
                     profundidade_saida = Some(evento.profundidade_chamada);
+                    offsets_linha_passo.clear();
+                    profundidade_passo = None;
                 }
                 ComandoDepuracao::DefinirPontos(novos) => {
                     pontos = novos.into_iter().collect();
@@ -1427,6 +1429,8 @@ pub fn executar_controlado(
                         pausado = false;
                         pausar_no_proximo = false;
                         profundidade_saida = Some(evento.profundidade_chamada);
+                        offsets_linha_passo.clear();
+                        profundidade_passo = None;
                         break;
                     }
                     Ok(ComandoDepuracao::DefinirPontos(novos)) => {
