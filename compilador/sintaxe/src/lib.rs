@@ -742,7 +742,7 @@ impl Parser {
                         padrao_valido = false;
                         (None, None, Vec::new(), false, None)
                     }
-                } else if matches!(self.tipo(), TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Sim | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo) {
+                } else if matches!(self.tipo(), TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::TextoInterpolado | TipoToken::Caractere | TipoToken::Sim | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo) {
                     let expressao = self.expressao(0);
                     (None, None, Vec::new(), false, expressao)
                 } else {
