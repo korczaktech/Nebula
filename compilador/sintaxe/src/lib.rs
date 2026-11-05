@@ -150,7 +150,7 @@ impl Parser {
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Estrutura => self.estrutura(),
             TipoToken::Enumeracao => self.enumeracao(),
-            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Herda | TipoToken::Ceder | TipoToken::Seguro | TipoToken::Critico | TipoToken::Privilegio | TipoToken::Montagem => {
+            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Herda | TipoToken::Seguro | TipoToken::Critico | TipoToken::Privilegio | TipoToken::Montagem => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
                     "N2016",
