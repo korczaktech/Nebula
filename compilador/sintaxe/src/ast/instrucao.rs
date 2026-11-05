@@ -1,6 +1,10 @@
 //! Declarações e instruções representadas na AST.
 
-use super::{declaracao::{AtributoAst, Visibilidade}, expressao::Expressao, padroes::CasoEscolha};
+use super::{
+    declaracao::{AtributoAst, Visibilidade},
+    expressao::Expressao,
+    padroes::CasoEscolha,
+};
 use nebula_diagnosticos::Diagnostico;
 use nebula_fonte::IntervaloFonte;
 use std::path::PathBuf;
