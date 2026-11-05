@@ -1135,6 +1135,26 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Atribuicao { nome, valor, .. } => {
+                let tipo_local = self.buscar_tipo_local(nome).cloned();
+                if let Some(tipo) = tipo_local.as_ref() {
+                    if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
+                        let destino = self.buscar_local(nome)
+                            .ok_or_else(|| format!("Variável '{nome}' não encontrada no backend."))?;
+                        let origem = self.reservar_agregado(8, 8)?;
+                        self.expressao(valor)?;
+                        self.armazenar_rax(origem);
+                        self.carregar_rax(destino);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+                        self.carregar_rax(origem);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+                        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                        self.codigo.extend_from_slice(&[0xF3, 0xA4]); // cópia por valor
+                        self.carregar_rax(destino);
+                        self.mov_rdx(0);
+                        return Ok(());
+                    }
+                }
                 self.expressao(valor)?;
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.armazenar_rax(deslocamento);
