@@ -1,10 +1,10 @@
-funcao fibonacci(n: inteiro): inteiro {
-    quando n <= 1 {
+funcao fibonacci(n: inteiro): inteiro
+    quando n <= 1
         devolver n
-    }
+    fim
     devolver fibonacci(n - 1) + fibonacci(n - 2)
-}
+fim
 
-funcao principal(): inteiro {
+funcao principal(): inteiro
     devolver fibonacci(37)
-}
+fim
