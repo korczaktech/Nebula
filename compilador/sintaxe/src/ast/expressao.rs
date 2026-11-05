@@ -48,4 +48,9 @@ pub enum Expressao {
         parametros: Vec<String>,
         corpo: Vec<NoAst>,
     },
+    Condicional {
+        condicao: Box<Expressao>,
+        entao: Box<Expressao>,
+        senao: Box<Expressao>,
+    },
 }
