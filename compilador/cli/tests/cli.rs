@@ -387,7 +387,7 @@ fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
         std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\" { exibir(letra) }\ncada numero em 1..3 { exibir(numero) }",
+        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\"\n    exibir(letra)\nfim\ncada numero em 1..3\n    exibir(numero)\nfim",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
