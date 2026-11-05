@@ -7,7 +7,9 @@ pub mod operadores;
 pub mod padroes;
 pub mod tipos;
 
-pub use declaracao::{AtributoAst, AliasTipoAst, CampoAst, ParametroAst, VarianteAst, Visibilidade};
+pub use declaracao::{
+    AliasTipoAst, AtributoAst, CampoAst, ParametroAst, VarianteAst, Visibilidade,
+};
 pub use expressao::Expressao;
 pub use instrucao::{
     CasoEscolhaLocalizado, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico,
