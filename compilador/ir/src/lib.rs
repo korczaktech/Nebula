@@ -783,7 +783,8 @@ impl Lowerer {
                 }
             },
             Expressao::Literal(valor) => Some(ExpressaoIr::Constante(literal(valor)?)),
-            Expressao::ArgumentoNomeado { valor, .. } => self.expressao(valor),\n            Expressao::Lista(valores) => Some(ExpressaoIr::Lista(
+            Expressao::ArgumentoNomeado { valor, .. } => self.expressao(valor),
+            Expressao::Lista(valores) => Some(ExpressaoIr::Lista(
                 valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
             )),
             Expressao::Tupla(valores) => Some(ExpressaoIr::Tupla(
