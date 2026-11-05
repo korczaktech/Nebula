@@ -950,7 +950,7 @@ impl Parser {
             let antes = self.atual;
             let diagnosticos_antes = self.diagnosticos.len();
             let no = self.item();
-            let bloco_recuperado = no.as_ref().is_some_and(|no| self.eh_bloco(no))
+            let bloco_recuperado = no.as_ref().is_some_and(|no| Self::eh_bloco(no))
                 && self.diagnosticos.len() > diagnosticos_antes
                 && self.inicia_item();
             if let Some(no) = no { itens.push(no); }
