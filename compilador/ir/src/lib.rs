@@ -1307,7 +1307,8 @@ pub enum EventoControleDepuracao {
 ///
 /// O canal de eventos informa estado e escopos antes da instrução. O canal de
 /// comandos aceita continuar, avançar, sair, pausar, definir pontos por índice
-/// ou por offset de origem e encerrar.
+/// ou por offset de origem e encerrar. A entrada interativa fica isolada do
+/// canal DAP e retorna erro quando o programa solicita texto.
 pub fn executar_controlado(
     programa: &ProgramaIr,
     limite_passos: usize,
@@ -1322,7 +1323,7 @@ pub fn executar_controlado(
     let mut profundidade_saida = None;
     let mut offsets_linha_passo = HashSet::new();
     let mut profundidade_passo = None;
-    let resultado = executar_observado(programa, limite_passos, |evento| {
+    let mut observador = |evento: &EventoDepuracao| {
         while let Ok(comando) = comandos.try_recv() {
             match comando {
                 ComandoDepuracao::Continuar => {
@@ -1451,7 +1452,8 @@ pub fn executar_controlado(
             }
         }
         Ok(())
-    });
+    };
+    let resultado = executar_interno(programa, limite_passos, Some(VecDeque::new()), Some(&mut observador));
     let _ = eventos.send(EventoControleDepuracao::Finalizado(resultado.clone()));
     resultado
 }
