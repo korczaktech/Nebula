@@ -18,7 +18,7 @@ fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
 #[test]
 fn reconhece_palavras_reservadas_da_sintaxe_principal() {
     let r = analisar(
-        "variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe obter definir vazio exportar construtor estatico privado publico protegido",
+        "variavel constante funcao classe herda se sendo senao para dentro enquanto escolha caso padrao pare prossiga passar retorne lambda ceder incluir biblioteca modulo de como tente erro sempre lancar verifique com assinc aguarda global externa isto novo apagar identico nao fora e ou sim verdadeiro falso nulo iguais tipoDe instanciaDe obter definir vazio exportar construtor estatico privado publico protegido",
     );
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     let esperados = [
