@@ -45,37 +45,35 @@ Nebula deverá permitir o desenvolvimento de:
 9. Diagnósticos claros em português.
 10. Possibilidade futura de autocompilação.
 
-## 2. Identidade e regras iniciais da linguagem
+## 2. Identidade e regras da linguagem
 
-A gramática e as regras léxicas do subconjunto inicial estão formalizadas em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência normativa do Lexer, Parser e AST já implementados no crate `nebula-sintaxe`. O catálogo de comandos, tipos, operadores e ferramentas de terminal está em [especificacao/comandos.md](especificacao/comandos.md).
+A gramática e as regras léxicas normativas estão em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência do Lexer, Parser e AST do crate `nebula-sintaxe`.
 
 - Código-fonte UTF-8; identificadores Unicode comparados em NFC.
-- Palavras-chave da linguagem e mensagens oficiais em português brasileiro.
-- Indentação não define blocos nem altera o significado.
-- Instruções podem ser separadas por quebra de linha ou ponto e vírgula, conforme as regras da gramática.
-- Blocos aceitam chaves ou o terminador fim.
-- Parênteses em condições podem ser omitidos quando o início do bloco delimitar a expressão sem ambiguidade.
-- Chamadas, parâmetros de funções e cabeçalhos de para mantêm os delimitadores definidos na gramática.
-- Literais de texto usam aspas duplas; caracteres usam aspas simples.
+- Palavras-chave e mensagens oficiais em português brasileiro.
+- Blocos de instrução exigem indentação e terminam com `fim`.
+- Chaves não substituem blocos de instrução; continuam válidas em construções de dados, como valores de estruturas.
+- O Lexer emite `INDENT` e `DEDENT` para delimitar fisicamente os corpos indentados.
+- Instruções são separadas por quebra de linha ou ponto e vírgula, conforme as regras da gramática.
+- Quebras dentro de parênteses e colchetes são continuações; regras específicas também permitem expressões multilinha.
+- A lista de palavras reservadas implementadas e a lista de palavras reservadas futuras estão em [especificacao/tokens.md](especificacao/tokens.md).
 
-Exemplo do subconjunto inicial:
+Exemplo da sintaxe atual:
 
 ~~~nebula
-funcao principal(): vazio {
+funcao principal() -> vazio
     variavel nome = "Nebula"
     constante idade: inteiro = 18
 
-    quando idade >= 18 {
+    quando idade >= 18
         exibir("Olá, " + nome)
-    } senao {
+    senao
         exibir("Olá")
-    }
-}
+    fim
+fim
 ~~~
 
-O trecho acima ilustra a sintaxe; chamadas como `exibir` e operações com texto dependem do runtime/biblioteca padrão, que não fazem parte do backend inicial da Fase 4 e ainda não podem ser compiladas para o alvo nativo.
-
-A lista de palavras reservadas implementadas na gramática e a lista separada de palavras reservadas futuras estão em especificacao/tokens.md. Uma palavra reservada futura não significa que o recurso correspondente já esteja disponível.
+O exemplo demonstra a sintaxe; chamadas como `exibir` dependem do runtime/biblioteca padrão e do alvo utilizado.
 
 ## 3. Arquitetura geral do compilador
 
