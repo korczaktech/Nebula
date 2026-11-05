@@ -169,7 +169,7 @@ A tabela abaixo é normativa; níveis maiores vinculam primeiro. Operadores no m
 
 | Nível | Operadores/construções | Associatividade |
 |---:|---|---|
-| 14 | chamada, indexação, acesso a membro `. ` e caminho `::` | encadeamento à esquerda |
+| 14 | chamada, indexação, acesso a membro `.` e caminho `::` | encadeamento à esquerda |
 | 10 | potência `**` | à direita |
 | 9 | prefixos `+`, `-`, `!`, `não` | prefixa; potência vincula mais forte |
 | 8 | multiplicação `*`, divisão `/`, resto `%` | à esquerda |
