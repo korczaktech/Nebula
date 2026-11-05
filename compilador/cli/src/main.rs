@@ -2394,6 +2394,18 @@ mod fixtures_conformidade_tipos {
     }
 
     #[test]
+    fn backend_rejeita_enum_com_multiplos_payloads_pela_pipeline_completa() {
+        let resultado = rejeita_abi_nativa_pendente(
+            include_str!("../fixtures/tipos/abi-enum-payloads-multiplos.nbx"),
+            "abi-enum-payloads-multiplos.nbx",
+        );
+        assert!(
+            resultado.is_err(),
+            "A ABI nativa não deve aceitar enumeração com dois payloads escalares enquanto a representação não estiver implementada."
+        );
+    }
+
+    #[test]
     fn backend_rejeita_agregados_maiores_que_dois_registros() {
         let estrutura = rejeita_abi_nativa_pendente(
             include_str!("../fixtures/tipos/abi-estrutura-pendente.nbx"),
