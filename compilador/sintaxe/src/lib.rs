@@ -3902,7 +3902,7 @@ funcao saudar(nome: texto = "Visitante") -> vazio
     fim
 fim
 
-assinc funcao carregar() -> texto
+async funcao carregar() -> texto
     variavel resultado = aguarda buscarDados()
     retorne resultado
 fim
