@@ -99,6 +99,7 @@ fn padrao_e_operadores_possuem_representacao_propria() {
         enumeracao: Some("Estado".into()),
         variante: Some("Falha".into()),
         vinculacoes: vec!["codigo".into()],
+        expressao: None,
         corpo: vec![],
     };
     assert_eq!(
