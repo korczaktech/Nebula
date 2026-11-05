@@ -165,7 +165,23 @@ Os diagnósticos devem ter código estável, severidade, mensagem, intervalo de 
 
 ## 9. Precedência e avaliação
 
-A precedência é definida pela gramática e deve ser idêntica no interpretador e nos backends. A avaliação de chamadas e operadores binários é da esquerda para a direita, salvo quando a gramática declarar associatividade à direita (por exemplo, potência). Curto-circuito lógico não avalia o operando direito quando o resultado já é determinado pelo esquerdo. A ordem de avaliação não pode ser alterada por otimizações quando houver efeitos observáveis.
+A tabela abaixo é normativa; níveis maiores vinculam primeiro. Operadores no mesmo nível são associativos à esquerda, exceto quando indicado. A implementação do Parser usa precedência Pratt equivalente.
+
+| Nível | Operadores/construções | Associatividade |
+|---:|---|---|
+| 14 | chamada, indexação, acesso a membro `. ` e caminho `::` | encadeamento à esquerda |
+| 10 | potência `**` | à direita |
+| 9 | prefixos `+`, `-`, `!`, `não` | prefixa; potência vincula mais forte |
+| 8 | multiplicação `*`, divisão `/`, resto `%` | à esquerda |
+| 7 | adição `+`, subtração `-` | à esquerda |
+| 6 | intervalo `..` | não encadeável |
+| 5 | comparações `<`, `<=`, `>`, `>=` | não encadeáveis |
+| 4 | igualdade `==`, diferença `!=` | à esquerda |
+| 3 | conjunção `e` | à esquerda, curto-circuito |
+| 2 | disjunção `ou` | à esquerda, curto-circuito |
+| 1 | atribuição `=`, `<-` | à direita |
+
+A avaliação de chamadas e operadores binários é da esquerda para a direita, salvo quando a tabela declarar associatividade à direita. Curto-circuito lógico não avalia o operando direito quando o resultado já é determinado pelo esquerdo. A ordem de avaliação não pode ser alterada por otimizações quando houver efeitos observáveis. Comparações relacionais e operadores de intervalo encadeados são erros sintáticos; agrupamento explícito com parênteses é permitido.
 
 ## 10. Matriz de conformidade da implementação
 
