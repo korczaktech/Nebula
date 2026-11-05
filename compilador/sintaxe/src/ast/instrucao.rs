@@ -73,6 +73,7 @@ pub enum NoAst {
     Parar,
     Seguir,
     Passar,
+    Ceder(Option<Expressao>),
     Classe {
         nome: String,
         herda: Option<String>,
