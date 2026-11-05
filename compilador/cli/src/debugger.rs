@@ -279,14 +279,17 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         };
                         let acao = match comando {
                             "next" => {
-                                let linha_atual = estado.atual.as_ref()
-                                    .and_then(|evento| evento.intervalo_fonte)
-                                    .and_then(|intervalo| linha_coluna_dap(&estado.fonte, intervalo.inicio))
-                                    .map(|(linha, _)| linha);
-                                let offsets = estado.localizacoes.iter().filter_map(|intervalo| {
-                                    let (linha, _) = linha_coluna_dap(&estado.fonte, intervalo.inicio)?;
-                                    (Some(linha) == linha_atual).then_some(intervalo.inicio)
-                                }).collect();
+                                let localizacao = estado.atual.as_ref()
+                                    .and_then(|evento| localizacao_evento(evento, &estado.caminho_principal));
+                                let offsets = localizacao.and_then(|(caminho, intervalo)| {
+                                    let fonte = estado.fontes.get(&caminho)?;
+                                    let linha_atual = linha_coluna_dap(fonte, intervalo.inicio)?.0;
+                                    Some(estado.localizacoes.iter().filter_map(|(origem, intervalo)| {
+                                        if origem != &caminho { return None; }
+                                        let (linha, _) = linha_coluna_dap(fonte, intervalo.inicio)?;
+                                        (linha == linha_atual).then_some((origem.clone(), intervalo.inicio))
+                                    }).collect())
+                                }).unwrap_or_default();
                                 ComandoDepuracao::AvancarLinha(offsets)
                             }
                             "stepIn" => ComandoDepuracao::Avancar,
