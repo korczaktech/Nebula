@@ -153,11 +153,9 @@ impl<'a> Lexer<'a> {
                     {
                         continue;
                     }
-                    return matches!(
-                        self.bytes.get(posicao),
-                        None | Some(b'\n' | b'\r' | b'#')
-                    ) || (self.bytes.get(posicao) == Some(&b'/')
-                        && self.bytes.get(posicao + 1) == Some(&b'/'));
+                    return matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r' | b'#'))
+                        || (self.bytes.get(posicao) == Some(&b'/')
+                            && self.bytes.get(posicao + 1) == Some(&b'/'));
                 }
                 _ => return false,
             }
