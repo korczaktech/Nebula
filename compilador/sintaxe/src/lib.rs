@@ -658,14 +658,6 @@ impl Parser {
             return None;
         }
         self.separadores();
-            }
-            if !self.corresponde(TipoToken::Indent) {
-                self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
-                return None;
-            }
-            true
-        };
-        self.separadores();
         let mut casos = Vec::new();
         let mut possui_curinga = false;
         let mut padroes_vistos: Vec<(String, String)> = Vec::new();
