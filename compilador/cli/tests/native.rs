@@ -99,7 +99,7 @@ fn compila_parametros_e_retornos_decimais_no_abi_proprio() {
 fn compila_campos_decimais_em_estruturas() {
     let resultado = compilar_e_executar(
         "estrutura-decimal",
-        "estrutura Medida { valor: decimal64, codigo: inteiro }\nfuncao principal(): inteiro\n    variavel medida = Medida { valor: 42.0, codigo: 7 }\n    quando medida.valor == 42.0\n        devolver medida.codigo + 35\n    fim\n    \n    devolver 1\nfim",
+        "estrutura Medida:\n    valor: decimal64\n    codigo: inteiro\nfim\nfuncao principal(): inteiro\n    variavel medida = Medida { valor: 42.0, codigo: 7 }\n    quando medida.valor == 42.0\n        devolver medida.codigo + 35\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -117,7 +117,7 @@ fn compila_elementos_decimais_em_tuplas() {
 fn compila_payload_decimal_em_enumeracoes() {
     let resultado = compilar_e_executar(
         "enum-decimal",
-        "enumeracao Leitura { Numero(decimal64), Codigo(inteiro) }\nfuncao principal(): inteiro\n    variavel leitura = Leitura::Numero(42.0)\n    escolha leitura\n        caso Leitura::Numero(valor)\n            quando valor == 42.0\n                devolver 42\n            fim\n        caso Leitura::Codigo(valor)\n            passar\n    fim\n    \n    devolver 1\nfim",
+        "enumeracao Leitura:\n    Numero(decimal64)\n    Codigo(inteiro)\nfim\nfuncao principal(): inteiro\n    variavel leitura = Leitura::Numero(42.0)\n    escolha leitura\n        caso Leitura::Numero(valor)\n            quando valor == 42.0\n                devolver 42\n            fim\n        caso Leitura::Codigo(valor)\n            passar\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -135,7 +135,7 @@ fn compila_funcoes_parametros_e_chamadas() {
 fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
     let resultado = compilar_e_executar(
         "copia-explicita",
-        "estrutura Ponto { x: inteiro, y: inteiro }\nfuncao principal(): inteiro\n    variavel original = Ponto { x: 40, y: 2 }\n    variavel copia = copiar(original)\n    quando original.x + original.y == copia.x + copia.y\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
+        "estrutura Ponto:\n    x: inteiro\n    y: inteiro\nfim\nfuncao principal(): inteiro\n    variavel original = Ponto { x: 40, y: 2 }\n    variavel copia = copiar(original)\n    quando original.x + original.y == copia.x + copia.y\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -144,7 +144,7 @@ fn copia_explicitamente_estrutura_com_campos_copiaveis_no_backend() {
 fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
     let resultado = compilar_e_executar(
         "copia-estrutura",
-        "estrutura Ponto { x: inteiro8 }\nfuncao principal(): inteiro\n    variavel origem = Ponto { x: 7 }\n    variavel destino = copiar(origem)\n    quando origem.x == destino.x\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
+        "estrutura Ponto:\n    x: inteiro8\nfim\nfuncao principal(): inteiro\n    variavel origem = Ponto { x: 7 }\n    variavel destino = copiar(origem)\n    quando origem.x == destino.x\n        devolver 42\n    fim\n    \n    devolver 1\nfim",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
