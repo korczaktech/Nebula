@@ -114,7 +114,7 @@ impl<'a> Lexer<'a> {
     fn suprime_quebras(&self) -> bool {
         self.delimitadores
             .iter()
-            .any(|(b, _)| matches!(b, b'(' | b'['))
+            .any(|(b, _)| matches!(b, b'(' | b'[' | b'{'))
     }
     fn processar_indentacao(&mut self) {
         let inicio = self.atual;
