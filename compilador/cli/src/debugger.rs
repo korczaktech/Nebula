@@ -298,12 +298,17 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                     }
                     "terminate" | "disconnect" => {
-                        if let Some(estado) = estado.as_ref() {
+                        let sessao_ativa = if let Some(estado) = estado.as_ref() {
                             let _ = estado.comandos.send(ComandoDepuracao::Encerrar);
-                        }
+                            true
+                        } else {
+                            false
+                        };
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
-                        evento(&mut saida, &mut sequencia, "terminated", json!({}))?;
-                        break;
+                        if !sessao_ativa {
+                            evento(&mut saida, &mut sequencia, "terminated", json!({}))?;
+                            break;
+                        }
                     }
                     _ => responder_erro(&mut saida, &mut sequencia, seq, comando, "Comando DAP não suportado pela Nebula.")?,
                 }
