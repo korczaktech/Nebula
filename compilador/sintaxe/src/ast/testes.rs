@@ -114,6 +114,10 @@ fn padrao_e_operadores_possuem_representacao_propria() {
         OperadorAst::try_from(crate::TipoToken::Mais),
         Ok(OperadorAst::Adicao)
     );
+    assert_eq!(
+        OperadorAst::try_from(crate::TipoToken::Reticencias),
+        Ok(OperadorAst::Espalhamento)
+    );
     assert!(OperadorAst::try_from(crate::TipoToken::Identificador).is_err());
 }
 
