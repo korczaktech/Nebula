@@ -375,6 +375,8 @@ impl Parser {
         if self.corresponde(TipoToken::DoisPontos) || self.verifica(TipoToken::NovaLinha) {
             let corpo = self.bloco()?;
             Some(NoAst::BlocoContextual { contexto, argumento, argumentos, corpo })
+        } else if self.corresponde(TipoToken::FimBloco) {
+            Some(NoAst::BlocoContextual { contexto, argumento, argumentos, corpo: Vec::new() })
         } else {
             self.erro_atual("N2007", "Esperado bloco após declaração de contexto.");
             None
@@ -1482,8 +1484,8 @@ impl Parser {
             | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
             | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
-            | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
-            | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
+            | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Ceder | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
+            | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Isto | TipoToken::Lambda | TipoToken::Incrementa | TipoToken::Decrementa | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
             | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
@@ -3718,6 +3720,26 @@ fim
         assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
         assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Classe { .. })));
         assert!(resultado.programa.itens.iter().any(|no| matches!(no, NoAst::Funcao { assincrona: true, .. })));
+    }
+
+    #[test]
+    fn analisa_operadores_de_baixo_nivel_e_condicional_ternaria() {
+        let codigo = r#"
+funcao operar(a: inteiro, b: inteiro, idade: inteiro)
+    variavel bits = (a & b) | (a ^ b) << 2
+    variavel opcional = valor?.campo ?? padrao
+    variavel faixa = 1..10
+    variavel condicao = idade >= 18 ? sim : nao
+    variavel objeto = novo Pessoa()
+    variavel numero = 1
+    numero =+ 2
+    numero++
+    variavel dentro = numero dentro faixa
+    retorne bits
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
     }
 
     #[test]
