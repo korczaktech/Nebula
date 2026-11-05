@@ -122,7 +122,7 @@ impl Parser {
                 Some(NoAst::Expressao(expressao))
             }
             TipoToken::Funcao | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido => self.funcao_modificada(false, None),
-            TipoToken::Assinc => {
+            TipoToken::Async => {
                 self.avancar();
                 self.funcao_modificada(true, None)
             }
@@ -1143,7 +1143,7 @@ impl Parser {
                 };
                 Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
             }
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Assinc | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1397,7 +1397,7 @@ impl Parser {
                         | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha
                         | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com
                         | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir
-                        | TipoToken::Classe | TipoToken::Funcao | TipoToken::Assinc
+                        | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async
                         | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao
                         | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico
                         | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido
@@ -1641,7 +1641,7 @@ impl Parser {
         matches!(self.tipo(),
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
             | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido
-            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
+            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Async | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
             | TipoToken::Exportar | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
             | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Ceder | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
