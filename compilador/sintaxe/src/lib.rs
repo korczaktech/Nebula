@@ -3827,6 +3827,51 @@ pub use ast::{
     AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada,
     NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
     TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
+
+    #[test]
+    fn parser_cobre_membros_de_classe_importacao_por_origem_e_tipos_nativos() {
+        let codigo = r#"
+incluir raiz de matematica como raiz
+
+classe Pessoa
+    publico funcao construtor(nome: texto)
+        isto.nome = nome
+    fim
+
+    protegido estatico funcao contar() -> u32
+        retorne 1
+    fim
+fim
+
+variavel endereco: ponteiroBruto<u8> = obter()
+variavel dados: vetor<u8, 16> = criar()
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "construções normativas deveriam ser aceitas: {:#?}",
+            resultado.diagnosticos
+        );
+        assert!(matches!(
+            resultado.programa.itens.first(),
+            Some(NoAst::Incluir { caminho, apelido: Some(apelido) })
+                if caminho == "matematica::raiz" && apelido == "raiz"
+        ));
+        let Some(NoAst::Classe { corpo, .. }) = resultado.programa.itens.get(1) else {
+            panic!("esperada classe");
+        };
+        assert!(corpo.iter().any(|no| matches!(
+            no,
+            NoAst::Funcao { nome, visibilidade: Some(Visibilidade::Publico), .. }
+                if nome == "construtor"
+        )));
+        assert!(corpo.iter().any(|no| matches!(
+            no,
+            NoAst::Funcao { nome, estatica: true, visibilidade: Some(Visibilidade::Protegido), .. }
+                if nome == "contar"
+        )));
+    }
+
 };
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
