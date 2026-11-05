@@ -10,7 +10,7 @@ name = "nebula"
 path = "src/main.rs"
 
 [dependencies]
-serde_json = "=1.0.145"
+serde_json = { version = "=1.0.145" }
 nebula-cache = { path = "../cache" }
 nebula-diagnosticos = { path = "../diagnosticos" }
 nebula-fonte = { path = "../fonte" }
