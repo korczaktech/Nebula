@@ -38,7 +38,10 @@ fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
 
 #[test]
 fn gera_elf_executavel_com_codigo_de_saida() {
-    let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro\n    devolver 42\nfim");
+    let resultado = compilar_e_executar(
+        "retorno",
+        "funcao principal(): inteiro\n    devolver 42\nfim",
+    );
     assert_eq!(resultado.status.code(), Some(42));
 }
 
