@@ -3142,6 +3142,60 @@ mod testes {
     }
 
     #[test]
+    fn copia_e_atribui_campos_de_agregado_grande() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "RegistroGrande".into(),
+            LayoutAgregado {
+                tamanho: 24,
+                alinhamento: 8,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 8)),
+                    ("segundo".into(), (8, 8)),
+                    ("terceiro".into(), (16, 8)),
+                ]),
+            },
+        );
+        let construcao = ExpressaoIr::Normalizar {
+            tipo: Tipo::Estrutura("RegistroGrande".into()),
+            valor: Box::new(ExpressaoIr::ConstrucaoEstrutura {
+                nome: "RegistroGrande".into(),
+                campos: vec![
+                    ("primeiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(1))),
+                    ("segundo".into(), ExpressaoIr::Constante(ValorIr::Inteiro(2))),
+                    ("terceiro".into(), ExpressaoIr::Constante(ValorIr::Inteiro(3))),
+                ],
+            }),
+        };
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "principal".into(),
+            parametros: Vec::new(),
+            retorno: Tipo::Inteiro64,
+            corpo: vec![
+                InstrucaoIr::Declarar {
+                    nome: "registro".into(),
+                    tipo: Tipo::Estrutura("RegistroGrande".into()),
+                    valor: construcao.clone(),
+                    constante: false,
+                },
+                InstrucaoIr::Expressao(ExpressaoIr::AtribuicaoCampo {
+                    raiz: "registro".into(),
+                    caminho: vec!["terceiro".into()],
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(99)),
+                    tipo: Tipo::Inteiro64,
+                }),
+                InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                    nome: "registro".into(),
+                    valor: construcao,
+                    tipo: Tipo::Estrutura("RegistroGrande".into()),
+                }),
+            ],
+        }).unwrap();
+        assert!(emissor.codigo.windows(2).any(|bytes| bytes == [0xF3, 0xA4]));
+        assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0x49, 0x89, 0x83]));
+    }
+
+    #[test]
     fn acessa_campo_de_agregado_grande_por_deslocamento_real() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.layouts_tipos.insert(
