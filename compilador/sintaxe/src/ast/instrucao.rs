@@ -16,6 +16,7 @@ pub enum NoAst {
     },
     Funcao {
         visibilidade: Option<Visibilidade>,
+        assincrona: bool,
         nome: String,
         genericos: Vec<String>,
         parametros: Vec<(String, String)>,
@@ -71,6 +72,11 @@ pub enum NoAst {
     Parar,
     Seguir,
     Passar,
+    Classe {
+        nome: String,
+        herda: Option<String>,
+        corpo: Vec<NoAst>,
+    },
 }
 
 /// Nó da AST acompanhado do intervalo de bytes que o originou.
