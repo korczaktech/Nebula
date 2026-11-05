@@ -21,6 +21,7 @@ pub enum NoAst {
     Funcao {
         visibilidade: Option<Visibilidade>,
         assincrona: bool,
+        estatica: bool,
         nome: String,
         genericos: Vec<String>,
         parametros: Vec<(String, String)>,
