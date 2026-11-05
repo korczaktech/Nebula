@@ -1026,7 +1026,7 @@ impl<'a> Lexer<'a> {
                 Some(b'/') if self.byte(1) == Some(b'*') => {
                     let inicio_comentario = self.atual;
                     self.atual += 2;
-                    while !self.fim() && !(self.byte(0) == Some(b'*') && self.byte(1) == Some(b'/'))
+                    while !(self.fim() || self.byte(0) == Some(b'*') && self.byte(1) == Some(b'/'))
                     {
                         self.atual += 1;
                     }
