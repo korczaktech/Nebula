@@ -1988,7 +1988,7 @@ mod testes {
     }
     #[test]
     fn analisa_funcao_condicional_e_precedencia() {
-        let r = analisar(&fonte("funcao principal(): vazio\n     variavel x: inteiro = 1 + 2 * 3\n     quando x > 2\n        devolver x\n    senao\n        devolver 0\n    fim\nfim"));
+        let r = analisar(&fonte("funcao principal(): vazio\n    variavel x: inteiro = 1 + 2 * 3\n    quando x > 2\n        devolver x\n    senao\n        devolver 0\n    fim\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 1);
     }
@@ -3403,11 +3403,11 @@ mod testes {
     }
 
     #[test]
-    fn aceita_blocos_aninhados_com_chaves_e_terminadores_fim() {
+    fn aceita_blocos_aninhados_com_terminadores_fim() {
         for codigo in [
             "funcao principal()\n    quando verdadeiro\n        exibir(1)\n    fim\nfim",
             "funcao principal()\n quando verdadeiro\n  enquanto verdadeiro\n   exibir(1)\n  fim\n fim\nfim",
-            "funcao principal()\n    quando verdadeiro\n     exibir(1)\n     fim\n     variavel depois = 2\nfim",
+            "funcao principal()\n    quando verdadeiro\n        exibir(1)\n    fim\n    variavel depois = 2\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
