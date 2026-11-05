@@ -1008,8 +1008,7 @@ impl Parser {
         if consumir_fim {
             if self.verifica(TipoToken::FimBloco) {
                 self.avancar();
-            } else if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::Senao)
-                && !self.verifica(TipoToken::Sendo) {
+            } else {
                 self.erro_atual("N2009", "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
             }
         }
@@ -3663,6 +3662,11 @@ mod testes {
         assert!(
             sem_fechamento.diagnosticos.iter().any(|d| d.codigo == "N2009"),
             "bloco sem 'fim' deve continuar inválido mesmo com dedentação"
+        );
+        let vazio_sem_fim = analisar(&fonte("funcao vazia()\n"));
+        assert!(
+            vazio_sem_fim.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            "bloco vazio também precisa do terminador 'fim'"
         );
     }
 
