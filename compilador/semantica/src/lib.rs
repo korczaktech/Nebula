@@ -250,6 +250,12 @@ impl<'a> Analisador<'a> {
                     self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
                 }
             }
+            NoAst::Atributada { declaracao, .. } => self.item(declaracao),
+            NoAst::BlocoContextual { corpo, .. } => {
+                self.abrir_escopo();
+                for instrucao in corpo { self.item(instrucao); }
+                self.fechar_escopo();
+            }
             NoAst::Classe { corpo, .. } => {
                 self.abrir_escopo();
                 for membro in corpo {
