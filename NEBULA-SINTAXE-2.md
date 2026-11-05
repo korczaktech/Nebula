@@ -958,3 +958,12 @@ A especificação principal define a identidade, sintaxe geral, palavras reserva
 Quando uma construção deste documento exigir uma palavra reservada nova ou uma alteração na gramática central, a mudança deve ser incorporada também à especificação principal antes de ser considerada parte oficial da linguagem.
 
 **Nebula Nativo — especificação técnica complementar.**
+
+
+# 35. Estado da sintaxe no compilador
+
+Este documento descreve contratos e APIs-alvo. A sintaxe de blocos contextuais, atributos, tipos genéricos, estruturas, enumerações, chamadas qualificadas e expressões de baixo nível possui suporte parcial no Lexer/Parser. Isso não significa que memória física, MMIO, DMA, interrupções, registradores, Assembly, ABI ou operações privilegiadas estejam semanticamente implementados.
+
+A matriz completa de cada construção e dos exemplos deste documento está em [`docs/AUDITORIA-SINTAXE.md`](docs/AUDITORIA-SINTAXE.md). Consulte-a antes de usar qualquer exemplo como teste de funcionalidade real.
+
+A EBNF da seção 30 é complementar e preliminar. A produção de `montagem` deve ser lida conforme as duas formas distintas atualmente reconhecidas: expressão de montagem com arquitetura, tipos opcionais e argumentos; ou bloco contextual `montagem arquitetura:` encerrado por `fim`. A palavra `fim` não é uma alternativa solta da expressão de montagem.
