@@ -193,7 +193,7 @@ impl<'a> Lexer<'a> {
             b'/' if self.corresponde(b'/') => self.comentario_linha(),
             b'/' if self.corresponde(b'*') => self.comentario_bloco(),
             b'"' => self.literal_texto(),
-            b'\'' => self.literal_caractere(),
+            b'\'' => self.literal_texto_simples(),
             b'\x60' => self.literal_interpolado(),
             b'0'..=b'9' => self.numero(),
             b'(' => self.abrir(b'(', TipoToken::AbrePar),
@@ -721,6 +721,41 @@ impl<'a> Lexer<'a> {
         }
         self.adicionar(TipoToken::Texto, self.inicio, self.atual);
     }
+    fn literal_texto_simples(&mut self) {
+        let mut fechado = false;
+        while !self.fim() {
+            if self.byte(0) == Some(b'\\'') {
+                self.atual += 1;
+                fechado = true;
+                break;
+            }
+            if matches!(self.byte(0), Some(b'\\n' | b'\\r')) {
+                self.erro(
+                    "N1006",
+                    "Texto simples não pode atravessar uma quebra física.",
+                    self.inicio,
+                    self.atual,
+                );
+                break;
+            }
+            if self.byte(0) == Some(b'\\\\') {
+                let posicao = self.atual;
+                self.atual += 1;
+                if !self.escape_valido() {
+                    self.erro("N1007", "Escape inválido em literal.", posicao, self.atual);
+                }
+            } else if let Some(caractere) = self.caractere() {
+                self.atual += caractere.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if !fechado {
+            self.erro("N1008", "Literal de texto não terminado.", self.inicio, self.atual);
+        }
+        self.adicionar(TipoToken::Texto, self.inicio, self.atual);
+    }
+
     fn literal_interpolado(&mut self) {
         let mut fechado = false;
         while !self.fim() {
