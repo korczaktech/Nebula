@@ -86,6 +86,7 @@ pub enum NoAst {
     BlocoContextual {
         contexto: String,
         argumento: Option<String>,
+        tipos_genericos: Vec<String>,
         argumentos: Vec<Expressao>,
         corpo: Vec<NoAst>,
     },
