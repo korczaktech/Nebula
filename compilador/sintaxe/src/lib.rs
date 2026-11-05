@@ -596,7 +596,6 @@ impl Parser {
     fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar();
         let condicao = self.expressao_antes_de_bloco()?;
-        let delimitado_por_chaves = self.proximo_tipo_significativo() == TipoToken::AbreChave;
         let entao = self.bloco_sem_fim()?;
         let mut alternativas = Vec::new();
         while self.proximo_tipo_significativo() == TipoToken::Sendo {
@@ -618,12 +617,10 @@ impl Parser {
         } else {
             Vec::new()
         };
-        if self.proximo_tipo_significativo() == TipoToken::FimBloco
-            && (!delimitado_por_chaves || self.token_significativo_anterior() != Some(TipoToken::Dedent)) {
-            self.pular_novas_linhas();
+        if self.verifica(TipoToken::FimBloco) {
             self.avancar();
-        } else if !delimitado_por_chaves {
-            self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
+        } else {
+            self.erro_atual("N2009", "Condicional precisa terminar com 'fim'.");
         }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
@@ -638,12 +635,15 @@ impl Parser {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
         let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
-        if delimitado_por_chaves { self.profundidade_blocos_chaves += 1; }
+        if delimitado_por_chaves {
+            self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
+            self.profundidade_blocos_chaves += 1;
+        }
         let indentado = if delimitado_por_chaves {
             false
         } else {
             if !self.corresponde(TipoToken::NovaLinha) {
-                self.erro_atual("N2040", "Esperado bloco após expressão de escolha.");
+                self.erro_atual("N2040", "Esperada quebra de linha antes dos casos de escolha.");
                 return None;
             }
             self.separadores();
@@ -784,7 +784,7 @@ impl Parser {
                     padroes_vistos.push(identidade);
                 }
             }
-            if !self.verifica(TipoToken::AbreChave) && !self.verifica(TipoToken::NovaLinha) {
+            if !self.verifica(TipoToken::NovaLinha) {
                 self.erro_atual(
                     "N2042",
                     "Esperado bloco imediatamente após o padrão do caso; tokens extras não são permitidos.",
@@ -830,6 +830,7 @@ impl Parser {
         if delimitado_por_chaves {
             self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
             self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
+            self.erro_atual("N2009", "'escolha' deve terminar com 'fim' e usar indentação.");
         } else {
             self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
             if self.verifica(TipoToken::FimBloco) { self.avancar(); }
@@ -901,6 +902,7 @@ impl Parser {
             }
         }
         if self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual("N2009", "Blocos de instruções exigem indentação; chaves não substituem indentação.");
             self.profundidade_blocos_chaves += 1;
             self.separadores();
             let mut itens = Vec::new();
@@ -931,6 +933,9 @@ impl Parser {
             }
             self.esperar(TipoToken::FechaChave, "Bloco aberto com '{' não foi fechado com '}'.");
             self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
+            if consumir_fim {
+                self.erro_atual("N2009", "Blocos de instruções devem usar indentação e terminar com 'fim'.");
+            }
             return Some(itens);
         }
 
@@ -943,10 +948,7 @@ impl Parser {
         let indentado = self.corresponde(TipoToken::Indent);
         let mut profundidade_indentacao = usize::from(indentado);
         let mut itens = Vec::new();
-        if !indentado && self.profundidade_blocos_chaves == 0 && !matches!(self.tipo(),
-            TipoToken::FimBloco | TipoToken::Fim | TipoToken::Senao
-                | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre
-        ) {
+        if !indentado && self.profundidade_blocos_chaves == 0 {
             self.erro_atual("N2009", "Bloco não vazio precisa iniciar com indentação.");
         }
 
@@ -4047,6 +4049,47 @@ criarUsuario(nome = "Ana", idade = 25)
             matches!(&localizado.expressao, Expressao::Literal(valor) if valor.contains("{nome}"))
         ));
     }
+
+
+    #[test]
+    fn blocos_de_instrucao_exigem_indentacao_e_fim() {
+        let valido = analisar(&fonte(
+            "funcao principal()\\n    se verdadeiro\\n        passar\\n    fim\\nfim"
+        ));
+        assert!(
+            valido.diagnosticos.is_empty(),
+            "blocos corretamente indentados devem ser aceitos: {:#?}",
+            valido.diagnosticos
+        );
+
+        for codigo in [
+            "funcao principal() { passar }",
+            "se verdadeiro { passar }",
+            "enquanto verdadeiro { passar }",
+            "classe Pessoa { funcao iniciar() { passar } }",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+                "bloco com chaves não pode substituir indentação: {codigo:?}: {:#?}",
+                resultado.diagnosticos
+            );
+        }
+
+        for codigo in [
+            "funcao principal()\\npassar\\nfim",
+            "funcao principal()\\n    passar\\n",
+            "funcao vazia()\\nfim",
+        ] {
+            let resultado = analisar(&fonte(codigo));
+            assert!(
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+                "bloco sem indentação ou sem terminador deve ser rejeitado: {codigo:?}: {:#?}",
+                resultado.diagnosticos
+            );
+        }
+    }
+
 
     #[test]
     fn limite_de_aninhamento_corresponde_a_gramatica_normativa() {
