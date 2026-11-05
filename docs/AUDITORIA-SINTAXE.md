@@ -160,6 +160,7 @@ O Scanner reconhece tanto a grafia Nebula com o sinal de atribuição antes do o
 5. **Getter/setter:** `obter` e `definir` são palavras reconhecidas, mas não existe uma produção de declaração de propriedade getter/setter.
 6. **EBNF da seção 29 do documento principal:** é explicitamente preliminar e não cobre integralmente o Parser atual. A gramática normativa é `especificacao/gramatica.md`.
 7. **EBNF de montagem no documento nativo:** a alternativa `| "fim"` estava malformada como produção isolada. O documento agora esclarece as duas formas contextuais distintas.
+8. **Fixture de integração desatualizado:** o teste `executa_decimais_em_agregados_e_payloads_da_abi` ainda declarava `estrutura` e `enumeracao` com chaves. A fixture foi migrada para `:` + indentação + `fim`, conforme a sintaxe atual do Parser.
 
 ## 8. O que a auditoria não declara concluído
 
