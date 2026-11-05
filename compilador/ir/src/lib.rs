@@ -2161,6 +2161,7 @@ impl Maquina<'_, '_> {
                                     limite,
                                     profundidade_chamada: 0,
                                     pilha_chamadas: Vec::new(),
+                                    intervalo_fonte: None,
                                 };
                                 let retorno = maquina.chamar_funcao(&nome, funcao, Vec::new())?;
                                 let saida = maquina.saida.clone();
