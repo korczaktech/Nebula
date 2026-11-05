@@ -78,8 +78,16 @@ pub enum NoAst {
     Seguir,
     Passar,
     Ceder(Option<Expressao>),
-    Atributada { atributos: Vec<AtributoAst>, declaracao: Box<NoAst> },
-    BlocoContextual { contexto: String, argumento: Option<String>, argumentos: Vec<Expressao>, corpo: Vec<NoAst> },
+    Atributada {
+        atributos: Vec<AtributoAst>,
+        declaracao: Box<NoAst>,
+    },
+    BlocoContextual {
+        contexto: String,
+        argumento: Option<String>,
+        argumentos: Vec<Expressao>,
+        corpo: Vec<NoAst>,
+    },
     Classe {
         nome: String,
         herda: Option<String>,
