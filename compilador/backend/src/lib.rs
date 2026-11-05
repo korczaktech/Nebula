@@ -17,7 +17,7 @@ const LIMITE_VARIAVEIS: usize = 512;
 const NOME_INICIO_INTERNO: &str = "\0nebula_inicio";
 
 fn instrucao_base(mut instrucao: &InstrucaoIr) -> &InstrucaoIr {
-    while let InstrucaoIr::Localizada { instrucao: interna, .. } = instrucao_base(instrucao) {
+    while let InstrucaoIr::Localizada { instrucao: interna, .. } = instrucao {
         instrucao = interna;
     }
     instrucao
