@@ -428,11 +428,11 @@ fn carregar_programa(caminho: &Path) -> Result<(ArquivoFonte, ProgramaIr), Strin
     Ok((fonte, programa))
 }
 
-fn localizacoes_programa(programa: &ProgramaIr) -> Vec<IntervaloFonte> {
-    fn coletar(instrucao: &InstrucaoIr, saida: &mut Vec<IntervaloFonte>) {
+fn localizacoes_programa(programa: &ProgramaIr) -> Vec<(PathBuf, IntervaloFonte)> {
+    fn coletar(instrucao: &InstrucaoIr, saida: &mut Vec<(PathBuf, IntervaloFonte)>) {
         match instrucao {
-            InstrucaoIr::Localizada { intervalo, instrucao } => {
-                saida.push(*intervalo);
+            InstrucaoIr::Localizada { caminho, intervalo, instrucao } => {
+                saida.push((caminho.clone(), *intervalo));
                 coletar(instrucao, saida);
             }
             InstrucaoIr::Bloco(itens) => for item in itens { coletar(item, saida); },
@@ -457,6 +457,11 @@ fn localizacoes_programa(programa: &ProgramaIr) -> Vec<IntervaloFonte> {
         for instrucao in &funcao.corpo { coletar(instrucao, &mut saida); }
     }
     saida
+}
+
+fn normalizar_caminho(caminho: &Path, principal: &Path) -> PathBuf {
+    let caminho = if caminho.as_os_str().is_empty() { principal } else { caminho };
+    std::fs::canonicalize(caminho).unwrap_or_else(|_| caminho.to_path_buf())
 }
 
 fn linha_coluna_dap(fonte: &ArquivoFonte, offset: usize) -> Option<(usize, usize)> {
