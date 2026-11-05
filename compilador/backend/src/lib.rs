@@ -363,7 +363,7 @@ impl Emissor {
         if retorno_grande.is_some() {
             self.codigo.extend_from_slice(&[0x48, 0x89, 0xBD]);
             self.codigo.extend_from_slice(&(-(TAMANHO_QUADRO as i32)).to_le_bytes()); // salva RDI no fim do quadro
-            self.retorno_oculto_atual = retorno_grande;
+            self.retorno_oculto_atual = Some((-(TAMANHO_QUADRO as i32), retorno_grande.unwrap().0));
         }
         if funcao.parametros.len() > 6 {
             return Err(format!("A função '{}' excede seis parâmetros no ABI x86-64 inicial.", funcao.nome));
@@ -607,9 +607,25 @@ impl Emissor {
                 self.emitir_referencia_funcao(&format!("{modulo}::{nome}"));
             }
             ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
+                let retorno_grande = tipo_expressao_ir(alvo).and_then(|tipo| {
+                    if let Tipo::Funcao(_, retorno) = tipo {
+                        self.layout_agregado_grande(retorno)
+                    } else {
+                        None
+                    }
+                });
                 self.expressao(alvo)?;
-                self.push_rax();
-                self.preparar_argumentos(argumentos)?;
+                self.push_rax(); // ponteiro da função
+                if let Some((tamanho, alinhamento)) = retorno_grande {
+                    let destino = self.reservar_agregado(tamanho, alinhamento)?;
+                    self.emitir_endereco_rbp_rax(destino);
+                    self.push_rax();
+                    self.preparar_argumentos_desde(argumentos, 1)?;
+                    self.pop_rax();
+                    self.mover_rax_registrador(7);
+                } else {
+                    self.preparar_argumentos(argumentos)?;
+                }
                 self.codigo.extend_from_slice(&[0x41, 0x5B]); // pop r11: ponteiro da função
                 self.pilha = self.pilha.checked_sub(1)
                     .ok_or("Contabilidade da pilha inválida na chamada indireta.")?;
