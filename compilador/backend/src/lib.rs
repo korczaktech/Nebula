@@ -424,7 +424,10 @@ impl Emissor {
                 PosicaoArgumento::Registradores(indice) => {
                     self.mover_registrador_rax(registradores[indice]);
                     if largura == 2 {
+                        self.armazenar_rax(deslocamento);
                         self.mover_registrador_rax(registradores[indice + 1]);
+                        self.armazenar_rax(deslocamento - 8);
+                        continue;
                     }
                 }
                 PosicaoArgumento::Pilha { deslocamento: pilha, largura: largura_pilha } => {
