@@ -13,7 +13,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
-use crate::ast::{CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
+use crate::ast::{AtributoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
 use unicode_normalization::UnicodeNormalization;
 
 /// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
@@ -129,6 +129,8 @@ impl Parser {
                 }
             }
             TipoToken::Classe => self.classe(),
+            TipoToken::Arroba => self.atributada(),
+            TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem => self.bloco_contextual(),
             TipoToken::Exportar => {
                 self.avancar();
                 if self.corresponde(TipoToken::Funcao) { self.funcao_corpo(Some(Visibilidade::Publico)) }
@@ -150,7 +152,7 @@ impl Parser {
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Estrutura => self.estrutura(),
             TipoToken::Enumeracao => self.enumeracao(),
-            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Herda | TipoToken::Seguro | TipoToken::Critico | TipoToken::Privilegio | TipoToken::Montagem => {
+            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Herda => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
                     "N2016",
@@ -306,6 +308,60 @@ impl Parser {
         let corpo = self.bloco()?;
         Some(NoAst::Funcao { visibilidade, assincrona: false, nome, genericos, parametros, parametros_padrao, retorno, corpo })
     }
+    fn atributada(&mut self) -> Option<NoAst> {
+        let mut atributos = Vec::new();
+        while self.corresponde(TipoToken::Arroba) {
+            let nome = self.consumir_nome("Esperado nome do atributo após '@'.")?;
+            let mut argumentos = Vec::new();
+            if self.corresponde(TipoToken::AbrePar) {
+                if !self.verifica(TipoToken::FechaPar) {
+                    loop {
+                        argumentos.push(self.expressao(0)?);
+                        if !self.corresponde(TipoToken::Virgula) { break; }
+                    }
+                }
+                self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos do atributo.");
+            }
+            atributos.push(AtributoAst { nome, argumentos });
+            self.pular_novas_linhas();
+        }
+        let declaracao = self.item()?;
+        Some(NoAst::Atributada { atributos, declaracao: Box::new(declaracao) })
+    }
+
+    fn bloco_contextual(&mut self) -> Option<NoAst> {
+        let token = self.avancar();
+        let contexto = token.lexema;
+        let argumento = if matches!(contexto.as_str(), "privilegio" | "montagem")
+            || (contexto == "seguro" && self.verifica(TipoToken::Identificador)) {
+            self.consumir_nome("Esperado identificador após o contexto.")
+        } else { None };
+        let mut argumentos = Vec::new();
+        if self.corresponde(TipoToken::Menor) {
+            while !self.verifica(TipoToken::Maior) && !self.verifica(TipoToken::Fim) {
+                let _ = self.caminho_tipo()?;
+                if !self.corresponde(TipoToken::Virgula) { break; }
+            }
+            self.esperar(TipoToken::Maior, "Esperado '>' após parâmetros do contexto.");
+        }
+        if self.corresponde(TipoToken::AbrePar) {
+            if !self.verifica(TipoToken::FechaPar) {
+                loop {
+                    argumentos.push(self.expressao(0)?);
+                    if !self.corresponde(TipoToken::Virgula) { break; }
+                }
+            }
+            self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos do contexto.");
+        }
+        if self.corresponde(TipoToken::DoisPontos) || self.verifica(TipoToken::NovaLinha) {
+            let corpo = self.bloco()?;
+            Some(NoAst::BlocoContextual { contexto, argumento, argumentos, corpo })
+        } else {
+            self.erro_atual("N2007", "Esperado bloco após declaração de contexto.");
+            None
+        }
+    }
+
     fn classe(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome após 'classe'.")?;
@@ -1357,14 +1413,14 @@ impl Parser {
         matches!(no,
             NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
             | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
-            | NoAst::Para { .. } | NoAst::Classe { .. }
+            | NoAst::Para { .. } | NoAst::Classe { .. } | NoAst::BlocoContextual { .. }
         )
     }
     fn inicia_item(&self) -> bool {
         matches!(self.tipo(),
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
             | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Publico | TipoToken::Privado
-            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Assinc | TipoToken::ReservadaFutura
+            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
             | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
             | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
