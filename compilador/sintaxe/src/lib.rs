@@ -33,7 +33,7 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
     ResultadoSintatico { programa, diagnosticos }
 }
 
-const LIMITE_PROFUNDIDADE_PARSER: usize = 128;
+const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
 struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, profundidade_blocos_chaves: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
@@ -4046,6 +4046,24 @@ criarUsuario(nome = "Ana", idade = 25)
         assert!(resultado.programa.expressoes_localizadas.iter().any(|localizado|
             matches!(&localizado.expressao, Expressao::Literal(valor) if valor.contains("{nome}"))
         ));
+    }
+
+    #[test]
+    fn limite_de_aninhamento_corresponde_a_gramatica_normativa() {
+        let dentro = format!("{}verdadeiro", "!".repeat(200));
+        let resultado_dentro = analisar(&fonte(&dentro));
+        assert!(
+            !resultado_dentro.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "200 níveis devem respeitar o limite normativo de 256: {:?}",
+            resultado_dentro.diagnosticos
+        );
+
+        let acima = format!("{}verdadeiro", "!".repeat(260));
+        let resultado_acima = analisar(&fonte(&acima));
+        assert!(
+            resultado_acima.diagnosticos.iter().any(|d| d.codigo == "N2049"),
+            "260 níveis devem produzir N2049"
+        );
     }
 
 }
