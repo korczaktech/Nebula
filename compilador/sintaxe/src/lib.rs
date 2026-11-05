@@ -1381,7 +1381,6 @@ impl Parser {
             if tipo == TipoToken::AbrePar && 16 >= minimo {
                 self.avancar();
                 let args = self.argumentos_chamada(TipoToken::FechaPar)?;
-                self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos.");
                 esquerda = Expressao::Chamada { alvo: Box::new(esquerda), argumentos: args, tipos_genericos: Vec::new() }; continue;
             }
             if tipo == TipoToken::AbreColchete && 16 >= minimo {
