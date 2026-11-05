@@ -1418,7 +1418,7 @@ mod testes {
         for codigo in [
             "variavel ponto = (10, 20)",
             "variavel unidade = (42,)",
-            "variavel vazio = ()",
+            "variavel unidadeVazia = ()",
         ] {
             let r = analisar(&fonte(codigo));
             assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
