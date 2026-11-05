@@ -381,7 +381,10 @@ impl Parser {
             }
             self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos do contexto.");
         }
-        if self.corresponde(TipoToken::DoisPontos) || self.verifica(TipoToken::NovaLinha) {
+        if self.corresponde(TipoToken::DoisPontos)
+            || self.verifica(TipoToken::NovaLinha)
+            || self.verifica(TipoToken::Indent)
+        {
             let corpo = self.bloco()?;
             Some(NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo })
         } else if self.corresponde(TipoToken::FimBloco) {
