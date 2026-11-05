@@ -14,8 +14,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-mod formatador;
+#[rustfmt::skip]
 mod debugger;
+mod formatador;
 
 type ProgramaModuloCarregado = (String, ProgramaIr);
 type FonteModuloCarregada = (PathBuf, Vec<u8>);
