@@ -613,11 +613,13 @@ impl Parser {
         } else {
             Vec::new()
         };
-        if self.proximo_tipo_significativo() == TipoToken::FimBloco {
-            self.pular_novas_linhas();
-            self.avancar();
-        } else if !delimitado_por_chaves {
-            self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
+        if !delimitado_por_chaves {
+            if self.proximo_tipo_significativo() == TipoToken::FimBloco {
+                self.pular_novas_linhas();
+                self.avancar();
+            } else {
+                self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
+            }
         }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
