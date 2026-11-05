@@ -369,12 +369,17 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         estado.expansoes.clear();
                         estado.proxima_referencia = 1;
                         if primeira && continuar_inicializacao { continue; }
-                        let (linha, coluna) = atual.intervalo_fonte
-                            .and_then(|intervalo| estado.fonte.linha_coluna(intervalo.inicio))
+                        let localizacao = localizacao_evento(&atual, &estado.caminho_principal);
+                        let (caminho, intervalo) = localizacao.clone()
+                            .unwrap_or((estado.caminho_principal.clone(), IntervaloFonte { inicio: 0, fim: 0 }));
+                        let (linha, coluna) = estado.fontes.get(&caminho)
+                            .and_then(|fonte| linha_coluna_dap(fonte, intervalo.inicio))
                             .unwrap_or((1, 1));
-                        let motivo = if primeira {
+                        let motivo = if primeira && !continuar_inicializacao {
                             "entry"
-                        } else if atual.intervalo_fonte.is_some_and(|intervalo| estado.pontos_parada.contains(&intervalo.inicio)) {
+                        } else if localizacao.as_ref().is_some_and(|(origem, intervalo)| {
+                            estado.pontos_parada.contains(&(origem.clone(), intervalo.inicio))
+                        }) {
                             "breakpoint"
                         } else {
                             "step"
