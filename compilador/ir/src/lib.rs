@@ -1251,6 +1251,8 @@ pub struct EventoDepuracao {
     pub escopos: Vec<HashMap<String, ValorIr>>,
 }
 
+type ObservadorDepuracao<'a> = &'a mut (dyn FnMut(&EventoDepuracao) -> Result<(), String> + 'a);
+
 /// Executa a IR notificando o chamador antes de cada instrução.
 ///
 /// O observador pode bloquear para aguardar comandos de depuração. Retornar
@@ -1270,7 +1272,7 @@ fn executar_interno(
     programa: &ProgramaIr,
     limite_passos: usize,
     entrada: Option<VecDeque<String>>,
-    observador: Option<&mut dyn FnMut(&EventoDepuracao) -> Result<(), String>>,
+    observador: Option<ObservadorDepuracao<'_>>,
 ) -> Result<ResultadoExecucao, String> {
     let mut vm = Maquina {
         programa,
@@ -1577,7 +1579,7 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
 
 struct Maquina<'p, 'o> {
     programa: &'p ProgramaIr,
-    observador: Option<&'o mut dyn FnMut(&EventoDepuracao) -> Result<(), String>>,
+    observador: Option<ObservadorDepuracao<'o>>,
     contexto: ContextoRuntime,
     saida: Vec<String>,
     entrada: Option<VecDeque<String>>,
