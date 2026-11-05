@@ -119,7 +119,7 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = "funcao principal() {\n variavel nome: texto = \"Nebula\"\n quando verdadeiro { devolver nome }\n}";
+    let codigo = "funcao principal()\n     variavel nome: texto = \"Nebula\"\n     quando verdadeiro\n        devolver nome\n    fim\nfim";
     let resultado = analisar(&ArquivoFonte::novo("ast.nbx", codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -189,20 +189,37 @@ tipo Identificador = inteiro
 estrutura Pessoa { nome: texto }
 enumeracao Estado { Pronto, Falha(texto) }
 incluir Modulo::Texto como Texto
-funcao executar(item: inteiro): vazio {
-    quando verdadeiro { exibir(item) } senao {}
-    escolha Estado::Pronto {
-        caso Estado::Pronto {}
-        caso _ {}
-    }
-    enquanto falso {}
-    cada elemento em [1, 2] {}
-    pulso(10) {}
-    para (;; ) {}
+funcao executar(item: inteiro): vazio
+        quando verdadeiro
+        exibir(item)
+    senao
+        passar
+    fim
+        escolha Estado::Pronto
+            caso Estado::Pronto
+        passar
+    
+            caso _
+        passar
+    fim
+        enquanto falso
+        passar
+    fim
+        cada elemento em [1, 2]
+        passar
+    fim
+        pulso(10)
+        passar
+    fim
+        para (;; )
+        passar
+    fim
+    
     devolver
-    parar
-    seguir
-}
+        parar
+        seguir
+fim
+
 executar(1)
 "#;
     let resultado = analisar(&ArquivoFonte::novo("nos.nbx", codigo));
