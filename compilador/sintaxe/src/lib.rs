@@ -936,17 +936,21 @@ impl Parser {
         }
 
         if !self.corresponde(TipoToken::NovaLinha) {
-            self.erro_atual("N2007", "Esperado bloco delimitado por chaves ou iniciado em nova linha.");
+            self.erro_atual("N2007", "Esperada quebra de linha antes do bloco indentado.");
             return None;
         }
         self.separadores();
 
         let indentado = self.corresponde(TipoToken::Indent);
-        let mut profundidade_indentacao = usize::from(indentado);
-        let mut itens = Vec::new();
         if !indentado {
-            self.erro_atual("N2009", "Bloco não vazio precisa iniciar com indentação.");
+            self.erro_atual("N2009", "Todo bloco precisa iniciar com indentação.");
+            if self.verifica(TipoToken::FimBloco) {
+                self.avancar();
+            }
+            return Some(Vec::new());
         }
+        let mut profundidade_indentacao = 1usize;
+        let mut itens = Vec::new();
 
         loop {
             if self.verifica(TipoToken::Fim) || self.verifica(TipoToken::Senao)
@@ -955,9 +959,6 @@ impl Parser {
                 break;
             }
             if indentado && profundidade_indentacao == 0 {
-                break;
-            }
-            if self.verifica(TipoToken::FimBloco) && !indentado {
                 break;
             }
             if self.corresponde(TipoToken::Indent) {
@@ -1004,14 +1005,14 @@ impl Parser {
             self.separadores();
         }
 
-        if indentado && profundidade_indentacao > 0 {
+        if profundidade_indentacao > 0 {
             self.erro_atual("N2009", "Bloco indentado não foi fechado corretamente.");
         }
         if consumir_fim {
             if self.verifica(TipoToken::FimBloco) {
                 self.avancar();
             } else {
-                self.erro_atual("N2009", "Bloco iniciado por quebra de linha precisa terminar com 'fim'.");
+                self.erro_atual("N2009", "Bloco indentado precisa terminar com 'fim'.");
             }
         }
         Some(itens)
@@ -4071,6 +4072,16 @@ criarUsuario(nome = "Ana", idade = 25)
                 resultado.diagnosticos
             );
         }
+
+        let recuperacao = analisar(&fonte(
+            "funcao quebrada()\\nvariavel depois = 1\\nfim\\nvariavel fora = 2"
+        ));
+        assert!(recuperacao.programa.itens.iter().any(
+            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
+        ));
+        assert!(recuperacao.programa.itens.iter().any(
+            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "fora")
+        ));
 
         for codigo in [
             "funcao principal()\\npassar\\nfim",
