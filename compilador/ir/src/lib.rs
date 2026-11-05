@@ -597,6 +597,13 @@ impl Lowerer {
     }
 
     fn inferir_tipo_chamada(&mut self, nome: &str, argumentos: &[Expressao]) -> Tipo {
+        match nome {
+            "receber" | "perguntar" | "ler_texto" => return Tipo::Texto,
+            "dormir" | "aguardar" | "exibir" | "adicionar" => return Tipo::Vazio,
+            "tempo" | "comprimento" => return Tipo::Inteiro,
+            _ => {}
+        }
+
         if nome == "em_paralelo" && !argumentos.is_empty() {
             let mut retorno_comum: Option<Tipo> = None;
             for argumento in argumentos {
@@ -1451,6 +1458,7 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 let fim = normalizar_limite_decimal_intervalo(interno, fim)?;
                 Ok(ValorIr::IntervaloDecimal(inicio, fim))
             }
+        (Tipo::Desconhecido, valor) => Ok(valor),
         _ => Err(format!("Valor IR incompatível com o tipo '{}'.", tipo.nome())),
     }
 }
