@@ -1,7 +1,7 @@
 //! Modelos tipados para declarações da linguagem Nebula.
 
-use super::tipos::TipoAst;
 use super::expressao::Expressao;
+use super::tipos::TipoAst;
 
 /// Visibilidade declarada para uma função.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
