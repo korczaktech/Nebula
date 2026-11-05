@@ -219,6 +219,13 @@ fn reconhece_operadores_da_especificacao_principal() {
 }
 
 #[test]
+fn preserva_operador_de_atribuicao_legado() {
+    let r = analisar("valor <- 2");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens[1].tipo, TipoToken::Atribui);
+}
+
+#[test]
 fn reconhece_alias_convencional_de_divisao_inteira() {
     let r = analisar("//= 2");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
