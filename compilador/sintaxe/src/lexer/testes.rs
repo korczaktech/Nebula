@@ -17,15 +17,15 @@ fn possui_erro(codigo: &str, codigo_erro: &str) -> bool {
 
 #[test]
 fn diagnostica_acentos_em_identificadores() {
-    let r = analisar("função senão não enumeração mutável");
-    assert_eq!(r.diagnosticos.len(), 5, "{:?}", r.diagnosticos);
+    let r = analisar("função senão não enumeração mutável ação");
+    assert_eq!(r.diagnosticos.len(), 6, "{:?}", r.diagnosticos);
     assert!(
         r.diagnosticos
             .iter()
             .all(|diagnostico| diagnostico.codigo == "N1019")
     );
     assert!(
-        r.tokens[..5]
+        r.tokens[..6]
             .iter()
             .all(|token| token.tipo == TipoToken::Identificador)
     );
