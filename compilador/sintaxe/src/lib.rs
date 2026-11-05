@@ -646,11 +646,14 @@ impl Parser {
         let indentado = if delimitado_por_chaves {
             false
         } else {
-            if !self.corresponde(TipoToken::NovaLinha) {
+            let houve_quebra = self.corresponde(TipoToken::NovaLinha);
+            if !houve_quebra && !self.verifica(TipoToken::Indent) {
                 self.erro_atual("N2040", "Esperada quebra de linha antes dos casos de escolha.");
                 return None;
             }
-            self.separadores();
+            if houve_quebra {
+                self.separadores();
+            }
             if !self.corresponde(TipoToken::Indent) {
                 self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
                 return None;
