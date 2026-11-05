@@ -8,7 +8,7 @@ use nebula_sintaxe::analisar;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Sender};
 use std::thread;
 
 enum Entrada {
@@ -28,7 +28,8 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
     let (fonte, programa) = carregar_programa(caminho)?;
     let localizacoes = localizacoes_programa(&programa);
     let (tx_entrada, rx_entrada) = mpsc::channel();
-    thread::spawn(move || ler_requisicoes(tx_entrada));
+    let tx_leitor = tx_entrada.clone();
+    thread::spawn(move || ler_requisicoes(tx_leitor));
     drop(tx_entrada);
 
     let mut saida = std::io::stdout().lock();
