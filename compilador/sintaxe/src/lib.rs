@@ -35,9 +35,9 @@ pub fn analisar(fonte: &ArquivoFonte) -> ResultadoSintatico {
 
 const LIMITE_PROFUNDIDADE_PARSER: usize = 256;
 
-struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, profundidade_blocos_chaves: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
+struct Parser { tokens: Vec<Token>, atual: usize, profundidade: usize, bloquear_construcao_vazia: bool, diagnosticos: Vec<Diagnostico>, nos_localizados: Vec<NoLocalizado>, expressoes_localizadas: Vec<ExpressaoLocalizada>, tipos_localizados: Vec<TipoLocalizado>, casos_localizados: Vec<CasoEscolhaLocalizado> }
 impl Parser {
-    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, profundidade_blocos_chaves: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
+    fn novo(tokens: Vec<Token>) -> Self { Self { tokens, atual: 0, profundidade: 0, bloquear_construcao_vazia: false, diagnosticos: Vec::new(), nos_localizados: Vec::new(), expressoes_localizadas: Vec::new(), tipos_localizados: Vec::new(), casos_localizados: Vec::new() } }
     fn com_profundidade<T>(&mut self, analisar: impl FnOnce(&mut Self) -> Option<T>) -> Option<T> {
         if self.profundidade >= LIMITE_PROFUNDIDADE_PARSER {
             self.erro_atual("N2049", "Limite de aninhamento sintático excedido (256 níveis). Reduza o aninhamento.");
@@ -637,7 +637,6 @@ impl Parser {
         let delimitado_por_chaves = self.corresponde(TipoToken::AbreChave);
         if delimitado_por_chaves {
             self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
-            self.profundidade_blocos_chaves += 1;
         }
         let indentado = if delimitado_por_chaves {
             false
@@ -829,7 +828,6 @@ impl Parser {
         }
         if delimitado_por_chaves {
             self.esperar(TipoToken::FechaChave, "Escolha não foi fechada com '}'.");
-            self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
             self.erro_atual("N2009", "'escolha' deve terminar com 'fim' e usar indentação.");
         } else {
             self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
@@ -903,7 +901,6 @@ impl Parser {
         }
         if self.corresponde(TipoToken::AbreChave) {
             self.erro_atual("N2009", "Blocos de instruções exigem indentação; chaves não substituem indentação.");
-            self.profundidade_blocos_chaves += 1;
             self.separadores();
             let mut itens = Vec::new();
             while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
@@ -932,7 +929,6 @@ impl Parser {
                 self.separadores();
             }
             self.esperar(TipoToken::FechaChave, "Bloco aberto com '{' não foi fechado com '}'.");
-            self.profundidade_blocos_chaves = self.profundidade_blocos_chaves.saturating_sub(1);
             if consumir_fim {
                 self.erro_atual("N2009", "Blocos de instruções devem usar indentação e terminar com 'fim'.");
             }
@@ -948,7 +944,7 @@ impl Parser {
         let indentado = self.corresponde(TipoToken::Indent);
         let mut profundidade_indentacao = usize::from(indentado);
         let mut itens = Vec::new();
-        if !indentado && self.profundidade_blocos_chaves == 0 {
+        if !indentado {
             self.erro_atual("N2009", "Bloco não vazio precisa iniciar com indentação.");
         }
 
