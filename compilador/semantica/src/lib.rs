@@ -669,6 +669,7 @@ impl<'a> Analisador<'a> {
                     _ => Tipo::Desconhecido,
                 }
             }
+            Expressao::Lambda { .. } | Expressao::LambdaBloco { .. } => Tipo::Desconhecido,
             Expressao::Binaria { esquerda, operador, direita } => {
                 let a = self.expressao(esquerda);
                 let b = self.expressao(direita);
