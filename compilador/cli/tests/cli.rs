@@ -520,7 +520,11 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
     let modulo = diretorio.join("Base.nbx");
-    std::fs::write(&modulo, "publico funcao valor(): inteiro\n    devolver 40\nfim").unwrap();
+    std::fs::write(
+        &modulo,
+        "publico funcao valor(): inteiro\n    devolver 40\nfim",
+    )
+    .unwrap();
     std::fs::write(
         &fonte,
         "incluir Base\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
@@ -550,7 +554,11 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
         .count();
     assert_eq!(entradas_antes, 1);
 
-    std::fs::write(&modulo, "publico funcao valor(): inteiro\n    devolver 39\nfim").unwrap();
+    std::fs::write(
+        &modulo,
+        "publico funcao valor(): inteiro\n    devolver 39\nfim",
+    )
+    .unwrap();
     assert_eq!(compilar(), Some(41));
     let entradas_depois = std::fs::read_dir(&cache)
         .unwrap()
