@@ -2883,7 +2883,7 @@ mod testes {
     #[test]
     fn executa_comandos_de_controle_e_colecoes_em_conjunto() {
         let ir = compilar(
-            "funcao incrementar(valor: inteiro): inteiro { devolver valor + 1 }\ndefinir contador = 0\nalterar contador <- incrementar(contador)\nquando contador == 1 { exibir(\"quando\") } senao { exibir(\"senao\") }\navaliar Opcional::Algum(contador) { caso Opcional::Algum(valor) { exibir(valor) } caso Opcional::Nenhum { exibir(0) } }\nrepetir contador < 3 { alterar contador <- contador + 1 }\ndurante contador < 4 { alterar contador <- contador + 1 }\ncada item em gerar(2, 2) { alterar contador <- contador + item }\npulso(0) { alterar contador <- contador + 1\nquando contador >= 9 { parar } }\naguardar(0)\nexibir(contador)",
+            "funcao incrementar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\ndefinir contador = 0\nalterar contador <- incrementar(contador)\nquando contador == 1\n    exibir(\"quando\")\nsenao\n    exibir(\"senao\")\nfim\navaliar Opcional::Algum(contador)\n    caso Opcional::Algum(valor)\n        exibir(valor)\n    caso Opcional::Nenhum\n        exibir(0)\nfim\nrepetir contador < 3\n    alterar contador <- contador + 1\nfim\ndurante contador < 4\n    alterar contador <- contador + 1\nfim\ncada item em gerar(2, 2)\n    alterar contador <- contador + item\nfim\npulso(0)\n    alterar contador <- contador + 1\n    quando contador >= 9\n        parar\n    fim\nfim\n\naguardar(0)\nexibir(contador)",
         );
         let resultado = executar(&ir, 500).expect("comandos de controle devem executar");
         assert_eq!(resultado.saida, vec!["quando", "1", "9"]);
@@ -2914,7 +2914,7 @@ mod testes {
     fn rejeita_inferencia_generica_com_tipo_aninhado_desconhecido() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel ausente = identidade(Opcional::Nenhum())",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel ausente = identidade(Opcional::Nenhum())",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -2931,7 +2931,7 @@ mod testes {
     fn rejeita_unificacao_generica_inconsistente() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao par<T>(a: T, b: T): T { devolver a }\nvariavel resultado = par([1], [verdadeiro])",
+            "funcao par<T>(a: T, b: T): T\n    devolver a\nfim\n\nvariavel resultado = par([1], [verdadeiro])",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -2947,7 +2947,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes { callback: funcao(inteiro): inteiro }\nfuncao somar(valor: inteiro): inteiro { devolver valor + 2 }\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes { callback: funcao(inteiro): inteiro }\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -2956,7 +2956,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_retorno_de_funcao() {
         let ir = compilar(
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nfuncao consultar(): funcao(inteiro): inteiro { devolver somar }\nexibir(consultar()(41))",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\nfuncao consultar(): funcao(inteiro): inteiro\n    devolver somar\nfim\n\nexibir(consultar()(41))",
         );
         let resultado = executar(&ir, 200).expect("chamada de função retornada válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -2965,7 +2965,7 @@ mod testes {
     #[test]
     fn executa_valor_de_funcao_e_chamada_indireta() {
         let ir = compilar(
-            "funcao somar(valor: inteiro): inteiro { devolver valor + 1 }\nvariavel callback: funcao(inteiro): inteiro = somar\nexibir(callback(41))",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\nvariavel callback: funcao(inteiro): inteiro = somar\nexibir(callback(41))",
         );
         let resultado = executar(&ir, 200).expect("chamada indireta válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3096,7 +3096,7 @@ mod testes {
     #[test]
     fn baixa_assinaturas_com_tipos_nominais() {
         let ir = compilar(
-            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa { devolver pessoa }",
+            "estrutura Pessoa { nome: texto }\nenumeracao Estado { Ativo, Inativo }\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
         );
         let funcao = ir.funcoes.get("receber").expect("função declarada");
         assert_eq!(funcao.parametros[0].1, Tipo::Estrutura("Pessoa".into()));
@@ -3169,7 +3169,7 @@ mod testes {
     #[test]
     fn executa_escolha_com_payload_de_enumeracao() {
         let ir = compilar(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\nfim\n\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         let resultado = executar(&ir, 200).expect("pattern matching válido");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3178,7 +3178,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_opcional_e_resultado() {
         let ir = compilar(
-            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha falha { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor\n    caso Opcional::Algum(numero)\n        exibir(numero)\n    caso Opcional::Nenhum\n        exibir(0)\nfim\n\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(numero)\n        exibir(numero)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
         );
         let resultado = executar(&ir, 200).expect("escolha algébrica válida");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3187,7 +3187,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_variantes_sem_payload() {
         let ir = compilar(
-            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado { caso Estado::Ativo { exibir(\"ativo\") } caso Estado::Inativo { exibir(\"inativo\") } }",
+            "enumeracao Estado { Ativo, Inativo }\nvariavel estado = Estado::Ativo\nescolha estado\n    caso Estado::Ativo\n        exibir(\"ativo\")\n    caso Estado::Inativo\n        exibir(\"inativo\")\nfim",
         );
         let resultado = executar(&ir, 200).expect("enumeração sem payload válida");
         assert_eq!(resultado.saida, vec!["ativo"]);
@@ -3335,7 +3335,7 @@ mod testes {
     #[test]
     fn monomorfiza_generico_com_tupla() {
         let ir = compilar(
-            "funcao primeiro<T>(ponto: Tupla<T,T>): T { devolver ponto[0] }\nvariavel numero = primeiro((7, 8))",
+            "funcao primeiro<T>(ponto: Tupla<T,T>): T\n    devolver ponto[0]\nfim\n\nvariavel numero = primeiro((7, 8))",
         );
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("genérico com tupla válido");
@@ -3345,7 +3345,7 @@ mod testes {
     #[test]
     fn monomorfiza_funcao_generica_para_tipos_inferidos() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__texto"));
@@ -3357,7 +3357,7 @@ mod testes {
     #[test]
     fn monomorfiza_generico_com_parametro_composto() {
         let ir = compilar(
-            "funcao primeiro<T>(valores: [T]): T { devolver valores[0] }\nvariavel numero = primeiro([7, 8])",
+            "funcao primeiro<T>(valores: [T]): T\n    devolver valores[0]\nfim\n\nvariavel numero = primeiro([7, 8])",
         );
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("instância de lista genérica válida");
@@ -3367,7 +3367,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_chamada_generica_aninhada() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nvariavel numero = identidade(identidade(42))",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel numero = identidade(identidade(42))",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamadas genéricas aninhadas válidas");
@@ -3377,7 +3377,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_funcao_nao_generica() {
         let ir = compilar(
-            "funcao somar(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = somar(20, 22)",
+            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\n\nvariavel total = somar(20, 22)",
         );
         let declaracao = ir.instrucoes.iter().find_map(|instrucao| match instrucao {
             InstrucaoIr::Declarar { nome, tipo, .. } if nome == "total" => Some(tipo),
@@ -3391,7 +3391,7 @@ mod testes {
     #[test]
     fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
         let ir = compilar(
-            "funcao extrair<T,U>(ponto: Tupla<T,U>): T { devolver ponto[0] }\nfuncao identidade<T>(valor: T): T { devolver valor }\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
+            "funcao extrair<T,U>(ponto: Tupla<T,U>): T\n    devolver ponto[0]\nfim\nfuncao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
         );
         assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3402,7 +3402,7 @@ mod testes {
     #[test]
     fn infere_chamada_generica_em_variavel_local() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T { devolver valor }\nfuncao repassar<T>(valor: T): T { variavel copia = identidade(valor)\n devolver copia }\nvariavel numero = repassar(42)",
+            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\nfuncao repassar<T>(valor: T): T\n    variavel copia = identidade(valor)\n     devolver copia\nfim\n\nvariavel numero = repassar(42)",
         );
         assert!(ir.funcoes.contains_key("repassar__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3413,7 +3413,7 @@ mod testes {
     #[test]
     fn infere_genericos_em_parametros_e_retorno_de_tipo_funcao() {
         let ir = compilar(
-            "funcao identidade(valor: inteiro): inteiro { devolver valor }\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T { devolver operacao(valor) }\nvariavel resultado = aplicar(identidade, 42)",
+            "funcao identidade(valor: inteiro): inteiro\n    devolver valor\nfim\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T\n    devolver operacao(valor)\nfim\n\nvariavel resultado = aplicar(identidade, 42)",
         );
         assert!(ir.funcoes.contains_key("aplicar__inteiro"));
         let resultado = executar(&ir, 100).expect("inferência em tipo de função válida");
@@ -3422,7 +3422,7 @@ mod testes {
 
     #[test]
     fn executa_funcao_com_retorno() {
-        let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro { devolver a + b }\nvariavel total = soma(2, 3)");
+        let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\n\nvariavel total = soma(2, 3)");
         let r = executar(&ir, 100).expect("execução válida");
         assert_eq!(r.globais.get("total"), Some(&ValorIr::Inteiro(5)));
     }
@@ -3430,7 +3430,7 @@ mod testes {
     #[test]
     fn em_paralelo_aguarda_todas_as_funcoes_e_preserva_ordem() {
         let ir = compilar(
-            "funcao primeira(): inteiro { devolver 11 }\nfuncao segunda(): inteiro { devolver 22 }\nvariavel resultados = em_paralelo(primeira, segunda)\nexibir(resultados[0])\nexibir(resultados[1])",
+            "funcao primeira(): inteiro\n    devolver 11\nfim\nfuncao segunda(): inteiro\n    devolver 22\nfim\n\nvariavel resultados = em_paralelo(primeira, segunda)\nexibir(resultados[0])\nexibir(resultados[1])",
         );
         let resultado = executar(&ir, 300).expect("tarefas paralelas devem concluir");
         assert_eq!(resultado.saida, vec!["11", "22"]);
@@ -3458,14 +3458,14 @@ mod testes {
 
     #[test]
     fn executa_condicional_e_laco() {
-        let ir = compilar("variavel x = 0\nenquanto x < 3 { x = x + 1 }\nquando x == 3 { exibir(x) }");
+        let ir = compilar("variavel x = 0\nenquanto x < 3\n    x = x + 1\nfim\nquando x == 3\n    exibir(x)\nfim");
         let r = executar(&ir, 100).expect("execução válida");
         assert_eq!(r.saida, vec!["3"]);
     }
 
     #[test]
     fn interrompe_laco_infinito_por_limite() {
-        let ir = compilar("enquanto verdadeiro { exibir(1) }");
+        let ir = compilar("enquanto verdadeiro\n    exibir(1)\nfim");
         assert!(executar(&ir, 5).is_err());
     }
 
@@ -3485,14 +3485,14 @@ mod testes {
 
     #[test]
     fn limita_recursao_da_maquina() {
-        let ir = compilar("funcao recursiva(n: inteiro): inteiro { devolver recursiva(n + 1) }\nvariavel x = recursiva(0)");
+        let ir = compilar("funcao recursiva(n: inteiro): inteiro\n    devolver recursiva(n + 1)\nfim\n\nvariavel x = recursiva(0)");
         assert!(executar(&ir, 10_000).is_err());
     }
 
     #[test]
     fn executa_intervalo_com_tipo_generico_explicito() {
         let ir = compilar(
-            "variavel faixa: Intervalo<inteiro> = 1..3\ncada numero em faixa { exibir(numero) }",
+            "variavel faixa: Intervalo<inteiro> = 1..3\ncada numero em faixa\n    exibir(numero)\nfim",
         );
         let resultado = executar(&ir, 100).expect("intervalo tipado explícito");
         assert_eq!(resultado.saida, vec!["1", "2", "3"]);
@@ -3501,7 +3501,7 @@ mod testes {
     #[test]
     fn executa_intervalo_u128_acima_do_limite_de_i128() {
         let ir = compilar(
-            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel limite: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..limite\ncada numero em faixa { exibir(numero) }",
+            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel limite: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..limite\ncada numero em faixa\n    exibir(numero)\nfim",
         );
         let resultado = executar(&ir, 100).expect("intervalo u128 válido");
         assert_eq!(
@@ -3539,14 +3539,14 @@ mod testes {
 
     #[test]
     fn executa_laco_para() {
-        let ir = compilar("variavel soma = 0\npara (variavel i = 0; i < 3; i = i + 1) { soma = soma + i }\nexibir(soma)");
+        let ir = compilar("variavel soma = 0\npara (variavel i = 0; i < 3; i = i + 1)\n    soma = soma + i\nfim\n\nexibir(soma)");
         let r = executar(&ir, 200).expect("execução válida");
         assert_eq!(r.saida, vec!["3"]);
     }
 
     #[test]
     fn executa_parar_e_seguir_em_lacos() {
-        let ir = compilar("variavel x = 0\nenquanto x < 5 { x = x + 1\nquando x == 2 { seguir }\nquando x == 4 { parar }\nexibir(x) }");
+        let ir = compilar("variavel x = 0\nenquanto x < 5\n    x = x + 1\n    quando x == 2\n        seguir\n    fim\n    quando x == 4\n        parar\n    fim\n    \n    exibir(x)\nfim");
         let r = executar(&ir, 200).expect("execução válida");
         assert_eq!(r.saida, vec!["1", "3"]);
     }
@@ -3779,7 +3779,7 @@ mod testes {
     fn preserva_localizacoes_em_blocos_e_lacos_aninhados() {
         let fonte = ArquivoFonte::novo(
             "aninhado.nbx",
-            "quando verdadeiro {\n    variavel interno = 7\n}\nenquanto falso {\n    variavel repetido = 1\n}",
+            "quando verdadeiro\n    variavel interno = 7\nfim\nenquanto falso\n    variavel repetido = 1\nfim",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
