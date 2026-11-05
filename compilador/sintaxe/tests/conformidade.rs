@@ -132,7 +132,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "bloco com instrucao vazia",
-            "funcao vazio()\n    passar\nfim",
+            "funcao sem_corpo()\n    passar\nfim",
         ),
         (
             "aliases sem acentos",
@@ -217,7 +217,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2035",
             "enumeracao Estado:\n    Ativo(inteiro,)\nfim",
         ),
-        ("enumeracao vazia", "N2036", "enumeracao Estado:\nfim"),
+        ("enumeracao vazia", "N2036", "enumeracao Estado:\n    variavel"),
         (
             "campo de construcao duplicado",
             "N2037",
@@ -498,7 +498,7 @@ variavel tupla = (1, "dois")
 variavel unaria_negativa = -valor
 variavel unaria_logica = !ativo
 variavel binaria = esquerda + direita
-variavel argumento = executar(nome = "Ana")
+variavel argumento = executar(nome: "Ana")
 variavel atribuicao = destino = 10
 variavel chamada = executar(1)
 variavel indexacao = itens[0]
