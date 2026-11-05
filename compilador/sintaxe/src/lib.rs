@@ -599,24 +599,24 @@ impl Parser {
         let delimitado_por_chaves = self.proximo_tipo_significativo() == TipoToken::AbreChave;
         let entao = self.bloco_sem_fim()?;
         let mut alternativas = Vec::new();
-        loop {
+        while self.proximo_tipo_significativo() == TipoToken::Sendo {
             self.pular_novas_linhas();
-            if !self.corresponde(TipoToken::Sendo) {
-                break;
-            }
+            self.avancar();
             let condicao_alternativa = self.expressao_antes_de_bloco()?;
             let corpo_alternativo = self.bloco_sem_fim()?;
             alternativas.push((condicao_alternativa, corpo_alternativo));
         }
-        self.pular_novas_linhas();
-        let mut senao = if self.corresponde(TipoToken::Senao) {
+        let mut senao = if self.proximo_tipo_significativo() == TipoToken::Senao {
+            self.pular_novas_linhas();
+            self.avancar();
             self.bloco_sem_fim()?
         } else {
             Vec::new()
         };
-        if delimitado_por_chaves {
-            self.corresponde(TipoToken::FimBloco);
-        } else {
+        if self.proximo_tipo_significativo() == TipoToken::FimBloco {
+            self.pular_novas_linhas();
+            self.avancar();
+        } else if !delimitado_por_chaves {
             self.esperar(TipoToken::FimBloco, "Condicional precisa terminar com 'fim'.");
         }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
@@ -1514,7 +1514,7 @@ impl Parser {
     }
     fn proximo_tipo_significativo(&self) -> TipoToken {
         self.tokens.iter().skip(self.atual)
-            .find(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula))
+            .find(|token| token.tipo != TipoToken::NovaLinha)
             .map_or(TipoToken::Fim, |token| token.tipo)
     }
 
