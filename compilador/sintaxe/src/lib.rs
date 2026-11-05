@@ -1180,6 +1180,32 @@ impl Parser {
                 }
             }
             let tipo = self.tipo();
+            if tipo == TipoToken::Incrementa || tipo == TipoToken::Decrementa {
+                let operador = self.avancar().tipo;
+                let destino = esquerda.clone();
+                let calculo = Expressao::Binaria {
+                    esquerda: Box::new(esquerda),
+                    operador: if operador == TipoToken::Incrementa { TipoToken::Mais } else { TipoToken::Menos },
+                    direita: Box::new(Expressao::Literal("1".into())),
+                };
+                esquerda = Expressao::Atribuicao {
+                    destino: Box::new(destino),
+                    valor: Box::new(calculo),
+                };
+                continue;
+            }
+            if tipo == TipoToken::Interrogacao && 1 >= minimo {
+                self.avancar();
+                let entao = self.expressao(0)?;
+                self.esperar(TipoToken::DoisPontos, "Esperado ':' na expressão condicional.");
+                let senao = self.expressao(1)?;
+                esquerda = Expressao::Condicional {
+                    condicao: Box::new(esquerda),
+                    entao: Box::new(entao),
+                    senao: Box::new(senao),
+                };
+                continue;
+            }
             if tipo == TipoToken::AbrePar && 16 >= minimo {
                 self.avancar();
                 let mut args = Vec::new();
@@ -1335,7 +1361,7 @@ impl Parser {
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
-            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
+            | TipoToken::AbreColchete | TipoToken::Negacao | TipoToken::Reticencias | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Menos
             | TipoToken::Mais
         )
     }
