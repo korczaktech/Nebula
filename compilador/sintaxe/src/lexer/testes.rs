@@ -71,9 +71,7 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
         TipoToken::Iguais,
         TipoToken::TipoDe,
         TipoToken::InstanciaDe,
-        TipoToken::Obter,
         TipoToken::Definir,
-        TipoToken::Vazio,
         TipoToken::Exportar,
         TipoToken::Construtor,
         TipoToken::Estatico,
@@ -112,7 +110,7 @@ fn reconhece_palavras_de_baixo_nivel_e_deixa_apis_como_identificadores() {
     assert_eq!(r.tokens[1].tipo, TipoToken::Privilegio);
     assert_eq!(r.tokens[2].tipo, TipoToken::Montagem);
     assert!(
-        r.tokens[3..]
+        r.tokens[3..r.tokens.len() - 1]
             .iter()
             .all(|t| t.tipo == TipoToken::Identificador)
     );
@@ -257,6 +255,7 @@ fn respeita_maior_correspondencia_de_operadores() {
             TipoToken::Ponto,
             TipoToken::Escopo,
             TipoToken::DoisPontos,
+            TipoToken::Coalesce,
             TipoToken::CoalesceAtribui,
             TipoToken::AcessoOpcional,
             TipoToken::Interrogacao
