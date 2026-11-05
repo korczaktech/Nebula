@@ -976,7 +976,17 @@ impl Parser {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Incrementa | TipoToken::Decrementa => {
+                let operador = self.avancar().tipo;
+                let destino = self.expressao(14)?;
+                let calculo = Expressao::Binaria {
+                    esquerda: Box::new(destino.clone()),
+                    operador: if operador == TipoToken::Incrementa { TipoToken::Mais } else { TipoToken::Menos },
+                    direita: Box::new(Expressao::Literal("1".into())),
+                };
+                Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
+            }
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
