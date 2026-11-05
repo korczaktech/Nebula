@@ -520,9 +520,9 @@ impl Parser {
         let fechamento = if indentado { TipoToken::Dedent } else { TipoToken::FechaChave };
         self.separadores();
         let mut campos = Vec::new();
-        while !self.verifica(fechamento)
-            && !(indentado && self.verifica(TipoToken::FimBloco))
-            && !self.verifica(TipoToken::Fim)
+        while !(self.verifica(fechamento)
+            || self.verifica(TipoToken::Fim)
+            || (indentado && self.verifica(TipoToken::FimBloco)))
         {
             let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
@@ -579,10 +579,10 @@ impl Parser {
             } else {
                 campos.push((campo, tipo));
             }
-            if !self.corresponde(TipoToken::Virgula)
-                && !self.separador_atual()
-                && !self.verifica(fechamento)
-                && !(indentado && self.verifica(TipoToken::FimBloco))
+            if !(self.corresponde(TipoToken::Virgula)
+                || self.separador_atual()
+                || self.verifica(fechamento)
+                || (indentado && self.verifica(TipoToken::FimBloco)))
             {
                 self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
                 self.sincronizar();
