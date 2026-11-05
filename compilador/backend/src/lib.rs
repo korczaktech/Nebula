@@ -1444,14 +1444,14 @@ impl Emissor {
         if tamanho == 0 || alinhamento == 0 || !alinhamento.is_power_of_two() || alinhamento > 16 {
             return Err("Layout de agregado incompatível com o quadro nativo.".into());
         }
-        let inicio = Self::alinhar_layout(self.proximo_agregado, alinhamento)
-            .ok_or("Alinhamento da área de agregados excedeu o limite.")?;
-        let fim = inicio.checked_add(tamanho)
+        let topo = self.proximo_agregado.checked_add(tamanho)
             .ok_or("Área de agregados excedeu o limite do quadro.")?;
+        let fim = Self::alinhar_layout(topo, alinhamento)
+            .ok_or("Alinhamento da área de agregados excedeu o limite.")?;
         if fim > u64::from(TAMANHO_QUADRO) {
             return Err("A função excedeu a área reservada para agregados no quadro nativo.".into());
         }
-        let deslocamento = i32::try_from(inicio)
+        let deslocamento = i32::try_from(fim)
             .ok()
             .and_then(i32::checked_neg)
             .ok_or("Deslocamento do agregado excedeu o endereçamento x86-64.")?;
@@ -2822,7 +2822,7 @@ mod testes {
         let mut emissor = Emissor::novo(HashMap::new());
         let primeiro = emissor.reservar_agregado(24, 8).unwrap();
         let segundo = emissor.reservar_agregado(32, 16).unwrap();
-        assert_eq!(primeiro, -8200);
+        assert_eq!(primeiro, -8224);
         assert_eq!(segundo % 16, 0);
         assert!(segundo < primeiro);
     }
