@@ -3678,6 +3678,55 @@ mod testes {
     }
 
     #[test]
+    fn preserva_intervalos_de_origem_na_ir() {
+        let fonte = ArquivoFonte::novo("origem.nbx", "variavel primeiro = 1\nvariavel segundo = 2");
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let ir = resultado.programa.expect("IR localizada");
+        let InstrucaoIr::Localizada { intervalo, .. } = &ir.instrucoes[1] else {
+            panic!("a segunda instrução precisa preservar sua origem");
+        };
+        assert_eq!(fonte.trecho(*intervalo), Some("variavel segundo = 2"));
+        assert_eq!(fonte.linha_coluna(intervalo.inicio), Some((2, 1)));
+    }
+
+    #[test]
+    fn controlador_interrompe_em_offset_de_linha_fonte() {
+        let fonte = ArquivoFonte::novo("pontos.nbx", "variavel contador = 1\ncontador = contador + 1\ncontador = contador + 1");
+        let sintaxe = analisar(&fonte);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        let programa = resultado.programa.expect("IR válida");
+        let offset_segunda = fonte.conteudo().find("contador = contador + 1").expect("segunda linha");
+        let (tx_comandos, rx_comandos) = std::sync::mpsc::channel();
+        let (tx_eventos, rx_eventos) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || executar_controlado(&programa, 100, rx_comandos, tx_eventos));
+
+        let inicial = rx_eventos.recv().expect("pausa inicial");
+        let EventoControleDepuracao::Pausado(inicial) = inicial else {
+            panic!("esperava pausa inicial");
+        };
+        assert_eq!(fonte.linha_coluna(inicial.intervalo_fonte.expect("origem inicial").inicio), Some((1, 1)));
+
+        tx_comandos.send(ComandoDepuracao::DefinirPontosFonte(vec![offset_segunda])).unwrap();
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        let ponto = rx_eventos.recv().expect("pausa no breakpoint de origem");
+        let EventoControleDepuracao::Pausado(ponto) = ponto else {
+            panic!("esperava pausa por origem");
+        };
+        assert_eq!(ponto.intervalo_fonte.map(|intervalo| intervalo.inicio), Some(offset_segunda));
+        assert_eq!(fonte.linha_coluna(offset_segunda), Some((2, 1)));
+
+        tx_comandos.send(ComandoDepuracao::Continuar).unwrap();
+        assert!(matches!(
+            rx_eventos.recv().expect("finalização"),
+            EventoControleDepuracao::Finalizado(Ok(_))
+        ));
+        worker.join().expect("thread").expect("execução controlada");
+    }
+
+    #[test]
     fn observador_pode_interromper_a_execucao_com_erro() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let resultado = executar_observado(&programa, 100, |evento| {
