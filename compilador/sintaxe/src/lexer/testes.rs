@@ -94,7 +94,12 @@ fn reconhece_palavras_reservadas_da_sintaxe_principal() {
 fn nomes_de_tipos_e_metodos_da_biblioteca_permanecem_identificadores() {
     let r = analisar("vazio obter");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    assert!(r.tokens.iter().take(2).all(|t| t.tipo == TipoToken::Identificador));
+    assert!(
+        r.tokens
+            .iter()
+            .take(2)
+            .all(|t| t.tipo == TipoToken::Identificador)
+    );
 }
 
 #[test]
