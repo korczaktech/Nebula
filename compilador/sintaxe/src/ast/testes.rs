@@ -79,6 +79,7 @@ fn declaracoes_expoem_acesso_tipado_sem_perder_api_do_parser() {
 
     let funcao = NoAst::Funcao {
         visibilidade: Some(Visibilidade::Publico),
+        assincrona: false,
         nome: "converter".into(),
         genericos: vec![],
         parametros: vec![("valor".into(), "[inteiro]".into())],
