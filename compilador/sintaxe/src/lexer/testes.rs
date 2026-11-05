@@ -296,7 +296,7 @@ fn reconhece_identificadores_unicode_e_normaliza_classificacao() {
     assert_eq!(r.tokens[0].tipo, TipoToken::Identificador);
     assert_eq!(r.tokens[0].lexema, "Ωmega");
     assert_eq!(r.tokens[1].tipo, TipoToken::Identificador);
-    assert_eq!(r.tokens[1].lexema, "ação");
+    assert_eq!(r.tokens[1].lexema, "变量");
     assert_eq!(r.tokens[2].tipo, TipoToken::Funcao);
     assert_eq!(r.tokens[3].tipo, TipoToken::Publico);
 }
@@ -484,11 +484,11 @@ fn diagnostica_delimitadores_desbalanceados_e_cr_isolado() {
 
 #[test]
 fn preserva_offsets_em_bytes_e_lexemas_originais() {
-    let codigo = "variavel ação = 1";
+    let codigo = "variavel Ωmega = 1";
     let r = analisar(codigo);
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    let t = r.tokens.iter().find(|t| t.lexema == "ação").unwrap();
-    assert_eq!(&codigo[t.intervalo.inicio..t.intervalo.fim], "ação");
+    let t = r.tokens.iter().find(|t| t.lexema == "Ωmega").unwrap();
+    assert_eq!(&codigo[t.intervalo.inicio..t.intervalo.fim], "Ωmega");
     assert_eq!(t.intervalo.inicio, "variavel ".len());
 }
 
