@@ -21,13 +21,13 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "funcao publica generica",
-            "publico funcao identidade<T>(valor: T): T { devolver valor }",
+            "publico funcao identidade<T>(valor: T): T\n    devolver valor\nfim",
         ),
         (
             "funcao privada e parametros",
-            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U { devolver b }",
+            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U\n    devolver b\nfim",
         ),
-        ("funcao sem retorno", "funcao executar() {}"),
+        ("funcao sem retorno", "funcao executar()\n    passar\nfim"),
         (
             "tipos simples e qualificados",
             "tipo A = inteiro\ntipo B <- Modulo::Interno::Tipo",
@@ -49,27 +49,27 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ("inclusao sem alias", "incluir Biblioteca::Interna"),
         (
             "quando e senao",
-            "quando verdadeiro { exibir(1) } senao { exibir(0) }",
+            "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
         ),
-        ("quando encadeado", "quando a {} senao quando b {} senao {}"),
+        ("quando encadeado", "quando a\n    passar\nsendo b\n    passar\nsenao\n    passar\nfim"),
         (
             "escolha e padroes",
-            "escolha valor { caso Resultado::Sucesso(texto) { exibir(texto) } caso Resultado::Falha(codigo) {} caso _ {} }",
+            "escolha valor\n    caso Resultado::Sucesso(texto)\n        exibir(texto)\n    caso Resultado::Falha(codigo)\n        passar\n    caso _\n        passar\nfim",
         ),
-        ("alias avaliar", "avaliar valor { caso Estado::Pronto {} }"),
+        ("alias avaliar", "avaliar valor\n    caso Estado::Pronto\n        passar\nfim"),
         (
             "lacos enquanto",
-            "enquanto verdadeiro { parar }\ndurante falso { seguir }\nrepetir verdadeiro { encerrar }",
+            "enquanto verdadeiro\n    parar\nfim\ndurante falso\n    seguir\nfim\nrepetir verdadeiro\n    encerrar\nfim",
         ),
-        ("iteracao cada", "cada item em [1, 2, 3] { exibir(item) }"),
-        ("pulso", "pulso(100) { exibir(1) }"),
+        ("iteracao cada", "cada item em [1, 2, 3]\n    exibir(item)\nfim"),
+        ("pulso", "pulso(100)\n    exibir(1)\nfim"),
         (
             "para com declaracao",
-            "para (variavel i = 0; i < 3; i = i + 1) { exibir(i) }",
+            "para (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim",
         ),
         (
             "para com expressoes opcionais",
-            "para (inicio = 0; ; passo = passo + 1) {}\npara (; condicao; ) {}\npara (;; ) {}",
+            "para (inicio = 0; ; passo = passo + 1)\n    passar\nfim\npara (; condicao; )\n    passar\nfim\npara (;; )\n    passar\nfim",
         ),
         ("alterar", "alterar total <- 10\nalterar total = total + 1"),
         (
@@ -116,12 +116,12 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "bloco com fim",
-            "funcao executar()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
+            "funcao executar()\n    variavel ativo = verdadeiro\n    enquanto ativo\n        ativo = falso\n    fim\nfim",
         ),
-        ("bloco vazio com fim", "funcao vazio()\n fim"),
+        ("bloco com instrucao vazia", "funcao vazio()\n    passar\nfim"),
         (
             "grafias ortograficas",
-            "função principal() { quando não falso {} senão {} }\nenumeração Estado { Pronto }\npúblico função iniciar() {}",
+            "função principal()\n    quando não falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeração Estado { Pronto }\npúblico função iniciar()\n    passar\nfim",
         ),
         (
             "fixture de sintaxe visual",
