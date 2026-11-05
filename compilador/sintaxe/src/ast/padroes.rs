@@ -22,6 +22,8 @@ pub enum PadraoAst {
         vinculacoes: Vec<PadraoAst>,
     },
     Literal(String),
+    /// Expressão de padrão preservada integralmente quando não é literal simples.
+    Expressao(super::expressao::Expressao),
 }
 
 impl CasoEscolha {
@@ -31,7 +33,7 @@ impl CasoEscolha {
             return match expressao {
                 super::expressao::Expressao::Literal(valor) => PadraoAst::Literal(valor.clone()),
                 super::expressao::Expressao::Nome(nome) => PadraoAst::Vinculacao(nome.clone()),
-                _ => PadraoAst::Literal(format!("{expressao:?}")),
+                _ => PadraoAst::Expressao(expressao.clone()),
             };
         }
         match (&self.enumeracao, &self.variante) {
