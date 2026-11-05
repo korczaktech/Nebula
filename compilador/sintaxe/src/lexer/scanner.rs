@@ -1018,6 +1018,37 @@ impl<'a> Lexer<'a> {
                         );
                     }
                 }
+                Some(b'#') => {
+                    while !self.fim() && !matches!(self.byte(0), Some(b'\n' | b'\r')) {
+                        self.atual += 1;
+                    }
+                }
+                Some(b'/') if self.byte(1) == Some(b'*') => {
+                    let inicio_comentario = self.atual;
+                    self.atual += 2;
+                    while !self.fim()
+                        && !(self.byte(0) == Some(b'*') && self.byte(1) == Some(b'/'))
+                    {
+                        self.atual += 1;
+                    }
+                    if self.fim() {
+                        self.erro(
+                            "N1002",
+                            "Comentário de bloco não terminado dentro da interpolação.",
+                            inicio_comentario,
+                            self.atual,
+                        );
+                        return;
+                    }
+                    self.atual += 2;
+                }
+                Some(b'/')
+                    if self.byte(1) == Some(b'/') && self.byte(2) != Some(b'=') =>
+                {
+                    while !self.fim() && !matches!(self.byte(0), Some(b'\n' | b'\r')) {
+                        self.atual += 1;
+                    }
+                }
                 Some(b'{') => {
                     profundidade += 1;
                     possui_expressao = true;
