@@ -478,6 +478,7 @@ fn suprime_quebras_apos_operadores_de_continuacao() {
         "variavel negativo = -\n  2",
         "variavel membro = objeto.\n  nome",
         "tipo Caminho = Modulo::\n  Tipo",
+        "variavel faixa = 1..\n  2",
     ] {
         let r = analisar(codigo);
         assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
@@ -491,6 +492,8 @@ fn suprime_quebras_antes_de_operadores_e_apos_linhas_vazias() {
         "variavel soma = 1\n\n + 2",
         "variavel membro = objeto\n.nome",
         "tipo Caminho = Modulo\n:: Tipo",
+        "variavel chamada = funcao_alvo\n(1, 2)",
+        "variavel indice = valores\n[0]",
     ] {
         let r = analisar(codigo);
         assert!(r.diagnosticos.is_empty(), "{codigo}: {:?}", r.diagnosticos);
