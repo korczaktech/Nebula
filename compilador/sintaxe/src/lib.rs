@@ -117,6 +117,18 @@ impl Parser {
                 Some(NoAst::Expressao(expressao))
             }
             TipoToken::Funcao => self.funcao(),
+            TipoToken::Assinc => {
+                self.avancar();
+                if self.corresponde(TipoToken::Funcao) {
+                    let mut funcao = self.funcao_corpo(None)?;
+                    if let NoAst::Funcao { assincrona, .. } = &mut funcao { *assincrona = true; }
+                    Some(funcao)
+                } else {
+                    self.erro_atual("N2016", "'assinc' deve anteceder uma declaração de função.");
+                    None
+                }
+            }
+            TipoToken::Classe => self.classe(),
             TipoToken::Publico | TipoToken::Privado => {
                 let visibilidade = if self.avancar().tipo == TipoToken::Publico {
                     Visibilidade::Publico
@@ -133,7 +145,7 @@ impl Parser {
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Estrutura => self.estrutura(),
             TipoToken::Enumeracao => self.enumeracao(),
-            TipoToken::ReservadaFutura | TipoToken::Assinc | TipoToken::Aguarda | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Classe | TipoToken::Herda | TipoToken::Ceder | TipoToken::Exportar | TipoToken::Seguro | TipoToken::Critico | TipoToken::Privilegio | TipoToken::Montagem => {
+            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Classe | TipoToken::Herda | TipoToken::Ceder | TipoToken::Exportar | TipoToken::Seguro | TipoToken::Critico | TipoToken::Privilegio | TipoToken::Montagem => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
                     "N2016",
@@ -153,6 +165,7 @@ impl Parser {
             TipoToken::Devolver | TipoToken::Retorne => { self.avancar(); let e = if self.fim_item() { None } else { self.expressao(0) }; Some(NoAst::Devolver(e)) }
             TipoToken::Parar | TipoToken::Encerrar | TipoToken::Pare => { self.avancar(); Some(NoAst::Parar) }
             TipoToken::Seguir | TipoToken::Prossiga => { self.avancar(); Some(NoAst::Seguir) }
+            TipoToken::Passar => { self.avancar(); Some(NoAst::Passar) }
             _ => self.expressao(0).map(NoAst::Expressao),
         }
     }
@@ -282,8 +295,18 @@ impl Parser {
             None
         };
         let corpo = self.bloco()?;
-        Some(NoAst::Funcao { visibilidade, nome, genericos, parametros, retorno, corpo })
+        Some(NoAst::Funcao { visibilidade, assincrona: false, nome, genericos, parametros, retorno, corpo })
     }
+    fn classe(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let nome = self.consumir_nome("Esperado nome após 'classe'.")?;
+        let herda = if self.corresponde(TipoToken::Herda) {
+            self.consumir_nome("Esperado nome da classe-base após 'herda'.")
+        } else { None };
+        let corpo = self.bloco()?;
+        Some(NoAst::Classe { nome, herda, corpo })
+    }
+
     fn tipo_alias(&mut self) -> Option<NoAst> {
         self.avancar(); let nome = self.consumir_nome("Esperado nome após 'tipo'.")?;
         if !self.corresponde(TipoToken::Atribui) { self.erro_atual("N2006", "Esperado '=' na declaração de tipo."); return None; }
@@ -903,7 +926,7 @@ impl Parser {
         let mut comparacao_relacional = false;
         let mut intervalo_visto = false;
         let mut esquerda = match self.tipo() {
-            TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
+            TipoToken::Negacao | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(9)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1166,17 +1189,17 @@ impl Parser {
         matches!(no,
             NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
             | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
-            | NoAst::Para { .. }
+            | NoAst::Para { .. } | NoAst::Classe { .. }
         )
     }
     fn inicia_item(&self) -> bool {
         matches!(self.tipo(),
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
             | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Publico | TipoToken::Privado
-            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::ReservadaFutura
+            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Assinc | TipoToken::ReservadaFutura
             | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
-            | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga
+            | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
             | TipoToken::Encerrar | TipoToken::Seguir | TipoToken::Identificador
             | TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere
             | TipoToken::Sim | TipoToken::Nao | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo | TipoToken::AbrePar
@@ -1264,7 +1287,7 @@ impl Parser {
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
-    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Dedent) }
+    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Dedent | TipoToken::Passar) }
     fn sincronizar(&mut self) {
         self.sincronizar_ate(&[
             TipoToken::NovaLinha,
