@@ -3721,6 +3721,38 @@ fim
     }
 
     #[test]
+    fn analisa_tratamento_de_erros_escopo_e_recursos() {
+        let codigo = r#"
+funcao tratar()
+    tente
+        variavel numero = inteiro("abc")
+    erro ValorInvalido
+        exibir("Valor incorreto")
+    sempre
+        exibir("Finalizado")
+    fim
+
+    com abrir("dados.txt", "leitura") como arquivo
+        exibir(arquivo)
+    fim
+
+    verifique sim, "Condicao invalida"
+    lancar erro "Operacao invalida"
+    global contador
+    externa valor
+fim
+"#;
+        let resultado = analisar(&fonte(codigo));
+        assert!(resultado.diagnosticos.is_empty(), "{:#?}", resultado.diagnosticos);
+        let funcao = resultado.programa.itens.first().expect("função");
+        let NoAst::Funcao { corpo, .. } = funcao else { panic!("esperada função") };
+        assert!(corpo.iter().any(|no| matches!(no, NoAst::Tente { .. })));
+        assert!(corpo.iter().any(|no| matches!(no, NoAst::Com { .. })));
+        assert!(corpo.iter().any(|no| matches!(no, NoAst::Verifique { .. })));
+        assert!(corpo.iter().any(|no| matches!(no, NoAst::Lancar(_))));
+    }
+
+    #[test]
     fn analisa_atributos_e_contextos_de_codigo_nativo() {
         let codigo = r#"
 @alinhamento(8)
