@@ -89,6 +89,7 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                             let _ = tx_comandos.send(ComandoDepuracao::Continuar);
                         }
                         responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
+                        evento(&mut saida, &mut sequencia, "thread", json!({"reason":"started","threadId":1}))?;
                     }
                     "setBreakpoints" => {
                         let Some(estado) = estado.as_mut() else {
@@ -203,7 +204,13 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         evento(&mut saida, &mut sequencia, "continued", json!({"threadId": 1, "allThreadsContinued": true}))?;
                     }
                     "pause" => {
-                        responder_erro(&mut saida, &mut sequencia, seq, comando, "A pausa só ocorre em pontos de parada ou por avanço de instrução.")?;
+                        let Some(estado) = estado.as_ref() else {
+                            responder_erro(&mut saida, &mut sequencia, seq, comando, "A sessão ainda não foi iniciada.")?;
+                            continue;
+                        };
+                        estado.comandos.send(ComandoDepuracao::Pausar)
+                            .map_err(|erro| format!("Falha ao solicitar pausa: {erro}"))?;
+                        responder(&mut saida, &mut sequencia, seq, comando, true, json!({}))?;
                     }
                     "terminate" | "disconnect" => {
                         if let Some(estado) = estado.as_ref() {
