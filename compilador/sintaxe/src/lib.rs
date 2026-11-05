@@ -13,7 +13,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_fonte::{ArquivoFonte, IntervaloFonte};
 use crate::lexer::{analisar_lexico, TipoToken, Token};
-use crate::ast::{AtributoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
+use crate::ast::{AtributoAst, CapturaAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada, NoAst, NoLocalizado, Programa, ResultadoSintatico, TipoAst, TipoLocalizado, Visibilidade};
 use unicode_normalization::UnicodeNormalization;
 
 /// Constrói a AST a partir de uma fonte Nebula. Erros léxicos são preservados.
@@ -129,6 +129,25 @@ impl Parser {
                 }
             }
             TipoToken::Classe => self.classe(),
+            TipoToken::Tente => self.tente(),
+            TipoToken::Com => self.com(),
+            TipoToken::Lancar => {
+                self.avancar();
+                self.corresponde(TipoToken::Erro);
+                let expressao = self.expressao(0)?;
+                Some(NoAst::Lancar(expressao))
+            }
+            TipoToken::Verifique => {
+                self.avancar();
+                let condicao = self.expressao(0)?;
+                let mensagem = if self.corresponde(TipoToken::Virgula) { self.expressao(0) } else { None };
+                Some(NoAst::Verifique { condicao, mensagem })
+            }
+            TipoToken::Global | TipoToken::Externa => {
+                let externa = self.avancar().tipo == TipoToken::Externa;
+                let nome = self.consumir_nome("Esperado nome após declaração de escopo.")?;
+                Some(NoAst::Escopo { externa, nome })
+            }
             TipoToken::Arroba => self.atributada(),
             TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem => self.bloco_contextual(),
             TipoToken::Exportar => {
@@ -152,7 +171,7 @@ impl Parser {
             TipoToken::Tipo => self.tipo_alias(),
             TipoToken::Estrutura => self.estrutura(),
             TipoToken::Enumeracao => self.enumeracao(),
-            TipoToken::ReservadaFutura | TipoToken::Tente | TipoToken::Erro | TipoToken::Sempre | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Com | TipoToken::Herda => {
+            TipoToken::ReservadaFutura | TipoToken::Erro | TipoToken::Sempre | TipoToken::Herda => {
                 let token = self.avancar();
                 self.diagnosticos.push(Diagnostico::novo(
                     "N2016",
@@ -360,6 +379,42 @@ impl Parser {
             self.erro_atual("N2007", "Esperado bloco após declaração de contexto.");
             None
         }
+    }
+
+    fn tente(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let corpo = self.bloco_sem_fim()?;
+        let mut capturas = Vec::new();
+        while self.corresponde(TipoToken::Erro) {
+            let tipo = if self.verifica(TipoToken::Identificador) {
+                Some(self.avancar().lexema)
+            } else { None };
+            let corpo_captura = self.bloco_sem_fim()?;
+            capturas.push(CapturaAst { tipo, corpo: corpo_captura });
+            self.pular_novas_linhas();
+        }
+        let sempre = if self.corresponde(TipoToken::Sempre) {
+            self.bloco_sem_fim()?
+        } else { Vec::new() };
+        if self.verifica(TipoToken::FimBloco) {
+            self.avancar();
+        } else {
+            self.erro_atual("N2009", "Bloco 'tente' precisa terminar com 'fim'.");
+        }
+        if capturas.is_empty() && sempre.is_empty() {
+            self.erro_atual("N2007", "'tente' precisa de ao menos uma cláusula 'erro' ou 'sempre'.");
+        }
+        Some(NoAst::Tente { corpo, capturas, sempre })
+    }
+
+    fn com(&mut self) -> Option<NoAst> {
+        self.avancar();
+        let recurso = self.expressao_antes_de_bloco()?;
+        let nome = if self.corresponde(TipoToken::Como) {
+            self.consumir_nome("Esperado nome após 'como' em bloco 'com'.")
+        } else { None };
+        let corpo = self.bloco()?;
+        Some(NoAst::Com { recurso, nome, corpo })
     }
 
     fn classe(&mut self) -> Option<NoAst> {
@@ -868,7 +923,8 @@ impl Parser {
 
         loop {
             if self.verifica(TipoToken::Fim) || self.verifica(TipoToken::Senao)
-                || self.verifica(TipoToken::Sendo) {
+                || self.verifica(TipoToken::Sendo) || self.verifica(TipoToken::Erro)
+                || self.verifica(TipoToken::Sempre) {
                 break;
             }
             if indentado && profundidade_indentacao == 0 {
@@ -1415,7 +1471,7 @@ impl Parser {
             _ => matches!(no,
                 NoAst::Funcao { .. } | NoAst::Quando { .. } | NoAst::Escolha { .. }
                 | NoAst::Enquanto { .. } | NoAst::Cada { .. } | NoAst::Pulso { .. }
-                | NoAst::Para { .. } | NoAst::Classe { .. } | NoAst::BlocoContextual { .. }
+                | NoAst::Para { .. } | NoAst::Classe { .. } | NoAst::BlocoContextual { .. } | NoAst::Tente { .. } | NoAst::Com { .. }
             ),
         }
     }
@@ -1423,7 +1479,7 @@ impl Parser {
         matches!(self.tipo(),
             TipoToken::Variavel | TipoToken::Definir | TipoToken::Mutavel | TipoToken::Constante
             | TipoToken::Alterar | TipoToken::Funcao | TipoToken::Publico | TipoToken::Privado
-            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
+            | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Classe | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Global | TipoToken::Externa | TipoToken::Assinc | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::ReservadaFutura
             | TipoToken::Incluir | TipoToken::Quando | TipoToken::Se | TipoToken::Sendo | TipoToken::Escolha | TipoToken::Avaliar
             | TipoToken::Enquanto | TipoToken::Durante | TipoToken::Repetir | TipoToken::Pulso
             | TipoToken::Para | TipoToken::Cada | TipoToken::Devolver | TipoToken::Retorne | TipoToken::Parar | TipoToken::Pare | TipoToken::Prossiga | TipoToken::Passar
