@@ -190,6 +190,10 @@ impl<'a> Lexer<'a> {
                 }
             }
             b'#' => self.comentario_linha(),
+            b'/' if self.byte(0) == Some(b'/') && self.byte(1) == Some(b'=') => {
+                self.atual += 2;
+                self.simples(TipoToken::DivideInteiraAtribui);
+            }
             b'/' if self.corresponde(b'/') => self.comentario_linha(),
             b'/' if self.corresponde(b'*') => self.comentario_bloco(),
             b'"' => self.literal_texto(),
