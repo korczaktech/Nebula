@@ -140,6 +140,21 @@ fn emite_indent_dedent_e_preserva_fim_explicito() {
 }
 
 #[test]
+fn emite_quebra_e_indent_apos_fechamento_de_tipo_generico() {
+    let resultado = analisar(
+        "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>\\n    devolver valor\\nfim"
+    );
+    assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    let fechamento = resultado
+        .tokens
+        .iter()
+        .rposition(|token| token.tipo == TipoToken::Maior)
+        .expect("fechamento do tipo genérico");
+    assert_eq!(resultado.tokens[fechamento + 1].tipo, TipoToken::NovaLinha);
+    assert_eq!(resultado.tokens[fechamento + 2].tipo, TipoToken::Indent);
+}
+
+#[test]
 fn dedenta_varios_niveis_sem_criar_blocos_falsos_em_linhas_vazias() {
     let r = analisar("a\n\n    b\n        c\n    d\ne");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
