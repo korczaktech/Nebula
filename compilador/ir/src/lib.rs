@@ -3164,7 +3164,7 @@ mod testes {
     #[test]
     fn executa_escolha_com_payload_de_enumeracao() {
         let ir = compilar(
-            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }\nvariavel erro = Resultado::Falha(\"opa\")\nescolha erro { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "enumeracao Resultado { Sucesso(inteiro), Falha(texto) }\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } caso _ { exibir(0) } }\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha { caso Resultado::Sucesso(valor) { exibir(valor) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
         );
         let resultado = executar(&ir, 200).expect("pattern matching válido");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3173,7 +3173,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_opcional_e_resultado() {
         let ir = compilar(
-            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }\nvariavel erro: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha erro { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor { caso Opcional::Algum(numero) { exibir(numero) } caso Opcional::Nenhum { exibir(0) } }\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha falha { caso Resultado::Sucesso(numero) { exibir(numero) } caso Resultado::Falha(mensagem) { exibir(mensagem) } }",
         );
         let resultado = executar(&ir, 200).expect("escolha algébrica válida");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
