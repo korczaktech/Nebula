@@ -30,7 +30,8 @@ impl<'a> Lexer<'a> {
             self.inicio = self.atual;
             self.escanear_token();
         }
-        for (abertura, posicao) in self.delimitadores.drain(..) {
+        let aberturas = std::mem::take(&mut self.delimitadores);
+        for (abertura, posicao) in aberturas {
             let nome = match abertura { b'(' => "parêntese", b'[' => "colchete", _ => "chave" };
             self.erro("N1011", &format!("Delimitador {nome} sem fechamento."), posicao, posicao + 1);
         }
