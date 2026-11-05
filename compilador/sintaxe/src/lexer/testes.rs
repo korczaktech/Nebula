@@ -354,6 +354,27 @@ fn diagnostica_escapes_e_caracteres_invalidos() {
 }
 
 #[test]
+fn valida_expressoes_dentro_de_textos_interpolados() {
+    let valido = analisar("\x60Ola, ${nome}! ${objeto.campo}`");
+    let aninhado = analisar("\x60Valor: ${calcular({ chave: \"}\" })}`");
+    assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+    assert!(aninhado.diagnosticos.is_empty(), "{:?}", aninhado.diagnosticos);
+    assert!(valido.tokens.iter().any(|t| t.tipo == TipoToken::TextoInterpolado));
+}
+
+#[test]
+fn diagnostica_interpolacoes_vazias_e_nao_terminadas() {
+    assert!(possui_erro("\x60Valor: ${}`", "N1017"));
+    assert!(possui_erro("\x60Valor: ${nome`", "N1016"));
+}
+
+#[test]
+fn escape_de_cifrao_nao_inicia_interpolacao() {
+    let r = analisar("\x60Literal: \\ ${nome}`");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+}
+
+#[test]
 fn reconhece_comentarios_de_linha_e_bloco_sem_perder_quebras() {
     let r =
         analisar("variavel a = 1 # comentario\n// outro\n/* bloco\ncontinua */\nvariavel b = 2");
