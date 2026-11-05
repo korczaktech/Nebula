@@ -207,6 +207,13 @@ fn reconhece_operadores_da_especificacao_principal() {
 }
 
 #[test]
+fn reconhece_alias_convencional_de_divisao_inteira() {
+    let r = analisar("//= 2");
+    assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    assert_eq!(r.tokens[0].tipo, TipoToken::DivideInteiraAtribui);
+}
+
+#[test]
 fn respeita_maior_correspondencia_de_operadores() {
     let r = analisar(">>> >> >= > !== != ** * ... .. . :: : ?? ??= ?. ?");
     let tipos: Vec<_> = r
