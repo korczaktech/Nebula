@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+nebula-fonte = { path = "../fonte" }
 nebula-sintaxe = { path = "../sintaxe" }
 nebula-semantica = { path = "../semantica" }
 nebula-runtime = { path = "../runtime" }
