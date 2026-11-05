@@ -3,7 +3,6 @@ use nebula_ir::{
     baixar, executar_controlado, ComandoDepuracao, EventoControleDepuracao, EventoDepuracao,
     InstrucaoIr, ProgramaIr, ValorIr,
 };
-use nebula_semantica::ModulosDisponiveis;
 use nebula_sintaxe::analisar;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -15,6 +14,7 @@ use std::thread;
 enum Entrada {
     Requisicao(Value),
     Evento(EventoControleDepuracao),
+    FimEntrada,
 }
 
 struct Estado {
@@ -34,7 +34,6 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
     let (tx_entrada, rx_entrada) = mpsc::channel();
     let tx_leitor = tx_entrada.clone();
     thread::spawn(move || ler_requisicoes(tx_leitor));
-    drop(tx_entrada);
 
     let mut saida = std::io::stdout().lock();
     let mut sequencia = 1_i64;
@@ -254,6 +253,13 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                     _ => responder_erro(&mut saida, &mut sequencia, seq, comando, "Comando DAP não suportado pela Nebula.")?,
                 }
             }
+            Entrada::FimEntrada => {
+                if let Some(estado) = estado.as_ref() {
+                    let _ = estado.comandos.send(ComandoDepuracao::Encerrar);
+                } else {
+                    break;
+                }
+            }
             Entrada::Evento(evento_recebido) => {
                 match evento_recebido {
                     EventoControleDepuracao::Pausado(atual) => {
@@ -281,18 +287,16 @@ pub fn iniciar(caminho: &Path, continuar_inicializacao: bool) -> Result<(), Stri
                         }))?;
                     }
                     EventoControleDepuracao::Finalizado(resultado) => {
-                        if let Some(estado) = estado.as_mut() {
-                            match resultado {
-                                Ok(resultado) => {
-                                    for linha in resultado.saida {
-                                        evento(&mut saida, &mut sequencia, "output", json!({"category":"stdout","output":format!("{linha}\n")}))?;
-                                    }
-                                    evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
+                        match resultado {
+                            Ok(resultado) => {
+                                for linha in resultado.saida {
+                                    evento(&mut saida, &mut sequencia, "output", json!({"category":"stdout","output":format!("{linha}\n")}))?;
                                 }
-                                Err(erro) => {
-                                    evento(&mut saida, &mut sequencia, "output", json!({"category":"stderr","output":format!("{erro}\n")}))?;
-                                    evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":1}))?;
-                                }
+                                evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":0}))?;
+                            }
+                            Err(erro) => {
+                                evento(&mut saida, &mut sequencia, "output", json!({"category":"stderr","output":format!("{erro}\n")}))?;
+                                evento(&mut saida, &mut sequencia, "exited", json!({"exitCode":1}))?;
                             }
                         }
                         evento(&mut saida, &mut sequencia, "terminated", json!({}))?;
@@ -425,7 +429,10 @@ fn ler_requisicoes(saida: Sender<Entrada>) {
         loop {
             linha.clear();
             match leitor.read_line(&mut linha) {
-                Ok(0) | Err(_) => return,
+                Ok(0) | Err(_) => {
+                    let _ = saida.send(Entrada::FimEntrada);
+                    return;
+                },
                 Ok(_) => {}
             }
             if linha == "\r\n" || linha == "\n" { break; }
@@ -435,7 +442,10 @@ fn ler_requisicoes(saida: Sender<Entrada>) {
         }
         let Some(tamanho) = tamanho else { continue; };
         let mut corpo = vec![0; tamanho];
-        if leitor.read_exact(&mut corpo).is_err() { return; }
+        if leitor.read_exact(&mut corpo).is_err() {
+            let _ = saida.send(Entrada::FimEntrada);
+            return;
+        }
         let Ok(requisicao) = serde_json::from_slice::<Value>(&corpo) else { continue; };
         if saida.send(Entrada::Requisicao(requisicao)).is_err() { return; }
     }
