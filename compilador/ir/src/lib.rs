@@ -840,6 +840,7 @@ impl Lowerer {
                     direita: Box::new(direita),
                 })
             },
+            Expressao::Lambda { .. } | Expressao::LambdaBloco { .. } => None,
             Expressao::Atribuicao { destino, valor } => {
                 let tipo = self.inferir_tipo_ast(destino);
                 let valor = Box::new(self.expressao(valor)?);
