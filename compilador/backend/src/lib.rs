@@ -2894,7 +2894,7 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_funcao_com_mais_de_seis_parametros() {
+    fn aceita_funcao_com_argumentos_na_pilha() {
         let mut programa = programa_com_retorno(0);
         programa.funcoes.insert("excesso".into(), FuncaoIr {
             nome: "excesso".into(),
@@ -2902,7 +2902,7 @@ mod testes {
             retorno: Tipo::Inteiro,
             corpo: Vec::new(),
         });
-        assert!(gerar_executavel(&programa).unwrap_err().contains("seis parâmetros"));
+        assert!(gerar_executavel(&programa).is_ok(), "argumentos excedentes devem ser recebidos pela pilha");
     }
 
     #[test]
