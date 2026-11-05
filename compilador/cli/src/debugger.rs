@@ -418,8 +418,8 @@ fn linha_coluna_dap(fonte: &ArquivoFonte, offset: usize) -> Option<(usize, usize
         return None;
     }
     let prefixo = &conteudo[..offset];
-    let linha = prefixo.bytes().filter(|byte| *byte == b'\\n').count() + 1;
-    let inicio_linha = prefixo.rfind('\\n').map_or(0, |pos| pos + 1);
+    let linha = prefixo.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let inicio_linha = prefixo.rfind('\n').map_or(0, |pos| pos + 1);
     let coluna = conteudo[inicio_linha..offset].encode_utf16().count() + 1;
     Some((linha, coluna))
 }
