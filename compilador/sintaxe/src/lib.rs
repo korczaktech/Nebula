@@ -3868,15 +3868,6 @@ fim
         );
     }
 
-}
-
-}
-
-pub use ast::{
-    AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada,
-    NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
-    TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
-
     #[test]
     fn parser_cobre_membros_de_classe_importacao_por_origem_e_tipos_nativos() {
         let codigo = r#"
@@ -3936,7 +3927,16 @@ criarUsuario(nome = "Ana", idade = 25)
         ));
     }
 
-};
+}
+
+}
+
+pub use ast::{
+    AliasTipoAst, CampoAst, CasoEscolha, CasoEscolhaLocalizado, Expressao, ExpressaoLocalizada,
+    NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa, ResultadoSintatico,
+    TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
+
+;
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
 pub use implementacao::*;
