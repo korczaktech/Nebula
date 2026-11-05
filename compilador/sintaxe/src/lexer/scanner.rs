@@ -728,12 +728,12 @@ impl<'a> Lexer<'a> {
     fn literal_texto_simples(&mut self) {
         let mut fechado = false;
         while !self.fim() {
-            if self.byte(0) == Some(b'\\'') {
+            if self.byte(0) == Some(b'\'') {
                 self.atual += 1;
                 fechado = true;
                 break;
             }
-            if matches!(self.byte(0), Some(b'\\n' | b'\\r')) {
+            if matches!(self.byte(0), Some(b'\n' | b'\r')) {
                 self.erro(
                     "N1006",
                     "Texto simples não pode atravessar uma quebra física.",
@@ -742,7 +742,7 @@ impl<'a> Lexer<'a> {
                 );
                 break;
             }
-            if self.byte(0) == Some(b'\\\\') {
+            if self.byte(0) == Some(b'\\') {
                 let posicao = self.atual;
                 self.atual += 1;
                 if !self.escape_valido() {
