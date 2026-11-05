@@ -2401,6 +2401,23 @@ mod testes {
     }
 
     #[test]
+    fn infere_retorno_de_builtins_de_entrada_e_consulta() {
+        let ir = compilar(
+            "variavel nome = receber()\nvariavel instante = tempo()\nvariavel tamanho = comprimento(\"abc\")",
+        );
+        let tipos: HashMap<_, _> = ir.instrucoes.iter().filter_map(|instrucao| {
+            if let InstrucaoIr::Declarar { nome, tipo, .. } = instrucao {
+                Some((nome.as_str(), tipo.clone()))
+            } else {
+                None
+            }
+        }).collect();
+        assert_eq!(tipos.get("nome"), Some(&Tipo::Texto));
+        assert_eq!(tipos.get("instante"), Some(&Tipo::Inteiro));
+        assert_eq!(tipos.get("tamanho"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
     fn receber_consumindo_entrada_fornecida_pelo_chamador() {
         let ir = compilar(
             "variavel nome = receber()\nvariavel cidade = receber()\nexibir(nome)\nexibir(cidade)",
