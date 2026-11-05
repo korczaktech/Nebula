@@ -755,6 +755,9 @@ fn qualificar_chamadas_modulo(
     caminhos_canonicos: &HashMap<String, String>,
 ) {
     match instrucao {
+        InstrucaoIr::Localizada { instrucao, .. } => {
+            qualificar_chamadas_modulo(instrucao, caminho, funcoes, caminhos_canonicos);
+        }
         InstrucaoIr::Declarar { valor, .. } | InstrucaoIr::Expressao(valor) => {
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
