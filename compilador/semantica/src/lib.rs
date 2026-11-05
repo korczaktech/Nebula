@@ -3101,7 +3101,7 @@ mod testes {
     #[test]
     fn move_campo_aninhado_preserva_campos_irmãos() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.numero\nfim",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3109,7 +3109,7 @@ mod testes {
     #[test]
     fn rejeita_acesso_ao_agregado_que_contem_campo_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco\nfim",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_endereco(pessoa: Pessoa): Endereco\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3117,7 +3117,7 @@ mod testes {
     #[test]
     fn permite_irmao_apos_movimento_de_campo_aninhado() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.numero\nfim",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_numero(pessoa: Pessoa): inteiro\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.numero\nfim",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3125,7 +3125,7 @@ mod testes {
     #[test]
     fn rejeita_reuso_de_campo_aninhado_movido() {
         let r = analisar_codigo(
-            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_rua(pessoa: Pessoa): texto\n    variavel rua = pessoa.endereco.rua\n     devolver pessoa.endereco.rua\nfim",
+            "estrutura Endereco { rua: texto, numero: inteiro }\nestrutura Pessoa { endereco: Endereco, idade: inteiro }\nfuncao obter_rua(pessoa: Pessoa): texto\n    variavel rua = pessoa.endereco.rua\n    devolver pessoa.endereco.rua\nfim",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3524,9 +3524,28 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
 
     #[test]
     fn matriz_de_tipos_primitivos_da_fase5_permanece_tipavel() {
-        let r = analisar_codigo(
-            "variavel logico_valor: logico = verdadeiro\n\\\n             variavel i8: inteiro8 = -128\n\\\n             variavel i16: inteiro16 = 32767\n\\\n             variavel i32: inteiro32 = 2147483647\n\\\n             variavel i64: inteiro64 = 42\n\\\n             variavel i128: inteiro128 = 42\n\\\n             variavel u8: inteiro_u8 = 255\n\\\n             variavel u16: inteiro_u16 = 65535\n\\\n             variavel u32: inteiro_u32 = 42\n\\\n             variavel u64: inteiro_u64 = 42\n\\\n             variavel u128: inteiro_u128 = 42\n\\\n             variavel d32: decimal32 = 1.25\n\\\n             variavel d64: decimal64 = 2.5\n\\\n             variavel byte_valor: byte = 255\n\\\n             variavel caractere_valor: caractere = 'Ω'\n\\\n             variavel texto_valor: texto = \"Nebula\"\n\\\n             funcao sem_retorno(): vazio\n    passar\nfim",
-        );
+        let codigo = r#"
+variavel logico_valor: logico = verdadeiro
+variavel i8: inteiro8 = -128
+variavel i16: inteiro16 = 32767
+variavel i32: inteiro32 = 2147483647
+variavel i64: inteiro64 = 42
+variavel i128: inteiro128 = 42
+variavel u8: inteiro_u8 = 255
+variavel u16: inteiro_u16 = 65535
+variavel u32: inteiro_u32 = 42
+variavel u64: inteiro_u64 = 42
+variavel u128: inteiro_u128 = 42
+variavel d32: decimal32 = 1.25
+variavel d64: decimal64 = 2.5
+variavel byte_valor: byte = 255
+variavel caractere_valor: caractere = 'Ω'
+variavel texto_valor: texto = "Nebula"
+funcao sem_retorno(): vazio
+    passar
+fim
+"#;
+        let r = analisar_codigo(codigo);
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("i128"), Some(&Tipo::Inteiro128));
         assert_eq!(r.tipos_globais.get("u128"), Some(&Tipo::InteiroU128));
