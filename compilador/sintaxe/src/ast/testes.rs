@@ -83,6 +83,7 @@ fn declaracoes_expoem_acesso_tipado_sem_perder_api_do_parser() {
         nome: "converter".into(),
         genericos: vec![],
         parametros: vec![("valor".into(), "[inteiro]".into())],
+        parametros_padrao: vec![None],
         retorno: Some("texto".into()),
         corpo: vec![],
     };
