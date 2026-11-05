@@ -8,6 +8,7 @@ use super::tipos::TipoAst;
 pub enum Visibilidade {
     Publico,
     Privado,
+    Protegido,
 }
 
 /// Parâmetro declarado por uma função.
