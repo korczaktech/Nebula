@@ -364,6 +364,12 @@ linha 2""" "#,
 }
 
 #[test]
+fn diagnostica_identificador_colado_em_literal_numerico() {
+    assert!(possui_erro("variavel numero = 123abc", "N1005"));
+    assert!(possui_erro("variavel numero = 1.25valor", "N1005"));
+}
+
+#[test]
 fn diagnostica_escapes_e_caracteres_invalidos() {
     for literal in [
         r#""\q""#,
