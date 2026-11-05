@@ -2338,7 +2338,11 @@ fim"#,
         let origem =
             std::env::temp_dir().join(format!("nebula-invalido-{}.nbx", std::process::id()));
         let saida = std::env::temp_dir().join(format!("nebula-preservado-{}", std::process::id()));
-        std::fs::write(&origem, "funcao principal(): vazio\n    variavel quebrada =\nfim").unwrap();
+        std::fs::write(
+            &origem,
+            "funcao principal(): vazio\n    variavel quebrada =\nfim",
+        )
+        .unwrap();
         std::fs::write(&saida, b"executavel anterior").unwrap();
         assert!(compilar_arquivo(&origem, &saida).is_err());
         assert_eq!(std::fs::read(&saida).unwrap(), b"executavel anterior");
