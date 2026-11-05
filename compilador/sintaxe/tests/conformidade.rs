@@ -248,7 +248,11 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2043",
             "escolha valor:\n    caso _\n        passar\n    caso _\n        passar\nfim",
         ),
-        ("escolha vazia", "N2044", "escolha valor:\n    variavel x = 1\nfim"),
+        (
+            "escolha vazia",
+            "N2044",
+            "escolha valor:\n    variavel x = 1\nfim",
+        ),
         (
             "vinculo de payload ausente",
             "N2045",
