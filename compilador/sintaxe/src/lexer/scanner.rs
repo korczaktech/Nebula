@@ -127,8 +127,8 @@ impl<'a> Lexer<'a> {
             posicao += 2;
             let mut fechado = false;
             while posicao < self.bytes.len() {
-                if self.bytes.get(posicao) == Some(&b'\\n')
-                    || self.bytes.get(posicao) == Some(&b'\\r')
+                if self.bytes.get(posicao) == Some(&b'\n')
+                    || self.bytes.get(posicao) == Some(&b'\r')
                 {
                     return true;
                 }
@@ -144,7 +144,7 @@ impl<'a> Lexer<'a> {
             if !fechado {
                 return true;
             }
-            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t')) {
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\t')) {
                 posicao += 1;
             }
             if self.bytes.get(posicao) == Some(&b'/')
@@ -154,7 +154,7 @@ impl<'a> Lexer<'a> {
             }
             return matches!(
                 self.bytes.get(posicao),
-                None | Some(b'\\n' | b'\\r' | b'#')
+                None | Some(b'\n' | b'\r' | b'#')
             ) || (self.bytes.get(posicao) == Some(&b'/')
                 && self.bytes.get(posicao + 1) == Some(&b'/'));
         }
@@ -416,7 +416,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn processar_indentacao_continuada(&mut self) {
-        while matches!(self.byte(0), Some(b' ' | b'\\t')) {
+        while matches!(self.byte(0), Some(b' ' | b'\t')) {
             self.atual += 1;
         }
         self.inicio_linha = false;
@@ -477,12 +477,12 @@ impl<'a> Lexer<'a> {
     fn proximo_token_inicia_continuacao(&self) -> bool {
         let mut posicao = self.atual;
         loop {
-            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t' | b'\\n')) {
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\t' | b'\n')) {
                 posicao += 1;
             }
-            if self.bytes.get(posicao) == Some(&b'\\r') {
+            if self.bytes.get(posicao) == Some(&b'\r') {
                 posicao += 1;
-                if self.bytes.get(posicao) == Some(&b'\\n') {
+                if self.bytes.get(posicao) == Some(&b'\n') {
                     posicao += 1;
                 }
                 continue;
@@ -491,7 +491,7 @@ impl<'a> Lexer<'a> {
                 || (self.bytes.get(posicao) == Some(&b'/')
                     && self.bytes.get(posicao + 1) == Some(&b'/'))
             {
-                while !matches!(self.bytes.get(posicao), None | Some(b'\\n' | b'\\r')) {
+                while !matches!(self.bytes.get(posicao), None | Some(b'\n' | b'\r')) {
                     posicao += 1;
                 }
                 continue;
