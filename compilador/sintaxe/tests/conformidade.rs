@@ -405,6 +405,7 @@ lancar erro "falha"
 verifique verdadeiro, "invariante"
 global contador
 externa simbolo
+executar()
 classe PessoaBase herda Entidade
     publico funcao nome()
         devolver "Pessoa"
@@ -475,6 +476,7 @@ fim
         |n| matches!(n, NoAst::Escopo { externa: true, .. }),
         "Escopo externa",
     );
+    exige(|n| matches!(n, NoAst::Expressao(_)), "Expressao");
     exige(|n| matches!(n, NoAst::Classe { .. }), "Classe");
 }
 
