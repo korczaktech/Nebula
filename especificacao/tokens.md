@@ -1,6 +1,6 @@
 # Tokens e regras léxicas
 
-**Estado:** especificação léxica normativa do subconjunto inicial da Nebula. Recursos reservados para versões futuras estão identificados separadamente e não fazem parte da gramática atual.
+**Estado:** especificação léxica normativa alinhada ao Lexer do crate `nebula-sintaxe`. Palavras reservadas futuras são identificadas separadamente e não fazem parte das construções aceitas pelo Parser.
 
 ## 1. Codificação e posições
 
@@ -8,17 +8,25 @@
 - O compilador DEVE preservar offsets inicial e final em bytes, com início inclusivo e fim exclusivo.
 - Linha e coluna são base 1. A coluna conta pontos de código Unicode desde o início da linha; a interface PODE calcular largura visual de grafemas.
 - Identificadores são comparados após normalização Unicode NFC. O texto original é preservado para diagnósticos.
-- Finais de linha LF e CRLF são aceitos. CRLF representa uma única quebra lógica. CR isolado é rejeitado na versão inicial.
+- Finais de linha LF e CRLF são aceitos. CRLF representa uma única quebra lógica. CR isolado é rejeitado.
 
-## 2. Espaços e quebras de linha
+## 2. Espaços, quebras e indentação
 
-- Espaço ASCII (U+0020) e tabulação horizontal (U+0009) são ignorados entre tokens. Outros caracteres de espaço não são aceitos como separadores na versão inicial.
-- A quebra de linha é preservada como token NOVA_LINHA.
-- Dentro de parênteses () e colchetes [], a quebra de linha funciona como espaço e não separa instruções.
-- Dentro de chaves {}, quebras de linha continuam podendo separar instruções.
-- A indentação nunca cria ou fecha blocos e não altera o significado do programa.
-- Uma quebra pode ser continuação quando a expressão anterior está incompleta, por exemplo após operador binário ou vírgula. A regra sintática de separação está em gramatica.md.
-- Comentários de linha terminam antes da quebra de linha; a própria quebra continua disponível como separador.
+- Espaço ASCII (U+0020) e tabulação horizontal (U+0009) são ignorados entre tokens.
+- Código normativo DEVE usar espaços para indentação. Tabulações na indentação geram diagnóstico `N1012`; não são estilo válido.
+- A quebra de linha é preservada como token `NOVA_LINHA`, exceto quando suprimida pelas regras de agrupamento.
+- Dentro de parênteses `()` e colchetes `[]`, a quebra física funciona como espaço e não separa instruções.
+- Dentro de chaves `{}`, quebras de linha continuam podendo separar itens, mas a indentação é suprimida enquanto a chave estiver aberta.
+- Fora de delimitadores, o Lexer emite `INDENT` quando uma linha começa em coluna maior que a anterior e `DEDENT` para cada nível encerrado.
+- O nível-base é a coluna zero. Uma primeira linha de código indentada gera nível estrutural e deve ser rejeitada pelo Parser no escopo do arquivo.
+- Linhas vazias e linhas contendo apenas comentários não alteram a pilha de indentação.
+- Uma dedentação deve corresponder a uma coluna previamente aberta. Caso contrário, o Lexer emite `N1013`.
+- No fim do arquivo, todos os níveis restantes são fechados por tokens `DEDENT`, seguidos de `FIM`.
+- A pilha de indentação é lexical: `INDENT` e `DEDENT` delimitam a extensão física dos corpos, enquanto a palavra-chave `fim` encerra explicitamente a construção no Parser.
+- Uma linha de continuação de expressão não inicia um bloco. A continuação é determinada por delimitadores e operadores pendentes, conforme `gramatica.md`.
+- Comentários de linha terminam antes da quebra; a própria quebra continua disponível como separador.
+
+A regra sintática completa para blocos obrigatoriamente indentados, dedentação e `fim` está em `gramatica.md`.
 
 ## 3. Identificadores e palavras reservadas
 
@@ -29,33 +37,32 @@ Identificador:
 - É comparado em NFC.
 - Não pode coincidir com palavra reservada.
 
-### Palavras reservadas da gramática inicial
+### Palavras reconhecidas pelo Lexer e usadas na gramática
 
-variavel, definir, mutavel, mutável, constante, funcao, quando, senao, avaliar, escolha, caso, para, cada, em, enquanto, durante, repetir, pulso, alterar, devolver, incluir, como, verdadeiro, falso, nulo, fim, parar, encerrar, seguir, e, ou, nao, publico, privado, tipo, estrutura, enumeracao.
+variavel, definir, mutavel, constante, funcao, classe, herda, se, quando, sendo, senao, para, dentro, enquanto, escolha, caso, padrao, pare, prossiga, passar, retorne, devolver, lambda, ceder, incluir, biblioteca, modulo, de, como, tente, erro, sempre, lancar, verifique, com, assinc, aguarda, global, externa, isto, novo, apagar, identico, nao, fora, e, ou, sim, verdadeiro, falso, nulo, iguais, tipoDe, instanciaDe, obter, vazio, exportar, construtor, estatico, privado, publico, protegido, seguro, critico, privilegio, montagem, tipo, estrutura, enumeracao, avaliar, cada, em, pulso, durante, repetir, alterar, fim, parar, encerrar, seguir.
 
-Os nomes de tipos como inteiro, logico, texto, caractere, byte e vazio são identificadores usados em posição de tipo nesta etapa; não são palavras reservadas léxicas.
+### Palavras reservadas futuras
 
-### Palavras reservadas para estudo futuro
+Palavras classificadas como reservadas futuras pelo Lexer são reconhecidas como tokens especiais, mas o Parser emite diagnóstico se forem usadas como construções ainda não implementadas. A classificação exata deve acompanhar o enum `TipoToken::ReservadaFutura` e os testes do Lexer.
 
-tentar, capturar, finalmente, assinc.
-
-As palavras listadas na gramática inicial são reconhecidas pelo Lexer e possuem produções sintáticas. `receber`, `perguntar`, `aguardar`, `gerar` e `em_paralelo` são nomes de funções/builtins, não palavras reservadas; podem ser usados como chamadas. `alterar` exige atribuição; `pulso` recebe intervalo inteiro em milissegundos.
+Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u16`, `u32`, `u64` e `vazio` são identificadores em posição de tipo, com a exceção do token reservado `vazio` reconhecido diretamente pelo Lexer.
 
 ## 4. Números
 
 - Inteiro decimal: um ou mais dígitos decimais, com sublinhados somente entre dígitos.
-- Bases não decimais: prefixos 0x/0X, 0b/0B e 0o/0O, seguidos de ao menos um dígito válido para a base.
+- Bases não decimais: prefixos `0x/0X`, `0b/0B` e `0o/0O`, seguidos de ao menos um dígito válido para a base.
 - Decimal: dígitos, ponto seguido obrigatoriamente de ao menos um dígito e expoente opcional; ou dígitos seguidos de expoente.
-- Expoente: e ou E, sinal opcional e ao menos um dígito.
+- Expoente: `e` ou `E`, sinal opcional e ao menos um dígito.
 - Sublinhado não pode iniciar, terminar nem aparecer consecutivamente; também não pode ficar junto ao prefixo, ponto ou marcador de expoente.
-- 1. é token inteiro seguido de ponto, não literal decimal. Para decimal, escreva 1.0.
+- `1.` é token inteiro seguido de ponto, não literal decimal. Para decimal, escreva `1.0`.
 - O Lexer identifica a forma do literal; faixa, overflow e conversões são verificados em fases posteriores.
 
 ## 5. Texto e caractere
 
-- Texto usa aspas duplas e não pode atravessar uma quebra de linha física na versão inicial.
+- Texto usa aspas duplas. A forma simples não atravessa uma quebra física de linha.
 - Caractere usa aspas simples e representa exatamente um escalar Unicode após a interpretação dos escapes.
-- Escapes aceitos, escritos exatamente como aparecem no código-fonte:
+- O Lexer também possui token específico para texto interpolado; sua estrutura interna e semântica devem permanecer alinhadas à implementação correspondente.
+- Escapes reconhecidos:
 
 ~~~text
 \\   \"   \'   \n   \r   \t   \0   \u{...}
@@ -63,42 +70,46 @@ As palavras listadas na gramática inicial são reconhecidas pelo Lexer e possue
 
 - O escape Unicode contém um ou mais dígitos hexadecimais e deve representar um valor escalar Unicode válido.
 - Escape desconhecido, sequência Unicode inválida e literal sem fechamento são erros.
-- Interpolação e strings multilinha não fazem parte da gramática inicial.
 
 ## 6. Comentários
 
-- Linha: // até antes da próxima quebra de linha.
-- Bloco: /* ... */, encerrado pelo primeiro */.
+- Linha: `//` até antes da próxima quebra de linha.
+- Bloco: `/* ... */`, encerrado pelo primeiro `*/`.
 - Comentários de bloco não são aninhados.
 - Comentário de bloco não terminado é erro.
 - Marcadores de comentário dentro de literais não iniciam comentários.
+- Linhas contendo apenas comentários não alteram indentação.
 
 ## 7. Pontuação e delimitadores
 
-(, ), {, }, [, ], vírgula, ponto e vírgula, dois-pontos e ponto.
+`(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM`.
 
 ## 8. Operadores
 
-=, <-, +, -, *, /, %, **, ==, !=, <, <=, >, >=, !, .., ::.
+A implementação reconhece operadores de atribuição, aritméticos, relacionais, igualdade, lógicos, bit a bit, deslocamento, acesso e operadores opcionais. Entre as grafias reconhecidas estão:
 
-Operadores lógicos textuais: e, ou, nao.
+~~~text
+=  ->  +  -  *  /  //  %  **  +=  -=  *=  /=  //=  %=  **=
+==  !=  !==  <  <=  >  >=  ..  !  ++  --
+&&  ||  &  |  ^  ~  <<  >>  >>>  ??  ??=  ?.  ?  ::  ...
+~~~
 
-O Lexer aplica maior correspondência: >= antes de >, == antes de =, <- antes de <, :: antes de :, ** antes de * e .. antes de .
+Operadores textuais incluem `e`, `ou`, `nao`, `dentro`, `fora`, `tipoDe` e `instanciaDe`. A precedência e associatividade são definidas em `gramatica.md`.
 
-?? e ~> são reservados para estudo, mas não são operadores da gramática inicial.
+O Lexer aplica maior correspondência aos operadores compostos antes de seus prefixos.
 
 ## 9. Fim de arquivo e erros léxicos
 
-O fluxo contém um token de fim de arquivo. O Lexer deve diagnosticar, no mínimo, UTF-8 inválido, caractere inesperado, literal não terminado, escape inválido, número malformado e comentário de bloco não terminado. Cada diagnóstico deve preservar a localização disponível.
-
+O fluxo contém token de fim de arquivo. O Lexer diagnostica, no mínimo, UTF-8 inválido, caractere inesperado, literal não terminado, escape inválido, número malformado, comentário de bloco não terminado, CR isolado, tabulação em indentação e coluna de dedentação inexistente. Cada diagnóstico preserva a localização disponível.
 
 ## 10. Grafias portuguesas equivalentes
 
-O Lexer aceita as grafias sem acento já usadas nos exemplos e suas formas ortográficas acentuadas:
+O Lexer aceita as grafias sem acento e suas formas ortográficas acentuadas quando implementadas como aliases:
 - `funcao` e `função`;
 - `senao` e `senão`;
 - `enumeracao` e `enumeração`;
 - `nao` e `não`;
-- `publico` e `público`.
+- `publico` e `público`;
+- `mutavel` e `mutável`.
 
-As duas grafias de cada par produzem o mesmo token e seguem exatamente as mesmas regras sintáticas e semânticas. A normalização Unicode NFC continua aplicada antes da classificação das palavras.
+As duas grafias de cada par produzem o mesmo token. A normalização NFC continua aplicada antes da classificação das palavras.
