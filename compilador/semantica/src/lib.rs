@@ -2648,7 +2648,7 @@ mod testes {
 
     #[test]
     fn aceita_retorno_em_todos_os_caminhos_condicionais() {
-        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 } senao { devolver 2 } }");
+        let r = analisar_codigo("funcao calcular(condicao: logico): inteiro { quando condicao { devolver 1 }\nsenao { devolver 2 } }");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
 
