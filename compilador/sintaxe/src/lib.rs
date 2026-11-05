@@ -1904,7 +1904,10 @@ mod testes {
     #[test]
     fn analisa_tipos_de_funcao_aninhados() {
         let resultado = analisar(&fonte(
-            "estrutura Registro { callback: funcao(inteiro, texto): logico, callbackPadrao: funcao(funcao(inteiro): logico): vazio }",
+            "estrutura Registro :
+                callback: funcao(inteiro, texto): logico
+                callbackPadrao: funcao(funcao(inteiro): logico): vazio
+            fim",
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
@@ -1916,7 +1919,14 @@ mod testes {
 
     #[test]
     fn analisa_declaracoes_de_estrutura_e_enumeracao() {
-        let r = analisar(&fonte("estrutura Pessoa { nome: texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo, Erro(texto) }"));
+        let r = analisar(&fonte("estrutura Pessoa :
+            nome: texto
+            idade: inteiro
+        fim\nenumeracao Estado :
+    Ativo
+    Inativo
+    Erro(texto)
+fim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Estrutura { nome, campos } if nome == "Pessoa" && campos.len() == 2));
         assert!(matches!(&r.programa.itens[1], NoAst::Enumeracao { nome, variantes } if nome == "Estado" && variantes.len() == 3 && variantes[2].1 == ["texto"]));
@@ -1924,9 +1934,15 @@ mod testes {
 
     #[test]
     fn rejeita_campos_e_variantes_duplicados() {
-        let estrutura = analisar(&fonte("estrutura Pessoa { nome: texto, nome: inteiro }"));
+        let estrutura = analisar(&fonte("estrutura Pessoa :
+            nome: texto
+            nome: inteiro
+        fim"));
         assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
-        let enumeracao = analisar(&fonte("enumeracao Estado { Ativo, Ativo }"));
+        let enumeracao = analisar(&fonte("enumeracao Estado :
+            Ativo
+            Ativo
+        fim"));
         assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
     }
 
@@ -2323,7 +2339,10 @@ mod testes {
 
     #[test]
     fn aceita_grafias_portuguesas_sem_acentos() {
-        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nquando nao falso\n    exibir(1)\nsenao\n    exibir(0)\nfim\n\nenumeracao Estado { Ativo\nInativo }\npublico funcao principal()\n    exibir(Estado::Ativo)\nfim";
+        let codigo = "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nquando nao falso\n    exibir(1)\nsenao\n    exibir(0)\nfim\n\nenumeracao Estado :
+    Ativo
+    Inativo
+fim\npublico funcao principal()\n    exibir(Estado::Ativo)\nfim";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 4);
@@ -2349,8 +2368,14 @@ mod testes {
             "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U\n    devolver b\nfim",
             "tipo Caminho = Modulo::Submodulo::Tipo",
             "tipo Colecao = [Resultado<inteiro>]",
-            "estrutura Pessoa { nome: texto; idade: inteiro, }",
-            "enumeracao Estado { Ativo\nInativo(texto, inteiro) }",
+            "estrutura Pessoa :
+                nome: texto
+                idade: inteiro
+            fim",
+            "enumeracao Estado :
+                Ativo
+                Inativo(texto, inteiro)
+            fim",
             "incluir Biblioteca::Texto como Texto",
             "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
             "quando verdadeiro\n    exibir(1)\nsendo falso\n    exibir(2)\nfim",
@@ -2397,7 +2422,11 @@ mod testes {
             "tipo CaminhoQuebrado = Biblioteca\n::\nInterna::Tipo",
             "tipo AliasComSeta <- Texto",
             "estrutura Vazia {}",
-            "enumeracao Resultado { Vazio, Unidade(), Valor(inteiro, texto) }",
+            "enumeracao Resultado :
+                Vazio
+                Unidade()
+                Valor(inteiro, texto)
+            fim",
             "incluir Modulo::Interno",
             "variavel estrutura_vazia = Pessoa {}",
             "variavel chamada_vazia = executar()",
@@ -2448,9 +2477,21 @@ mod testes {
             "tipo Funcao = funcao(inteiro, texto)",
             "tipo FuncaoComRetorno = funcao(inteiro): texto",
             "estrutura Vazia {}",
-            "estrutura Membros { a: inteiro, b: texto; c: logico\n}",
-            "enumeracao Estado { Pronto, Falha(), Valor(inteiro) }",
-            "enumeracao Resultado { Vazio\nErro(inteiro); Texto(texto), }",
+            "estrutura Membros :
+                a: inteiro
+                b: texto
+                c: logico
+            fim",
+            "enumeracao Estado :
+                Pronto
+                Falha()
+                Valor(inteiro)
+            fim",
+            "enumeracao Resultado :
+                Vazio
+                Erro(inteiro)
+                Texto(texto)
+            fim",
             "incluir Biblioteca",
             "incluir Biblioteca::Interna como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
@@ -2561,8 +2602,16 @@ mod testes {
             "tipo ListaAninhada = [[Resultado<inteiro>]]",
             "tipo GenericoAninhado = Resultado<funcao(inteiro): [texto]>",
             "tipo CaminhoMultilinha = Modulo\n::Interno\n::Tipo",
-            "estrutura Separadores { a: inteiro\nb: texto,\nc: logico; }",
-            "enumeracao Variantes { A\nB(), C(inteiro, texto), }",
+            "estrutura Separadores :
+                a: inteiro
+                b: texto
+                c: logico
+            fim",
+            "enumeracao Variantes :
+                A
+                B()
+                C(inteiro, texto)
+            fim",
             "incluir Modulo\n::Interno como Alias",
             "funcao sem_retorno()\n    passar\nfim",
             "funcao sem_parametros(): vazio\n    passar\nfim",
@@ -2623,7 +2672,9 @@ mod testes {
             "funcao sem_parametros(\n    devolver\nfim",
             "funcao incompleta(valor inteiro)\n    devolver\nfim",
             "tipo SemDestino =",
-            "estrutura Pessoa { nome texto }",
+            "estrutura Pessoa :
+                nome texto
+            fim",
             "enumeracao Estado {}",
             "incluir [inteiro]",
             "quando verdadeiro { exibir(1)",
@@ -3271,7 +3322,13 @@ mod testes {
 
     #[test]
     fn recupera_campos_e_variantes_invalidos_sem_perder_declaracoes_sequenciais() {
-        let codigo = "funcao principal()\n    estrutura Pessoa { nome: , idade: inteiro }\n    enumeracao Estado { Ativo(, texto), Inativo(inteiro) }\n    variavel depois = 1\nfim";
+        let codigo = "funcao principal()\n    estrutura Pessoa :
+        nome:
+        idade: inteiro
+    fim\n    enumeracao Estado :
+        Ativo(, texto)
+        Inativo(inteiro)
+    fim\n    variavel depois = 1\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             !resultado.diagnosticos.is_empty(),
@@ -3383,11 +3440,17 @@ mod testes {
             "N2014", "T", 1
         );
         verifica(
-            "estrutura Pessoa { nome: texto, nome: inteiro }",
+            "estrutura Pessoa :
+                nome: texto
+                nome: inteiro
+            fim",
             "N2031", "nome", 1
         );
         verifica(
-            "enumeracao Estado { Ativo, Ativo }",
+            "enumeracao Estado :
+                Ativo
+                Ativo
+            fim",
             "N2034", "Ativo", 1
         );
         verifica(
@@ -3506,8 +3569,12 @@ mod testes {
         let casos = [
             "variavel = 1",
             "funcao f(a inteiro)\n    passar\nfim",
-            "estrutura Pessoa { nome: }",
-            "enumeracao Estado { Ativo(, texto) }",
+            "estrutura Pessoa :
+                nome:
+            fim",
+            "enumeracao Estado :
+                Ativo(, texto)
+            fim",
             "escolha valor\n    caso Estado::Erro(1)\n        passar\nfim",
             "variavel resultado = 1 < 2 < 3",
             "funcao f() {",
@@ -3581,11 +3648,21 @@ mod testes {
             ("N2015", "funcao f<>()\n    passar\nfim"),
             ("N2016", "tentar"),
             ("N2030", "estrutura Pessoa nome: texto }"),
-            ("N2031", "estrutura Pessoa { nome: texto, nome: inteiro }"),
-            ("N2032", "estrutura Pessoa { nome: texto idade: inteiro }"),
+            ("N2031", "estrutura Pessoa :
+                nome: texto
+                nome: inteiro
+            fim"),
+            ("N2032", "estrutura Pessoa :
+                nome: texto idade: inteiro
+            fim"),
             ("N2033", "enumeracao Estado Ativo }"),
-            ("N2034", "enumeracao Estado { Ativo, Ativo }"),
-            ("N2035", "enumeracao Estado { Ativo Inativo }"),
+            ("N2034", "enumeracao Estado :
+                Ativo
+                Ativo
+            fim"),
+            ("N2035", "enumeracao Estado :
+                Ativo Inativo
+            fim"),
             ("N2036", "enumeracao Estado {}"),
             ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
             ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
@@ -3630,8 +3707,14 @@ mod testes {
             "\n;\nvariavel a = 1;;\n\nvariavel b = 2;\n",
             "funcao principal()\n    variavel a = 1\n    \n    \n    \n    variavel b = 2\nfim",
             "funcao principal()\n    ;; variavel a = 1;;\n\n    variavel b = 2;;\nfim",
-            "estrutura Pessoa { ; nome: texto;; idade: inteiro; }",
-            "enumeracao Estado { ; Ativo;; Inativo; }",
+            "estrutura Pessoa :
+                nome: texto
+                idade: inteiro
+            fim",
+            "enumeracao Estado :
+                Ativo
+                Inativo
+            fim",
         ];
         for codigo in exemplos {
             let resultado = analisar(&fonte(codigo));
@@ -3836,7 +3919,14 @@ mod testes {
 
     #[test]
     fn analisa_campos_de_estrutura_com_todas_as_formas_de_tipo() {
-        let codigo = "estrutura Registro {\n simples: inteiro,\n qualificado: utilitarios::Identidade,\n lista: [texto],\n generico: Mapa<texto, [inteiro]>,\n callback: funcao(inteiro, texto): logico,\n aninhado: funcao(funcao(inteiro): logico): vazio,\n}";
+        let codigo = "estrutura Registro :
+            simples: inteiro
+            qualificado: utilitarios::Identidade
+            lista: [texto]
+            generico: Mapa<texto, [inteiro]>
+            callback: funcao(inteiro, texto): logico
+            aninhado: funcao(funcao(inteiro): logico): vazio
+        fim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Estrutura { campos, .. }) = resultado.programa.itens.first() else {
@@ -3852,7 +3942,12 @@ mod testes {
 
     #[test]
     fn analisa_variantes_com_payloads_unitarios_e_multiplos() {
-        let codigo = "enumeracao Resultado {\n Vazio,\n Texto(texto),\n Par(inteiro, texto),\n Complexo(Mapa<texto, [inteiro]>, funcao(inteiro): logico),\n}";
+        let codigo = "enumeracao Resultado :
+            Vazio
+            Texto(texto)
+            Par(inteiro, texto)
+            Complexo(Mapa<texto, [inteiro]>, funcao(inteiro): logico)
+        fim";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let Some(NoAst::Enumeracao { variantes, .. }) = resultado.programa.itens.first() else {
@@ -3884,7 +3979,9 @@ mod testes {
 
     #[test]
     fn aceita_payload_de_enum_vazio_entre_parenteses() {
-        let resultado = analisar(&fonte("enumeracao Estado { Ativo() }"));
+        let resultado = analisar(&fonte("enumeracao Estado :
+            Ativo()
+        fim"));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         assert!(matches!(
             resultado.programa.itens.first(),
@@ -3895,7 +3992,10 @@ mod testes {
     #[test]
     fn campo_sem_dois_pontos_nao_e_inserido_na_ast() {
         let resultado = analisar(&fonte(
-            "estrutura Pessoa { nome texto, idade: inteiro }"
+            "estrutura Pessoa :
+                nome texto
+                idade: inteiro
+            fim"
         ));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"),
@@ -3926,19 +4026,32 @@ mod testes {
     #[test]
     fn campos_e_variantes_normalizados_em_unicode_detectam_duplicidade() {
         let estrutura = analisar(&fonte(
-            "estrutura Pessoa { ação: texto, ação: inteiro }"
+            "estrutura Pessoa :
+                ação: texto
+                ação: inteiro
+            fim"
         ));
         assert!(estrutura.diagnosticos.iter().any(|d| d.codigo == "N2031"));
 
         let enumeracao = analisar(&fonte(
-            "enumeracao Estado { Ação, Ação }"
+            "enumeracao Estado :
+                Ação
+                Ação
+            fim"
         ));
         assert!(enumeracao.diagnosticos.iter().any(|d| d.codigo == "N2034"));
     }
 
     #[test]
     fn recupera_estrutura_e_enumeracao_malformadas_sem_perder_declaracoes_sequenciais() {
-        let codigo = "estrutura Pessoa { nome texto, idade: inteiro }\nenumeracao Estado { Ativo, Inativo(inteiro,), Pronto(inteiro) }\nvariavel depois = 1";
+        let codigo = "estrutura Pessoa :
+            nome texto
+            idade: inteiro
+        fim\nenumeracao Estado :
+    Ativo
+    Inativo(inteiro,)
+    Pronto(inteiro)
+fim\nvariavel depois = 1";
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2032"));
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N2035"));
@@ -4064,7 +4177,9 @@ fim
         let codigo = r#"
 @alinhamento(8)
 @representacao("C")
-estrutura Cabecalho { codigo: u32 }
+estrutura Cabecalho :
+    codigo: u32
+fim
 
 critico:
     passar
