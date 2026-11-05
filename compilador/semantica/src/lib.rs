@@ -257,7 +257,7 @@ impl<'a> Analisador<'a> {
                 }
                 self.fechar_escopo();
             }
-            NoAst::Passar => {}
+            NoAst::Passar | NoAst::Ceder(_) => {}
             NoAst::Estrutura { nome, campos } => {
                 if self.escopos.len() > 1 {
                     self.erro("N3032", "Estruturas só podem ser declaradas no escopo do arquivo.");
