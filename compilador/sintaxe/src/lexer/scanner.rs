@@ -20,6 +20,7 @@ struct Lexer<'a> {
     indentacoes: Vec<usize>,
     delimitadores: Vec<(u8, usize)>,
     inicio_linha: bool,
+    continuacao_linha: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -34,12 +35,19 @@ impl<'a> Lexer<'a> {
             indentacoes: vec![0],
             delimitadores: Vec::new(),
             inicio_linha: true,
+            continuacao_linha: false,
         }
     }
     fn executar(mut self) -> ResultadoLexico {
         while !self.fim() {
-            if self.inicio_linha && !self.suprime_indentacao() {
-                self.processar_indentacao();
+            if self.inicio_linha {
+                if self.suprime_indentacao() {
+                    self.inicio_linha = false;
+                } else if self.continuacao_linha {
+                    self.processar_indentacao_continuada();
+                } else {
+                    self.processar_indentacao();
+                }
                 if self.fim() {
                     break;
                 }
@@ -352,10 +360,129 @@ impl<'a> Lexer<'a> {
         }
     }
     fn quebra_linha(&mut self, inicio: usize, fim: usize) {
-        if !self.suprime_quebras() {
+        let continua = self.suprime_quebras()
+            || self.ultimo_token_exige_continuacao()
+            || self.proximo_token_inicia_continuacao();
+        if !continua {
             self.adicionar(TipoToken::NovaLinha, inicio, fim);
         }
+        self.continuacao_linha = continua;
         self.inicio_linha = true;
+    }
+
+    fn processar_indentacao_continuada(&mut self) {
+        while matches!(self.byte(0), Some(b' ' | b'\\t')) {
+            self.atual += 1;
+        }
+        self.inicio_linha = false;
+        self.continuacao_linha = false;
+    }
+
+    fn ultimo_token_exige_continuacao(&self) -> bool {
+        let Some(token) = self.tokens.iter().rev().find(|token| {
+            !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent)
+        }) else {
+            return false;
+        };
+        matches!(
+            token.tipo,
+            TipoToken::Atribui
+                | TipoToken::SomaAtribui
+                | TipoToken::SubtraiAtribui
+                | TipoToken::MultiplicaAtribui
+                | TipoToken::DivideAtribui
+                | TipoToken::DivideInteiraAtribui
+                | TipoToken::RestoAtribui
+                | TipoToken::PotenciaAtribui
+                | TipoToken::Mais
+                | TipoToken::Menos
+                | TipoToken::Vezes
+                | TipoToken::Divide
+                | TipoToken::DivideInteira
+                | TipoToken::Resto
+                | TipoToken::Potencia
+                | TipoToken::XorBit
+                | TipoToken::Igual
+                | TipoToken::Diferente
+                | TipoToken::DiferenteEstrito
+                | TipoToken::Maior
+                | TipoToken::Menor
+                | TipoToken::MaiorIgual
+                | TipoToken::MenorIgual
+                | TipoToken::ELogico
+                | TipoToken::OuLogico
+                | TipoToken::Negacao
+                | TipoToken::EBit
+                | TipoToken::OuBit
+                | TipoToken::NaoBit
+                | TipoToken::DeslocaEsquerda
+                | TipoToken::DeslocaDireita
+                | TipoToken::DeslocaDireitaSemSinal
+                | TipoToken::Coalesce
+                | TipoToken::AcessoOpcional
+                | TipoToken::CoalesceAtribui
+                | TipoToken::Interrogacao
+                | TipoToken::Seta
+                | TipoToken::Ponto
+                | TipoToken::Escopo
+                | TipoToken::Virgula
+        )
+    }
+
+    fn proximo_token_inicia_continuacao(&self) -> bool {
+        let mut posicao = self.atual;
+        loop {
+            while matches!(self.bytes.get(posicao), Some(b' ' | b'\\t' | b'\\n')) {
+                posicao += 1;
+            }
+            if self.bytes.get(posicao) == Some(&b'\\r') {
+                posicao += 1;
+                if self.bytes.get(posicao) == Some(&b'\\n') {
+                    posicao += 1;
+                }
+                continue;
+            }
+            if self.bytes.get(posicao) == Some(&b'#')
+                || (self.bytes.get(posicao) == Some(&b'/')
+                    && self.bytes.get(posicao + 1) == Some(&b'/'))
+            {
+                while !matches!(self.bytes.get(posicao), None | Some(b'\\n' | b'\\r')) {
+                    posicao += 1;
+                }
+                continue;
+            }
+            if self.bytes.get(posicao) == Some(&b'/')
+                && self.bytes.get(posicao + 1) == Some(&b'*')
+            {
+                posicao += 2;
+                while posicao + 1 < self.bytes.len()
+                    && !(self.bytes[posicao] == b'*' && self.bytes[posicao + 1] == b'/')
+                {
+                    posicao += 1;
+                }
+                posicao = (posicao + 2).min(self.bytes.len());
+                continue;
+            }
+            break;
+        }
+
+        let restante = &self.fonte[posicao..];
+        [
+            ">>>", ">>", "<<", "!==", "!=", "==", ">=", "<=", "&&", "||", "??=", "??",
+            "?.", "...", "::", "+", "-", "*", "/", "\\\\", "%", "^", ">", "<", "=",
+            "!", "&", "|", "~", "?", ".", ",",
+        ]
+        .iter()
+        .any(|operador| restante.starts_with(operador))
+            || ["e", "ou", "dentro", "fora", "iguais"]
+                .iter()
+                .any(|palavra| {
+                    restante.starts_with(palavra)
+                        && restante[palavra.len()..]
+                            .chars()
+                            .next()
+                            .is_none_or(|c| !(c == '_' || is_xid_continue(c)))
+                })
     }
     fn comentario_linha(&mut self) {
         while !self.fim() && !matches!(self.byte(0), Some(b'\n' | b'\r')) {
