@@ -281,7 +281,7 @@ impl<'a> Analisador<'a> {
             NoAst::Passar | NoAst::Ceder(_) => {}
             NoAst::Estrutura { nome, campos } => {
                 if self.escopos.len() > 1 {
-                    self.erro("N3032", "Estruturas só podem ser declaradas no escopo do arquivo.");
+                    self.erro("N3062", "Estruturas só podem ser declaradas no escopo do arquivo.");
                 }
                 let mut vistos = HashSet::new();
                 for (campo, tipo) in campos {
@@ -595,7 +595,7 @@ impl<'a> Analisador<'a> {
         }
         for parametro in &funcao.genericos {
             if !inferidos.contains_key(parametro) {
-                self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
+                self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
             }
         }
         for (parametro, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
@@ -1193,7 +1193,7 @@ impl<'a> Analisador<'a> {
                         }
                         for parametro in &funcao.genericos {
                             if !inferidos.contains_key(parametro) {
-                                self.erro("N3033", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
+                                self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
                             }
                         }
                         for (esperado, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
@@ -1245,7 +1245,7 @@ impl<'a> Analisador<'a> {
                         match posicao.and_then(|posicao| elementos.get(posicao).cloned()) {
                             Some(tipo) => tipo,
                             None => {
-                                self.erro("N3034", "O índice de uma tupla precisa ser um literal inteiro válido e dentro dos limites.");
+                                self.erro("N3063", "O índice de uma tupla precisa ser um literal inteiro válido e dentro dos limites.");
                                 Tipo::Desconhecido
                             }
                         }
@@ -1781,13 +1781,13 @@ impl<'a> Analisador<'a> {
             }
             if let Some(indice) = campo.strip_prefix('[').and_then(|v| v.strip_suffix(']')) {
                 let Ok(indice) = indice.parse::<usize>() else {
-                    self.erro("N3034", "O índice de uma tupla precisa ser um literal inteiro válido.");
+                    self.erro("N3063", "O índice de uma tupla precisa ser um literal inteiro válido.");
                     return Tipo::Desconhecido;
                 };
                 tipo = match tipo {
                     Tipo::Tupla(elementos) => {
                         let Some(tipo_indice) = elementos.get(indice).cloned() else {
-                            self.erro("N3034", "O índice da tupla está fora dos limites.");
+                            self.erro("N3063", "O índice da tupla está fora dos limites.");
                             return Tipo::Desconhecido;
                         };
                         tipo_indice
