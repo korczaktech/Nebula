@@ -344,7 +344,7 @@ fn interpreta_aliases_de_controle_e_operador_de_atribuicao() {
     let caminho = std::env::temp_dir().join(format!("nebula-aliases-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "definir total = 0\ncada numero em [1, 2, 3]: {\n    alterar total <- total + numero\n    fim\n} fim\ndurante falso: {\n    exibir(100)\n    fim\n} fim\nrepetir verdadeiro: {\n    encerrar\n    fim\n} fim\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional: {\n    caso Opcional::Algum(valor): {\n        exibir(valor)\n        fim\n    } fim\n    caso Opcional::Nenhum: {\n        exibir(0)\n        fim\n    } fim\n    fim\n} fim",
+        "definir total = 0\ncada numero em [1, 2, 3]: {\n    alterar total <- total + numero\n    fim\n} fim\ndurante falso: {\n    exibir(100)\n    fim\n} fim\nrepetir verdadeiro: {\n    encerrar\n    fim\n} fim\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional: {\n    caso Opcional::Algum(valor): {\n        exibir(valor)\n        fim\n    }\n    caso Opcional::Nenhum: {\n        exibir(0)\n        fim\n    }\n    fim\n} fim",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
