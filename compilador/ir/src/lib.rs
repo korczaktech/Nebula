@@ -2892,7 +2892,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21, fim }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
@@ -2947,7 +2947,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar, fim }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
