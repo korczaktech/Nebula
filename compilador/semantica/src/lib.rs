@@ -2638,7 +2638,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
             "somar".into(),
             AssinaturaFuncao { parametros: vec![Tipo::Inteiro, Tipo::Inteiro], retorno: Tipo::Inteiro },
         )]));
-        let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir Matematica como Mat");
+        let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir(biblioteca: Matematica) como Mat");
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
@@ -2647,7 +2647,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
 
     #[test]
     fn rejeita_modulo_ausente() {
-        let r = analisar_codigo("incluir ModuloInexistente");
+        let r = analisar_codigo("incluir(biblioteca: ModuloInexistente)");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3004"));
     }
 
@@ -2756,7 +2756,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let mut modulos = ModulosDisponiveis::new();
         modulos.insert("A".into(), HashMap::new());
         modulos.insert("B".into(), HashMap::new());
-        let fonte = ArquivoFonte::novo("teste.nbx", "incluir A como M\nincluir B como M");
+        let fonte = ArquivoFonte::novo("teste.nbx", "incluir(biblioteca: A) como M\nincluir(biblioteca: B) como M");
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
@@ -2810,7 +2810,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         modulos.insert("Matematica".into(), HashMap::new());
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "incluir Matematica como calcular\nfuncao calcular(): inteiro\n    devolver 1\nfim",
+            "incluir(biblioteca: Matematica) como calcular\nfuncao calcular(): inteiro\n    devolver 1\nfim",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
