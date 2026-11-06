@@ -197,7 +197,7 @@ enumeracao Estado:
     Pronto
     Falha(texto)
 fim
-incluir Modulo::Texto como Texto
+incluir(modulo: Texto, biblioteca: Modulo) como Texto
 funcao executar(item: inteiro): vazio
     quando verdadeiro
         exibir(item)
