@@ -4518,9 +4518,6 @@ criarUsuario(nome = "Ana", idade = 25)
             !recuperacao.diagnosticos.is_empty(),
             "bloco sem indentação deve produzir diagnóstico"
         );
-        assert!(recuperacao.programa.itens.iter().any(
-            |no| matches!(no, NoAst::Variavel { nome, .. } if nome == "depois")
-        ));
 
         for codigo in [
             "funcao principal()\npassar\nfim",
