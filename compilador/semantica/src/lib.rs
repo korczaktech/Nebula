@@ -120,6 +120,9 @@ impl<'a> Analisador<'a> {
 
     fn predeclarar(&mut self, programa: &Programa) {
         for item in &programa.itens {
+            if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
+                self.intervalo_atual = Some(intervalo);
+            }
             let item = Self::alvo_atributo(item);
             if let NoAst::Incluir { caminho, apelido } = item {
                 let alternativo = caminho.replace("::", ".");
@@ -163,6 +166,9 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
+                self.intervalo_atual = Some(intervalo);
+            }
             let item = Self::alvo_atributo(item);
             if let NoAst::Estrutura { nome, campos } = item {
                 let descritores = campos.iter().map(|(campo, tipo)| (campo.clone(), self.resolver_tipo(tipo))).collect();
@@ -171,6 +177,9 @@ impl<'a> Analisador<'a> {
             if let NoAst::Classe { nome, corpo, .. } = item {
                 let mut descritores = HashMap::new();
                 for membro in corpo {
+                    if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == membro).map(|(_, intervalo)| *intervalo) {
+                        self.intervalo_atual = Some(intervalo);
+                    }
                     let membro = Self::alvo_atributo(membro);
                     if let NoAst::Variavel { nome: campo, tipo: Some(tipo), .. } = membro {
                         descritores.insert(campo.clone(), self.resolver_tipo(tipo));
@@ -180,9 +189,15 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
+                self.intervalo_atual = Some(intervalo);
+            }
             let item = Self::alvo_atributo(item);
             if let NoAst::Classe { nome, corpo, .. } = item {
                 for membro in corpo {
+                    if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == membro).map(|(_, intervalo)| *intervalo) {
+                        self.intervalo_atual = Some(intervalo);
+                    }
                     let membro = Self::alvo_atributo(membro);
                     if let NoAst::Funcao { nome: metodo, genericos, parametros, parametros_padrao, retorno, .. } = membro {
                         let chave = format!("{nome}::{metodo}");
@@ -211,6 +226,9 @@ impl<'a> Analisador<'a> {
         }
         self.validar_hierarquia_classes();
         for item in &programa.itens {
+            if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
+                self.intervalo_atual = Some(intervalo);
+            }
             let item = Self::alvo_atributo(item);
             if let NoAst::Enumeracao { nome, variantes } = item {
                 let descritores = variantes.iter().map(|(variante, payload)| {
@@ -220,6 +238,9 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
+                self.intervalo_atual = Some(intervalo);
+            }
             let item = Self::alvo_atributo(item);
             if let NoAst::Funcao { nome, genericos, parametros, parametros_padrao, retorno, .. } = item {
                 let mut vistos = HashSet::new();
