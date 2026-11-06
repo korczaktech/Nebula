@@ -2081,7 +2081,7 @@ mod testes {
     }
     #[test]
     fn analisa_function_body_com_chaves_e_fim_em_cada_nivel() {
-        let codigo = "funcao teste(): {\n    se verdadeiro: {\n        exibir(1)\n        fim\n    }\n    fim\n}\nfim";
+        let codigo = "funcao teste(): {\n    se verdadeiro: {\n        exibir(1)\n        fim\n    }\n    fim\n    fim\n}\nfim";
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { corpo, .. } if matches!(corpo.first(), Some(NoAst::Quando { .. }))));
