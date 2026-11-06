@@ -112,7 +112,7 @@ fn limpar_remove_somente_executavel_elf64_padrao() {
     ));
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
-    std::fs::write(&fonte, "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim").unwrap();
+    std::fs::write(\n        &fonte,\n        "funcao principal() -> inteiro: {\\n    devolver 42\\n    fim\\n} fim",\n    )\n    .unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
     assert!(
         compilar.status.success(),
