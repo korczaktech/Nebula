@@ -709,7 +709,7 @@ funcao principal() -> inteiro: {
     variavel letra: caractere = 'λ'
     variavel nome: texto = "Nebula"
     sem_retorno()
-    quando logico e i8 == 127 e i16 == 32767 e i32 == 2147483647 e i64 > 0 e i128 > 0 e u8 == 255 e u16 == 65535 e u32 > 0 e u64 > 0 e u128 > 0 e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
+    quando logico e i8 == 127 e i16 == 32767 e i32 == 2147483647 e i64 > 0 e i128 > 0 e u8 == inteiro_u8(255) e u16 == inteiro_u16(65535) e u32 > inteiro_u32(0) e u64 > inteiro_u64(0) e u128 > inteiro_u128(0) e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
         exibir(42)
         devolver 42
         fim
@@ -775,7 +775,7 @@ funcao principal() -> inteiro: {
                     } fim
                     fim
                 }
-                caso Resultado::Falha(erro): {
+                caso Resultado::Falha(falha): {
                     devolver 3
                     fim
                 }
