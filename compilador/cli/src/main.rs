@@ -361,7 +361,7 @@ fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
         .map_err(|erro| format!("não foi possível criar '{}': {erro}", diretorio.display()))?;
 
     let manifesto = format!("[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n");
-    let fonte = "funcao principal(): vazio\n    passar\nfim\n";
+    let fonte = "funcao principal(): {\n    passar\n    fim\n}\nfim\n";
     let resultado = (|| {
         escrever_novo(
             diretorio.join("nebula.toml").as_path(),
@@ -1512,7 +1512,7 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\nfuncao consultar(): funcao(inteiro): inteiro\n    devolver somar\nfim\nfuncao principal(): inteiro\n    devolver consultar()(40)\nfim",
+            "funcao somar(valor: inteiro) -> inteiro: {\n    devolver valor + 2\n    fim\n}\nfim\nfuncao consultar() -> funcao(inteiro) -> inteiro: {\n    devolver somar\n    fim\n}\nfim\nfuncao principal() -> inteiro: {\n    devolver consultar()(40)\n    fim\n}\nfim",
         )
         .unwrap();
 
