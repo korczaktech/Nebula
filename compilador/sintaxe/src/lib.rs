@@ -2210,6 +2210,63 @@ mod testes {
     }
 
     #[test]
+    fn analisa_async_exportacao_classe_e_lacos_com_function_body() {
+        let codigo = r#"async funcao processar(): {
+    para item dentro itens: {
+        enquanto ativo: {
+            exibir(item)
+            fim
+        }
+        fim
+    }
+    fim
+    fim
+}
+fim
+
+exportar funcao iniciar(): {
+    exibir("iniciado")
+    fim
+}
+fim
+
+classe Pessoa: {
+    publico funcao apresentar(): {
+        exibir("Pessoa")
+        fim
+    }
+    fim
+    fim
+}
+fim"#;
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:#?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Funcao { assincrona: true, .. }));
+        assert!(matches!(&r.programa.itens[1], NoAst::Funcao { visibilidade: Some(Visibilidade::Publico), .. }));
+        assert!(matches!(&r.programa.itens[2], NoAst::Classe { .. }));
+    }
+
+    #[test]
+    fn analisa_se_sendo_e_senao_com_function_body() {
+        let codigo = r#"se valor > 10: {
+    exibir("alto")
+    fim
+}
+sendo valor > 5: {
+    exibir("medio")
+    fim
+}
+senao: {
+    exibir("baixo")
+    fim
+}
+fim"#;
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:#?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Quando { .. }));
+    }
+
+    #[test]
     fn recupera_e_emite_diagnostico_de_sintaxe() {
         let r = analisar(&fonte("variavel =\nvariavel correto = 2"));
         assert!(!r.diagnosticos.is_empty());
