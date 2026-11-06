@@ -391,7 +391,7 @@ fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
         std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\"\n    exibir(letra)\nfim\ncada numero em 1..3\n    exibir(numero)\nfim",
+        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\": {\n    exibir(letra)\n    fim\n} fim\ncada numero em 1..3: {\n    exibir(numero)\n    fim\n} fim",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -497,7 +497,7 @@ fn funcao_do_usuario_pode_se_chamar_receber() {
         std::env::temp_dir().join(format!("nebula-receber-funcao-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao receber<T>(valor: Resultado<Opcional<T>,texto>)\n    exibir(\"funcao\")\nfim\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
+        "funcao receber<T>(valor: Resultado<Opcional<T>,texto>): {\n    exibir(\"funcao\")\n    fim\n} fim\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
