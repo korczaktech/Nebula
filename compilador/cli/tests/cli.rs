@@ -668,7 +668,6 @@ fn comando_ir_exibe_representacao_intermediaria() {
     assert!(String::from_utf8_lossy(&saida.stdout).contains("ProgramaIr"));
 }
 
-
 #[test]
 fn matriz_primitivos_e_aceita_pela_analise_semantica() {
     let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -684,7 +683,8 @@ fn matriz_primitivos_e_aceita_pela_analise_semantica() {
 
 #[test]
 fn tipos_primitivos_sao_tipados_e_executados_no_interpretador() {
-    let caminho = std::env::temp_dir().join(format!("nebula-primitivos-{}.nbx", std::process::id()));
+    let caminho =
+        std::env::temp_dir().join(format!("nebula-primitivos-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
         r#"funcao sem_retorno() -> vazio: {
