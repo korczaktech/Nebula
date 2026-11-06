@@ -1060,6 +1060,14 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
+                if let Expressao::Membro { alvo: objeto, operador: TipoToken::Ponto, nome: metodo } = alvo.as_ref() {
+                    let tipo_objeto = self.expressao(objeto);
+                    if let Tipo::Estrutura(classe) = tipo_objeto {
+                        if let Some(funcao) = self.buscar_metodo_classe(&classe, metodo) {
+                            return self.analisar_chamada_funcao(argumentos, &funcao, metodo);
+                        }
+                    }
+                }
                 if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome == "copiar") {
                     if argumentos.len() != 1 {
                         self.erro("N3058", "'copiar' exige exatamente um argumento.");
@@ -1487,36 +1495,7 @@ impl<'a> Analisador<'a> {
                     }
                     let chave_metodo = self.classe_atual.as_ref().map(|classe| format!("{classe}::{nome}"));
                     if let Some(funcao) = self.funcoes.get(nome).or_else(|| chave_metodo.as_ref().and_then(|chave| self.funcoes.get(chave))).cloned() {
-                        let mapeados = self.mapear_argumentos_funcao(argumentos, &funcao, nome);
-                        if funcao.genericos.is_empty() {
-                            for (indice, argumento) in mapeados.iter().enumerate() {
-                                if let (Some(argumento), Some(esperado)) = (argumento, funcao.parametros.get(indice)) {
-                                    let obtido = self.expressao(argumento);
-                                    self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
-                                    if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
-                                }
-                            }
-                            return funcao.retorno;
-                        }
-                        let tipos_obtidos: Vec<Tipo> = mapeados.iter().map(|argumento| argumento.map_or(Tipo::Desconhecido, |valor| self.expressao(valor))).collect();
-                        let (inferencia_valida, inferidos) =
-                            Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, None);
-                        if !inferencia_valida {
-                            self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
-                        }
-                        for parametro in &funcao.genericos {
-                            if !inferidos.contains_key(parametro) {
-                                self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
-                            }
-                        }
-                        for (indice, (esperado, obtido)) in funcao.parametros.iter().zip(&tipos_obtidos).enumerate() {
-                            let esperado = Self::substituir_genericos(esperado, &inferidos);
-                            self.exigir_tipo(obtido, &esperado, "argumento de função genérica");
-                            if let Some(Some(argumento)) = mapeados.get(indice) {
-                                if !self.tipo_copiavel(obtido) { self.mover_valor(argumento); }
-                            }
-                        }
-                        return Self::substituir_genericos(&funcao.retorno, &inferidos);
+                        return self.analisar_chamada_funcao(argumentos, &funcao, nome);
                     }
                 }
                 if let Expressao::Membro { alvo: modulo_expr, operador: TipoToken::Escopo, nome } = alvo.as_ref() {
@@ -1589,9 +1568,22 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 if *operador == TipoToken::Ponto {
-                    if let Some((raiz, mut caminho)) = Self::decompor_caminho_campo(alvo) {
-                        caminho.push(nome.clone());
-                        return self.resolver_tipo_caminho(&raiz, &caminho, true);
+                    if let Some((raiz, caminho)) = Self::decompor_caminho_campo(alvo) {
+                        if let Some(Tipo::Estrutura(nome_estrutura)) = self.resolver_tipo_caminho_puro(&raiz, &caminho) {
+                            if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
+                                return tipo_campo;
+                            }
+                            if let Some(funcao) = self.buscar_metodo_classe(&nome_estrutura, nome) {
+                                if !funcao.genericos.is_empty() {
+                                    self.erro("N3057", format!("O método genérico '{nome}' precisa ser chamado com uma instância de tipo."));
+                                    return Tipo::Desconhecido;
+                                }
+                                return Tipo::Funcao(funcao.parametros, Box::new(funcao.retorno));
+                            }
+                        }
+                        let mut caminho_completo = caminho;
+                        caminho_completo.push(nome.clone());
+                        return self.resolver_tipo_caminho(&raiz, &caminho_completo, true);
                     }
                     let tipo_alvo = self.expressao(alvo);
                     match tipo_alvo {
@@ -1599,7 +1591,14 @@ impl<'a> Analisador<'a> {
                             if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
                                 return tipo_campo;
                             }
-                            self.erro("N3040", format!("A estrutura '{nome_estrutura}' não possui o campo '{nome}'."));
+                            if let Some(funcao) = self.buscar_metodo_classe(&nome_estrutura, nome) {
+                                if !funcao.genericos.is_empty() {
+                                    self.erro("N3057", format!("O método genérico '{nome}' precisa ser chamado com uma instância de tipo."));
+                                    return Tipo::Desconhecido;
+                                }
+                                return Tipo::Funcao(funcao.parametros, Box::new(funcao.retorno));
+                            }
+                            self.erro("N3040", format!("A estrutura '{nome_estrutura}' não possui o campo ou método '{nome}'."));
                         }
                         Tipo::Desconhecido => {}
                         outro => self.erro("N3041", format!("O tipo {} não possui campos acessíveis por '.'.", outro.nome())),
@@ -1608,6 +1607,52 @@ impl<'a> Analisador<'a> {
                 Tipo::Desconhecido
             }
         }
+    }
+
+    fn buscar_metodo_classe(&self, classe: &str, nome: &str) -> Option<Funcao> {
+        let mut atual = Some(classe);
+        let mut visitadas = HashSet::new();
+        while let Some(nome_classe) = atual {
+            if !visitadas.insert(nome_classe.to_owned()) { return None; }
+            if let Some(funcao) = self.funcoes.get(&format!("{nome_classe}::{nome}")) {
+                return Some(funcao.clone());
+            }
+            atual = self.classes.get(nome_classe).and_then(Option::as_deref);
+        }
+        None
+    }
+
+    fn analisar_chamada_funcao(&mut self, argumentos: &[Expressao], funcao: &Funcao, nome: &str) -> Tipo {
+        let mapeados = self.mapear_argumentos_funcao(argumentos, funcao, nome);
+        let tipos_obtidos: Vec<Tipo> = mapeados.iter()
+            .map(|argumento| argumento.map_or(Tipo::Desconhecido, |valor| self.expressao(valor)))
+            .collect();
+        let inferidos = if funcao.genericos.is_empty() {
+            HashMap::new()
+        } else {
+            let (valida, inferidos) = Self::inferir_genericos_chamada(funcao, &tipos_obtidos, None);
+            if !valida {
+                self.erro("N3032", format!("Não foi possível inferir tipos genéricos consistentes na chamada de '{nome}'."));
+            }
+            for parametro in &funcao.genericos {
+                if !inferidos.contains_key(parametro) {
+                    self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
+                }
+            }
+            inferidos
+        };
+        for (indice, argumento) in mapeados.iter().enumerate() {
+            if let Some(argumento) = argumento {
+                if let Some(obtido) = tipos_obtidos.get(indice) {
+                    let esperado = funcao.parametros.get(indice)
+                        .map(|tipo| Self::substituir_genericos(tipo, &inferidos))
+                        .unwrap_or(Tipo::Desconhecido);
+                    self.exigir_expressao_tipo(argumento, obtido, &esperado, "argumento de função");
+                    if !self.tipo_copiavel(obtido) { self.mover_valor(argumento); }
+                }
+            }
+        }
+        Self::substituir_genericos(&funcao.retorno, &inferidos)
     }
 
     fn mapear_argumentos_funcao<'b>(&mut self, argumentos: &'b [Expressao], funcao: &Funcao, nome: &str) -> Vec<Option<&'b Expressao>> {
