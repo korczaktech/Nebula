@@ -4088,7 +4088,7 @@ fim"#;
 
     #[test]
     fn indentacao_define_niveis_e_fim_fecha_blocos() {
-        let codigo = "funcao principal(): {\n    variavel primeiro = 1\n    quando sim: {\n        variavel segundo = 2\n        fim\n    }\n    fim\nfim\n}\nfim";
+        let codigo = "funcao principal(): {\n    variavel primeiro = 1\n    quando sim: {\n        variavel segundo = 2\n        fim\n    }\n    fim\n    fim\n}\nfim";
         let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
@@ -4524,7 +4524,7 @@ criarUsuario(nome = "Ana", idade = 25)
             "funcao principal()\n    passar\n",
             "funcao vazia()\nfim",
         ] {
-            let resultado = analisar(&fonte(codigo));
+            let resultado = analisar(&fonte_bruta(codigo));
             assert!(
                 !resultado.diagnosticos.is_empty(),
                 "bloco sem indentação ou sem terminador deve ser rejeitado: {codigo:?}: {:#?}",
