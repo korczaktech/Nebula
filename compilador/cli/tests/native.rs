@@ -157,7 +157,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     saida.join("\n")
 }
 
-
 fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
     let (origem, executavel) = caminhos(rotulo);
     let codigo_normalizado = normalizar_blocos_legados(codigo);
