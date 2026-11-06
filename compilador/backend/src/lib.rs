@@ -3167,28 +3167,18 @@ impl Emissor {
         }
 
         self.emitir_endereco_rbp_rax(buffer);
-        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // r9 = início do buffer
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor de leitura
-        self.codigo.extend_from_slice(&[0x45, 0x31, 0xC0]); // r8 = comprimento
+        self.armazenar_rax(slot_buffer);
+        self.armazenar_rax(slot_cursor);
+        self.mov_rax(0);
+        self.armazenar_rax(slot_comprimento);
 
         let inicio_leitura = self.codigo.len();
+        self.carregar_rax(slot_cursor);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor
         self.codigo.extend_from_slice(&[0x31, 0xC0]); // eax = SYS_read
         self.codigo.extend_from_slice(&[0x31, 0xFF]); // stdin
         self.codigo.extend_from_slice(&[0xBA, 1, 0, 0, 0]); // um byte
-        // Preserva o estado da leitura em memória ao redor do syscall.
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
-        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes()); // [rbp+slot_cursor] = rsi
-        self.codigo.extend_from_slice(&[0x4C, 0x89, 0x85]);
-        self.codigo.extend_from_slice(&slot_comprimento.to_le_bytes()); // [rbp+slot_comprimento] = r8
-        self.codigo.extend_from_slice(&[0x4C, 0x89, 0x8D]);
-        self.codigo.extend_from_slice(&slot_buffer.to_le_bytes()); // [rbp+slot_buffer] = r9
         self.codigo.extend_from_slice(&[0x0F, 0x05]); // syscall
-        self.codigo.extend_from_slice(&[0x48, 0x8B, 0xB5]);
-        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes()); // rsi = cursor salvo
-        self.codigo.extend_from_slice(&[0x4C, 0x8B, 0x85]);
-        self.codigo.extend_from_slice(&slot_comprimento.to_le_bytes()); // r8 = comprimento salvo
-        self.codigo.extend_from_slice(&[0x4C, 0x8B, 0x8D]);
-        self.codigo.extend_from_slice(&slot_buffer.to_le_bytes()); // r9 = buffer salvo
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let fim_entrada = self.emitir_jcc(0x84); // EOF
         let leitura_valida = self.emitir_jcc(0x89); // jns
@@ -3196,11 +3186,18 @@ impl Emissor {
         let apos_erro = self.codigo.len();
         self.aplicar_salto(leitura_valida, apos_erro);
 
-        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\n']); // cmp byte [rsi], LF
+        self.carregar_rax(slot_cursor);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor
+        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\\n']); // cmp byte [rsi], LF
         let encontrou_linha = self.emitir_jcc(0x84);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC6]); // próximo byte
-        self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC0]); // comprimento++
-        self.codigo.extend_from_slice(&[0x49, 0x81, 0xF8]);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
+        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes()); // salva cursor
+
+        self.carregar_rax(slot_comprimento);
+        self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC0]); // comprimento++
+        self.armazenar_rax(slot_comprimento);
+        self.codigo.extend_from_slice(&[0x48, 0x3D]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
         let limite = self.emitir_jcc(0x87); // ja: buffer cheio
         self.encerrar_com_erro(1);
@@ -3212,19 +3209,27 @@ impl Emissor {
         self.aplicar_salto(fim_entrada, fim);
         self.aplicar_salto(encontrou_linha, fim);
 
-        // O runtime de referência remove também um CR imediatamente anterior.
-        self.codigo.extend_from_slice(&[0x4D, 0x85, 0xC0]); // test r8, r8
+        // Remove CR imediatamente anterior ao LF ou ao EOF.
+        self.carregar_rax(slot_comprimento);
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let vazio = self.emitir_jcc(0x84);
-        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\r']); // cmp byte [rsi-1], CR
+        self.carregar_rax(slot_cursor);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor
+        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\\r']); // cmp byte [rsi-1], CR
         let sem_cr = self.emitir_jcc(0x85);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xCE]); // rsi--
-        self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC8]); // r8--
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
+        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes());
+        self.carregar_rax(slot_comprimento);
+        self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC8]); // comprimento--
+        self.armazenar_rax(slot_comprimento);
+
         let finalizado = self.codigo.len();
         self.aplicar_salto(vazio, finalizado);
         self.aplicar_salto(sem_cr, finalizado);
 
-        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // rax = início
-        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC2]); // rdx = comprimento
+        self.carregar_rax(slot_buffer);
+        self.carregar_rdx(slot_comprimento);
         Ok(())
     }
 
