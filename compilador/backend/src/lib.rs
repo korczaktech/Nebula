@@ -1437,6 +1437,16 @@ impl Emissor {
                     self.emitir_exibir_textos(argumentos)?;
                     return Ok(());
                 }
+                if nome == "comprimento" {
+                    let [argumento] = argumentos.as_slice() else {
+                        return Err("'comprimento' exige exatamente um argumento no backend nativo.".into());
+                    };
+                    if self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto) {
+                        return Err("O backend nativo implementa 'comprimento' somente para texto nesta etapa.".into());
+                    }
+                    self.emitir_comprimento_texto(argumento)?;
+                    return Ok(());
+                }
                 if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
@@ -2642,6 +2652,49 @@ impl Emissor {
             self.pilha = self.pilha.checked_sub(1)
                 .ok_or("Contabilidade do alinhamento da pilha inválida.")?;
         }
+        Ok(())
+    }
+
+    fn emitir_comprimento_texto(&mut self, argumento: &ExpressaoIr) -> Result<(), String> {
+        self.expressao(argumento)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = início UTF-8
+        self.codigo.extend_from_slice(&[0x48, 0x8D, 0x0C, 0x10]); // rcx = início + bytes
+        self.codigo.extend_from_slice(&[0x45, 0x31, 0xC0]); // r8d = quantidade de escalares
+        let inicio = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xCE]); // cmp rsi, rcx
+        let fim = self.emitir_jcc(0x84);
+        self.codigo.extend_from_slice(&[0x0F, 0xB6, 0x06]); // movzx eax, byte [rsi]
+        self.codigo.extend_from_slice(&[0x3C, 0x80]); // cmp al, 0x80
+        let ascii = self.emitir_jcc(0x82);
+        self.codigo.extend_from_slice(&[0x3C, 0xE0]); // cmp al, 0xE0
+        let dois_bytes = self.emitir_jcc(0x82);
+        self.codigo.extend_from_slice(&[0x3C, 0xF0]); // cmp al, 0xF0
+        let tres_bytes = self.emitir_jcc(0x82);
+
+        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC6, 0x04]); // UTF-8 de quatro bytes
+        let contar_quatro = self.emitir_jmp();
+        let inicio_dois = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC6, 0x02]);
+        let contar_dois = self.emitir_jmp();
+        let inicio_tres = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC6, 0x03]);
+        let contar_tres = self.emitir_jmp();
+        let inicio_ascii = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC6]); // UTF-8 de um byte
+        let contar = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC0]); // inc r8
+        self.emitir_salto_para(inicio);
+
+        let finalizado = self.codigo.len();
+        self.aplicar_salto(fim, finalizado);
+        self.aplicar_salto(ascii, inicio_ascii);
+        self.aplicar_salto(dois_bytes, inicio_dois);
+        self.aplicar_salto(tres_bytes, inicio_tres);
+        self.aplicar_salto(contar_quatro, contar);
+        self.aplicar_salto(contar_dois, contar);
+        self.aplicar_salto(contar_tres, contar);
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC0]); // rax = r8
+        self.mov_rdx(0);
         Ok(())
     }
 
