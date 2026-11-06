@@ -2309,7 +2309,7 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor(): inteiro\n    devolver 40\nfim",
+            "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n}\nfim",
         )
         .unwrap();
         std::fs::write(
@@ -2363,7 +2363,7 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Interno.nbx"),
-            "funcao segredo() -> inteiro: {\n    devolver 42\n    fim\n}\nfim\npublico funcao visivel(): inteiro\n    devolver segredo()\nfim",
+            "funcao segredo() -> inteiro: {\n    devolver 42\n    fim\n}\nfim\npublico funcao visivel() -> inteiro: {\n    devolver segredo()\n    fim\n}\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
