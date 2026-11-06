@@ -810,3 +810,39 @@ fn compila_retorno_logico_e_constantes_booleanas() {
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
+
+#[test]
+fn json_valido_literal_funciona_no_backend_nativo() {
+    let valido = compilar_e_executar(
+        "json-valido-literal",
+        r#"funcao principal(): inteiro
+    quando json_valido("{\\"chave\\":1}")
+        devolver 42
+    fim
+    devolver 1
+fim"#,
+    );
+    assert_eq!(valido.status.code(), Some(42));
+
+    let invalido = compilar_e_executar(
+        "json-invalido-literal",
+        r#"funcao principal(): inteiro
+    quando nao json_valido("{\\"chave\\":}")
+        devolver 42
+    fim
+    devolver 1
+fim"#,
+    );
+    assert_eq!(invalido.status.code(), Some(42));
+}
+
+#[test]
+fn json_canonico_literal_funciona_no_backend_nativo() {
+    let resultado = compilar_e_executar(
+        "json-canonico-literal",
+        r#"exibir(json_canonico("{\\"b\\":2,\\"a\\":1}"))"#,
+    );
+    assert!(resultado.status.success());
+    assert_eq!(resultado.stdout, br#"{"a":1,"b":2}"#);
+}
+
