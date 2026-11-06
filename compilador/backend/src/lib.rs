@@ -606,8 +606,130 @@ impl Emissor {
                 for salto in laco.saidas { self.aplicar_salto(salto, destino_fim); }
                 for salto in laco.continuacoes { self.aplicar_salto(salto, inicio); }
             }
-            InstrucaoIr::Cada { .. } => {
-                return Err("O laço 'cada' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
+            InstrucaoIr::Cada { nome, iteravel, corpo } => {
+                let tipo_iteravel = self.tipo_expressao_atual(iteravel)
+                    .ok_or("O backend nativo não conseguiu determinar o tipo do iterável de 'cada'.")?;
+                let Tipo::Intervalo(tipo_elemento) = tipo_iteravel else {
+                    return Err("O backend ELF nativo aceita 'cada' sobre intervalos inteiros; listas e textos exigem runtime.".into());
+                };
+                let tipo_elemento = *tipo_elemento;
+                let sem_sinal = matches!(
+                    tipo_elemento,
+                    Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                        | Tipo::InteiroU64 | Tipo::Byte
+                );
+                if !matches!(
+                    tipo_elemento,
+                    Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+                        | Tipo::Inteiro32 | Tipo::Inteiro64
+                        | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                        | Tipo::InteiroU64 | Tipo::Byte
+                ) {
+                    return Err(format!(
+                        "O backend ELF nativo não suporta 'cada' sobre intervalos do tipo '{}'.",
+                        tipo_elemento.nome()
+                    ));
+                }
+
+                self.escopos.push(HashMap::new());
+                self.tipos_escopos.push(HashMap::new());
+                let slot_inicio = self.declarar_tipado("\0nebula_cada_inicio", &tipo_elemento)?;
+                let slot_fim = self.declarar_tipado("\0nebula_cada_fim", &tipo_elemento)?;
+                let slot_cursor = self.declarar_tipado("\0nebula_cada_cursor", &tipo_elemento)?;
+                let slot_descendente = self.declarar_tipado("\0nebula_cada_descendente", &Tipo::Logico)?;
+                let slot_variavel = self.declarar_tipado(nome, &tipo_elemento)?;
+
+                self.expressao(iteravel)?;
+                self.armazenar_rax(slot_inicio);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // rax = limite final
+                self.armazenar_rax(slot_fim);
+                self.carregar_rax(slot_inicio);
+                self.armazenar_rax(slot_cursor);
+
+                self.carregar_rax(slot_inicio);
+                self.push_rax();
+                self.carregar_rax(slot_fim);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = fim
+                self.pop_rax();
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+                let salto_descendente = self.emitir_jcc(if sem_sinal { 0x87 } else { 0x8F });
+                self.mov_rax(0);
+                self.armazenar_rax(slot_descendente);
+                let salto_inicio = self.emitir_jmp();
+                let inicio_descendente = self.codigo.len();
+                self.mov_rax(1);
+                self.armazenar_rax(slot_descendente);
+                let inicio_laco = self.codigo.len();
+                self.aplicar_salto(salto_descendente, inicio_descendente);
+                self.aplicar_salto(salto_inicio, inicio_laco);
+
+                self.carregar_rax(slot_descendente);
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let verificar_descendente = self.emitir_jcc(0x85);
+
+                self.carregar_rax(slot_cursor);
+                self.push_rax();
+                self.carregar_rax(slot_fim);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]);
+                self.pop_rax();
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
+                let sair_ascendente = self.emitir_jcc(if sem_sinal { 0x87 } else { 0x8F });
+                let saltar_corpo = self.emitir_jmp();
+
+                let inicio_verificacao_descendente = self.codigo.len();
+                self.carregar_rax(slot_cursor);
+                self.push_rax();
+                self.carregar_rax(slot_fim);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]);
+                self.pop_rax();
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
+                let sair_descendente = self.emitir_jcc(if sem_sinal { 0x82 } else { 0x8C });
+                let inicio_corpo = self.codigo.len();
+                self.aplicar_salto(verificar_descendente, inicio_verificacao_descendente);
+                self.aplicar_salto(saltar_corpo, inicio_corpo);
+
+                self.carregar_rax(slot_cursor);
+                self.armazenar_rax(slot_variavel);
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
+                self.bloco(corpo)?;
+                let laco = self.lacos.pop().expect("laço ativo");
+                let inicio_atualizacao = self.codigo.len();
+                for salto in laco.continuacoes {
+                    self.aplicar_salto(salto, inicio_atualizacao);
+                }
+
+                self.carregar_rax(slot_cursor);
+                self.push_rax();
+                self.carregar_rax(slot_fim);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]);
+                self.pop_rax();
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]);
+                let chegou_ao_fim = self.emitir_jcc(0x84);
+
+                self.carregar_rax(slot_descendente);
+                self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
+                let decrementar = self.emitir_jcc(0x85);
+                self.carregar_rax(slot_cursor);
+                self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC0]); // inc rax
+                self.armazenar_rax(slot_cursor);
+                self.emitir_salto_para(inicio_laco);
+
+                let inicio_decremento = self.codigo.len();
+                self.carregar_rax(slot_cursor);
+                self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC8]); // dec rax
+                self.armazenar_rax(slot_cursor);
+                self.emitir_salto_para(inicio_laco);
+
+                let fim_laco = self.codigo.len();
+                self.aplicar_salto(decrementar, inicio_decremento);
+                self.aplicar_salto(chegou_ao_fim, fim_laco);
+                self.aplicar_salto(sair_ascendente, fim_laco);
+                self.aplicar_salto(sair_descendente, fim_laco);
+                for salto in laco.saidas {
+                    self.aplicar_salto(salto, fim_laco);
+                }
+                let _ = self.escopos.pop();
+                let _ = self.tipos_escopos.pop();
             }
             InstrucaoIr::Pulso { .. } => {
                 return Err("'pulso' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
@@ -706,7 +828,11 @@ impl Emissor {
                 } else {
                     self.expressao(valor)?;
                 }
-                if !matches!(tipo, Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+                if !matches!(
+                    tipo,
+                    Tipo::Estrutura(_) | Tipo::Tupla(_) | Tipo::Enumeracao(_)
+                        | Tipo::Opcional(_) | Tipo::Resultado(_, _) | Tipo::Intervalo(_)
+                ) {
                     self.normalizar_tipo(tipo)?;
                 }
             },
@@ -977,6 +1103,21 @@ impl Emissor {
                         }
                         _ => return Err("Operação de 128 bits ainda não suportada no backend nativo.".into()),
                     }
+                    return Ok(());
+                }
+                if *operador == OperadorIr::Intervalo {
+                    if inteiro_128_expressao(esquerda)
+                        || inteiro_128_expressao(direita)
+                        || tipo_decimal_expressao(esquerda).is_some()
+                    {
+                        return Err("O backend ELF nativo aceita intervalos inteiros de até 64 bits.".into());
+                    }
+                    self.expressao(esquerda)?;
+                    self.push_rax();
+                    self.expressao(direita)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = limite final
+                    self.pop_rax(); // rax = limite inicial
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xCA]); // rdx = limite final
                     return Ok(());
                 }
                 let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
@@ -1892,6 +2033,31 @@ impl Emissor {
             .ok_or("Deslocamento do agregado excedeu o endereçamento x86-64.")?;
         self.proximo_agregado = fim;
         Ok(deslocamento)
+    }
+
+    fn tipo_expressao_atual(&self, expressao: &ExpressaoIr) -> Option<Tipo> {
+        match expressao {
+            ExpressaoIr::Normalizar { tipo, .. }
+            | ExpressaoIr::Conversao { tipo, .. }
+            | ExpressaoIr::ReferenciaFuncao { tipo, .. }
+            | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => Some(tipo.clone()),
+            ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
+            ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
+            ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
+            ExpressaoIr::Variavel(nome) => self
+                .buscar_tipo_local(nome)
+                .cloned()
+                .or_else(|| self.tipos_globais.get(nome).cloned()),
+            ExpressaoIr::Unaria { valor, .. } => self.tipo_expressao_atual(valor),
+            ExpressaoIr::Binaria {
+                esquerda,
+                operador: OperadorIr::Intervalo,
+                ..
+            } => self
+                .tipo_expressao_atual(esquerda)
+                .map(|tipo| Tipo::Intervalo(Box::new(tipo))),
+            _ => None,
+        }
     }
 
     fn buscar_tipo_local(&self, nome: &str) -> Option<&Tipo> {
