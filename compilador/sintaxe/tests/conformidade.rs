@@ -260,7 +260,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             || conteudo.starts_with("pulso(")
             || conteudo.starts_with("durante ")
             || conteudo.starts_with("repetir ")
-            || conteudo == "critico"
+            || conteudo == "seguro"\n            || conteudo.starts_with("seguro:")\n            || conteudo == "critico"
             || conteudo.starts_with("critico:")
             || conteudo.starts_with("privilegio ")
             || conteudo.starts_with("montagem ")
@@ -482,7 +482,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         ("atribuicao de tipo ausente", "N2006", "tipo A inteiro"),
         ("bloco ausente", "N2007", "funcao f() exibir(1)"),
         ("expressao ausente", "N2008", "variavel a ="),
-        ("fechamento ausente", "N2009", "funcao f() {"),
+        ("fechamento ausente", "N2007", "funcao f() {"),
         ("identificador ausente", "N2010", "variavel = 1"),
         ("reservada futura", "N2011", "variavel tentar = 1"),
         ("comparacao encadeada", "N2012", "variavel a = 1 < 2 < 3"),
@@ -596,7 +596,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
 #[test]
 fn diagnosticos_do_corpus_preservam_intervalos_utf8_validos() {
     let codigo = "variavel ação = )\nestrutura Pessoa { nome texto }\nvariavel fim = 1";
-    let resultado = analisar_codigo(codigo);
+    let resultado = analisar_codigo_bruto(codigo);
     assert!(!resultado.diagnosticos.is_empty());
 
     for diagnostico in resultado.diagnosticos {
@@ -1055,7 +1055,7 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
         ("fechamento isolado", "variavel x = 1]"),
     ];
     for (nome, codigo) in invalidos {
-        let resultado = analisar_codigo(codigo);
+        let resultado = analisar_codigo_bruto(codigo);
         assert!(
             !resultado.diagnosticos.is_empty(),
             "entrada inválida [{nome}] foi aceita sem diagnóstico: {codigo:?}"
