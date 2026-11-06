@@ -68,7 +68,7 @@ Cada campo tem nome único e tipo declarado. A construção exige todos os campo
 
 ### 3.4 Enumerações
 
-Forma normativa planejada:
+Forma normativa:
 
 ```nebula
 enumeracao Estado: {
@@ -99,7 +99,7 @@ escolha resultado: {
 } fim
 ```
 
-Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todas as variantes restantes e, quando presente, deve ser o último caso. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência. O backend ELF x86-64 também gera construção e correspondência de enumerações, `Opcional` e `Resultado` quando o layout cabe na ABI própria: tag em um registrador e, no máximo, um payload escalar em outro. Payloads múltiplos ou maiores que um registrador continuam rejeitados.
+Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todos os valores ainda não cobertos por casos anteriores; casos posteriores a um curinga são inalcançáveis e devem ser rejeitados na análise semântica. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência. O backend ELF x86-64 também gera construção e correspondência de enumerações, `Opcional` e `Resultado` quando o layout cabe na ABI própria: tag em um registrador e, no máximo, um payload escalar em outro. Payloads múltiplos ou maiores que um registrador continuam rejeitados.
 
 ### 3.5 Opcionais e resultados
 
@@ -136,10 +136,13 @@ A forma de tipo é `funcao(T1, T2, ...): Retorno`; os parâmetros podem conter o
 
 1. Não há coerção implícita entre tipos inteiros de larguras diferentes em atribuições, parâmetros ou retornos.
 2. Literais numéricos sem contexto recebem o tipo padrão da família; o contexto pode selecionar um tipo de largura explícita apenas quando o valor couber exatamente.
-3. A promoção de operandos em expressões aritméticas deve ser determinística e documentada; não pode depender da arquitetura hospedeira.
-4. Operações entre inteiros com e sem sinal não podem ser promovidas silenciosamente se isso alterar a faixa representável.
-5. Conversões explícitas verificam faixa. Se o valor não couber, a conversão falha de forma definida. As conversões numéricas explícitas são chamadas pelo nome do tipo (`inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128`, `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128`, `byte`, `decimal32` e `decimal64`). Conversões de decimal para inteiro truncam em direção a zero e verificam a faixa antes de produzir o valor.
-6. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial. Operações cujo tipo resultante é `decimal32` são arredondadas para IEEE-754 binary32 após cada operação, não apenas ao armazenar o resultado final.
+3. A promoção aritmética é definida pela tabela abaixo e independe da largura da máquina hospedeira. A regra é aplicada a cada par de operandos antes da operação e também às comparações numéricas.
+4. Dois inteiros assinados promovem para o tipo assinado de maior largura; dois inteiros sem sinal promovem para o tipo sem sinal de maior largura. `byte` participa como inteiro sem sinal de 8 bits. `inteiro` participa como inteiro assinado de 64 bits.
+5. Para um par misto assinado/sem sinal, o resultado é o menor tipo assinado disponível que comporte integralmente os dois domínios: sua largura precisa ser maior que a largura do operando sem sinal e não menor que a largura do operando assinado. Assim, `inteiro8 + inteiro_u8` resulta em `inteiro16`, e `inteiro64 + inteiro_u64` resulta em `inteiro128`. Se não existir tipo assinado capaz de representar ambos os domínios, a expressão é rejeitada estaticamente; em particular, `inteiro128` combinado com `inteiro_u128` não possui promoção válida.
+6. `decimal64` domina qualquer operação numérica que o contenha. Dois operandos `decimal32` resultam em `decimal32`. Um `decimal32` combinado com inteiro de até 16 bits resulta em `decimal32`; combinado com inteiro de 32 bits ou mais resulta em `decimal64`. A promoção para decimal segue IEEE-754 e pode arredondar valores inteiros que excedam a precisão exata do formato.
+7. Conversões explícitas verificam sinal, faixa e finitude. Se o valor não couber, a conversão falha de forma definida. As conversões numéricas explícitas são chamadas pelo nome do tipo (`inteiro`, `inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128`, `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128`, `byte`, `decimal`, `decimal32` e `decimal64`). Conversões de decimal para inteiro truncam em direção a zero e verificam a faixa antes de produzir o valor. Conversões de inteiro para decimal seguem o arredondamento IEEE-754 do destino.
+8. Conversões entre `decimal32` e `decimal64` seguem as regras IEEE 754 e devem ser explícitas quando houver perda potencial. Operações cujo tipo resultante é `decimal32` são arredondadas para IEEE-754 binary32 após cada operação, não apenas ao armazenar o resultado final.
+9. A promoção nunca altera o tipo declarado de uma variável, parâmetro, campo, retorno ou elemento de lista; ela só determina o tipo temporário da expressão. Atribuições, argumentos e retornos continuam exigindo compatibilidade exata, salvo literal contextual cujo valor caiba exatamente no destino.
 
 ## 6. Igualdade, cópia e movimentação
 
