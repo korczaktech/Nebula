@@ -586,7 +586,11 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     ));
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
-    std::fs::write(&fonte, "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim").unwrap();
+    std::fs::write(
+        &fonte,
+        "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim",
+    )
+    .unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
     assert!(
         compilar.status.success(),
