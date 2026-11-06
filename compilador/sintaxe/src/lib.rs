@@ -1044,7 +1044,7 @@ impl Parser {
         loop {
             if self.verifica(TipoToken::NovaLinha) {
                 let proximo = self.tokens.iter().skip(self.atual)
-                    .find(|token| token.tipo != TipoToken::NovaLinha)
+                    .find(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent))
                     .map(|token| token.tipo);
                 if proximo == Some(TipoToken::Escopo) {
                     self.pular_novas_linhas();
@@ -1743,9 +1743,9 @@ impl Parser {
         )
     }
 
-    fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
+    fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::Indent | TipoToken::Dedent) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
-    fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
+    fn pular_novas_linhas(&mut self) { while matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent) { self.avancar(); } }
     fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre | TipoToken::Dedent) }
     fn sincronizar(&mut self) {
         self.sincronizar_ate(&[
