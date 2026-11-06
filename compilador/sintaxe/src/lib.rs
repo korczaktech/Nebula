@@ -2280,7 +2280,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         ));
         assert!(matches!(
             &r.programa.itens[2],
-            NoAst::Variavel { tipo: Some(tipo), .. } if tipo == "(inteiro, texto)"
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo == "(inteiro,texto)"
         ));
     }
 
