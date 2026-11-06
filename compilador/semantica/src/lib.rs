@@ -2741,7 +2741,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let r = analisar_codigo(
             "variavel ponto = (10, \"norte\")\nvariavel indice = 1\nvariavel valor = ponto[indice]\nvariavel invalido = ponto[3]",
         );
-        assert_eq!(r.diagnosticos.iter().filter(|d| d.codigo == "N3034").count(), 2, "{:?}", r.diagnosticos);
+        assert_eq!(r.diagnosticos.iter().filter(|d| d.codigo == "N3063").count(), 2, "{:?}", r.diagnosticos);
     }
 
     #[test]
@@ -3246,7 +3246,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let r = analisar_codigo(
             "funcao produzir<T>(valor: inteiro): T\n    devolver valor\nfim\n\nvariavel resultado = produzir(1)",
         );
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3033"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3064"), "{:?}", r.diagnosticos);
     }
 
     #[test]
