@@ -6,6 +6,172 @@ use super::{
 use crate::analisar;
 use nebula_fonte::ArquivoFonte;
 
+fn normalizar_blocos_legados(codigo: &str) -> String {
+    let codigo = codigo.replace("): ", ") -> ");
+    if codigo.lines().any(|linha| {
+        let conteudo = linha.trim();
+        [
+            "funcao ",
+            "publico funcao ",
+            "estrutura ",
+            "enumeracao ",
+            "quando ",
+            "senao",
+            "escolha ",
+            "avaliar ",
+            "caso ",
+            "cada ",
+            "enquanto ",
+            "para ",
+            "pulso(",
+            "durante ",
+            "repetir ",
+        ]
+        .iter()
+        .any(|prefixo| conteudo.starts_with(prefixo))
+            && conteudo.ends_with(": {")
+    }) {
+        return codigo;
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum TipoBloco {
+        Completo,
+        Condicional,
+        Escolha,
+        Caso,
+    }
+
+    struct Bloco {
+        indentacao: usize,
+        tipo: TipoBloco,
+    }
+
+    fn indentacao(texto: &str, nivel: usize) -> String {
+        format!("{}{}", " ".repeat(nivel), texto)
+    }
+
+    fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
+        match bloco.tipo {
+            TipoBloco::Caso => {
+                saida.push(indentacao("fim", bloco.indentacao));
+                saida.push(indentacao("}", bloco.indentacao));
+            }
+            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
+                saida.push(indentacao("fim", bloco.indentacao));
+                saida.push(indentacao("}", bloco.indentacao));
+                saida.push(indentacao("fim", bloco.indentacao));
+            }
+        }
+    }
+
+    let mut saida = Vec::new();
+    let mut blocos: Vec<Bloco> = Vec::new();
+
+    for linha in codigo.lines() {
+        let conteudo = linha.trim();
+        let nivel = linha.len() - linha.trim_start().len();
+
+        if conteudo.is_empty() {
+            saida.push(linha.to_owned());
+            continue;
+        }
+
+        if conteudo.starts_with("senao") {
+            if let Some(bloco) = blocos.last() {
+                if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
+                    saida.push(indentacao("fim", nivel));
+                    saida.push(indentacao("}", nivel));
+                    saida.push(indentacao("senao: {", nivel));
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("caso ") || conteudo == "padrao" {
+            if blocos.last().is_some_and(|bloco| {
+                bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Caso,
+            });
+            continue;
+        }
+
+        if conteudo == "fim" {
+            while blocos.last().is_some_and(|bloco| {
+                bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+
+            if blocos.last().is_some_and(|bloco| bloco.indentacao == nivel) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            } else {
+                saida.push(linha.to_owned());
+            }
+            continue;
+        }
+
+        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+            || conteudo.starts_with("funcao ")
+        {
+            let assinatura = conteudo.replace("): ", ") -> ");
+            let assinatura = if assinatura.ends_with(':') {
+                format!("{assinatura} {{")
+            } else {
+                format!("{assinatura}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+            let assinatura = if conteudo.ends_with(':') {
+                format!("{conteudo} {{")
+            } else {
+                format!("{conteudo}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("quando ")
+            || conteudo.starts_with("se ")
+        {
+            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("cada ")
+            || conteudo.starts_with("enquanto ")
+            || conteudo.starts_with("para ")
+            || conteudo.starts_with("pulso(")
+            || conteudo.starts_with("durante ")
+            || conteudo.starts_with("repetir ")
+        {
+            (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
+        } else {
+            (None, None)
+        };
+
+        if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
+            saida.push(indentacao(&cabecalho, nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo,
+            });
+        } else {
+            saida.push(linha.to_owned());
+        }
+    }
+
+    saida.join("\n")
+}
+
 #[test]
 fn tipo_generico_aninhado_preserva_estrutura_e_grafia() {
     let tipo = TipoAst::analisar("Resultado<[texto], Tupla<inteiro, logico>>");
@@ -124,7 +290,7 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
     let codigo = "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim";
-    let resultado = analisar(&ArquivoFonte::novo("ast.nbx", codigo));
+    let resultado = analisar(&ArquivoFonte::novo("ast.nbx", &normalizar_blocos_legados(codigo)));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa de teste deve ser válido: {:#?}",
@@ -229,7 +395,7 @@ fim
 
 executar(1)
 "#;
-    let resultado = analisar(&ArquivoFonte::novo("nos.nbx", codigo));
+    let resultado = analisar(&ArquivoFonte::novo("nos.nbx", &normalizar_blocos_legados(codigo)));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa com todos os nós deve ser válido: {:#?}",
@@ -282,7 +448,7 @@ variavel lista = [1, 2]
 variavel tupla = (1, 2)
 variavel construcao = Pessoa { nome: "Ana", fim }
 "#;
-    let resultado = analisar(&ArquivoFonte::novo("expressoes.nbx", codigo));
+    let resultado = analisar(&ArquivoFonte::novo("expressoes.nbx", &normalizar_blocos_legados(codigo)));
     assert!(
         resultado.diagnosticos.is_empty(),
         "expressões de referência devem ser válidas: {:#?}",
@@ -336,7 +502,7 @@ variavel construcao = Pessoa { nome: "Ana", fim }
 #[test]
 fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
     let codigo = "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim";
-    let resultado = analisar(&ArquivoFonte::novo("recuperacao.nbx", codigo));
+    let resultado = analisar(&ArquivoFonte::novo("recuperacao.nbx", &normalizar_blocos_legados(codigo)));
 
     assert!(
         !resultado.diagnosticos.is_empty(),
@@ -436,7 +602,8 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
 #[test]
 fn recuperacao_aninhada_e_deterministica_e_nao_contamina_analise_seguinte() {
     let codigo = "funcao principal()\n    variavel quebrada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    quando verdadeiro\n        variavel preservada = 7\n    fim\nfim\nvariavel posterior = 9";
-    let fonte = ArquivoFonte::novo("determinismo.nbx", codigo);
+    let codigo = normalizar_blocos_legados(codigo);
+    let fonte = ArquivoFonte::novo("determinismo.nbx", &codigo);
     let primeira = analisar(&fonte);
     let segunda = analisar(&fonte);
 
