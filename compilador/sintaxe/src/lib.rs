@@ -4080,7 +4080,7 @@ fim"#;
 
     #[test]
     fn indentacao_define_niveis_e_fim_fecha_blocos() {
-        let codigo = "funcao principal()\n    variavel primeiro = 1\n    se sim\n        variavel segundo = 2\n    fim\nfim";
+        let codigo = "funcao principal()\n    variavel primeiro = 1\n    quando sim\n        variavel segundo = 2\n    fim\nfim";
         let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
@@ -4120,19 +4120,19 @@ fim"#;
 
     #[test]
     fn condicional_indentado_exige_terminador_fim() {
-        let invalido = analisar(&fonte("se sim\n    passar\n"));
+        let invalido = analisar(&fonte("quando sim\n    passar\n"));
         assert!(
             invalido.diagnosticos.iter().any(|d| d.codigo == "N2009"),
             "condicional indentado sem 'fim' precisa ser rejeitado"
         );
-        let valido = analisar(&fonte("se sim\n    passar\nfim"));
+        let valido = analisar(&fonte("quando sim\n    passar\nfim"));
         assert!(
             valido.diagnosticos.is_empty(),
             "a forma indentada deve ser aceita: {:?}",
             valido.diagnosticos
         );
         let aninhado = analisar(&fonte(
-            "funcao principal()\n    se sim\n        passar\n    fim\nfim"
+            "funcao principal()\n    quando sim\n        passar\n    fim\nfim"
         ));
         assert!(
             aninhado.diagnosticos.is_empty(),
@@ -4475,7 +4475,7 @@ criarUsuario(nome = "Ana", idade = 25)
     #[test]
     fn blocos_de_instrucao_exigem_indentacao_e_fim() {
         let valido = analisar(&fonte(
-            "funcao principal()\n    se verdadeiro\n        passar\n    fim\nfim"
+            "funcao principal()\n    quando verdadeiro\n        passar\n    fim\nfim"
         ));
         assert!(
             valido.diagnosticos.is_empty(),
