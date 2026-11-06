@@ -235,6 +235,17 @@ fn exibir_aceita_varios_textos_com_espacamento() {
 "#;
     fs::write(&origem, codigo).unwrap();
 
+    let interpretacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("interpretar")
+        .arg(&origem)
+        .output()
+        .expect("executa interpretador");
+    assert!(
+        interpretacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&interpretacao.stderr)
+    );
+
     let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
@@ -257,4 +268,5 @@ fn exibir_aceita_varios_textos_com_espacamento() {
     let _ = fs::remove_file(executavel);
     assert!(execucao.status.success());
     assert_eq!(execucao.stdout, "Olá Nebula 2026\n\n".as_bytes());
+    assert_eq!(execucao.stdout, interpretacao.stdout);
 }
