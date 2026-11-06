@@ -271,7 +271,6 @@ fn exibir_aceita_varios_textos_com_espacamento() {
     assert_eq!(execucao.stdout, interpretacao.stdout);
 }
 
-
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn comprimento_nativo_conta_caracteres_unicode() {
