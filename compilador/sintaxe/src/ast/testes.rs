@@ -60,10 +60,26 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         let cabecalho_explicito = [
-            "funcao ", "publico funcao ", "async funcao ", "exportar funcao ",
-            "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
-            "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
-            "para ", "pulso(", "durante ", "repetir ",
+            "funcao ",
+            "publico funcao ",
+            "async funcao ",
+            "exportar funcao ",
+            "estrutura ",
+            "enumeracao ",
+            "classe ",
+            "quando ",
+            "se ",
+            "sendo ",
+            "senao",
+            "escolha ",
+            "avaliar ",
+            "caso ",
+            "cada ",
+            "enquanto ",
+            "para ",
+            "pulso(",
+            "durante ",
+            "repetir ",
         ]
         .iter()
         .any(|prefixo| conteudo.starts_with(prefixo))
@@ -74,7 +90,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 TipoBloco::Caso
             } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
                 TipoBloco::Escolha
-            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") || conteudo.starts_with("senao") {
+            } else if conteudo.starts_with("quando ")
+                || conteudo.starts_with("se ")
+                || conteudo.starts_with("sendo ")
+                || conteudo.starts_with("senao")
+            {
                 TipoBloco::Condicional
             } else {
                 TipoBloco::Completo
@@ -110,7 +130,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 }
             }
 
-            if blocos.last().is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel) {
+            if blocos
+                .last()
+                .is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel)
+            {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -136,7 +159,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
         if conteudo.starts_with("senao") {
             if let Some(bloco) = blocos.last() {
-                if !bloco.explicito && bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
+                if !bloco.explicito
+                    && bloco.tipo == TipoBloco::Condicional
+                    && bloco.indentacao == nivel
+                {
                     saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao("senao: {", nivel));
@@ -188,7 +214,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 format!("{assinatura}: {{")
             };
             (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") || conteudo.starts_with("classe ") {
+        } else if conteudo.starts_with("estrutura ")
+            || conteudo.starts_with("enumeracao ")
+            || conteudo.starts_with("classe ")
+        {
             let assinatura = if conteudo.ends_with(':') {
                 format!("{conteudo} {{")
             } else {
@@ -197,8 +226,14 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             (Some(TipoBloco::Completo), Some(assinatura))
         } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
             (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") {
-            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("quando ")
+            || conteudo.starts_with("se ")
+            || conteudo.starts_with("sendo ")
+        {
+            (
+                Some(TipoBloco::Condicional),
+                Some(format!("{conteudo}: {{")),
+            )
         } else if conteudo.starts_with("cada ")
             || conteudo.starts_with("enquanto ")
             || conteudo.starts_with("para ")
