@@ -1610,26 +1610,42 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao extrair(valor: Opcional<inteiro64>): inteiro
-    escolha valor
-        caso Opcional::Algum(conteudo)
+            r#"funcao extrair(valor: Opcional<inteiro64>) -> inteiro: {
+    escolha valor: {
+        caso Opcional::Algum(conteudo): {
             devolver conteudo
-        caso Opcional::Nenhum
+            fim
+        }
+        caso Opcional::Nenhum: {
             devolver 0
+            fim
+        }
+        fim
+    }
     fim
+}
 fim
-funcao ler(valor: Resultado<inteiro64,inteiro64>): inteiro
-    escolha valor
-        caso Resultado::Sucesso(conteudo)
+funcao ler(valor: Resultado<inteiro64,inteiro64>) -> inteiro: {
+    escolha valor: {
+        caso Resultado::Sucesso(conteudo): {
             devolver conteudo
-        caso Resultado::Falha(falha)
+            fim
+        }
+        caso Resultado::Falha(falha): {
             devolver falha
+            fim
+        }
+        fim
+    }
     fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel opcional: Opcional<inteiro64> = Opcional::Algum(40)
     variavel resultado: Resultado<inteiro64,inteiro64> = Resultado::Sucesso(2)
     devolver extrair(opcional) + ler(resultado)
+    fim
+}
 fim"#,
         )
         .unwrap();
@@ -1664,31 +1680,51 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"enumeracao Resposta:
+            r#"enumeracao Resposta: {
     Sucesso(inteiro64)
     Falha(inteiro64)
     Vazio
+    fim
+}
 fim
-funcao transformar(resposta: Resposta): Resposta
-    escolha resposta
-        caso Resposta::Sucesso(valor)
+funcao transformar(resposta: Resposta) -> Resposta: {
+    escolha resposta: {
+        caso Resposta::Sucesso(valor): {
             devolver Resposta::Falha(valor + 1)
-        caso Resposta::Falha(falha)
+            fim
+        }
+        caso Resposta::Falha(falha): {
             devolver Resposta::Sucesso(falha + 1)
-        caso Resposta::Vazio
+            fim
+        }
+        caso Resposta::Vazio: {
             devolver Resposta::Vazio
+            fim
+        }
+        fim
+    }
     fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel resultado = transformar(Resposta::Sucesso(41))
-    escolha resultado
-        caso Resposta::Sucesso(valor)
+    escolha resultado: {
+        caso Resposta::Sucesso(valor): {
             devolver 0
-        caso Resposta::Falha(falha)
+            fim
+        }
+        caso Resposta::Falha(falha): {
             devolver falha
-        caso Resposta::Vazio
+            fim
+        }
+        caso Resposta::Vazio: {
             devolver 1
+            fim
+        }
+        fim
+    }
     fim
+}
 fim"#,
         )
         .unwrap();
