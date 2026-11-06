@@ -861,6 +861,8 @@ fim
 fn rejeita_sintaxe_antiga_de_blocos() {
     let casos = [
         "funcao executar()\n    passar\nfim",
+        "funcao executar(): inteiro: {\n    devolver 1\n    fim\n}\nfim",
+        "variavel operacao: funcao(inteiro): inteiro = identidade",
         "se sim\n    passar\nfim",
         "enquanto sim\n    passar\nfim",
         "classe Pessoa\n    passar\nfim",
