@@ -2488,6 +2488,29 @@ fim"#,
     }
 
     #[test]
+    fn valida_inferencia_generica_em_funcao_publica_de_modulo() {
+        let diretorio = std::env::temp_dir().join(format!("nebula-modulo-generico-{}", std::process::id()));
+        std::fs::create_dir_all(&diretorio).unwrap();
+        let modulo = diretorio.join("Tipos.nbx");
+        let origem = diretorio.join("principal.nbx");
+        std::fs::write(
+            &modulo,
+            "publico funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n}\nfim",
+        ).unwrap();
+        let codigo = "incluir(biblioteca: Tipos) como T\nvariavel numero = T::identidade(valor: 42)";
+        std::fs::write(&origem, codigo).unwrap();
+        let fonte = ArquivoFonte::novo(&origem, codigo);
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let (modulos, _, _) = carregar_modulos(&origem, &sintaxe.programa)
+            .expect("assinatura genérica pública válida");
+        let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
+        assert!(semantica.diagnosticos.is_empty(), "{:?}", semantica.diagnosticos);
+        assert_eq!(semantica.tipos_globais.get("numero"), Some(&nebula_semantica::Tipo::Inteiro));
+        std::fs::remove_dir_all(diretorio).unwrap();
+    }
+
+    #[test]
     fn interpreta_modulo_local_com_funcao_publica_e_auxiliar_privada() {
         let diretorio = std::env::temp_dir().join(format!("nebula-modulo-{}", std::process::id()));
         std::fs::create_dir_all(&diretorio).unwrap();
