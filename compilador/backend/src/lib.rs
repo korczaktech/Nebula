@@ -3188,7 +3188,7 @@ impl Emissor {
 
         self.carregar_rax(slot_cursor);
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor
-        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\\n']); // cmp byte [rsi], LF
+        self.codigo.extend_from_slice(&[0x80, 0x3E, 10]); // cmp byte [rsi], LF
         let encontrou_linha = self.emitir_jcc(0x84);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC6]); // próximo byte
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
@@ -3215,7 +3215,7 @@ impl Emissor {
         let vazio = self.emitir_jcc(0x84);
         self.carregar_rax(slot_cursor);
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor
-        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\\r']); // cmp byte [rsi-1], CR
+        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, 13]); // cmp byte [rsi-1], CR
         let sem_cr = self.emitir_jcc(0x85);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xCE]); // rsi--
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
