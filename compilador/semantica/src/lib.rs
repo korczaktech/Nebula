@@ -1532,7 +1532,7 @@ impl<'a> Analisador<'a> {
                                     parametros: assinatura.parametros,
                                     nomes_parametros: assinatura.nomes_parametros,
                                     parametros_padrao: assinatura.parametros_padrao.into_iter()
-                                        .map(|tem_padrao| tem_padrao.then_some(Expressao::Nulo))
+                                        .map(|tem_padrao| tem_padrao.then_some(Expressao::Nome(String::new())))
                                         .collect(),
                                     retorno: assinatura.retorno,
                                 };
