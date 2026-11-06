@@ -3182,7 +3182,11 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let fim_entrada = self.emitir_jcc(0x84); // EOF
         let leitura_valida = self.emitir_jcc(0x89); // jns
-        self.encerrar_com_erro(1);
+        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC0, 100]); // errno + 100
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = errno + 100
+        self.mov_rax(60);
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
         let apos_erro = self.codigo.len();
         self.aplicar_salto(leitura_valida, apos_erro);
 
@@ -3200,7 +3204,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x3D]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
         let limite = self.emitir_jcc(0x87); // ja: buffer cheio
-        self.encerrar_com_erro(1);
+        self.encerrar_com_erro(88);
         let apos_limite = self.codigo.len();
         self.aplicar_salto(limite, apos_limite);
         self.emitir_salto_para(inicio_leitura);
