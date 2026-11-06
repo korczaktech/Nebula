@@ -70,3 +70,32 @@ fn compila_e_executa_function_body_aninhado_sem_normalizacao() {
     let _ = fs::remove_file(executavel);
     assert_eq!(execucao.status.code(), Some(42));
 }
+
+#[test]
+fn distingue_function_body_de_dicionario_e_valor_estrutural() {
+    let (origem, _) = caminhos("dados");
+    let codigo = r#"estrutura Pessoa: {
+    nome: texto
+    fim
+} fim
+
+variavel pessoa = Pessoa { nome: "Nebula", fim }
+variavel dados: dicionario = {
+    "nome": "Nebula"
+}
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("verificar")
+        .arg(&origem)
+        .output()
+        .expect("executa CLI");
+
+    let _ = fs::remove_file(origem);
+    assert!(
+        resultado.status.success(),
+        "{}",
+        String::from_utf8_lossy(&resultado.stderr)
+    );
+}
