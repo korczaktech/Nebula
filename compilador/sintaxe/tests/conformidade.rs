@@ -542,7 +542,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2040",
             "escolha valor caso _ {}",
         ),
-        ("caso ausente", "N2041", "escolha valor: {\n    outro\n    fim\n}\nfim"),
+        (\n            "caso ausente",\n            "N2041",\n            "escolha valor: {\\n    outro\\n    fim\\n}\\nfim",\n        ),
         (
             "padrao invalido",
             "N2042",
