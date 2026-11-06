@@ -2496,7 +2496,11 @@ fim"#;
             for diagnostico in resultado.diagnosticos {
                 if let Some(intervalo) = diagnostico.intervalo {
                     assert!(intervalo.inicio <= intervalo.fim);
-                    assert!(intervalo.fim <= codigo.len());
+                    assert!(
+                        intervalo.fim <= codigo.len(),
+                        "caso {caso}, codigo={codigo:?}, diagnostico={diagnostico:?}, tamanho={}",
+                        codigo.len()
+                    );
                     assert!(codigo.is_char_boundary(intervalo.inicio));
                     assert!(codigo.is_char_boundary(intervalo.fim));
                     assert!(intervalo.inicio >= ultima_posicao);
