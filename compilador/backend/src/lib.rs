@@ -2240,6 +2240,12 @@ impl Emissor {
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => {
                 self.retornos_funcoes.get(&format!("{modulo}::{nome}")).cloned()
             }
+            ExpressaoIr::ChamadaIndireta { alvo, .. } => {
+                match self.tipo_expressao_atual(alvo)? {
+                    Tipo::Funcao(_, retorno) => Some(*retorno),
+                    _ => None,
+                }
+            }
             ExpressaoIr::Unaria {
                 operador: OperadorIr::Nao | OperadorIr::Negacao,
                 ..
@@ -2266,6 +2272,17 @@ impl Emissor {
             {
                 Some(Tipo::Texto)
             }
+            ExpressaoIr::Binaria {
+                esquerda,
+                operador:
+                    OperadorIr::Mais
+                    | OperadorIr::Menos
+                    | OperadorIr::Vezes
+                    | OperadorIr::Divide
+                    | OperadorIr::Resto
+                    | OperadorIr::Potencia,
+                ..
+            } => self.tipo_expressao_atual(esquerda),
             ExpressaoIr::Binaria {
                 esquerda,
                 operador: OperadorIr::Intervalo,
