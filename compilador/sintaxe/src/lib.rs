@@ -2200,7 +2200,7 @@ mod testes {
     fim
 }"#;
         let r = analisar(&fonte(codigo));
-        assert!(!r.diagnosticos.is_empty(), "dicionário deve fechar diretamente com '}'");
+        assert!(!r.diagnosticos.is_empty(), "dicionário deve fechar diretamente com chave de fechamento");
     }
 
     #[test]
