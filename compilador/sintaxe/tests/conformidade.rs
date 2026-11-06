@@ -413,7 +413,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ("listas", "variavel vazia = []\nvariavel valores = [a, b]"),
         (
             "construcao de estrutura",
-            "variavel vazia = Pessoa { fim }\nvariavel pessoa = Pessoa { nome: \"Ana\", idade: 20, fim }",
+            "variavel pessoa = Pessoa { nome: \"Ana\", idade: 20, fim }",
         ),
         (
             "construcao aninhada",
@@ -505,7 +505,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "separador de campo ausente",
             "N2032",
-            "estrutura Pessoa:\n    nome: texto idade: inteiro\nfim",
+            "estrutura Pessoa: {\n    nome: texto idade: inteiro\n    fim\n}\nfim",
         ),
         (
             "abertura de enumeracao ausente",
@@ -1113,7 +1113,7 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
 fn function_body_normativo_e_obrigatorio() {
     let codigo = r#"
 funcao principal() -> vazio: {
-    quando sim: {
+    quando verdadeiro: {
         exibir("Nebula")
         fim
     }
