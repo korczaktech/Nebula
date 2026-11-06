@@ -1,10 +1,14 @@
-estrutura Ponto:
+estrutura Ponto: {
     x: inteiro
     y: inteiro
+    fim
+}
 fim
-enumeracao Estado:
+enumeracao Estado: {
     Codigo(inteiro)
     Vazio
+    fim
+}
 fim
 
 variavel original = Ponto { x: 10, y: 20, fim }
