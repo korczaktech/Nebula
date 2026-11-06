@@ -809,3 +809,72 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
         );
     }
 }
+
+
+#[test]
+fn function_body_normativo_e_obrigatorio() {
+    let codigo = r#"
+funcao principal() -> vazio: {
+    se sim: {
+        exibir("Nebula")
+        fim
+    }
+    fim
+}
+fim
+
+estrutura Pessoa: {
+    nome: texto
+    idade: inteiro
+    fim
+}
+fim
+
+enumeracao Estado: {
+    Ativo
+    Inativo
+    fim
+}
+fim
+
+escolha estado: {
+    caso Estado::Ativo: {
+        passar
+        fim
+    }
+    caso _: {
+        passar
+        fim
+    }
+    fim
+}
+fim
+"#;
+    let resultado = analisar_codigo(codigo);
+    assert!(
+        resultado.diagnosticos.is_empty(),
+        "Function Body normativo foi rejeitado: {:#?}",
+        resultado.diagnosticos
+    );
+}
+
+#[test]
+fn rejeita_sintaxe_antiga_de_blocos() {
+    let casos = [
+        "funcao executar()\n    passar\nfim",
+        "se sim\n    passar\nfim",
+        "enquanto sim\n    passar\nfim",
+        "classe Pessoa\n    passar\nfim",
+        "estrutura Pessoa:\n    nome: texto\nfim",
+        "enumeracao Estado:\n    Ativo\nfim",
+        "escolha valor\n    caso _\n        passar\nfim",
+        "seguro:\n    passar\nfim",
+    ];
+    for codigo in casos {
+        let resultado = analisar_codigo(codigo);
+        assert!(
+            !resultado.diagnosticos.is_empty(),
+            "sintaxe antiga foi aceita: {codigo:?}"
+        );
+    }
+}
