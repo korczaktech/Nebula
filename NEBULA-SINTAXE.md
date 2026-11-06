@@ -1111,7 +1111,7 @@ principal()
 
 # 29. Gramática formal preliminar
 
-A gramática abaixo é um ponto de partida para a especificação EBNF definitiva. Ela não substitui a definição completa de expressões, tipos, delimitadores, indentação e regras semânticas.
+A gramática abaixo é um resumo EBNF da sintaxe atual. A referência completa de expressões, tipos, delimitadores, Function Body e regras semânticas está em `especificacao/gramatica.md`.
 
 ```ebnf
 programa       = { declaracao | instrucao } ;
@@ -1132,28 +1132,24 @@ funcao         = ["async"], "funcao",
                  identificador, "(",
                  [parametros], ")",
                  ["->", tipo],
-                 bloco, "fim" ;
+                 bloco ;
 
 classe         = "classe", identificador,
                  ["herda", identificador],
-                 bloco, "fim" ;
+                 bloco ;
 
-condicional    = "se", expressao,
-                 bloco,
-                 {"sendo", expressao, bloco},
-                 ["senao", bloco],
+condicional    = "se", expressao, bloco_clausula,
+                 {"sendo", expressao, bloco_clausula},
+                 ["senao", bloco_clausula],
                  "fim" ;
 
-repeticao      = "para", identificador,
-                 "dentro", expressao,
-                 bloco, "fim"
-               | "enquanto", expressao,
-                 bloco, "fim" ;
+repeticao      = ("para", identificador, "dentro", expressao
+                 | "enquanto", expressao),
+                 bloco ;
 
-selecao        = "escolha", expressao,
-                 {"caso", expressao, bloco},
-                 ["padrao", bloco],
-                 "fim" ;
+selecao        = "escolha", expressao, ":", "{",
+                 { ("caso", expressao | "padrao"), bloco_clausula },
+                 "fim", "}", "fim" ;
 
 retorno        = "retorne", [expressao] ;
 
@@ -1161,9 +1157,9 @@ interrupcao    = "pare"
                | "prossiga"
                | "passar" ;
 
-importacao     = "incluir",
-                 ["biblioteca" | "modulo"],
-                 identificador,
+importacao     = "incluir", "(",
+                 ["modulo", ":", caminho, ","],
+                 "biblioteca", ":", caminho, ")",
                  ["como", identificador] ;
 
 bloco          = ":", "{", { instrucao | declaracao }, "fim", "}", "fim" ;
