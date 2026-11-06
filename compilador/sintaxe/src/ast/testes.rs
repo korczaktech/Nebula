@@ -294,7 +294,7 @@ fn parser_registra_intervalos_de_nos_aninhados() {
     let codigo = "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim";
     let resultado = analisar(&ArquivoFonte::novo(
         "ast.nbx",
-        &normalizar_blocos_legados(codigo),
+        normalizar_blocos_legados(codigo),
     ));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -402,7 +402,7 @@ executar(1)
 "#;
     let resultado = analisar(&ArquivoFonte::novo(
         "nos.nbx",
-        &normalizar_blocos_legados(codigo),
+        normalizar_blocos_legados(codigo),
     ));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -458,7 +458,7 @@ variavel construcao = Pessoa { nome: "Ana", fim }
 "#;
     let resultado = analisar(&ArquivoFonte::novo(
         "expressoes.nbx",
-        &normalizar_blocos_legados(codigo),
+        normalizar_blocos_legados(codigo),
     ));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -515,7 +515,7 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
     let codigo = "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim";
     let resultado = analisar(&ArquivoFonte::novo(
         "recuperacao.nbx",
-        &normalizar_blocos_legados(codigo),
+        normalizar_blocos_legados(codigo),
     ));
 
     assert!(
