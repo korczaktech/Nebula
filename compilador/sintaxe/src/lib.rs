@@ -2266,6 +2266,25 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
 
     #[test]
+    fn analisa_tipos_de_tuplas_vazia_unitaria_e_composta() {
+        let codigo = "variavel vazia: () = ()\nvariavel unitario: (inteiro,) = (42,)\nvariavel par: (inteiro, texto) = (1, \"Nebula\")";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(
+            &r.programa.itens[0],
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "()"
+        ));
+        assert!(matches!(
+            &r.programa.itens[1],
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "(inteiro,)"
+        ));
+        assert!(matches!(
+            &r.programa.itens[2],
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "(inteiro, texto)"
+        ));
+    }
+
+    #[test]
     fn permite_tipos_de_lista() {
         let r = analisar(&fonte("variavel valores: [inteiro] = [1, 2]"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
