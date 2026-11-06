@@ -74,6 +74,7 @@ funcao principal() -> vazio: {
         fim
     }
     fim
+    fim
 } fim
 ~~~
 
