@@ -955,6 +955,9 @@ impl Parser {
             } else {
                 self.erro_atual("N2009", "Function Body delimitado por '{' precisa terminar com 'fim' antes de '}'.");
             }
+            while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {
+                // Eventos de indentação são auxiliares dentro de chaves.
+            }
             self.esperar(TipoToken::FechaChave, "Function Body aberto com '{' não foi fechado com '}'.");
             if consumir_fim {
                 self.separadores();
