@@ -690,6 +690,8 @@ impl Emissor {
 
                 self.carregar_rax(slot_cursor);
                 self.armazenar_rax(slot_variavel);
+                self.mov_rdx(0);
+                self.armazenar_rdx(slot_variavel - 8);
                 self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
                 self.bloco(corpo)?;
                 let laco = self.lacos.pop().expect("laço ativo");
