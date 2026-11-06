@@ -2745,7 +2745,29 @@ mod testes {
 
     fn normalizar_blocos_legados(codigo: &str) -> String {
         let codigo = codigo.replace("): ", ") -> ");
-        if codigo.contains(": {") {
+        if codigo.lines().any(|linha| {
+            let conteudo = linha.trim();
+            [
+                "funcao ",
+                "publico funcao ",
+                "estrutura ",
+                "enumeracao ",
+                "quando ",
+                "senao",
+                "escolha ",
+                "avaliar ",
+                "caso ",
+                "cada ",
+                "enquanto ",
+                "para ",
+                "pulso(",
+                "durante ",
+                "repetir ",
+            ]
+            .iter()
+            .any(|prefixo| conteudo.starts_with(prefixo))
+                && conteudo.ends_with(": {")
+        }) {
             return codigo;
         }
 
