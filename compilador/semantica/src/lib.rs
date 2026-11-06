@@ -2862,7 +2862,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn deriva_copia_de_estruturas_com_todos_os_campos_copiaveis() {
         let r = analisar_codigo(
-            "estrutura Ponto:\n    x: inteiro\n    y: inteiro\nfim\nvariavel original = Ponto { x: 10, y: 20 }\nvariavel copia = original\nexibir(original.x)",
+            "estrutura Ponto:\n    x: inteiro\n    y: inteiro\nfim\nvariavel original = Ponto { x: 10, y: 20, fim }\nvariavel copia = original\nexibir(original.x)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -2870,7 +2870,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn estrutura_com_campo_move_only_nao_e_copiavel() {
         let r = analisar_codigo(
-            "estrutura Caixa:\n    conteudo: texto\n    codigo: inteiro\nfim\nvariavel original = Caixa { conteudo: \"Nebula\", codigo: 42 }\nvariavel copia = original\nexibir(original.codigo)",
+            "estrutura Caixa:\n    conteudo: texto\n    codigo: inteiro\nfim\nvariavel original = Caixa { conteudo: \"Nebula\", codigo: 42, fim }\nvariavel copia = original\nexibir(original.codigo)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -2907,7 +2907,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn deriva_copia_para_tuplas_estruturas_e_enumeracoes() {
         let r = analisar_codigo(
-            "estrutura Ponto:\n    x: inteiro8\n    ativo: logico\nfim\nenumeracao Estado:\n    Inativo\n    Codigo(inteiro8)\nfim\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nvariavel opcional: Opcional<inteiro8> = Opcional::Algum(7)\nvariavel outro_opcional = opcional\nvariavel resultado: Resultado<inteiro8,inteiro8> = Resultado::Sucesso(7)\nvariavel outro_resultado = resultado\nvariavel faixa: Intervalo<inteiro8> = inteiro8(1)..inteiro8(3)\nvariavel outra_faixa = faixa\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
+            "estrutura Ponto:\n    x: inteiro8\n    ativo: logico\nfim\nenumeracao Estado:\n    Inativo\n    Codigo(inteiro8)\nfim\nvariavel ponto = Ponto { x: 7, ativo: verdadeiro, fim }\nvariavel outro_ponto = ponto\nvariavel estado = Estado::Codigo(1)\nvariavel outro_estado = estado\nvariavel par = (inteiro8(1), verdadeiro)\nvariavel outro_par = par\nvariavel opcional: Opcional<inteiro8> = Opcional::Algum(7)\nvariavel outro_opcional = opcional\nvariavel resultado: Resultado<inteiro8,inteiro8> = Resultado::Sucesso(7)\nvariavel outro_resultado = resultado\nvariavel faixa: Intervalo<inteiro8> = inteiro8(1)..inteiro8(3)\nvariavel outra_faixa = faixa\nexibir(ponto.x)\nexibir(estado)\nexibir(par)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("ponto"), Some(&Tipo::Estrutura("Ponto".into())));
@@ -2921,7 +2921,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn copiar_explicita_valores_com_derivacao_de_copia() {
         let r = analisar_codigo(
-            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7, fim }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("origem"), Some(&Tipo::Estrutura("Ponto".into())));
@@ -3272,7 +3272,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn construcao_de_estrutura_valida_todos_os_campos() {
         let r = analisar_codigo(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28, fim }",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3280,7 +3280,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn construcao_de_estrutura_rejeita_campo_ausente() {
         let r = analisar_codigo(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\" }",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", fim }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3043"), "{:?}", r.diagnosticos);
     }
@@ -3288,7 +3288,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn construcao_de_estrutura_rejeita_tipo_incompativel() {
         let r = analisar_codigo(
-            "estrutura Pessoa:\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { idade: \"vinte\" }",
+            "estrutura Pessoa:\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { idade: \"vinte\", fim }",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3020"), "{:?}", r.diagnosticos);
     }
