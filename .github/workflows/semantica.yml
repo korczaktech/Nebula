@@ -1,0 +1,44 @@
+name: Testes da análise semântica
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "compilador/semantica/**"
+      - "compilador/sintaxe/**"
+      - "compilador/fonte/**"
+      - "compilador/diagnosticos/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/semantica.yml"
+  pull_request:
+    paths:
+      - "compilador/semantica/**"
+      - "compilador/sintaxe/**"
+      - "compilador/fonte/**"
+      - "compilador/diagnosticos/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  semantica:
+    name: Validar análise semântica
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v7
+
+      - name: Instalar Rust 1.85.0
+        uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: clippy
+
+      - name: Analisar código
+        run: cargo clippy --locked -p nebula-semantica --all-targets -- -D warnings
+
+      - name: Executar testes semânticos
+        run: cargo test --locked -p nebula-semantica --all-targets
