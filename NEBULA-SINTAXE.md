@@ -52,39 +52,28 @@ Os delimitadores `()`, `[]`, `<>` e `{}` são obrigatórios nos contextos em que
 
 ## 2.2. Indentação obrigatória
 
-A indentação é obrigatória em todos os blocos. O padrão recomendado é de quatro espaços por nível. O compilador deve rejeitar indentação ambígua e definir de forma consistente o tratamento de tabulações.
-
-```nbx
-se idade >= 18
-    exibir("Maior de idade")
-
-    se idade >= 60
-        exibir("Idoso")
-    fim
-fim
-```
+A indentação é obrigatória em todos os blocos e deve ser consistente. O padrão recomendado é de quatro espaços por nível. Ela organiza a leitura e permite validar a apresentação, mas não substitui os delimitadores sintáticos do Function Body.
 
 ## 2.3. Encerramento obrigatório
 
-Todo bloco iniciado por uma estrutura de controle, função, classe ou declaração de bloco deve ser encerrado por `fim`.
-
-```nbx
-funcao executar()
-    exibir("Executando")
-fim
-```
+Todo corpo executável ou estrutural deve abrir com `: {`. O conteúdo termina com `fim` antes de `}`. Depois da chave, a construção completa recebe outro `fim`. Cada bloco aninhado possui seus próprios encerramentos.
 
 ## 2.4. Estrutura geral
 
 ```nbx
 variavel nome: texto = "Nebula"
 
-funcao principal()
-    se nome == "Nebula"
+funcao principal(): {
+    se nome == "Nebula": {
         exibir("Bem-vindo")
-    senao
+        fim
+    }
+    senao: {
         exibir("Desconhecido")
+        fim
+    }
     fim
+}
 fim
 
 principal()
