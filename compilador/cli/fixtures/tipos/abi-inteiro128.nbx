@@ -5,7 +5,6 @@ funcao principal() -> inteiro: {
         devolver 42
         fim
     }
-    fim
     senao: {
         devolver 0
         fim
