@@ -1823,7 +1823,180 @@ impl Parser {
 #[cfg(test)]
 mod testes {
     use super::*;
-    fn fonte(codigo: &str) -> ArquivoFonte { ArquivoFonte::novo("teste.nbx", codigo) }
+fn normalizar_blocos_legados(codigo: &str) -> String {
+    let codigo = codigo.replace("): ", ") -> ");
+    if codigo.lines().any(|linha| {
+        let conteudo = linha.trim();
+        [
+            "funcao ",
+            "publico funcao ",
+            "estrutura ",
+            "enumeracao ",
+            "quando ",
+            "senao",
+            "escolha ",
+            "avaliar ",
+            "caso ",
+            "cada ",
+            "enquanto ",
+            "para ",
+            "pulso(",
+            "durante ",
+            "repetir ",
+        ]
+        .iter()
+        .any(|prefixo| conteudo.starts_with(prefixo))
+            && conteudo.ends_with(": {")
+    }) {
+        return codigo;
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum TipoBloco {
+        Completo,
+        Condicional,
+        Escolha,
+        Caso,
+    }
+
+    struct Bloco {
+        indentacao: usize,
+        tipo: TipoBloco,
+    }
+
+    fn indentacao(texto: &str, nivel: usize) -> String {
+        format!("{}{}", " ".repeat(nivel), texto)
+    }
+
+    fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
+        match bloco.tipo {
+            TipoBloco::Caso => {
+                saida.push(indentacao("fim", bloco.indentacao));
+                saida.push(indentacao("}", bloco.indentacao));
+            }
+            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
+                saida.push(indentacao("fim", bloco.indentacao));
+                saida.push(indentacao("}", bloco.indentacao));
+                saida.push(indentacao("fim", bloco.indentacao));
+            }
+        }
+    }
+
+    let mut saida = Vec::new();
+    let mut blocos: Vec<Bloco> = Vec::new();
+
+    for linha in codigo.lines() {
+        let conteudo = linha.trim();
+        let nivel = linha.len() - linha.trim_start().len();
+
+        if conteudo.is_empty() {
+            saida.push(linha.to_owned());
+            continue;
+        }
+
+        if conteudo.starts_with("senao") {
+            if let Some(bloco) = blocos.last() {
+                if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
+                    saida.push(indentacao("fim", nivel));
+                    saida.push(indentacao("}", nivel));
+                    saida.push(indentacao("senao: {", nivel));
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("caso ") || conteudo == "padrao" {
+            if blocos.last().is_some_and(|bloco| {
+                bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Caso,
+            });
+            continue;
+        }
+
+        if conteudo == "fim" {
+            while blocos.last().is_some_and(|bloco| {
+                bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+
+            if blocos.last().is_some_and(|bloco| bloco.indentacao == nivel) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            } else {
+                saida.push(linha.to_owned());
+            }
+            continue;
+        }
+
+        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+            || conteudo.starts_with("funcao ")
+        {
+            let assinatura = conteudo.replace("): ", ") -> ");
+            let assinatura = if assinatura.ends_with(':') {
+                format!("{assinatura} {{")
+            } else {
+                format!("{assinatura}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+            let assinatura = if conteudo.ends_with(':') {
+                format!("{conteudo} {{")
+            } else {
+                format!("{conteudo}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("quando ")
+            || conteudo.starts_with("se ")
+        {
+            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("cada ")
+            || conteudo.starts_with("enquanto ")
+            || conteudo.starts_with("para ")
+            || conteudo.starts_with("pulso(")
+            || conteudo.starts_with("durante ")
+            || conteudo.starts_with("repetir ")
+        {
+            (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
+        } else {
+            (None, None)
+        };
+
+        if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
+            saida.push(indentacao(&cabecalho, nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo,
+            });
+        } else {
+            saida.push(linha.to_owned());
+        }
+    }
+
+    saida.join("\n")
+}
+
+    fn fonte(codigo: &str) -> ArquivoFonte {
+        let codigo = normalizar_blocos_legados(codigo);
+        ArquivoFonte::novo("teste.nbx", &codigo)
+    }
+
+    fn fonte_bruta(codigo: &str) -> ArquivoFonte {
+        ArquivoFonte::novo("teste.nbx", codigo)
+    }
 
     #[test]
     fn nao_aceita_palavras_reservadas_como_identificadores() {
