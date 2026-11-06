@@ -1,4 +1,7 @@
-# Gramática normativa da Nebula
+## Anexo de gramática formal da Nebula
+
+**Estado:** anexo técnico subordinado à fonte normativa canônica `linguagem-e-tipos.md`. Este arquivo formaliza as produções sintáticas e deve permanecer sincronizado com o contrato principal; não constitui uma segunda fonte normativa independente.
+
 
 **Estado:** normativa e alinhada ao Lexer, Parser e AST atualmente implementados em `compilador/sintaxe`.
 **Regra central:** todo bloco executável ou estrutural usa Function Body: `: { ... fim } fim`. Blocos de cláusulas encadeadas usam `: { ... fim }` e são encerrados pelo `fim` da construção externa. A sintaxe antiga baseada somente em indentação é rejeitada. Chaves de valores de dados, como dicionários em declarações comuns, não são Function Body.
