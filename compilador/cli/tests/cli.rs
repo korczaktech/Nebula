@@ -717,6 +717,7 @@ funcao principal() -> inteiro: {
     devolver 1
     fim
 } fim
+principal()
 "#,
     ).expect("grava fonte");
     let saida = executar(&["interpretar", caminho.to_str().expect("caminho UTF-8")]);
@@ -726,7 +727,7 @@ funcao principal() -> inteiro: {
         "{}",
         String::from_utf8_lossy(&saida.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "ok");
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "ok\n42");
 }
 
 #[test]
@@ -791,9 +792,10 @@ funcao principal() -> inteiro: {
     devolver 5
     fim
 } fim
+principal()
 "#,
     ).expect("grava fonte");
-    let saida = executar(&["executar", caminho.to_str().expect("caminho UTF-8")]);
+    let saida = executar(&["interpretar", caminho.to_str().expect("caminho UTF-8")]);
     let _ = std::fs::remove_file(caminho);
     assert!(
         saida.status.success(),
