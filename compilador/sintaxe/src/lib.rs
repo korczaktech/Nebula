@@ -480,34 +480,36 @@ impl Parser {
             self.erro_atual(codigo, mensagem);
             return None;
         }
-        if !self.corresponde(TipoToken::NovaLinha) {
-            self.erro_atual(codigo, "Esperada quebra de linha após ':'.");
+        self.pular_novas_linhas();
+        if !self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual(codigo, "Declaração estrutural exige Function Body iniciado por '{'. A forma antiga indentada foi removida.");
             return None;
         }
         self.separadores();
-        if !self.corresponde(TipoToken::Indent) {
-            self.erro_atual(codigo, "Esperada indentação no corpo da declaração.");
-            return None;
-        }
         Some(())
     }
-
     fn fechar_declaracao_indentada(&mut self, mensagem: &str) {
-        self.esperar(TipoToken::Dedent, "Indentação da declaração não foi encerrada corretamente.");
-        self.esperar(TipoToken::FimBloco, mensagem);
+        if self.corresponde(TipoToken::FimBloco) {
+            self.separadores();
+        } else {
+            self.erro_atual("N2009", mensagem);
+        }
+        while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
+        self.esperar(TipoToken::FechaChave, "Declaração estrutural não foi fechada com '}'.");
+        self.separadores();
+        self.esperar(TipoToken::FimBloco, "Declaração estrutural precisa terminar com outro 'fim' após '}'.");
     }
-
     fn estrutura(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome após 'estrutura'.")?;
         self.abrir_declaracao_indentada("N2030", "Esperado ':' após o nome da estrutura.")?;
         let mut campos = Vec::new();
-        while !self.verifica(TipoToken::Dedent) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
             let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
                 Some(campo) => campo,
                 None => {
-                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FimBloco]);
+                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave, TipoToken::FimBloco]);
                     if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                     break;
                 }
@@ -529,7 +531,7 @@ impl Parser {
             if campos.iter().any(|(existente, _)| existente == &campo) {
                 self.erro_intervalo("N2031", "Campo declarado mais de uma vez na estrutura.", intervalo);
             } else { campos.push((campo, tipo)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::Dedent) || self.verifica(TipoToken::FimBloco)) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica(TipoToken::FimBloco)) {
                 self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
                 self.sincronizar();
             }
