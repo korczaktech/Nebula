@@ -7,7 +7,7 @@ enumeracao Estado:
     Vazio
 fim
 
-variavel original = Ponto { x: 10, y: 20 }
+variavel original = Ponto { x: 10, y: 20, fim }
 variavel copia = copiar(original)
 variavel estado = Estado::Codigo(42)
 variavel estado_copia = copiar(estado)
