@@ -2678,7 +2678,7 @@ fim"#;
             "enumeracao Estado:\n    Ativo\n    Inativo(texto, inteiro)\nfim",
             "incluir(modulo: Texto, biblioteca: Biblioteca) como Texto",
             "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
-            "quando verdadeiro\n    exibir(1)\nsendo falso\n    exibir(2)\nfim",
+            "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(2)\nfim",
             "escolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso _\n        exibir(0)\nfim",
             "enquanto verdadeiro\n    parar\nfim",
             "durante verdadeiro\n    seguir\nfim",
@@ -2783,7 +2783,7 @@ fim"#;
             "escolha (Pessoa { nome: 1, fim })\n    caso _\n        passar\nfim",
             "enquanto (Pessoa { nome: 1, fim })\n    passar\nfim",
             "cada item em (Pessoa { nome: 1, fim })\n    passar\nfim",
-            "quando primeiro\n    passar\nsendo segundo\n    passar\nsenao\n    passar\nfim",
+            "quando primeiro\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
             "enquanto condicao\n    passar\nfim",
@@ -3009,7 +3009,7 @@ fim"#;
     #[test]
     fn reconhece_blocos_vazios_e_construcoes_vazias() {
         for codigo in [
-            "funcao vazia()\n    passar\nfim",
+            "funcao vazia(): {    passar\nfim",
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
@@ -4088,7 +4088,7 @@ fim"#;
 
     #[test]
     fn indentacao_define_niveis_e_fim_fecha_blocos() {
-        let codigo = "funcao principal()\n    variavel primeiro = 1\n    quando sim\n        variavel segundo = 2\n    fim\nfim";
+        let codigo = "funcao principal(): {\n    variavel primeiro = 1    quando sim\n        variavel segundo = 2\n    fim\nfim";
         let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
@@ -4106,7 +4106,7 @@ fim"#;
         )));
 
         let sem_indentacao = analisar(&fonte_bruta(
-            "funcao principal()\nvariavel valor = 1\nfim"
+            "funcao principal(): {\n    variavel valor = 1"
         ));
         assert!(
             !sem_indentacao.diagnosticos.is_empty(),
