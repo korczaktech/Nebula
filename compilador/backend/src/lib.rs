@@ -1457,6 +1457,13 @@ impl Emissor {
                     self.emitir_dormir_milisegundos(argumento)?;
                     return Ok(());
                 }
+                if nome == "tempo" {
+                    if !argumentos.is_empty() {
+                        return Err("'tempo' não aceita argumentos no backend nativo.".into());
+                    }
+                    self.emitir_tempo_unix_milisegundos()?;
+                    return Ok(());
+                }
                 if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
@@ -2662,6 +2669,31 @@ impl Emissor {
             self.pilha = self.pilha.checked_sub(1)
                 .ok_or("Contabilidade do alinhamento da pilha inválida.")?;
         }
+        Ok(())
+    }
+
+    fn emitir_tempo_unix_milisegundos(&mut self) -> Result<(), String> {
+        let timespec = self.reservar_agregado(16, 8)?;
+        self.mov_rax(228); // SYS_clock_gettime
+        self.mov_rdi(0); // CLOCK_REALTIME
+        self.emitir_endereco_rbp_rax(timespec);
+        self.mover_rax_registrador(6); // rsi = timespec
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+        let sucesso = self.emitir_jcc(0x89); // jns
+        self.encerrar_com_erro(1);
+        self.aplicar_salto(sucesso, self.codigo.len());
+
+        self.carregar_rax(timespec + 8); // tv_nsec
+        self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2]);
+        self.mov_rcx(1_000_000);
+        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xF1]); // tv_nsec / 1_000_000
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC0]); // r8 = milissegundos fracionários
+
+        self.carregar_rax(timespec); // tv_sec
+        self.codigo.extend_from_slice(&[0x48, 0x69, 0xC0, 0xE8, 0x03, 0x00, 0x00]); // * 1000
+        self.codigo.extend_from_slice(&[0x4C, 0x01, 0xC0]); // + r8
+        self.mov_rdx(0);
         Ok(())
     }
 
