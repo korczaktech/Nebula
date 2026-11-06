@@ -1824,7 +1824,6 @@ impl Parser {
 mod testes {
     use super::*;
 fn normalizar_blocos_legados(codigo: &str) -> String {
-
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
         Completo,
@@ -1833,9 +1832,12 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         Caso,
     }
 
+    #[derive(Clone, Copy)]
     struct Bloco {
         indentacao: usize,
         tipo: TipoBloco,
+        explicito: bool,
+        etapa: u8,
     }
 
     fn indentacao(texto: &str, nivel: usize) -> String {
@@ -1859,63 +1861,73 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     let mut saida = Vec::new();
     let mut blocos: Vec<Bloco> = Vec::new();
 
-    for linha in codigo.lines() {
+    for linha_original in codigo.lines() {
+        let nivel = linha_original.len() - linha_original.trim_start().len();
+        let linha_normalizada = if linha_original.trim().ends_with("(): {") {
+            linha_original.to_owned()
+        } else {
+            linha_original.replace("): ", ") -> ")
+        };
+        let linha = linha_normalizada.as_str();
         let conteudo = linha.trim();
-        let nivel = linha.len() - linha.trim_start().len();
 
         if conteudo.is_empty() {
             saida.push(linha.to_owned());
             continue;
         }
 
-        if conteudo.ends_with(": {")
-            && [
-                "funcao ", "publico funcao ", "estrutura ", "enumeracao ",
-                "quando ", "senao", "escolha ", "avaliar ", "caso ",
-                "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ",
-            ].iter().any(|prefixo| conteudo.starts_with(prefixo))
-        {
+        let cabecalho_explicito = [
+            "funcao ", "publico funcao ", "async funcao ", "exportar funcao ",
+            "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
+            "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
+            "para ", "pulso(", "durante ", "repetir ",
+        ]
+        .iter()
+        .any(|prefixo| conteudo.starts_with(prefixo))
+            && conteudo.ends_with(": {");
+
+        if cabecalho_explicito {
+            let tipo = if conteudo.starts_with("caso ") {
+                TipoBloco::Caso
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                TipoBloco::Escolha
+            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") || conteudo.starts_with("senao") {
+                TipoBloco::Condicional
+            } else {
+                TipoBloco::Completo
+            };
             saida.push(linha.to_owned());
-            continue;
-        }
-
-        if conteudo.starts_with("senao") {
-            if let Some(bloco) = blocos.last() {
-                if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
-                    saida.push(indentacao("fim", nivel));
-                    saida.push(indentacao("}", nivel));
-                    saida.push(indentacao("senao: {", nivel));
-                    continue;
-                }
-            }
-        }
-
-        if conteudo.starts_with("caso ") || conteudo == "padrao" {
-            if blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
-            }) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            }
-            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
             blocos.push(Bloco {
                 indentacao: nivel,
-                tipo: TipoBloco::Caso,
+                tipo,
+                explicito: true,
+                etapa: 0,
             });
             continue;
         }
 
         if conteudo == "fim" {
+            if let Some(bloco) = blocos.last_mut() {
+                if bloco.explicito && bloco.indentacao == nivel {
+                    if bloco.etapa == 0 {
+                        bloco.etapa = 1;
+                    } else if bloco.etapa == 2 {
+                        blocos.pop();
+                    }
+                    saida.push(linha.to_owned());
+                    continue;
+                }
+            }
+
             while blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
+                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
             }) {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
             }
 
-            if blocos.last().is_some_and(|bloco| bloco.indentacao == nivel) {
+            if blocos.last().is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel) {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -1925,8 +1937,59 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
+        if conteudo == "}" {
+            if let Some(bloco) = blocos.last_mut() {
+                if bloco.explicito && bloco.indentacao == nivel && bloco.etapa == 1 {
+                    if bloco.tipo == TipoBloco::Caso {
+                        blocos.pop();
+                    } else {
+                        bloco.etapa = 2;
+                    }
+                    saida.push(linha.to_owned());
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("senao") {
+            if let Some(bloco) = blocos.last() {
+                if !bloco.explicito && bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
+                    saida.push(indentacao("fim", nivel));
+                    saida.push(indentacao("}", nivel));
+                    saida.push(indentacao("senao: {", nivel));
+                    blocos.push(Bloco {
+                        indentacao: nivel,
+                        tipo: TipoBloco::Condicional,
+                        explicito: false,
+                        etapa: 0,
+                    });
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("caso ") || conteudo == "padrao" {
+            if blocos.last().is_some_and(|bloco| {
+                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Caso,
+                explicito: false,
+                etapa: 0,
+            });
+            continue;
+        }
+
         let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
             || conteudo.starts_with("funcao ")
+            || conteudo.starts_with("async funcao ")
+            || conteudo.starts_with("exportar funcao ")
         {
             let assinatura = if conteudo.ends_with("(): {") {
                 conteudo.to_owned()
@@ -1935,11 +1998,13 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             };
             let assinatura = if assinatura.ends_with(':') {
                 format!("{assinatura} {{")
+            } else if assinatura.ends_with("{") {
+                assinatura
             } else {
                 format!("{assinatura}: {{")
             };
             (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") || conteudo.starts_with("classe ") {
             let assinatura = if conteudo.ends_with(':') {
                 format!("{conteudo} {{")
             } else {
@@ -1948,9 +2013,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             (Some(TipoBloco::Completo), Some(assinatura))
         } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
             (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("quando ")
-            || conteudo.starts_with("se ")
-        {
+        } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") {
             (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
         } else if conteudo.starts_with("cada ")
             || conteudo.starts_with("enquanto ")
@@ -1969,6 +2032,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             blocos.push(Bloco {
                 indentacao: nivel,
                 tipo,
+                explicito: false,
+                etapa: 0,
             });
         } else {
             saida.push(linha.to_owned());
