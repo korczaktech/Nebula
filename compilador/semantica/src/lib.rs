@@ -1640,7 +1640,7 @@ impl<'a> Analisador<'a> {
         mapeados
     }
 
-remove unused helper    fn validar_argumentos(&mut self, argumentos: &[Expressao], esperados: &[Tipo], nome: &str) {
+    fn validar_argumentos(&mut self, argumentos: &[Expressao], esperados: &[Tipo], nome: &str) {
         if argumentos.len() != esperados.len() {
             self.erro("N3015", format!("A função '{nome}' espera {} argumento(s), mas recebeu {}.", esperados.len(), argumentos.len()));
         }
