@@ -536,5 +536,5 @@ funcao principal() -> vazio: {
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
     assert!(execucao.status.success());
-    assert_eq!(String::from_utf8_lossy(&execucao.stdout), "Olá Nebula\\n");
+    assert_eq!(String::from_utf8_lossy(&execucao.stdout), "Olá Nebula\n");
 }
