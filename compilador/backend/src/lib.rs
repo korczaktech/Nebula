@@ -2146,6 +2146,7 @@ impl Emissor {
             ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
             ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
             ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
+            ExpressaoIr::Constante(ValorIr::Texto(_)) => Some(Tipo::Texto),
             ExpressaoIr::Variavel(nome) => self
                 .buscar_tipo_local(nome)
                 .cloned()
