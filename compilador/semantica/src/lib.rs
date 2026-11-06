@@ -320,6 +320,13 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn alvo_atributo(declaracao: &NoAst) -> &NoAst {
+        match declaracao {
+            NoAst::Atributada { declaracao, .. } => Self::alvo_atributo(declaracao),
+            outro => outro,
+        }
+    }
+
     fn item(&mut self, item: &NoAst) {
         if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| no == item) { self.intervalo_atual = Some(*intervalo); }
         match item {
@@ -380,6 +387,7 @@ impl<'a> Analisador<'a> {
                 }
             }
             NoAst::Atributada { atributos, declaracao } => {
+                let alvo = Self::alvo_atributo(declaracao);
                 let mut vistos = HashSet::new();
                 for atributo in atributos {
                     if !vistos.insert(&atributo.nome) {
@@ -387,6 +395,9 @@ impl<'a> Analisador<'a> {
                     }
                     match atributo.nome.as_str() {
                         "alinhamento" => {
+                            if !matches!(alvo, NoAst::Estrutura { .. } | NoAst::Classe { .. } | NoAst::Enumeracao { .. }) {
+                                self.erro("N3075", "O atributo '@alinhamento' só pode ser aplicado a tipos compostos.");
+                            }
                             if atributo.argumentos.len() != 1 { self.erro("N3075", "O atributo '@alinhamento' exige exatamente um argumento inteiro."); }
                             for argumento in &atributo.argumentos {
                                 let tipo = self.expressao(argumento);
@@ -399,6 +410,12 @@ impl<'a> Analisador<'a> {
                             }
                         }
                         "representacao" | "convencao" => {
+                            if atributo.nome == "representacao" && !matches!(alvo, NoAst::Estrutura { .. } | NoAst::Classe { .. } | NoAst::Enumeracao { .. }) {
+                                self.erro("N3076", "O atributo '@representacao' só pode ser aplicado a estrutura, classe ou enumeração.");
+                            }
+                            if atributo.nome == "convencao" && !matches!(alvo, NoAst::Funcao { .. }) {
+                                self.erro("N3076", "O atributo '@convencao' só pode ser aplicado a uma função.");
+                            }
                             if atributo.argumentos.len() != 1 { self.erro("N3076", format!("O atributo '@{}' exige exatamente um argumento de texto.", atributo.nome)); }
                             for argumento in &atributo.argumentos {
                                 let tipo = self.expressao(argumento);
@@ -406,8 +423,9 @@ impl<'a> Analisador<'a> {
                             }
                         }
                         "externa" => {
-                            if !atributo.argumentos.is_empty() || !matches!(declaracao.as_ref(), NoAst::Funcao { .. }) {
-                                self.erro("N3077", "O atributo '@externa' só pode ser aplicado sem argumentos a uma função.");
+                            let funcao_externa_sem_corpo = matches!(alvo, NoAst::Funcao { corpo, .. } if corpo.is_empty());
+                            if !atributo.argumentos.is_empty() || !funcao_externa_sem_corpo {
+                                self.erro("N3077", "O atributo '@externa' só pode ser aplicado sem argumentos a uma função sem corpo.");
                             }
                         }
                         outro => {
@@ -451,8 +469,14 @@ impl<'a> Analisador<'a> {
                 for argumento in argumentos {
                     if let Expressao::ArgumentoNomeado { nome, valor } = argumento {
                         if !nomes_argumentos.insert(nome) { self.erro("N3073", format!("Argumento contextual '{nome}' foi informado mais de uma vez.")); }
+                        if contexto == "montagem" && !matches!(nome.as_str(), "entradas" | "saidas" | "efeitos") {
+                            self.erro("N3073", format!("Argumento '{nome}' não é reconhecido pelo contrato de 'montagem'."));
+                        }
                         self.expressao(valor);
-                    } else { self.expressao(argumento); }
+                    } else {
+                        if contexto == "montagem" { self.erro("N3073", "Argumentos de 'montagem' precisam ser nomeados: entradas, saidas ou efeitos."); }
+                        self.expressao(argumento);
+                    }
                 }
                 self.abrir_escopo();
                 for instrucao in corpo { self.item(instrucao); }
@@ -460,12 +484,9 @@ impl<'a> Analisador<'a> {
             }
             NoAst::Classe { nome, herda, corpo } => {
                 if self.escopos.len() > 1 { self.erro("N3080", "Classes só podem ser declaradas no escopo do arquivo."); }
-                if let Some(base) = herda {
-                    if !self.classes.contains_key(base) { self.erro("N3069", format!("A classe-base '{base}' da classe '{nome}' não foi declarada.")); }
-                }
                 let anterior = self.classe_atual.replace(nome.clone());
                 self.abrir_escopo();
-                self.declarar("isto", Simbolo { tipo: Tipo::Estrutura(nome.clone()), mutavel: false, movido: false, campos_movidos: HashSet::new() });
+                self.declarar("isto", Simbolo { tipo: Tipo::Estrutura(nome.clone()), mutavel: true, movido: false, campos_movidos: HashSet::new() });
                 let mut membros = HashSet::new();
                 for membro in corpo {
                     let nome_membro = match membro {
@@ -822,6 +843,9 @@ impl<'a> Analisador<'a> {
     }
 
     fn analisar_lambda_expressao(&mut self, parametros: &[String], corpo: &Expressao, esperado: Option<&Tipo>) -> Tipo {
+        if esperado.is_none() && !parametros.is_empty() {
+            self.erro("N3088", "Lambda com parâmetros exige um tipo de função esperado para inferir os tipos dos parâmetros.");
+        }
         let (tipos, retorno_esperado) = match esperado {
             Some(Tipo::Funcao(tipos, retorno)) => {
                 if tipos.len() != parametros.len() { self.erro("N3068", format!("Lambda declara {} parâmetro(s), mas o tipo esperado exige {}.", parametros.len(), tipos.len())); }
@@ -842,6 +866,9 @@ impl<'a> Analisador<'a> {
     }
 
     fn analisar_lambda_bloco(&mut self, parametros: &[String], corpo: &[NoAst], esperado: Option<&Tipo>) -> Tipo {
+        if esperado.is_none() && !parametros.is_empty() {
+            self.erro("N3088", "Lambda com parâmetros exige um tipo de função esperado para inferir os tipos dos parâmetros.");
+        }
         let (tipos, retorno) = match esperado {
             Some(Tipo::Funcao(tipos, retorno)) => {
                 if tipos.len() != parametros.len() { self.erro("N3068", format!("Lambda declara {} parâmetro(s), mas o tipo esperado exige {}.", parametros.len(), tipos.len())); }
@@ -1613,18 +1640,7 @@ impl<'a> Analisador<'a> {
         mapeados
     }
 
-    fn validar_argumentos_funcao(&mut self, argumentos: &[Expressao], funcao: &Funcao, nome: &str) {
-        let mapeados = self.mapear_argumentos_funcao(argumentos, funcao, nome);
-        for (indice, argumento) in mapeados.iter().enumerate() {
-            if let (Some(argumento), Some(esperado)) = (argumento, funcao.parametros.get(indice)) {
-                let obtido = self.expressao(argumento);
-                self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
-                if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
-            }
-        }
-    }
-
-    fn validar_argumentos(&mut self, argumentos: &[Expressao], esperados: &[Tipo], nome: &str) {
+remove unused helper    fn validar_argumentos(&mut self, argumentos: &[Expressao], esperados: &[Tipo], nome: &str) {
         if argumentos.len() != esperados.len() {
             self.erro("N3015", format!("A função '{nome}' espera {} argumento(s), mas recebeu {}.", esperados.len(), argumentos.len()));
         }
