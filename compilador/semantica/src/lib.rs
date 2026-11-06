@@ -2425,6 +2425,37 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             } else {
                 (None, None)
             };
+                let assinatura = if assinatura.ends_with(':') {
+                    format!("{assinatura} {{")
+                } else {
+                    format!("{assinatura}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+                let assinatura = if conteudo.ends_with(':') {
+                    format!("{conteudo} {{")
+                } else {
+                    format!("{conteudo}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") {
+                (
+                    Some(TipoBloco::Condicional),
+                    Some(format!("{conteudo}: {{")),
+                )
+            } else if conteudo.starts_with("cada ")
+                || conteudo.starts_with("enquanto ")
+                || conteudo.starts_with("para ")
+                || conteudo.starts_with("pulso(")
+                || conteudo.starts_with("durante ")
+                || conteudo.starts_with("repetir ")
+            {
+                (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
+            } else {
+                (None, None)
+            };
 
         if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
             saida.push(indentacao(&cabecalho, nivel));
@@ -3447,7 +3478,6 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         );
         assert!(!r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
-
 
 fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     let fonte = nebula_fonte::ArquivoFonte::novo("teste-fase5.nbx", codigo);
