@@ -2675,7 +2675,7 @@ impl Emissor {
     fn emitir_tempo_unix_milisegundos(&mut self) -> Result<(), String> {
         let timespec = self.reservar_agregado(16, 8)?;
         self.mov_rax(228); // SYS_clock_gettime
-        self.mov_rdi(0); // CLOCK_REALTIME
+        self.codigo.extend_from_slice(&[0x31, 0xFF]); // xor edi, edi: CLOCK_REALTIME
         self.emitir_endereco_rbp_rax(timespec);
         self.mover_rax_registrador(6); // rsi = timespec
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
@@ -2686,7 +2686,8 @@ impl Emissor {
 
         self.carregar_rax(timespec + 8); // tv_nsec
         self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2]);
-        self.mov_rcx(1_000_000);
+        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+        self.codigo.extend_from_slice(&1_000_000i64.to_le_bytes()); // rcx = 1_000_000
         self.codigo.extend_from_slice(&[0x48, 0xF7, 0xF1]); // tv_nsec / 1_000_000
         self.codigo.extend_from_slice(&[0x49, 0x89, 0xC0]); // r8 = milissegundos fracionários
 
