@@ -1824,32 +1824,6 @@ impl Parser {
 mod testes {
     use super::*;
 fn normalizar_blocos_legados(codigo: &str) -> String {
-    let codigo = codigo.replace("): ", ") -> ");
-    if codigo.lines().any(|linha| {
-        let conteudo = linha.trim();
-        [
-            "funcao ",
-            "publico funcao ",
-            "estrutura ",
-            "enumeracao ",
-            "quando ",
-            "senao",
-            "escolha ",
-            "avaliar ",
-            "caso ",
-            "cada ",
-            "enquanto ",
-            "para ",
-            "pulso(",
-            "durante ",
-            "repetir ",
-        ]
-        .iter()
-        .any(|prefixo| conteudo.starts_with(prefixo))
-            && conteudo.ends_with(": {")
-    }) {
-        return codigo;
-    }
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
@@ -1890,6 +1864,17 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         let nivel = linha.len() - linha.trim_start().len();
 
         if conteudo.is_empty() {
+            saida.push(linha.to_owned());
+            continue;
+        }
+
+        if conteudo.ends_with(": {")
+            && [
+                "funcao ", "publico funcao ", "estrutura ", "enumeracao ",
+                "quando ", "senao", "escolha ", "avaliar ", "caso ",
+                "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ",
+            ].iter().any(|prefixo| conteudo.starts_with(prefixo))
+        {
             saida.push(linha.to_owned());
             continue;
         }
@@ -1943,7 +1928,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
             || conteudo.starts_with("funcao ")
         {
-            let assinatura = conteudo.replace("): ", ") -> ");
+            let assinatura = if conteudo.ends_with("(): {") {
+                conteudo.to_owned()
+            } else {
+                conteudo.replace("): ", ") -> ")
+            };
             let assinatura = if assinatura.ends_with(':') {
                 format!("{assinatura} {{")
             } else {
