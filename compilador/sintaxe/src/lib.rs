@@ -1360,7 +1360,6 @@ impl Parser {
                 let mut campos = Vec::new();
                 self.separadores();
                 while !self.verifica(TipoToken::FechaChave)
-                    && !self.verifica(TipoToken::FimBloco)
                     && !self.verifica(TipoToken::Fim)
                 {
                     let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
@@ -1407,11 +1406,6 @@ impl Parser {
                         self.sincronizar();
                     }
                     self.separadores();
-                }
-                if self.corresponde(TipoToken::FimBloco) {
-                    self.separadores();
-                } else {
-                    self.erro_atual("N2009", "Dicionário precisa terminar com 'fim' antes de '}'.");
                 }
                 self.esperar(TipoToken::FechaChave, "Dicionário não foi fechado com '}'.");
                 Expressao::ConstrucaoEstrutura { nome: "dicionario".into(), campos }
@@ -2189,11 +2183,10 @@ mod testes {
     }
 
     #[test]
-    fn analisa_dicionario_com_fim_antes_da_chave() {
+    fn analisa_dicionario_sem_fim() {
         let codigo = r#"variavel dados: dicionario = {
     "nome": "Nebula",
     versao: 1
-    fim
 }"#;
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
@@ -2201,12 +2194,13 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_dicionario_sem_fim_antes_da_chave() {
+    fn rejeita_fim_como_terminador_de_dicionario() {
         let codigo = r#"variavel dados: dicionario = {
     "nome": "Nebula"
+    fim
 }"#;
         let r = analisar(&fonte(codigo));
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+        assert!(!r.diagnosticos.is_empty(), "dicionário deve fechar diretamente com '}'");
     }
 
     #[test]
