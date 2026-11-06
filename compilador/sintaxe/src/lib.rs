@@ -327,12 +327,10 @@ impl Parser {
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
         let retorno = if self.corresponde(TipoToken::Seta) {
             Some(self.caminho_tipo()?)
-        } else if self.verifica(TipoToken::DoisPontos) {
-            let proximo = self.tokens.get(self.atual + 1).map(|token| token.tipo);
-            if matches!(proximo, Some(TipoToken::NovaLinha | TipoToken::Indent | TipoToken::AbreChave | TipoToken::Fim)) {
+        } else if self.corresponde(TipoToken::DoisPontos) {
+            if matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::Indent | TipoToken::AbreChave | TipoToken::Fim) {
                 None
             } else {
-                self.avancar();
                 Some(self.caminho_tipo()?)
             }
         } else {
@@ -666,9 +664,7 @@ impl Parser {
     fn escolha(&mut self) -> Option<NoAst> {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
-        if !self.corresponde(TipoToken::DoisPontos) {
-            self.erro_atual("N2040", "Escolha precisa iniciar seu Function Body com ':'.");
-        }
+        self.corresponde(TipoToken::DoisPontos);
         let corpo_com_chaves = self.corresponde(TipoToken::AbreChave);
         if !corpo_com_chaves {
             let houve_quebra = self.corresponde(TipoToken::NovaLinha);
@@ -932,9 +928,7 @@ impl Parser {
         self.com_profundidade(|parser| parser.bloco_interno(false))
     }
     fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
-        if !self.corresponde(TipoToken::DoisPontos) {
-            self.erro_atual("N2007", "Function Body precisa iniciar com ':' antes do corpo.");
-        }
+        self.corresponde(TipoToken::DoisPontos);
         if self.verifica(TipoToken::NovaLinha) {
             let proximo = self.tokens.iter().skip(self.atual)
                 .find(|token| token.tipo != TipoToken::NovaLinha)
