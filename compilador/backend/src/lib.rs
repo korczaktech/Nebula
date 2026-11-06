@@ -1429,13 +1429,12 @@ impl Emissor {
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
                 if nome == "exibir" {
-                    let [argumento] = argumentos.as_slice() else {
-                        return Err("'exibir' exige exatamente um argumento no backend nativo.".into());
-                    };
-                    if self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto) {
-                        return Err("O backend nativo implementa 'exibir' para valores do tipo texto nesta etapa.".into());
+                    if argumentos.iter().any(|argumento| {
+                        self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto)
+                    }) {
+                        return Err("O backend nativo implementa 'exibir' somente para argumentos do tipo texto nesta etapa.".into());
                     }
-                    self.emitir_exibir_texto(argumento)?;
+                    self.emitir_exibir_textos(argumentos)?;
                     return Ok(());
                 }
                 if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
@@ -2646,7 +2645,30 @@ impl Emissor {
         Ok(())
     }
 
-    fn emitir_exibir_texto(&mut self, argumento: &ExpressaoIr) -> Result<(), String> {
+    fn emitir_exibir_textos(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
+        if argumentos.is_empty() {
+            let nova_linha = self.reservar_agregado(8, 1)?;
+            self.codigo.extend_from_slice(&[0xC6, 0x85]);
+            self.codigo.extend_from_slice(&nova_linha.to_le_bytes());
+            self.codigo.push(b'\n');
+            self.emitir_endereco_rbp_rax(nova_linha);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]);
+            self.mov_rdx(1);
+            self.mov_rax(1);
+            self.codigo.extend_from_slice(&[0xBF, 1, 0, 0, 0]);
+            self.codigo.extend_from_slice(&[0x0F, 0x05]);
+            self.mov_rax(0);
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        let quantidade = argumentos.len();
+        for (indice, argumento) in argumentos.iter().enumerate() {
+            self.emitir_exibir_texto(argumento, indice + 1 == quantidade)?;
+        }
+        Ok(())
+    }
+
+    fn emitir_exibir_texto(&mut self, argumento: &ExpressaoIr, ultima: bool) -> Result<(), String> {
         let temporario = self.reservar_agregado(16, 8)?;
         let nova_linha = self.reservar_agregado(8, 1)?;
         self.expressao(argumento)?;
@@ -2662,7 +2684,7 @@ impl Emissor {
 
         self.codigo.extend_from_slice(&[0xC6, 0x85]);
         self.codigo.extend_from_slice(&nova_linha.to_le_bytes());
-        self.codigo.push(b'\n');
+        self.codigo.push(if ultima { b'\n' } else { b' ' });
         self.emitir_endereco_rbp_rax(nova_linha);
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]);
         self.mov_rdx(1);
