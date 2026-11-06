@@ -2005,6 +2005,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+            || conteudo.starts_with("privado funcao ")
+            || conteudo.starts_with("protegido estatico funcao ")
             || conteudo.starts_with("funcao ")
             || conteudo.starts_with("async funcao ")
             || conteudo.starts_with("exportar funcao ")
