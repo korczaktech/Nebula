@@ -664,19 +664,15 @@ impl Parser {
     fn escolha(&mut self) -> Option<NoAst> {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
-        self.corresponde(TipoToken::DoisPontos);
+        if !self.corresponde(TipoToken::DoisPontos) {
+            self.erro_atual("N2040", "Escolha exige Function Body iniciado por ': {'.");
+            return None;
+        }
+        self.pular_novas_linhas();
         let corpo_com_chaves = self.corresponde(TipoToken::AbreChave);
         if !corpo_com_chaves {
-            let houve_quebra = self.corresponde(TipoToken::NovaLinha);
-            if !houve_quebra && !self.verifica(TipoToken::Indent) {
-                self.erro_atual("N2040", "Esperada quebra de linha ou Function Body antes dos casos de escolha.");
-                return None;
-            }
-            if houve_quebra { self.separadores(); }
-            if !self.corresponde(TipoToken::Indent) {
-                self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
-                return None;
-            }
+            self.erro_atual("N2040", "Escolha exige abertura explícita com '{'. A forma antiga indentada foi removida.");
+            return None;
         }
         self.separadores();
         let mut casos = Vec::new();
@@ -866,10 +862,6 @@ impl Parser {
             self.separadores();
             if self.verifica(TipoToken::FimBloco) { self.avancar(); }
             else { self.erro_atual("N2009", "Escolha precisa terminar com outro 'fim' após '}'."); }
-        } else {
-            self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
-            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
-            else { self.erro_atual("N2009", "Escolha precisa terminar com 'fim'."); }
         }
         if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
         Some(NoAst::Escolha { valor, casos })
@@ -928,131 +920,65 @@ impl Parser {
         self.com_profundidade(|parser| parser.bloco_interno(false))
     }
     fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
-        self.corresponde(TipoToken::DoisPontos);
-        if self.verifica(TipoToken::NovaLinha) {
-            let proximo = self.tokens.iter().skip(self.atual)
-                .find(|token| token.tipo != TipoToken::NovaLinha)
-                .map(|token| token.tipo);
-            if proximo == Some(TipoToken::AbreChave) {
-                self.pular_novas_linhas();
-            }
-        }
-        if self.corresponde(TipoToken::AbreChave) {
-            self.separadores();
-            let mut itens = Vec::new();
-            while !self.verifica(TipoToken::FimBloco)
-                && !self.verifica(TipoToken::FechaChave)
-                && !self.verifica(TipoToken::Fim)
-            {
-                let antes = self.atual;
-                let diagnosticos_antes = self.diagnosticos.len();
-                if self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {
-                    continue;
-                }
-                let no = self.item();
-                let bloco_recuperado = no.as_ref().is_some_and(Self::eh_bloco)
-                    && self.diagnosticos.len() > diagnosticos_antes
-                    && self.inicia_item();
-                if let Some(no) = no { itens.push(no); }
-                if self.atual == antes { self.avancar(); }
-                if self.fechamento_incompativel_com_chaves() {
-                    self.erro_atual("N2051", "Delimitador de fechamento incompatível com o bloco aberto.");
-                    self.avancar();
-                } else if !self.verifica(TipoToken::FimBloco)
-                    && !self.verifica(TipoToken::FechaChave)
-                    && !self.separador_atual()
-                    && !bloco_recuperado
-                {
-                    self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções do Function Body.");
-                    self.sincronizar_item();
-                }
-                self.separadores();
-            }
-            if self.corresponde(TipoToken::FimBloco) {
-                self.separadores();
-            } else {
-                self.erro_atual("N2009", "Function Body delimitado por '{' precisa terminar com 'fim' antes de '}'.");
-            }
-            while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {
-                // Eventos de indentação são auxiliares dentro de chaves.
-            }
-            self.esperar(TipoToken::FechaChave, "Function Body aberto com '{' não foi fechado com '}'.");
-            if consumir_fim {
-                self.separadores();
-                if self.verifica(TipoToken::FimBloco) {
-                    self.avancar();
-                } else {
-                    self.erro_atual("N2009", "A construção que contém o Function Body precisa terminar com outro 'fim' após '}'.");
-                }
-            }
-            return Some(itens);
-        }
-
-        let houve_quebra = self.corresponde(TipoToken::NovaLinha);
-        if !houve_quebra && !self.verifica(TipoToken::Indent) {
-            self.erro_atual("N2007", "Esperada quebra de linha antes do bloco indentado.");
+        if !self.corresponde(TipoToken::DoisPontos) {
+            self.erro_atual("N2007", "Function Body exige ':' seguido de '{'. A forma antiga com indentação foi removida.");
             return None;
         }
-        if houve_quebra {
-            self.separadores();
+        self.pular_novas_linhas();
+        if !self.corresponde(TipoToken::AbreChave) {
+            self.erro_atual("N2007", "Function Body exige abertura explícita com '{' após ':'.");
+            return None;
         }
-        let indentado = self.corresponde(TipoToken::Indent);
-        if !indentado {
-            self.erro_atual("N2009", "Todo bloco precisa iniciar com indentação.");
-            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
-            return Some(Vec::new());
-        }
-        let mut profundidade_indentacao = 1usize;
-        let mut itens = Vec::new();
+
         self.separadores();
-        loop {
-            if self.verifica(TipoToken::Fim) || self.verifica(TipoToken::Senao)
-                || self.verifica(TipoToken::Sendo) || self.verifica(TipoToken::Erro)
-                || self.verifica(TipoToken::Sempre) { break; }
-            if indentado && profundidade_indentacao == 0 { break; }
-            if self.corresponde(TipoToken::Indent) {
-                self.erro_atual("N2009", "Indentação inesperada: cada nível deve pertencer a um bloco explícito.");
-                let mut profundidade_inesperada = 1usize;
-                while profundidade_inesperada > 0 && !self.verifica(TipoToken::Fim) {
-                    match self.tipo() {
-                        TipoToken::Indent => profundidade_inesperada += 1,
-                        TipoToken::Dedent => profundidade_inesperada -= 1,
-                        _ => {}
-                    }
-                    self.avancar();
-                }
-                continue;
-            }
-            if self.corresponde(TipoToken::Dedent) {
-                profundidade_indentacao = profundidade_indentacao.saturating_sub(1);
-                if indentado && profundidade_indentacao == 0 { break; }
-                continue;
-            }
+        let mut itens = Vec::new();
+        while !self.verifica(TipoToken::FimBloco)
+            && !self.verifica(TipoToken::FechaChave)
+            && !self.verifica(TipoToken::Fim)
+        {
             let antes = self.atual;
             let diagnosticos_antes = self.diagnosticos.len();
+            while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
+            if self.verifica(TipoToken::FimBloco)
+                || self.verifica(TipoToken::FechaChave)
+                || self.verifica(TipoToken::Fim) {
+                break;
+            }
             let no = self.item();
             let bloco_recuperado = no.as_ref().is_some_and(Self::eh_bloco)
                 && self.diagnosticos.len() > diagnosticos_antes
                 && self.inicia_item();
             if let Some(no) = no { itens.push(no); }
             if self.atual == antes { self.avancar(); }
-            if self.fechamento_incompativel_com_fim() {
-                self.erro_atual("N2051", "Delimitador incompatível com o bloco iniciado em nova linha.");
+            if self.fechamento_incompativel_com_chaves() {
+                self.erro_atual("N2051", "Delimitador de fechamento incompatível com o Function Body.");
                 self.avancar();
-            } else if !(self.separador_atual() || self.verifica(TipoToken::FimBloco)
-                || self.verifica(TipoToken::Fim) || bloco_recuperado
-                || (indentado && self.verifica(TipoToken::Dedent))) {
-                self.erro_atual("N2001", "Esperado separador dentro do bloco.");
+            } else if !self.verifica(TipoToken::FimBloco)
+                && !self.verifica(TipoToken::FechaChave)
+                && !self.separador_atual()
+                && !bloco_recuperado
+            {
+                self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções do Function Body.");
                 self.sincronizar_item();
             }
             self.separadores();
         }
-        if profundidade_indentacao > 0 {
-            self.erro_atual("N2009", "Bloco indentado não foi fechado corretamente.");
+
+        if self.corresponde(TipoToken::FimBloco) {
+            self.separadores();
+        } else {
+            self.erro_atual("N2009", "Function Body precisa terminar com 'fim' antes de '}'.");
         }
+        while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
+        self.esperar(TipoToken::FechaChave, "Function Body aberto com '{' não foi fechado com '}'.");
+
         if consumir_fim {
-            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
-            else { self.erro_atual("N2009", "Bloco indentado precisa terminar com 'fim'."); }
+            self.separadores();
+            if self.verifica(TipoToken::FimBloco) {
+                self.avancar();
+            } else {
+                self.erro_atual("N2009", "A construção precisa terminar com outro 'fim' após '}'.");
+            }
         }
         Some(itens)
     }
