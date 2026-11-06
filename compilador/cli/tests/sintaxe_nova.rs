@@ -497,7 +497,7 @@ fn igualdade_de_texto_compara_conteudo_utf8() {
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
-fn rejeita_concatenacao_textual_sem_alocador() {
+fn concatena_textos_dinamicos_no_backend_nativo() {
     let (origem, executavel) = caminhos("soma-texto");
     let codigo = r#"funcao prefixo() -> texto: {
     devolver "Olá"
@@ -509,6 +509,7 @@ funcao sufixo() -> texto: {
 } fim
 funcao principal() -> vazio: {
     variavel texto = prefixo() + sufixo()
+    exibir(texto)
     fim
 } fim
 "#;
@@ -522,8 +523,18 @@ funcao principal() -> vazio: {
         .output()
         .expect("executa CLI");
 
+    assert!(
+        compilacao.status.success(),
+        "compilação falhou: {}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
-    assert!(!compilacao.status.success());
-    assert!(String::from_utf8_lossy(&compilacao.stderr).contains("alocador do runtime nativo"));
+    assert!(execucao.status.success());
+    assert_eq!(String::from_utf8_lossy(&execucao.stdout), "Olá Nebula\\n");
 }
