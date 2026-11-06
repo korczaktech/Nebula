@@ -527,7 +527,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     .unwrap();
     std::fs::write(
         &fonte,
-        "incluir Base\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
+        "incluir(biblioteca: Base)\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
     )
     .unwrap();
 
