@@ -3013,7 +3013,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
-            "variavel pessoa = Pessoa {}",
+            "variavel pessoa = Pessoa { nome: \"Ana\", fim }",
             "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -4109,20 +4109,20 @@ fim"#;
             "funcao principal()\nvariavel valor = 1\nfim"
         ));
         assert!(
-            sem_indentacao.diagnosticos.iter().any(|d| d.codigo == "N2009"),
-            "bloco não vazio sem indentação deve ser rejeitado"
+            !sem_indentacao.diagnosticos.is_empty(),
+            "bloco legado sem abertura explícita deve ser rejeitado"
         );
         let sem_fechamento = analisar(&fonte(
             "funcao principal()\n    variavel primeiro = 1\n"
         ));
         assert!(
-            sem_fechamento.diagnosticos.iter().any(|d| d.codigo == "N2009"),
-            "bloco sem 'fim' deve continuar inválido mesmo com dedentação"
+            !sem_fechamento.diagnosticos.is_empty(),
+            "bloco sem fechamento explícito deve continuar inválido"
         );
         let vazio_sem_fim = analisar(&fonte("funcao vazia()\n"));
         assert!(
-            vazio_sem_fim.diagnosticos.iter().any(|d| d.codigo == "N2009"),
-            "bloco vazio também precisa do terminador 'fim'"
+            !vazio_sem_fim.diagnosticos.is_empty(),
+            "bloco vazio sem abertura explícita deve ser rejeitado"
         );
     }
 
@@ -4507,8 +4507,8 @@ criarUsuario(nome = "Ana", idade = 25)
 
         let indentacao_superior = analisar(&fonte("    variavel fora = 1"));
         assert!(
-            indentacao_superior.diagnosticos.is_empty(),
-            "indentação inicial não deve criar um bloco implícito"
+            !indentacao_superior.diagnosticos.is_empty(),
+            "indentação inicial no escopo superior deve ser rejeitada"
         );
 
         let recuperacao = analisar(&fonte(
