@@ -2491,7 +2491,7 @@ fim"#;
                     .wrapping_add(1_442_695_040_888_963_407);
                 codigo.push_str(alfabeto[(estado as usize) % alfabeto.len()]);
             }
-            let resultado = analisar(&fonte(&codigo));
+            let resultado = analisar(&fonte_bruta(&codigo));
             let mut ultima_posicao = 0;
             for diagnostico in resultado.diagnosticos {
                 if let Some(intervalo) = diagnostico.intervalo {
