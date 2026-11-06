@@ -151,11 +151,13 @@ impl<'a> Analisador<'a> {
                 }
             }
             if let NoAst::Classe { nome, herda, .. } = item {
-                if self.classes.insert(nome.clone(), herda.clone()).is_some() {
+                if self.classes.contains_key(nome) {
                     self.erro("N3065", format!("A classe '{nome}' foi declarada mais de uma vez."));
-                }
-                if !self.estruturas.insert(nome.clone()) {
-                    self.erro("N3086", format!("O nome '{nome}' já foi usado por uma estrutura ou classe."));
+                } else if self.estruturas.contains(nome) || self.enumeracoes.contains(nome) || self.aliases.contains_key(nome) {
+                    self.erro("N3086", format!("O nome '{nome}' já foi usado por outro tipo."));
+                } else {
+                    self.classes.insert(nome.clone(), herda.clone());
+                    self.estruturas.insert(nome.clone());
                 }
             }
         }
@@ -205,6 +207,21 @@ impl<'a> Analisador<'a> {
                         self.parametros_genericos.extend(genericos.iter().cloned());
                         let tipos: Vec<Tipo> = parametros.iter().map(|(_, tipo)| self.resolver_tipo(tipo)).collect();
                         let retorno = retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.resolver_tipo(tipo));
+                        for (nome_parametro, tipo) in parametros {
+                            if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
+                                self.erro("N3021", format!("Tipo '{tipo}' do parâmetro '{nome_parametro}' do método '{metodo}' não foi declarado."));
+                            }
+                        }
+                        if retorno.as_ref() == &Tipo::Desconhecido {
+                            self.erro("N3021", format!("Tipo de retorno do método '{metodo}' não foi declarado."));
+                        }
+                        let mut encontrou_padrao = false;
+                        for padrao in parametros_padrao {
+                            if padrao.is_some() { encontrou_padrao = true; }
+                            else if encontrou_padrao {
+                                self.erro("N3066", format!("Parâmetros sem valor padrão não podem aparecer depois de parâmetros opcionais no método '{metodo}'."));
+                            }
+                        }
                         self.parametros_genericos = anteriores;
                         let duplicado = match self.funcoes.entry(chave) {
                             std::collections::hash_map::Entry::Vacant(entrada) => {
@@ -298,7 +315,11 @@ impl<'a> Analisador<'a> {
 
     fn validar_hierarquia_classes(&mut self) {
         let classes = self.classes.clone();
+        let campos_proprios = self.campos_estruturas.clone();
         for (nome, base) in &classes {
+            if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| matches!(no, NoAst::Classe { nome: encontrado, .. } if encontrado == nome)) {
+                self.intervalo_atual = Some(*intervalo);
+            }
             if let Some(base) = base {
                 if !classes.contains_key(base) {
                     self.erro("N3069", format!("A classe-base '{base}' da classe '{nome}' não foi declarada."));
@@ -311,11 +332,35 @@ impl<'a> Analisador<'a> {
             let mut visitados = HashSet::new();
             let mut atual = inicio.as_str();
             while let Some(Some(base)) = classes.get(atual) {
-                if !visitados.insert(atual.to_owned()) || base == inicio {
+                if !visitados.insert(atual.to_owned()) || (base == inicio && base != atual) {
+                    if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| matches!(no, NoAst::Classe { nome, .. } if nome == inicio)) {
+                        self.intervalo_atual = Some(*intervalo);
+                    }
                     self.erro("N3070", format!("A hierarquia da classe '{inicio}' contém um ciclo de herança."));
                     break;
                 }
                 atual = base;
+            }
+        }
+        for (nome, base) in &classes {
+            let Some(base) = base else { continue; };
+            let mut ancestral = Some(base.as_str());
+            let mut visitados = HashSet::new();
+            while let Some(nome_ancestral) = ancestral {
+                if !visitados.insert(nome_ancestral.to_owned()) { break; }
+                if let (Some(campos_filho), Some(campos_base)) = (campos_proprios.get(nome), campos_proprios.get(nome_ancestral)) {
+                    for (campo, tipo_base) in campos_base {
+                        if let Some(tipo_filho) = campos_filho.get(campo) {
+                            if !Self::tipos_compativeis(tipo_filho, tipo_base) {
+                                if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| matches!(no, NoAst::Classe { nome: encontrado, .. } if encontrado == nome)) {
+                                    self.intervalo_atual = Some(*intervalo);
+                                }
+                                self.erro("N3081", format!("Campo herdado '{campo}' redefine tipo incompatível na classe '{nome}'."));
+                            }
+                        }
+                    }
+                }
+                ancestral = classes.get(nome_ancestral).and_then(Option::as_deref);
             }
         }
         for _ in 0..classes.len() {
@@ -336,12 +381,16 @@ impl<'a> Analisador<'a> {
             let Some(base) = base else { continue; };
             for (chave, metodo) in &metodos {
                 let Some(nome_metodo) = chave.strip_prefix(&format!("{nome}::")) else { continue; };
+                if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| matches!(no, NoAst::Classe { nome: classe, corpo, .. } if classe == nome && corpo.iter().any(|membro| matches!(Self::alvo_atributo(membro), NoAst::Funcao { nome, .. } if nome == nome_metodo)))) {
+                    self.intervalo_atual = Some(*intervalo);
+                }
                 let mut ancestral = Some(base.as_str());
                 while let Some(nome_ancestral) = ancestral {
                     let chave_base = format!("{nome_ancestral}::{nome_metodo}");
                     if let Some(metodo_base) = self.funcoes.get(&chave_base).cloned() {
                         if metodo.parametros.len() != metodo_base.parametros.len()
                             || !metodo.parametros.iter().zip(&metodo_base.parametros).all(|(a, b)| Self::tipos_compativeis(a, b))
+                            || metodo.genericos.len() != metodo_base.genericos.len()
                             || !Self::tipos_compativeis(&metodo.retorno, &metodo_base.retorno)
                         {
                             self.erro("N3087", format!("O método '{nome_metodo}' da classe '{nome}' não respeita a assinatura herdada."));
