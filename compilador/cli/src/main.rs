@@ -480,6 +480,10 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
             .join("\n"));
     }
     let (modulos, programas_modulos, _) = carregar_modulos(caminho, &sintaxe.programa)?;
+    let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
+    if !semantica.diagnosticos.is_empty() {
+        return Err(formatar_diagnosticos_texto(caminho, &semantica.diagnosticos, &fonte));
+    }
     let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
         return Err(resultado.diagnosticos.join("\n"));
@@ -785,6 +789,14 @@ fn carregar_modulo_recursivo(
             caminhos_canonicos.insert(caminho_filho.clone(), id_filho);
         }
 
+        let semantica = analisar_com_modulos(&sintaxe.programa, &modulos_disponiveis);
+        if !semantica.diagnosticos.is_empty() {
+            return Err(format!(
+                "Erro semântico no módulo '{identificador}': {}",
+                formatar_diagnosticos_texto(&arquivo, &semantica.diagnosticos, &fonte)
+            ));
+        }
+
         let mut exportadas = HashMap::new();
         for item in &sintaxe.programa.itens {
             if let NoAst::Funcao {
@@ -814,7 +826,7 @@ fn carregar_modulo_recursivo(
                     AssinaturaFuncao {
                         genericos: genericos.clone(),
                         parametros,
-                        nomes_parametros: parametros.iter().map(|_| String::new()).collect(),
+                        nomes_parametros: parametros.iter().map(|(nome, _)| nome.clone()).collect(),
                         parametros_padrao: parametros_padrao.iter().map(Option::is_some).collect(),
                         retorno,
                     },
@@ -1048,6 +1060,10 @@ fn compilar_arquivo_com_nivel(
     }
     let (modulos, programas_modulos, mut fontes_modulos) =
         carregar_modulos(caminho, &sintaxe.programa)?;
+    let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
+    if !semantica.diagnosticos.is_empty() {
+        return Err(formatar_diagnosticos_texto(caminho, &semantica.diagnosticos, &fonte));
+    }
     let nivel_chave = format!("{nivel:?}");
     fontes_modulos.sort_by(|a, b| a.0.cmp(&b.0));
     let mut componentes_cache = vec![
@@ -1262,6 +1278,13 @@ fn mostrar_ir(caminho: &Path) {
             eprintln!("{erro}");
             std::process::exit(1);
         });
+    let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
+    if !semantica.diagnosticos.is_empty() {
+        for diagnostico in &semantica.diagnosticos {
+            eprintln!("{}", formatar_diagnosticos_texto(caminho, std::slice::from_ref(diagnostico), &fonte));
+        }
+        std::process::exit(1);
+    }
     let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
         for diagnostico in &resultado.diagnosticos {
@@ -1289,6 +1312,21 @@ fn escapar_json(texto: &str) -> String {
     }
     saida.push('"');
     saida
+}
+
+fn formatar_diagnosticos_texto(
+    caminho: &Path,
+    diagnosticos: &[Diagnostico],
+    fonte: &ArquivoFonte,
+) -> String {
+    diagnosticos.iter().map(|diagnostico| {
+        let local = diagnostico.intervalo.and_then(|intervalo| fonte.linha_coluna(intervalo.inicio));
+        if let Some((linha, coluna)) = local {
+            format!("{} {}:{}:{} — {}", diagnostico.codigo, caminho.display(), linha, coluna, diagnostico.mensagem)
+        } else {
+            format!("{} {} — {}", diagnostico.codigo, caminho.display(), diagnostico.mensagem)
+        }
+    }).collect::<Vec<_>>().join("\n")
 }
 
 fn diagnosticos_json(
@@ -1428,10 +1466,8 @@ fn analisar_arquivo(caminho: &Path, json: bool) {
         );
     } else if resultado.diagnosticos.is_empty() {
         println!("Arquivo válido semanticamente: {}", caminho.display());
-    } else {
-        for diagnostico in &resultado.diagnosticos {
-            eprintln!("{} — {}", diagnostico.codigo, diagnostico.mensagem);
-        }
+    } else if !resultado.diagnosticos.is_empty() {
+        eprintln!("{}", formatar_diagnosticos_texto(caminho, &resultado.diagnosticos, &fonte));
     }
     if !resultado.diagnosticos.is_empty() {
         std::process::exit(1);
