@@ -515,7 +515,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "variante duplicada",
             "N2034",
-            "enumeracao Estado:\n    Ativo\n    Ativo\nfim",
+            "enumeracao Estado: {\n    Ativo\n    Ativo\n    fim\n}\nfim",
         ),
         (
             "payload malformado",
