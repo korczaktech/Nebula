@@ -413,7 +413,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ("listas", "variavel vazia = []\nvariavel valores = [a, b]"),
         (
             "construcao de estrutura",
-            "Pessoa { fim }\nPessoa { nome: \"Ana\", idade: 20, fim }",
+            "variavel vazia = Pessoa { fim }\nvariavel pessoa = Pessoa { nome: \"Ana\", idade: 20, fim }",
         ),
         (
             "construcao aninhada",
@@ -500,7 +500,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "campo duplicado",
             "N2031",
-            "estrutura Pessoa:\n    nome: texto\n    nome: inteiro\nfim",
+            "estrutura Pessoa: {\n    nome: texto\n    nome: inteiro\n    fim\n}\nfim",
         ),
         (
             "separador de campo ausente",
@@ -1117,6 +1117,7 @@ funcao principal() -> vazio: {
         exibir("Nebula")
         fim
     }
+    fim
     fim
 }
 fim
