@@ -2219,6 +2219,10 @@ impl Emissor {
                 .buscar_tipo_local(nome)
                 .cloned()
                 .or_else(|| self.tipos_globais.get(nome).cloned()),
+            ExpressaoIr::Chamada { nome, .. } => self.retornos_funcoes.get(nome).cloned(),
+            ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => {
+                self.retornos_funcoes.get(&format!("{modulo}::{nome}")).cloned()
+            }
             ExpressaoIr::Unaria { valor, .. } => self.tipo_expressao_atual(valor),
             ExpressaoIr::Binaria {
                 esquerda,
