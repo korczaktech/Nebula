@@ -809,6 +809,7 @@ fn carregar_modulo_recursivo(
                 ..
             } = declaracao_base(item)
             {
+                let nomes_parametros = parametros.iter().map(|(nome, _)| nome.clone()).collect();
                 let parametros = parametros
                     .iter()
                     .map(|(_, tipo)| {
@@ -826,7 +827,7 @@ fn carregar_modulo_recursivo(
                     AssinaturaFuncao {
                         genericos: genericos.clone(),
                         parametros,
-                        nomes_parametros: parametros.iter().map(|(nome, _)| nome.clone()).collect(),
+                        nomes_parametros,
                         parametros_padrao: parametros_padrao.iter().map(Option::is_some).collect(),
                         retorno,
                     },
