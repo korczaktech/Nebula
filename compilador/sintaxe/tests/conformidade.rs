@@ -114,7 +114,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ("listas", "variavel vazia = []\nvariavel valores = [a, b]"),
         (
             "construcao de estrutura",
-            "Pessoa {}\nPessoa { nome: \"Ana\", idade: 20 }",
+            "Pessoa { fim }\nPessoa { nome: \"Ana\", idade: 20, fim }",
         ),
         (
             "construcao aninhada",
@@ -231,12 +231,12 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "campo de construcao duplicado",
             "N2037",
-            "variavel p = Pessoa { nome: 1, nome: 2 }",
+            "variavel p = Pessoa { nome: 1, nome: 2, fim }",
         ),
         (
             "separador de construcao ausente",
             "N2038",
-            "variavel p = Pessoa { nome: 1 idade: 2 }",
+            "variavel p = Pessoa { nome: 1 idade: 2, fim }",
         ),
         (
             "abertura de escolha ausente",
