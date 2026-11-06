@@ -694,23 +694,28 @@ fim"#,
 }
 
 #[test]
-fn rejeita_recurso_que_depende_do_runtime_adiado() {
-    let (origem, executavel) = caminhos("runtime-adiado");
+fn ler_texto_aceita_fim_de_entrada_sem_dados() {
+    let (origem, executavel) = caminhos("ler-texto-eof");
     let codigo = normalizar_blocos_legados(
         "funcao principal(): vazio\n    variavel entrada = ler_texto()\nfim",
     );
     fs::write(&origem, codigo).unwrap();
-    let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
         .arg("-o")
         .arg(&executavel)
         .output()
         .unwrap();
-    assert!(!resultado.status.success());
-    assert!(String::from_utf8_lossy(&resultado.stderr).contains("runtime"));
-    assert!(!executavel.exists());
+    assert!(
+        compilacao.status.success(),
+        "falha de compilação: {}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+    let execucao = Command::new(&executavel).output().unwrap();
+    assert_eq!(execucao.status.code(), Some(0));
     let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
 }
 
 #[test]
