@@ -2369,6 +2369,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
     fim
     fim
+    fim
 }
 fim
 
@@ -4174,8 +4175,9 @@ fim"#;
     fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
         let codigo = r#"variavel pessoa = Pessoa {
  nome: "Ana",
- endereco: Endereco { cidade: "Sao Paulo", numero: 10 },
+ endereco: Endereco { cidade: "Sao Paulo", numero: 10, fim },
  ativo: verdadeiro,
+ fim
 }"#;
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
