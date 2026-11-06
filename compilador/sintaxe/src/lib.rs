@@ -2040,6 +2040,26 @@ mod testes {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
+    fn analisa_function_body_com_chaves_e_fim_em_cada_nivel() {
+        let codigo = "funcao teste(): {\n    se verdadeiro: {\n        exibir(1)\n        fim\n    }\n    fim\n}\nfim";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Funcao { corpo, .. } if matches!(corpo.first(), Some(NoAst::Quando { .. }))));
+    }
+
+    #[test]
+    fn rejeita_function_body_sem_fim_antes_da_chave() {
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}\nfim"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_function_body_sem_fim_apos_a_chave_externa() {
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n    fim\n}"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
     fn recupera_e_emite_diagnostico_de_sintaxe() {
         let r = analisar(&fonte("variavel =\nvariavel correto = 2"));
         assert!(!r.diagnosticos.is_empty());
