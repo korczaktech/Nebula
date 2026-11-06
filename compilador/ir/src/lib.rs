@@ -3954,6 +3954,71 @@ mod testes {
 
 
     #[test]
+    fn valida_limites_de_todas_as_larguras_primitivas() {
+        let assinados = [
+            (Tipo::Inteiro8, i8::MIN as i128, i8::MAX as i128),
+            (Tipo::Inteiro16, i16::MIN as i128, i16::MAX as i128),
+            (Tipo::Inteiro32, i32::MIN as i128, i32::MAX as i128),
+            (Tipo::Inteiro64, i64::MIN as i128, i64::MAX as i128),
+            (Tipo::Inteiro128, i128::MIN, i128::MAX),
+        ];
+        for (tipo, minimo, maximo) in assinados {
+            assert!(normalizar_valor(&tipo, ValorIr::Inteiro(minimo)).is_ok());
+            assert!(normalizar_valor(&tipo, ValorIr::Inteiro(maximo)).is_ok());
+            if minimo > i128::MIN {
+                assert!(normalizar_valor(&tipo, ValorIr::Inteiro(minimo - 1)).is_err());
+            }
+            if maximo < i128::MAX {
+                assert!(normalizar_valor(&tipo, ValorIr::Inteiro(maximo + 1)).is_err());
+            }
+            assert!(normalizar_valor(&tipo, ValorIr::InteiroSemSinal(1)).is_err());
+        }
+
+        let sem_sinal = [
+            (Tipo::InteiroU8, u8::MAX as u128),
+            (Tipo::InteiroU16, u16::MAX as u128),
+            (Tipo::InteiroU32, u32::MAX as u128),
+            (Tipo::InteiroU64, u64::MAX as u128),
+            (Tipo::InteiroU128, u128::MAX),
+            (Tipo::Byte, u8::MAX as u128),
+        ];
+        for (tipo, maximo) in sem_sinal {
+            assert_eq!(
+                normalizar_valor(&tipo, ValorIr::InteiroSemSinal(0)).unwrap(),
+                ValorIr::InteiroSemSinal(0),
+            );
+            assert_eq!(
+                normalizar_valor(&tipo, ValorIr::InteiroSemSinal(maximo)).unwrap(),
+                ValorIr::InteiroSemSinal(maximo),
+            );
+            if maximo < u128::MAX {
+                assert!(normalizar_valor(
+                    &tipo,
+                    ValorIr::InteiroSemSinal(maximo + 1),
+                ).is_err());
+            }
+            assert!(normalizar_valor(&tipo, ValorIr::Inteiro(-1)).is_err());
+        }
+
+        assert_eq!(
+            normalizar_valor(&Tipo::Logico, ValorIr::Logico(false)).unwrap(),
+            ValorIr::Logico(false),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Logico, ValorIr::Logico(true)).unwrap(),
+            ValorIr::Logico(true),
+        );
+        assert!(normalizar_valor(
+            &Tipo::Decimal32,
+            ValorIr::Decimal(f64::MAX),
+        ).is_err());
+        assert!(normalizar_valor(
+            &Tipo::Decimal64,
+            ValorIr::Decimal(f64::NAN),
+        ).unwrap().eq(&ValorIr::Decimal(f64::NAN)) == false);
+    }
+
+    #[test]
     fn observador_recebe_eventos_antes_de_cada_instrucao() {
         let programa = compilar("variavel contador = 1\ncontador = contador + 1");
         let mut eventos = Vec::new();
