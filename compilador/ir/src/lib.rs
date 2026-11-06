@@ -3587,7 +3587,7 @@ mod testes {
         )]));
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "incluir Matematica como Mat\nvariavel total = Mat::somar(1, 2)",
+            "incluir(biblioteca: Matematica) como Mat\nvariavel total = Mat::somar(1, 2)",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
