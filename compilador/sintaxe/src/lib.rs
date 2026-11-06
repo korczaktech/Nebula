@@ -1019,6 +1019,29 @@ impl Parser {
             self.esperar(TipoToken::FechaColchete, "Esperado ']' após tipo de lista.");
             return Some(format!("[{interno}]"));
         }
+        if self.corresponde(TipoToken::AbrePar) {
+            let mut elementos = Vec::new();
+            let mut possui_virgula = false;
+            if !self.verifica(TipoToken::FechaPar) {
+                loop {
+                    elementos.push(self.caminho_tipo()?);
+                    if !self.corresponde(TipoToken::Virgula) {
+                        break;
+                    }
+                    possui_virgula = true;
+                    if self.verifica(TipoToken::FechaPar) {
+                        break;
+                    }
+                }
+            }
+            self.esperar(TipoToken::FechaPar, "Esperado ')' após elementos do tipo tupla.");
+            if elementos.len() == 1 && !possui_virgula {
+                return elementos.into_iter().next();
+            }
+            let interior = elementos.join(",");
+            let virgula_final = if elementos.len() == 1 { "," } else { "" };
+            return Some(format!("({interior}{virgula_final})"));
+        }
         let base = self.caminho_qualificado("Esperado nome de tipo.")?;
         if !self.corresponde(TipoToken::Menor) {
             return Some(base);
