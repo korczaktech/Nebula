@@ -242,7 +242,7 @@ Regras específicas:
 
 - `quando` aceita `se` como alias. As cláusulas `sendo` repetem condições alternativas. `senao` é opcional e pode conter outro condicional. Um único `fim` encerra a construção completa.
 - `escolha` exige `: {`. Cada caso ocupa seu próprio Function Body; o `fim` interno antecede `}`, e um `fim` externo encerra a escolha.
-- Padrões aceitos: `Enum::Variante`, `Enum::Variante(vinculo, ...)`, `_`, `padrao` e literais. Padrões de enumeração e curinga duplicados são rejeitados; o curinga pode aparecer antes ou depois de variantes.
+- Padrões aceitos: `Enum::Variante`, `Enum::Variante(vinculo, ...)`, `_`, `padrao` e literais. Padrões de enumeração e curinga duplicados são rejeitados. O curinga deve ser o último caso; casos posteriores são inalcançáveis e geram diagnóstico semântico.
 - `tente` possui um corpo, zero ou mais cláusulas `erro` e uma cláusula `sempre` opcional. Deve existir pelo menos uma cláusula `erro` ou `sempre`. Um único `fim` encerra a construção.
 - `para nome dentro iteravel` é a forma iterativa. A forma tradicional usa três partes separadas por ponto e vírgula dentro de parênteses.
 - `alterar` deve conter uma atribuição simples ou composta.
@@ -251,7 +251,8 @@ Regras específicas:
 ## 5. Tipos
 
 ~~~ebnf
-tipo                    = tipo_funcao | tipo_lista | tipo_generico ;
+tipo                    = tipo_funcao | tipo_lista | tipo_tupla | tipo_generico ;
+tipo_tupla              = "(", ")" | "(", tipo, ",", [ lista_tipos ], ")" ;
 tipo_funcao             = "funcao", "(", [ lista_tipos ], ")",
                           [ ":", tipo ] ;
 tipo_lista              = "[", tipo, "]" ;
