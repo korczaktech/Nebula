@@ -693,7 +693,13 @@ fim"#,
         .write_all(b"Nebula\r\n")
         .unwrap();
     let resultado = processo.wait_with_output().unwrap();
-    assert_eq!(resultado.status.code(), Some(42), "stdout: {:?}; stderr: {:?}", String::from_utf8_lossy(&resultado.stdout), String::from_utf8_lossy(&resultado.stderr));
+    assert_eq!(
+        resultado.status.code(),
+        Some(42),
+        "stdout: {:?}; stderr: {:?}",
+        String::from_utf8_lossy(&resultado.stdout),
+        String::from_utf8_lossy(&resultado.stderr)
+    );
     assert_eq!(resultado.stdout, b"Digite: Nebula\n");
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
