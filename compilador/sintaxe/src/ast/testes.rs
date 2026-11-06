@@ -89,9 +89,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         if conteudo.starts_with("caso ") || conteudo == "padrao" {
-            if blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
-            }) {
+            if blocos
+                .last()
+                .is_some_and(|bloco| bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel)
+            {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -105,9 +106,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         if conteudo == "fim" {
-            while blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-            }) {
+            while blocos
+                .last()
+                .is_some_and(|bloco| bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel)
+            {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -123,40 +125,40 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
-        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
-            || conteudo.starts_with("funcao ")
-        {
-            let assinatura = conteudo.replace("): ", ") -> ");
-            let assinatura = if assinatura.ends_with(':') {
-                format!("{assinatura} {{")
+        let (tipo, cabecalho) =
+            if conteudo.starts_with("publico funcao ") || conteudo.starts_with("funcao ") {
+                let assinatura = conteudo.replace("): ", ") -> ");
+                let assinatura = if assinatura.ends_with(':') {
+                    format!("{assinatura} {{")
+                } else {
+                    format!("{assinatura}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+                let assinatura = if conteudo.ends_with(':') {
+                    format!("{conteudo} {{")
+                } else {
+                    format!("{conteudo}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") {
+                (
+                    Some(TipoBloco::Condicional),
+                    Some(format!("{conteudo}: {{")),
+                )
+            } else if conteudo.starts_with("cada ")
+                || conteudo.starts_with("enquanto ")
+                || conteudo.starts_with("para ")
+                || conteudo.starts_with("pulso(")
+                || conteudo.starts_with("durante ")
+                || conteudo.starts_with("repetir ")
+            {
+                (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
             } else {
-                format!("{assinatura}: {{")
+                (None, None)
             };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
-            let assinatura = if conteudo.ends_with(':') {
-                format!("{conteudo} {{")
-            } else {
-                format!("{conteudo}: {{")
-            };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
-            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("quando ")
-            || conteudo.starts_with("se ")
-        {
-            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("cada ")
-            || conteudo.starts_with("enquanto ")
-            || conteudo.starts_with("para ")
-            || conteudo.starts_with("pulso(")
-            || conteudo.starts_with("durante ")
-            || conteudo.starts_with("repetir ")
-        {
-            (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
-        } else {
-            (None, None)
-        };
 
         if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
             saida.push(indentacao(&cabecalho, nivel));
@@ -290,7 +292,10 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
     let codigo = "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim";
-    let resultado = analisar(&ArquivoFonte::novo("ast.nbx", &normalizar_blocos_legados(codigo)));
+    let resultado = analisar(&ArquivoFonte::novo(
+        "ast.nbx",
+        &normalizar_blocos_legados(codigo),
+    ));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa de teste deve ser válido: {:#?}",
@@ -395,7 +400,10 @@ fim
 
 executar(1)
 "#;
-    let resultado = analisar(&ArquivoFonte::novo("nos.nbx", &normalizar_blocos_legados(codigo)));
+    let resultado = analisar(&ArquivoFonte::novo(
+        "nos.nbx",
+        &normalizar_blocos_legados(codigo),
+    ));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa com todos os nós deve ser válido: {:#?}",
@@ -448,7 +456,10 @@ variavel lista = [1, 2]
 variavel tupla = (1, 2)
 variavel construcao = Pessoa { nome: "Ana", fim }
 "#;
-    let resultado = analisar(&ArquivoFonte::novo("expressoes.nbx", &normalizar_blocos_legados(codigo)));
+    let resultado = analisar(&ArquivoFonte::novo(
+        "expressoes.nbx",
+        &normalizar_blocos_legados(codigo),
+    ));
     assert!(
         resultado.diagnosticos.is_empty(),
         "expressões de referência devem ser válidas: {:#?}",
@@ -502,7 +513,10 @@ variavel construcao = Pessoa { nome: "Ana", fim }
 #[test]
 fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
     let codigo = "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim";
-    let resultado = analisar(&ArquivoFonte::novo("recuperacao.nbx", &normalizar_blocos_legados(codigo)));
+    let resultado = analisar(&ArquivoFonte::novo(
+        "recuperacao.nbx",
+        &normalizar_blocos_legados(codigo),
+    ));
 
     assert!(
         !resultado.diagnosticos.is_empty(),
