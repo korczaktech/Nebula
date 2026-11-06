@@ -6,6 +6,7 @@ pub mod abi;
 
 #[rustfmt::skip]
 mod implementacao {
+use nebula_biblioteca::dados::{analisar_json, serializar_json};
 use nebula_ir::{CasoEscolhaIr, ExpressaoIr, FuncaoIr, InstrucaoIr, OperadorIr, ProgramaIr, ValorIr};
 use nebula_semantica::Tipo;
 use std::collections::HashMap;
@@ -962,17 +963,7 @@ impl Emissor {
             }
             ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
             ExpressaoIr::Constante(ValorIr::Texto(texto)) => {
-                let base_global = self.globais.len().checked_mul(16)
-                    .ok_or("Área de dados globais excedeu o limite do alvo.")?;
-                let deslocamento = base_global.checked_add(self.dados_estaticos.len())
-                    .ok_or("Área de textos estáticos excedeu o limite do alvo.")?;
-                self.dados_estaticos.extend_from_slice(texto.as_bytes());
-                self.codigo.extend_from_slice(&[0x48, 0x8D, 0x05]);
-                let posicao = self.codigo.len();
-                self.codigo.extend_from_slice(&[0; 4]);
-                self.referencias_texto.push((posicao, deslocamento));
-                self.mov_rdx(i64::try_from(texto.len())
-                    .map_err(|_| "Literal de texto excede o limite do alvo.")?);
+                self.emitir_texto_estatico(texto)?;
             }
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) => self.mov_rax(*valor as i64),
@@ -1520,7 +1511,27 @@ impl Emissor {
                     return Ok(());
                 }
                 if nome == "json_valido" || nome == "json_canonico" {
-                    return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
+                    let [argumento] = argumentos.as_slice() else {
+                        return Err(format!("'{nome}' exige exatamente um argumento de texto."));
+                    };
+                    if self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto) {
+                        return Err(format!("'{nome}' exige um argumento do tipo texto."));
+                    }
+                    let Some(texto) = texto_literal_ir(argumento) else {
+                        return Err(format!(
+                            "'{nome}' no backend ELF exige texto literal nesta etapa; valores dinâmicos requerem runtime nativo."
+                        ));
+                    };
+                    if nome == "json_valido" {
+                        self.mov_rax(i64::from(analisar_json(texto).is_ok()));
+                    } else {
+                        let valor = analisar_json(texto)
+                            .map_err(|erro| format!("JSON inválido em 'json_canonico': {erro}"))?;
+                        let canonico = serializar_json(&valor)
+                            .map_err(|erro| format!("Falha ao canonicalizar JSON: {erro}"))?;
+                        self.emitir_texto_estatico(&canonico)?;
+                    }
+                    return Ok(());
                 }
                 let retorno_grande = self.retornos_funcoes.get(nome)
                     .and_then(|tipo| self.layout_agregado_grande(tipo));
@@ -1565,6 +1576,21 @@ impl Emissor {
                 self.limpar_pilha_chamada(tamanho_pilha, preenchimento)?;
             }
         }
+        Ok(())
+    }
+
+    fn emitir_texto_estatico(&mut self, texto: &str) -> Result<(), String> {
+        let base_global = self.globais.len().checked_mul(16)
+            .ok_or("Área de dados globais excedeu o limite do alvo.")?;
+        let deslocamento = base_global.checked_add(self.dados_estaticos.len())
+            .ok_or("Área de textos estáticos excedeu o limite do alvo.")?;
+        self.dados_estaticos.extend_from_slice(texto.as_bytes());
+        self.codigo.extend_from_slice(&[0x48, 0x8D, 0x05]);
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_texto.push((posicao, deslocamento));
+        self.mov_rdx(i64::try_from(texto.len())
+            .map_err(|_| "Literal de texto excede o limite do alvo.")?);
         Ok(())
     }
 
@@ -3492,6 +3518,16 @@ fn tag_enumeracao(nome: &str, variante: &str) -> i64 {
         hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
     }
     hash as i64
+}
+
+fn texto_literal_ir(expressao: &ExpressaoIr) -> Option<&str> {
+    match expressao {
+        ExpressaoIr::Constante(ValorIr::Texto(texto)) => Some(texto),
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } => {
+            texto_literal_ir(valor)
+        }
+        _ => None,
+    }
 }
 
 fn indice_literal_ir(expressao: &ExpressaoIr) -> Option<usize> {
