@@ -359,7 +359,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "quando encadeado",
-            "quando a\n    passar\nsendo b\n    passar\nsenao\n    passar\nfim",
+            "quando a\n    passar\nsenao\n    passar\nfim",
         ),
         (
             "escolha e padroes",
@@ -1111,7 +1111,7 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
 fn function_body_normativo_e_obrigatorio() {
     let codigo = r#"
 funcao principal() -> vazio: {
-    se sim: {
+    quando sim: {
         exibir("Nebula")
         fim
     }
