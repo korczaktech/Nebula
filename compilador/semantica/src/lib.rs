@@ -1425,16 +1425,18 @@ impl<'a> Analisador<'a> {
                         return Tipo::Desconhecido;
                     }
                     if let Some(funcao) = self.funcoes.get(nome).cloned() {
+                        let mapeados = self.mapear_argumentos_funcao(argumentos, &funcao, nome);
                         if funcao.genericos.is_empty() {
-                            self.validar_argumentos(argumentos, &funcao.parametros, nome);
+                            for (indice, argumento) in mapeados.iter().enumerate() {
+                                if let (Some(argumento), Some(esperado)) = (argumento, funcao.parametros.get(indice)) {
+                                    let obtido = self.expressao(argumento);
+                                    self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
+                                    if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
+                                }
+                            }
                             return funcao.retorno;
                         }
-                        if argumentos.len() != funcao.parametros.len() {
-                            self.erro("N3013", format!("A função genérica '{nome}' espera {} argumentos, mas recebeu {}.", funcao.parametros.len(), argumentos.len()));
-                            for argumento in argumentos { self.expressao(argumento); }
-                            return Tipo::Desconhecido;
-                        }
-                        let tipos_obtidos: Vec<Tipo> = argumentos.iter().map(|argumento| self.expressao(argumento)).collect();
+                        let tipos_obtidos: Vec<Tipo> = mapeados.iter().map(|argumento| argumento.map_or(Tipo::Desconhecido, |valor| self.expressao(valor))).collect();
                         let (inferencia_valida, inferidos) =
                             Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, None);
                         if !inferencia_valida {
@@ -1445,9 +1447,12 @@ impl<'a> Analisador<'a> {
                                 self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos."));
                             }
                         }
-                        for (esperado, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+                        for (indice, (esperado, obtido)) in funcao.parametros.iter().zip(&tipos_obtidos).enumerate() {
                             let esperado = Self::substituir_genericos(esperado, &inferidos);
                             self.exigir_tipo(obtido, &esperado, "argumento de função genérica");
+                            if let Some(Some(argumento)) = mapeados.get(indice) {
+                                if !self.tipo_copiavel(obtido) { self.mover_valor(argumento); }
+                            }
                         }
                         return Self::substituir_genericos(&funcao.retorno, &inferidos);
                     }
@@ -1543,15 +1548,73 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn mapear_argumentos_funcao<'b>(&mut self, argumentos: &'b [Expressao], funcao: &Funcao, nome: &str) -> Vec<Option<&'b Expressao>> {
+        let mut mapeados = vec![None; funcao.parametros.len()];
+        let mut proximo_posicional = 0usize;
+        let mut encontrou_nomeado = false;
+        for argumento in argumentos {
+            let (indice, valor) = match argumento {
+                Expressao::ArgumentoNomeado { nome: nome_argumento, valor } => {
+                    encontrou_nomeado = true;
+                    let Some(indice) = funcao.nomes_parametros.iter().position(|parametro| parametro == nome_argumento) else {
+                        self.erro("N3083", format!("A função '{nome}' não possui parâmetro chamado '{nome_argumento}'."));
+                        self.expressao(valor);
+                        continue;
+                    };
+                    (indice, valor.as_ref())
+                }
+                outro => {
+                    if encontrou_nomeado { self.erro("N3082", format!("Argumento posicional não pode aparecer depois de argumento nomeado na chamada de '{nome}'.")); }
+                    while proximo_posicional < mapeados.len() && mapeados[proximo_posicional].is_some() { proximo_posicional += 1; }
+                    if proximo_posicional >= mapeados.len() {
+                        self.erro("N3015", format!("A função '{nome}' recebeu argumentos demais."));
+                        self.expressao(outro);
+                        continue;
+                    }
+                    let indice = proximo_posicional;
+                    proximo_posicional += 1;
+                    (indice, outro)
+                }
+            };
+            if mapeados[indice].is_some() {
+                self.erro("N3084", format!("O parâmetro '{}' foi informado mais de uma vez na chamada de '{nome}'.", funcao.nomes_parametros.get(indice).map_or("?", String::as_str)));
+                self.expressao(valor);
+            } else {
+                mapeados[indice] = Some(valor);
+            }
+        }
+        for indice in 0..mapeados.len() {
+            if mapeados[indice].is_none() && funcao.parametros_padrao.get(indice).is_none_or(Option::is_none) {
+                self.erro("N3015", format!("O parâmetro obrigatório '{}' não foi informado na chamada de '{nome}'.", funcao.nomes_parametros.get(indice).map_or("?", String::as_str)));
+            }
+        }
+        mapeados
+    }
+
+    fn validar_argumentos_funcao(&mut self, argumentos: &[Expressao], funcao: &Funcao, nome: &str) {
+        let mapeados = self.mapear_argumentos_funcao(argumentos, funcao, nome);
+        for (indice, argumento) in mapeados.iter().enumerate() {
+            if let (Some(argumento), Some(esperado)) = (argumento, funcao.parametros.get(indice)) {
+                let obtido = self.expressao(argumento);
+                self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
+                if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
+            }
+        }
+    }
+
     fn validar_argumentos(&mut self, argumentos: &[Expressao], esperados: &[Tipo], nome: &str) {
         if argumentos.len() != esperados.len() {
             self.erro("N3015", format!("A função '{nome}' espera {} argumento(s), mas recebeu {}.", esperados.len(), argumentos.len()));
         }
         for (indice, argumento) in argumentos.iter().enumerate() {
-            let obtido = self.expressao(argumento);
+            let valor = if let Expressao::ArgumentoNomeado { valor, .. } = argumento {
+                self.erro("N3085", format!("A chamada indireta ou importada de '{nome}' não possui nomes de parâmetros para validar argumentos nomeados."));
+                valor.as_ref()
+            } else { argumento };
+            let obtido = self.expressao(valor);
             if let Some(esperado) = esperados.get(indice) {
-                self.exigir_expressao_tipo(argumento, &obtido, esperado, "argumento de função");
-                if !self.tipo_copiavel(&obtido) { self.mover_valor(argumento); }
+                self.exigir_expressao_tipo(valor, &obtido, esperado, "argumento de função");
+                if !self.tipo_copiavel(&obtido) { self.mover_valor(valor); }
             }
         }
     }
