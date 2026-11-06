@@ -3,7 +3,8 @@
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
 use std::fs;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 fn caminhos(rotulo: &str) -> (std::path::PathBuf, std::path::PathBuf) {
     let base = format!("nebula-elf-{rotulo}-{}", std::process::id());
@@ -650,6 +651,46 @@ funcao principal(): inteiro
 fim"#,
     );
     assert_eq!(resultado.status.code(), Some(55));
+}
+
+#[test]
+fn ler_texto_le_stdin_e_remove_quebra_de_linha_e_crlf() {
+    let (origem, executavel) = caminhos("ler-texto-stdin");
+    let codigo = normalizar_blocos_legados(
+        r#"funcao principal(): inteiro
+    variavel entrada = ler_texto("Digite: ")
+    quando entrada == "Nebula"
+        devolver 42
+    fim
+    devolver 1
+fim"#,
+    );
+    fs::write(&origem, codigo).unwrap();
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .unwrap();
+    assert!(
+        compilacao.status.success(),
+        "falha de compilação: {}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let mut processo = Command::new(&executavel)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("executa ELF com stdin");
+    processo.stdin.take().unwrap().write_all(b"Nebula\\r\\n").unwrap();
+    let resultado = processo.wait_with_output().unwrap();
+    assert_eq!(resultado.status.code(), Some(42));
+    assert_eq!(resultado.stdout, b"Digite: ");
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
 }
 
 #[test]
