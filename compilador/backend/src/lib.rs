@@ -3388,12 +3388,12 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_recurso_que_exige_runtime_ainda_nao_implementado() {
+    fn rejeita_exibir_de_tipo_nao_textual_no_backend_nativo() {
         let mut programa = programa_com_retorno(0);
         programa.funcoes.get_mut("principal").unwrap().corpo = vec![
             InstrucaoIr::Expressao(ExpressaoIr::Chamada { nome: "exibir".into(), argumentos: vec![ExpressaoIr::Constante(ValorIr::Inteiro(1))] })
         ];
-        assert!(gerar_executavel(&programa).unwrap_err().contains("runtime"));
+        assert!(gerar_executavel(&programa).unwrap_err().contains("tipo texto"));
     }
 
     #[test]
@@ -3626,7 +3626,7 @@ mod testes {
 
     #[test]
     fn rejeita_tipo_nao_suportado_sem_fingir_implementacao() {
-        assert!(validar_tipo(&Tipo::Texto).is_err());
+        assert!(validar_tipo(&Tipo::Texto).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro64).is_ok());
         assert!(validar_tipo(&Tipo::Inteiro8).is_ok());
