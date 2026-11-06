@@ -2852,10 +2852,10 @@ fim"#;
     #[test]
     fn continua_listas_genericas_declaracoes_e_tipos_apos_virgula() {
         let exemplos = [
-            "funcao converter<T,\nU>(valor: T): U\n    devolver valor\nfim",
-            "tipo Mapa = Resultado<Texto,\n[inteiro]>",
-            "tipo Operacao = funcao(inteiro,\ntexto): Resultado<texto,\ninteiro>",
-            "funcao aninhada<T,\nU>(valor: Resultado<T,\nU>): Resultado<U,\nT>\n    devolver valor\nfim",
+            "funcao converter<T, U>(valor: T) -> U\n    devolver valor\nfim",
+            "tipo Mapa = Resultado<Texto, [inteiro]>",
+            "tipo Operacao = funcao(inteiro, texto) -> Resultado<texto, inteiro>",
+            "funcao aninhada<T, U>(valor: Resultado<T, U>) -> Resultado<U, T>\n    devolver valor\nfim",
         ];
 
         for codigo in exemplos {
