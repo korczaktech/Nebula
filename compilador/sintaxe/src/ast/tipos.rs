@@ -58,16 +58,22 @@ impl TipoAst {
         }
 
         if texto.starts_with('(') && texto.ends_with(')') {
-            let partes = separar_nivel_superior(&texto[1..texto.len() - 1], ',');
-            if partes.len() > 1 {
-                let partes: Vec<_> = partes
-                    .into_iter()
-                    .filter(|parte| !parte.is_empty())
-                    .collect();
-                if partes.len() > 1 {
-                    return Self::Tupla(partes.into_iter().map(Self::analisar).collect());
-                }
+            let interior = &texto[1..texto.len() - 1];
+            if interior.trim().is_empty() {
+                return Self::Tupla(Vec::new());
             }
+            let possui_virgula_final = interior.trim_end().ends_with(',');
+            let partes: Vec<_> = separar_nivel_superior(interior, ',')
+                .into_iter()
+                .filter(|parte| !parte.trim().is_empty())
+                .collect();
+            if partes.len() > 1 || possui_virgula_final {
+                return Self::Tupla(partes.into_iter().map(Self::analisar).collect());
+            }
+            if let Some(unico) = partes.first() {
+                return Self::analisar(unico);
+            }
+            return Self::Desconhecido(texto.to_owned());
         }
 
         if texto.ends_with('>') {
@@ -266,5 +272,28 @@ mod testes {
                 retorno: Box::new(TipoAst::Nome("logico".into()))
             }
         );
+    }
+}
+
+
+#[cfg(test)]
+mod testes {
+    use super::TipoAst;
+
+    #[test]
+    fn analisa_tipos_de_tupla_vazia_unitaria_e_composta() {
+        assert_eq!(TipoAst::analisar("()"), TipoAst::Tupla(Vec::new()));
+        assert_eq!(
+            TipoAst::analisar("(inteiro,)"),
+            TipoAst::Tupla(vec![TipoAst::Nome("inteiro".into())]),
+        );
+        assert_eq!(
+            TipoAst::analisar("(inteiro, texto)"),
+            TipoAst::Tupla(vec![
+                TipoAst::Nome("inteiro".into()),
+                TipoAst::Nome("texto".into()),
+            ]),
+        );
+        assert_eq!(TipoAst::analisar("(inteiro)"), TipoAst::Nome("inteiro".into()));
     }
 }
