@@ -118,7 +118,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "construcao aninhada",
-            "Pessoa { endereco: Endereco { cidade: \"São Paulo\" }, dados: ([1, 2], (3,)) }",
+            "Pessoa { endereco: Endereco { cidade: \"São Paulo\", fim }, dados: ([1, 2], (3,)), fim }",
         ),
         (
             "literais",
@@ -517,7 +517,7 @@ variavel atribuicao = destino = 10
 variavel chamada = executar(1)
 variavel indexacao = itens[0]
 variavel membro = objeto.campo
-variavel construcao = Pessoa { nome: "Ana" }
+variavel construcao = Pessoa { nome: "Ana", fim }
 variavel funcao_lambda = x -> x + 1
 variavel lambda_bloco = x ->:
     devolver x
