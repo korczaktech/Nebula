@@ -2661,7 +2661,7 @@ impl Emissor {
 
         self.codigo.extend_from_slice(&[0xC6, 0x85]);
         self.codigo.extend_from_slice(&nova_linha.to_le_bytes());
-        self.codigo.push(b'\\n');
+        self.codigo.push(b'\n');
         self.emitir_endereco_rbp_rax(nova_linha);
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]);
         self.mov_rdx(1);
