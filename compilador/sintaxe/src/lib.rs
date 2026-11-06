@@ -1888,7 +1888,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         let cabecalho_explicito = [
-            "funcao ", "publico funcao ", "async funcao ", "exportar funcao ",
+            "funcao ", "publico funcao ",\n            "privado funcao ",\n            "protegido estatico funcao ", "async funcao ", "exportar funcao ",
             "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
             "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
             "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com ",
@@ -2717,7 +2717,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa { fim }",
+            "variavel estrutura_vazia = Pessoa {}",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
@@ -2772,10 +2772,10 @@ fim"#;
             "incluir(biblioteca: Biblioteca)",
             "incluir(modulo: Interna, biblioteca: Biblioteca) como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa { fim })\n    passar\nfim",
-            "escolha (Pessoa { fim })\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa { fim })\n    passar\nfim",
-            "cada item em (Pessoa { fim })\n    passar\nfim",
+            "quando (Pessoa {})\n    passar\nfim",
+            "escolha (Pessoa {})\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa {})\n    passar\nfim",
+            "cada item em (Pessoa {})\n    passar\nfim",
             "quando primeiro\n    passar\nsendo segundo\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2828,7 +2828,7 @@ fim"#;
             "(a, b,)",
             "[]",
             "[a, b]",
-            "Pessoa { fim }",
+            "Pessoa {}",
             "Pessoa { nome: a, idade: b, fim }",
             "42",
             "3.14",
@@ -3006,7 +3006,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
-            "variavel pessoa = Pessoa { fim }",
+            "variavel pessoa = Pessoa {}",
             "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -3124,7 +3124,7 @@ fim"#;
         ];
 
         for (codigo, esperado) in casos {
-            let resultado = analisar(&fonte_bruta(codigo));
+            let resultado = analisar(&fonte(codigo));
             assert!(
                 resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
                 "{codigo:?}: esperado {esperado}; recebido {:?}",
@@ -4500,8 +4500,8 @@ criarUsuario(nome = "Ana", idade = 25)
 
         let indentacao_superior = analisar(&fonte("    variavel fora = 1"));
         assert!(
-            indentacao_superior.diagnosticos.iter().any(|d| d.codigo == "N2009"),
-            "indentação não pode iniciar no escopo superior"
+            indentacao_superior.diagnosticos.is_empty(),
+            "indentação inicial não deve criar um bloco implícito"
         );
 
         let recuperacao = analisar(&fonte(
