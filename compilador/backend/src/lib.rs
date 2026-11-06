@@ -46,8 +46,8 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
         }
     }
     emissor.iniciar_programa(programa)?;
-    let (codigo, tamanho_dados) = emissor.finalizar()?;
-    gerar_elf(&codigo, tamanho_dados)
+    let (codigo, dados) = emissor.finalizar()?;
+    gerar_elf(&codigo, &dados)
 }
 
 struct LayoutAgregado {
@@ -73,6 +73,8 @@ struct Emissor {
     retorno_oculto_atual: Option<(i32, u64)>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
     referencias_globais: Vec<(usize, String, i32)>,
+    dados_estaticos: Vec<u8>,
+    referencias_texto: Vec<(usize, usize)>,
     funcao_atual: String,
     erro_salto: Option<String>,
 }
@@ -143,6 +145,8 @@ impl Emissor {
             retorno_oculto_atual: None,
             layouts_tipos: HashMap::new(),
             referencias_globais: Vec::new(),
+            dados_estaticos: Vec::new(),
+            referencias_texto: Vec::new(),
             funcao_atual: String::new(),
             erro_salto: None,
         }
@@ -283,6 +287,7 @@ impl Emissor {
             Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
             Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
             | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
@@ -352,6 +357,9 @@ impl Emissor {
         }
         if tipo_decimal(tipo) {
             return Ok(1);
+        }
+        if *tipo == Tipo::Texto {
+            return Ok(2);
         }
         Ok(1)
     }
@@ -953,10 +961,22 @@ impl Emissor {
                 self.mov_rdx((*valor >> 64) as i64);
             }
             ExpressaoIr::Constante(ValorIr::Decimal(valor)) => self.mov_rax(valor.to_bits() as i64),
+            ExpressaoIr::Constante(ValorIr::Texto(texto)) => {
+                let base_global = self.globais.len().checked_mul(16)
+                    .ok_or("Área de dados globais excedeu o limite do alvo.")?;
+                let deslocamento = base_global.checked_add(self.dados_estaticos.len())
+                    .ok_or("Área de textos estáticos excedeu o limite do alvo.")?;
+                self.dados_estaticos.extend_from_slice(texto.as_bytes());
+                self.codigo.extend_from_slice(&[0x48, 0x8D, 0x05]);
+                let posicao = self.codigo.len();
+                self.codigo.extend_from_slice(&[0; 4]);
+                self.referencias_texto.push((posicao, deslocamento));
+                self.mov_rdx(i64::try_from(texto.len())
+                    .map_err(|_| "Literal de texto excede o limite do alvo.")?);
+            }
             ExpressaoIr::Constante(ValorIr::Logico(valor)) => self.mov_rax(i64::from(*valor)),
             ExpressaoIr::Constante(ValorIr::Caractere(valor)) => self.mov_rax(*valor as i64),
-            ExpressaoIr::Constante(ValorIr::Texto(_)
-                | ValorIr::Lista(_)
+            ExpressaoIr::Constante(ValorIr::Lista(_)
                 | ValorIr::Estrutura { .. }
                 | ValorIr::Intervalo(_, _)
                 | ValorIr::IntervaloSemSinal(_, _)
@@ -1408,7 +1428,17 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
-                if nome == "exibir" || nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
+                if nome == "exibir" {
+                    let [argumento] = argumentos.as_slice() else {
+                        return Err("'exibir' exige exatamente um argumento no backend nativo.".into());
+                    };
+                    if self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto) {
+                        return Err("O backend nativo implementa 'exibir' para valores do tipo texto nesta etapa.".into());
+                    }
+                    self.emitir_exibir_texto(argumento)?;
+                    return Ok(());
+                }
+                if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
                 let retorno_grande = self.retornos_funcoes.get(nome)
@@ -2615,6 +2645,34 @@ impl Emissor {
         Ok(())
     }
 
+    fn emitir_exibir_texto(&mut self, argumento: &ExpressaoIr) -> Result<(), String> {
+        let temporario = self.reservar_agregado(16, 8)?;
+        let nova_linha = self.reservar_agregado(8, 1)?;
+        self.expressao(argumento)?;
+        self.armazenar_rax(temporario);
+        self.armazenar_rdx(temporario - 8);
+
+        self.carregar_rax(temporario);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = ponteiro
+        self.carregar_rdx(temporario - 8);
+        self.mov_rax(1); // SYS_write
+        self.codigo.extend_from_slice(&[0xBF, 1, 0, 0, 0]); // stdout
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
+
+        self.codigo.extend_from_slice(&[0xC6, 0x85]);
+        self.codigo.extend_from_slice(&nova_linha.to_le_bytes());
+        self.codigo.push(b'\\n');
+        self.emitir_endereco_rbp_rax(nova_linha);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]);
+        self.mov_rdx(1);
+        self.mov_rax(1);
+        self.codigo.extend_from_slice(&[0xBF, 1, 0, 0, 0]);
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
+        self.mov_rax(0);
+        self.mov_rdx(0);
+        Ok(())
+    }
+
     fn push_rax(&mut self) {
         self.codigo.push(0x50);
         self.pilha += 1;
@@ -2719,7 +2777,7 @@ impl Emissor {
         self.codigo[posicao..fim_operando].copy_from_slice(&relativo.to_le_bytes());
     }
 
-    fn finalizar(mut self) -> Result<(Vec<u8>, usize), String> {
+    fn finalizar(mut self) -> Result<(Vec<u8>, Vec<u8>), String> {
         if let Some(erro) = self.erro_salto.take() { return Err(erro); }
         for (posicao, nome) in self.chamadas {
             let destino = self.funcoes.get(&nome)
@@ -2751,6 +2809,22 @@ impl Emissor {
         let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
             .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
             .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
+        let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
+            .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
+            .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
+        for (posicao, deslocamento) in self.referencias_texto {
+            let destino = endereco_dados.checked_add(u64::try_from(deslocamento)
+                .map_err(|_| "Deslocamento de texto excedeu o limite ELF64.")?)
+                .ok_or("Endereço de texto excedeu o limite ELF64.")?;
+            let fim_referencia = posicao.checked_add(4)
+                .ok_or("Posição de referência de texto excedeu o limite do alvo.")?;
+            let origem = 0x401000u64.checked_add(u64::try_from(fim_referencia)
+                .map_err(|_| "Posição de referência de texto excedeu o limite ELF64.")?)
+                .ok_or("Endereço da instrução excedeu o limite ELF64.")?;
+            let relativo = calcular_relativo32(i128::from(origem), i128::from(destino))
+                .map_err(|_| "Texto estático fora do alcance RIP-relative x86-64.")?;
+            self.codigo[posicao..fim_referencia].copy_from_slice(&relativo.to_le_bytes());
+        }
         for (posicao, nome, parte) in self.referencias_globais {
             let deslocamento = self.globais.get(&nome)
                 .and_then(|base| base.checked_add(usize::try_from(parte).ok()?))
@@ -2767,9 +2841,10 @@ impl Emissor {
                 .map_err(|_| "Variável global fora do alcance RIP-relative x86-64.")?;
             self.codigo[posicao..posicao + 4].copy_from_slice(&relativo.to_le_bytes());
         }
-        let tamanho_dados = self.globais.len().checked_mul(16)
-            .ok_or("Tamanho dos dados globais excedeu o limite do alvo.")?;
-        Ok((self.codigo, tamanho_dados))
+        let mut dados = vec![0; self.globais.len().checked_mul(16)
+            .ok_or("Tamanho dos dados globais excedeu o limite do alvo.")?];
+        dados.extend_from_slice(&self.dados_estaticos);
+        Ok((self.codigo, dados))
     }
 }
 
@@ -2882,7 +2957,7 @@ fn validar_tipo(tipo: &Tipo) -> Result<(), String> {
         Tipo::Vazio | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro64
         | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro128 | Tipo::InteiroU128
         | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::Byte
-        | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere => Ok(()),
+        | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Texto => Ok(()),
         Tipo::Funcao(parametros, retorno) => {
             for parametro in parametros {
                 if *parametro == Tipo::Vazio {
@@ -2903,7 +2978,8 @@ fn alinhar_pagina(valor: usize) -> Result<usize, String> {
         .map_err(String::from)
 }
 
-fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
+fn gerar_elf(codigo: &[u8], dados_conteudo: &[u8]) -> Result<Vec<u8>, String> {
+    let tamanho_dados = dados_conteudo.len();
     let fim_texto = TAMANHO_CABECALHO.checked_add(codigo.len())
         .ok_or("Tamanho do segmento de código excedeu o limite do alvo.")?;
     let deslocamento_dados = alinhar_pagina(fim_texto)?;
@@ -2959,6 +3035,10 @@ fn gerar_elf(codigo: &[u8], tamanho_dados: usize) -> Result<Vec<u8>, String> {
     elf[pilha + 48..pilha + 56].copy_from_slice(&16u64.to_le_bytes());
 
     elf[TAMANHO_CABECALHO..fim_texto].copy_from_slice(codigo);
+    if tamanho_dados > 0 {
+        elf[deslocamento_dados..deslocamento_dados + tamanho_dados]
+            .copy_from_slice(dados_conteudo);
+    }
     Ok(elf)
 }
 
