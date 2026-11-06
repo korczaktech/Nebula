@@ -37,8 +37,9 @@ Texto é UTF-8; comprimento e indexação por caractere contam escalares Unicode
 ## 3. Tipos compostos e algébricos
 
 - **Lista `[T]`:** sequência homogênea. `Vetor<T>` é alias de `[T]`; `Matriz<T>` é alias de `[[T]]`. Lista vazia exige tipo contextual.
-- **Tupla `(T1, T2, ...)`:** agregado posicional heterogêneo. `()` é a tupla vazia e `(valor,)` é tupla unitária. `Tupla<T1, T2, ...>` é a grafia de tipo equivalente.
-- **Estrutura:** tipo nominal com campos nomeados. Campos duplicados, ausentes, desconhecidos ou incompatíveis são rejeitados. A construção usa `Nome { campo: valor, fim }`.
+- **Tupla `(T1, T2, ...)`:** agregado posicional heterogêneo. `()` é a tupla vazia, `(T,)` é tupla unitária e `(T1, T2)` é composta. Parênteses sem vírgula apenas agrupam um tipo. `Tupla<T1, T2, ...>` também é aceita para tuplas não vazias.
+- **Estrutura:** tipo nominal definido pelo usuário, com campos nomeados. Campos duplicados, ausentes, desconhecidos ou incompatíveis são rejeitados. A construção usa `Nome { campo: valor, fim }`.
+- **Alias:** `tipo Nome = Tipo` cria um nome transparente para o destino; ciclos e destinos desconhecidos são rejeitados, sem alterar identidade, layout ou ABI.
 - **Enumeração:** união discriminada nominal, com variantes e payload posicional de zero ou mais valores. A correspondência é exaustiva; variantes inválidas, repetidas, payloads com aridade errada e escolhas incompletas são rejeitados.
 - **Opcional:** `Opcional<T>`, com `Opcional::Algum(valor)` e `Opcional::Nenhum`.
 - **Resultado:** `Resultado<T, E>`, com `Resultado::Sucesso(valor)` e `Resultado::Falha(erro)`.
