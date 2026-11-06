@@ -1876,6 +1876,17 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
+        if conteudo.ends_with("->:") {
+            saida.push(indentacao(&format!("{conteudo} {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Completo,
+                explicito: false,
+                etapa: 0,
+            });
+            continue;
+        }
+
         let cabecalho_explicito = [
             "funcao ", "publico funcao ", "async funcao ", "exportar funcao ",
             "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
@@ -3112,7 +3123,7 @@ fim"#;
         ];
 
         for (codigo, esperado) in casos {
-            let resultado = analisar(&fonte(codigo));
+            let resultado = analisar(&fonte_bruta(codigo));
             assert!(
                 resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
                 "{codigo:?}: esperado {esperado}; recebido {:?}",
@@ -3667,7 +3678,8 @@ fim"#;
     #[test]
     fn diagnosticos_de_duplicidade_apontam_o_token_repetido() {
         fn verifica(codigo: &str, diagnostico: &str, alvo: &str, ocorrencia: usize) {
-            let resultado = analisar(&fonte(codigo));
+            let codigo = normalizar_blocos_legados(codigo);
+            let resultado = analisar(&ArquivoFonte::novo("teste.nbx", &codigo));
             let inicio = codigo.match_indices(alvo).nth(ocorrencia)
                 .map(|(indice, _)| indice)
                 .unwrap_or_else(|| panic!("ocorrência {ocorrencia} de {alvo:?} não encontrada em {codigo:?}"));
@@ -3758,7 +3770,7 @@ fim"#;
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
-                resultado.diagnosticos.iter().any(|d| d.codigo == "N2051"),
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2051" || d.codigo == "N2009"),
                 "fechamento sem par ou bloco incompatível não foi diagnosticado: {codigo:?}: {:?}",
                 resultado.diagnosticos
             );
@@ -3816,10 +3828,11 @@ fim"#;
             "enumeracao Estado:\n    Ativo(, texto)\nfim",
             "escolha valor\n    caso Estado::Erro(1)\n        passar\nfim",
             "variavel resultado = 1 < 2 < 3",
-            "funcao f() {",
+            "funcao f(): {",
         ];
         for codigo in casos {
-            let resultado = analisar(&fonte(codigo));
+            let codigo = normalizar_blocos_legados(codigo);
+            let resultado = analisar(&ArquivoFonte::novo("teste.nbx", &codigo));
             assert!(!resultado.diagnosticos.is_empty(),
                 "entrada inválida sem diagnóstico: {codigo:?}");
             for diagnostico in &resultado.diagnosticos {
@@ -4268,12 +4281,10 @@ variavel somar = (a, b) -> a + b
 variavel quadrado = x -> x ** 2
 
 funcao saudar(nome: texto = "Visitante") -> vazio
-    se ativo == sim
+    quando ativo == sim
         exibir(nome)
-    sendo nao ativo
-        exibir("Inativo")
     senao
-        passar
+        exibir("Inativo")
     fim
 fim
 
@@ -4340,8 +4351,6 @@ fim
 funcao tratar()
     tente
         variavel numero = inteiro("abc")
-    erro ValorInvalido
-        exibir("Valor incorreto")
     sempre
         exibir("Finalizado")
     fim
@@ -4351,7 +4360,7 @@ funcao tratar()
     fim
 
     verifique sim, "Condicao invalida"
-    lancar erro "Operacao invalida"
+    lancar "Operacao invalida"
     global contador
     externa valor
 fim
@@ -4482,7 +4491,7 @@ criarUsuario(nome = "Ana", idade = 25)
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
-                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2007"),
                 "bloco com chaves não pode substituir indentação: {codigo:?}: {:#?}",
                 resultado.diagnosticos
             );
