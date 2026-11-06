@@ -61,7 +61,8 @@ Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u1
 - Escapes reconhecidos:
 
 ~~~text
-\\   \"   \'   \n   \r   \t   \0   \u{...}
+\\   \"   \'   
+   \r   \t   \0   \u{...}
 ~~~
 
 - O escape Unicode contém um ou mais dígitos hexadecimais e deve representar um valor escalar Unicode válido.
@@ -80,7 +81,13 @@ Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u1
 
 `(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM_BLOCO` e `EOF`.
 
-## 8. Function Body e importações\n\nO Lexer reconhece a palavra reservada `async` como token próprio; `assinc` não é palavra reservada e é classificada como identificador. A estrutura `incluir(modulo: ..., biblioteca: ...)` é formada lexicalmente pelos tokens `INCLUIR`, `ABRE_PAR`, `MODULO`, `DOIS_PONTOS`, identificadores, `VIRGULA`, `BIBLIOTECA`, `DOIS_PONTOS` e `FECHA_PAR`.\n\nA abertura e o fechamento visual de Function Body são emitidos como `ABRE_CHAVE` e `FECHA_CHAVE`; a palavra `fim` é emitida como `FIM_BLOCO`. O Lexer preserva esses elementos e suas localizações, mas a exigência de um `fim` por corpo, sua posição antes de `}` e a validade das construções pertencem à validação sintática do Parser.\n\n## 9. Operadores
+## 8. Function Body e importações
+
+O Lexer reconhece a palavra reservada `async` como token próprio; `assinc` não é palavra reservada e é classificada como identificador. A estrutura `incluir(modulo: ..., biblioteca: ...)` é formada lexicalmente pelos tokens `INCLUIR`, `ABRE_PAR`, `MODULO`, `DOIS_PONTOS`, identificadores, `VIRGULA`, `BIBLIOTECA`, `DOIS_PONTOS` e `FECHA_PAR`.
+
+A abertura `: {` e o fechamento `}` de Function Body são preservados como tokens distintos; a palavra `fim` é emitida como `FIM_BLOCO`. O Lexer preserva esses elementos e suas localizações. O Parser exige `fim` antes de `}` e o `fim` externo quando a construção completa assim determinar.
+
+## 9. Operadores
 
 A implementação reconhece operadores de atribuição, aritméticos, relacionais, igualdade, lógicos, bit a bit, deslocamento, acesso e operadores opcionais. Entre as grafias reconhecidas estão:
 
