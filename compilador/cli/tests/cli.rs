@@ -667,3 +667,136 @@ fn comando_ir_exibe_representacao_intermediaria() {
     );
     assert!(String::from_utf8_lossy(&saida.stdout).contains("ProgramaIr"));
 }
+
+
+#[test]
+fn matriz_primitivos_e_aceita_pela_analise_semantica() {
+    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/tipos/matriz-primitivos.nbx");
+    let saida = executar(&["analisar", caminho.to_str().expect("caminho UTF-8")]);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert!(String::from_utf8_lossy(&saida.stdout).contains("válido semanticamente"));
+}
+
+#[test]
+fn tipos_primitivos_sao_tipados_e_executados_no_interpretador() {
+    let caminho = std::env::temp_dir().join(format!("nebula-primitivos-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        r#"funcao sem_retorno() -> vazio: {
+    exibir("ok")
+    fim
+} fim
+funcao principal() -> inteiro: {
+    variavel logico: logico = verdadeiro
+    variavel i8: inteiro8 = 127
+    variavel i16: inteiro16 = 32767
+    variavel i32: inteiro32 = 2147483647
+    variavel i64: inteiro64 = 9223372036854775807
+    variavel i128: inteiro128 = 170141183460469231731687303715884105727
+    variavel u8: inteiro_u8 = 255
+    variavel u16: inteiro_u16 = 65535
+    variavel u32: inteiro_u32 = 4294967295
+    variavel u64: inteiro_u64 = 18446744073709551615
+    variavel u128: inteiro_u128 = 340282366920938463463374607431768211455
+    variavel d32: decimal32 = decimal32(1.25)
+    variavel d64: decimal64 = 2.5
+    variavel octeto: byte = byte(255)
+    variavel letra: caractere = 'λ'
+    variavel nome: texto = "Nebula"
+    sem_retorno()
+    quando logico e i8 == 127 e i16 == 32767 e i32 == 2147483647 e i64 > 0 e i128 > 0 e u8 == 255 e u16 == 65535 e u32 > 0 e u64 > 0 e u128 > 0 e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
+        devolver 42
+        fim
+    } fim
+    devolver 1
+    fim
+} fim
+"#,
+    ).expect("grava fonte");
+    let saida = executar(&["executar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "ok");
+}
+
+#[test]
+fn tipos_compostos_e_algebricos_sao_construidos_no_interpretador() {
+    let caminho = std::env::temp_dir().join(format!("nebula-compostos-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        r#"estrutura Pessoa: {
+    nome: texto
+    idade: inteiro
+    fim
+} fim
+enumeracao Estado: {
+    Ativo
+    Falha(texto)
+    fim
+} fim
+funcao principal() -> inteiro: {
+    variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 20, fim }
+    variavel par: Tupla<inteiro, texto> = (pessoa.idade, "Nebula")
+    variavel vetor: Vetor<inteiro> = [1, 2, 3]
+    variavel matriz: Matriz<inteiro> = [[4, 5], [6, 7]]
+    variavel opcional: Opcional<inteiro> = Opcional::Algum(8)
+    variavel resultado: Resultado<inteiro, texto> = Resultado::Sucesso(9)
+    variavel estado: Estado = Estado::Falha("erro")
+    escolha opcional: {
+        caso Opcional::Algum(valor): {
+            escolha resultado: {
+                caso Resultado::Sucesso(sucesso): {
+                    escolha estado: {
+                        caso Estado::Ativo: {
+                            devolver 1
+                            fim
+                        }
+                        caso Estado::Falha(mensagem): {
+                            quando mensagem == "erro": {
+                                devolver pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso
+                                fim
+                            } fim
+                            devolver 2
+                            fim
+                        }
+                        fim
+                    } fim
+                    fim
+                }
+                caso Resultado::Falha(erro): {
+                    devolver 3
+                    fim
+                }
+                fim
+            } fim
+            fim
+        }
+        caso Opcional::Nenhum: {
+            devolver 4
+            fim
+        }
+        fim
+    } fim
+    devolver 5
+    fim
+} fim
+"#,
+    ).expect("grava fonte");
+    let saida = executar(&["executar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "42");
+}
