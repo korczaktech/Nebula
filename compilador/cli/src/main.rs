@@ -554,32 +554,129 @@ fn resolver_arquivo_modulo(origem: &Path, caminho: &str) -> Result<PathBuf, Stri
     Ok(arquivo_canonico)
 }
 
-fn tipo_assinatura_modulo(nome: &str) -> Option<Tipo> {
-    Some(match nome {
-        "vazio" => Tipo::Vazio,
-        "logico" => Tipo::Logico,
-        "inteiro" => Tipo::Inteiro,
-        "inteiro8" => Tipo::Inteiro8,
-        "inteiro16" => Tipo::Inteiro16,
-        "inteiro32" => Tipo::Inteiro32,
-        "inteiro64" => Tipo::Inteiro64,
-        "inteiro128" => Tipo::Inteiro128,
-        "inteiro_u8" => Tipo::InteiroU8,
-        "inteiro_u16" => Tipo::InteiroU16,
-        "inteiro_u32" => Tipo::InteiroU32,
-        "inteiro_u64" => Tipo::InteiroU64,
-        "inteiro_u128" => Tipo::InteiroU128,
-        "decimal" => Tipo::Decimal,
-        "decimal32" => Tipo::Decimal32,
-        "decimal64" => Tipo::Decimal64,
-        "texto" => Tipo::Texto,
-        "caractere" => Tipo::Caractere,
-        "byte" => Tipo::Byte,
-        lista if lista.starts_with('[') && lista.ends_with(']') => Tipo::Lista(Box::new(
-            tipo_assinatura_modulo(&lista[1..lista.len() - 1])?,
-        )),
-        _ => return None,
-    })
+fn declaracao_base(item: &NoAst) -> &NoAst {
+    match item {
+        NoAst::Atributada { declaracao, .. } => declaracao_base(declaracao),
+        outro => outro,
+    }
+}
+
+fn separar_argumentos_tipo(texto: &str) -> Option<Vec<&str>> {
+    let mut argumentos = Vec::new();
+    let mut inicio = 0usize;
+    let mut profundidade = 0i32;
+    for (indice, caractere) in texto.char_indices() {
+        match caractere {
+            '<' | '(' | '[' => profundidade += 1,
+            '>' | ')' | ']' => profundidade -= 1,
+            ',' if profundidade == 0 => {
+                let argumento = texto[inicio..indice].trim();
+                if argumento.is_empty() { return None; }
+                argumentos.push(argumento);
+                inicio = indice + caractere.len_utf8();
+            }
+            _ => {}
+        }
+        if profundidade < 0 { return None; }
+    }
+    if profundidade != 0 { return None; }
+    let ultimo = texto[inicio..].trim();
+    if !ultimo.is_empty() { argumentos.push(ultimo); }
+    Some(argumentos)
+}
+
+fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
+    let nome = nome.trim();
+    if genericos.iter().any(|generico| generico == nome) {
+        return Some(Tipo::Parametro(nome.to_owned()));
+    }
+    let primitivo = match nome {
+        "vazio" => Some(Tipo::Vazio),
+        "logico" => Some(Tipo::Logico),
+        "inteiro" => Some(Tipo::Inteiro),
+        "inteiro8" | "i8" => Some(Tipo::Inteiro8),
+        "inteiro16" | "i16" => Some(Tipo::Inteiro16),
+        "inteiro32" | "i32" => Some(Tipo::Inteiro32),
+        "inteiro64" | "i64" => Some(Tipo::Inteiro64),
+        "inteiro128" | "i128" => Some(Tipo::Inteiro128),
+        "inteiro_u8" | "u8" => Some(Tipo::InteiroU8),
+        "inteiro_u16" | "u16" => Some(Tipo::InteiroU16),
+        "inteiro_u32" | "u32" => Some(Tipo::InteiroU32),
+        "inteiro_u64" | "u64" => Some(Tipo::InteiroU64),
+        "inteiro_u128" | "u128" => Some(Tipo::InteiroU128),
+        "decimal" => Some(Tipo::Decimal),
+        "decimal32" | "f32" => Some(Tipo::Decimal32),
+        "decimal64" | "f64" => Some(Tipo::Decimal64),
+        "texto" => Some(Tipo::Texto),
+        "caractere" => Some(Tipo::Caractere),
+        "byte" => Some(Tipo::Byte),
+        _ => None,
+    };
+    if primitivo.is_some() { return primitivo; }
+
+    if nome.starts_with('[') && nome.ends_with(']') {
+        return Some(Tipo::Lista(Box::new(tipo_assinatura_modulo(&nome[1..nome.len() - 1], genericos)?)));
+    }
+    for (prefixo, construtor) in [
+        ("Lista", 0u8), ("lista", 0u8), ("Opcional", 1u8), ("opcional", 1u8),
+        ("Intervalo", 2u8), ("intervalo", 2u8),
+    ] {
+        if let Some(conteudo) = nome.strip_prefix(&format!("{prefixo}<")).and_then(|v| v.strip_suffix('>')) {
+            let partes = separar_argumentos_tipo(conteudo)?;
+            if partes.len() != 1 { return None; }
+            let interno = Box::new(tipo_assinatura_modulo(partes[0], genericos)?);
+            return Some(match construtor {
+                0 => Tipo::Lista(interno),
+                1 => Tipo::Opcional(interno),
+                _ => Tipo::Intervalo(interno),
+            });
+        }
+    }
+    for prefixo in ["Resultado<", "resultado<"] {
+        if let Some(conteudo) = nome.strip_prefix(prefixo).and_then(|v| v.strip_suffix('>')) {
+            let partes = separar_argumentos_tipo(conteudo)?;
+            if partes.len() != 2 { return None; }
+            return Some(Tipo::Resultado(
+                Box::new(tipo_assinatura_modulo(partes[0], genericos)?),
+                Box::new(tipo_assinatura_modulo(partes[1], genericos)?),
+            ));
+        }
+    }
+    for prefixo in ["Tupla<", "tupla<"] {
+        if let Some(conteudo) = nome.strip_prefix(prefixo).and_then(|v| v.strip_suffix('>')) {
+            let partes = separar_argumentos_tipo(conteudo)?;
+            if partes.len() < 2 { return None; }
+            return Some(Tipo::Tupla(partes.iter().map(|parte| tipo_assinatura_modulo(parte, genericos)).collect::<Option<Vec<_>>>()?));
+        }
+    }
+    if let Some(resto) = nome.strip_prefix("funcao(") {
+        let mut profundidade = 1i32;
+        let mut fechamento = None;
+        for (indice, caractere) in resto.char_indices() {
+            match caractere {
+                '(' => profundidade += 1,
+                ')' => {
+                    profundidade -= 1;
+                    if profundidade == 0 { fechamento = Some(indice); break; }
+                }
+                _ => {}
+            }
+        }
+        let fechamento = fechamento?;
+        let parametros_texto = &resto[..fechamento];
+        let retorno_texto = resto[fechamento + 1..].trim()
+            .strip_prefix("->")?.trim();
+        let parametros = if parametros_texto.trim().is_empty() {
+            Vec::new()
+        } else {
+            separar_argumentos_tipo(parametros_texto)?
+                .iter()
+                .map(|tipo| tipo_assinatura_modulo(tipo, genericos))
+                .collect::<Option<Vec<_>>>()?
+        };
+        return Some(Tipo::Funcao(parametros, Box::new(tipo_assinatura_modulo(retorno_texto, genericos)?)));
+    }
+    None
 }
 
 #[rustfmt::skip]
@@ -593,7 +690,7 @@ fn carregar_modulos(
     let mut cache = std::collections::HashMap::new();
     let mut ativos = HashSet::new();
     for item in &programa.itens {
-        let NoAst::Incluir { caminho, .. } = item else {
+        let NoAst::Incluir { caminho, .. } = declaracao_base(item) else {
             continue;
         };
         let exportadas = carregar_modulo_recursivo(
@@ -657,7 +754,7 @@ fn carregar_modulo_recursivo(
             ));
         }
         if sintaxe.programa.itens.iter().any(|item| {
-            !matches!(item, NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. })
+            !matches!(declaracao_base(item), NoAst::Funcao { .. } | NoAst::Tipo { .. } | NoAst::Estrutura { .. } | NoAst::Enumeracao { .. } | NoAst::Incluir { .. })
         }) {
             return Err(format!(
                 "O módulo '{identificador}' contém inicializadores globais; módulos importados devem conter funções, aliases, estruturas, enumerações e imports."
@@ -670,7 +767,7 @@ fn carregar_modulo_recursivo(
             let NoAst::Incluir {
                 caminho: caminho_filho,
                 ..
-            } = item
+            } = declaracao_base(item)
             else {
                 continue;
             };
@@ -693,27 +790,32 @@ fn carregar_modulo_recursivo(
             if let NoAst::Funcao {
                 visibilidade: Some(Visibilidade::Publico),
                 nome,
+                genericos,
                 parametros,
+                parametros_padrao,
                 retorno,
                 ..
-            } = item
+            } = declaracao_base(item)
             {
                 let parametros = parametros
                     .iter()
                     .map(|(_, tipo)| {
-                        tipo_assinatura_modulo(tipo).ok_or_else(|| {
+                        tipo_assinatura_modulo(tipo, genericos).ok_or_else(|| {
                             format!("Tipo '{tipo}' não suportado na assinatura pública '{identificador}::{nome}'.")
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 let retorno_nome = retorno.as_deref().unwrap_or("vazio");
-                let retorno = tipo_assinatura_modulo(retorno_nome).ok_or_else(|| {
+                let retorno = tipo_assinatura_modulo(retorno_nome, genericos).ok_or_else(|| {
                     format!("Tipo de retorno '{retorno_nome}' não suportado em '{identificador}::{nome}'.")
                 })?;
                 exportadas.insert(
                     nome.clone(),
                     AssinaturaFuncao {
+                        genericos: genericos.clone(),
                         parametros,
+                        nomes_parametros: parametros.iter().map(|_| String::new()).collect(),
+                        parametros_padrao: parametros_padrao.iter().map(Option::is_some).collect(),
                         retorno,
                     },
                 );
