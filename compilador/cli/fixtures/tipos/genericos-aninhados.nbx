@@ -1,18 +1,26 @@
-funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>
+funcao envolver<T>(valor: T) -> Resultado<Opcional<T>, texto>: {
     devolver Resultado::Sucesso(Opcional::Algum(valor))
+    fim
+}
 fim
 
-funcao aplicar<T>(valor: T, operacao: funcao(T): Opcional<T>): Resultado<Opcional<T>, texto>
+funcao aplicar<T>(valor: T, operacao: funcao(T) -> Opcional<T>) -> Resultado<Opcional<T>, texto>: {
     devolver Resultado::Sucesso(operacao(valor))
+    fim
+}
 fim
 
-funcao opcional_inteiro(valor: inteiro): Opcional<inteiro>
+funcao opcional_inteiro(valor: inteiro) -> Opcional<inteiro>: {
     devolver Opcional::Algum(valor)
+    fim
+}
 fim
 
 variavel simples: Resultado<Opcional<inteiro>, texto> = envolver(42)
 variavel com_funcao: Resultado<Opcional<inteiro>, texto> = aplicar(42, opcional_inteiro)
-funcao opcionalVazio<T>(): Opcional<T>
+funcao opcionalVazio<T>() -> Opcional<T>: {
     devolver Opcional::Nenhum()
+    fim
+}
 fim
 variavel inferido_pelo_retorno: Opcional<texto> = opcionalVazio()
