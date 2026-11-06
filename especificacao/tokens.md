@@ -13,20 +13,16 @@
 ## 2. Espaços, quebras e indentação
 
 - Espaço ASCII (U+0020) e tabulação horizontal (U+0009) são ignorados entre tokens.
-- Código normativo DEVE usar espaços para indentação. Tabulações na indentação geram diagnóstico `N1012`; não são estilo válido.
+- Código normativo DEVE usar espaços para indentação. Tabulações em posições de indentação geram diagnóstico `N1012`.
 - A quebra de linha é preservada como token `NOVA_LINHA`, exceto quando suprimida pelas regras de agrupamento.
 - Dentro de parênteses `()` e colchetes `[]`, a quebra física funciona como espaço e não separa instruções.
-- Dentro de chaves `{}`, quebras de linha continuam podendo separar itens, mas a indentação é suprimida enquanto a chave estiver aberta.
-- Fora de delimitadores, o Lexer emite `INDENT` quando uma linha começa em coluna maior que a anterior e `DEDENT` para cada nível encerrado.
-- O nível-base é a coluna zero. Uma primeira linha de código indentada gera nível estrutural e deve ser rejeitada pelo Parser no escopo do arquivo.
-- Linhas vazias e linhas contendo apenas comentários não alteram a pilha de indentação.
-- Uma dedentação deve corresponder a uma coluna previamente aberta. Caso contrário, o Lexer emite `N1013`.
-- No fim do arquivo, todos os níveis restantes são fechados por tokens `DEDENT`, seguidos de `FIM`.
-- A pilha de indentação é lexical: `INDENT` e `DEDENT` delimitam a extensão física dos corpos, enquanto a palavra-chave `fim` encerra explicitamente a construção no Parser.
-- Uma linha de continuação de expressão não inicia um bloco. A continuação é determinada por delimitadores e operadores pendentes, conforme `gramatica.md`.
-- Comentários de linha terminam antes da quebra; a própria quebra continua disponível como separador.
-
-A regra sintática completa para blocos obrigatoriamente indentados, dedentação e `fim` está em `gramatica.md`.
+- Dentro de chaves, quebras de linha continuam disponíveis como separadores; a indentação não cria blocos sintáticos.
+- `INDENT` e `DEDENT` não delimitam Function Body. A abertura e o fechamento sintáticos são `: {`, `fim` e `}`.
+- Linhas vazias e linhas contendo apenas comentários não alteram o estado de indentação.
+- Uma dedentação fora de delimitadores deve corresponder a uma coluna previamente aberta; caso contrário, o Lexer emite `N1013`.
+- No fim do arquivo, níveis lexicais restantes são encerrados antes de `EOF`.
+- A indentação é obrigatória como organização visual e deve ser consistente, mas nunca substitui o encerramento explícito do bloco.
+- A forma antiga sem `: {` é rejeitada pelo Parser.
 
 ## 3. Identificadores e palavras reservadas
 
@@ -82,7 +78,7 @@ Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u1
 
 ## 7. Pontuação e delimitadores
 
-`(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM`.
+`(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM_BLOCO` e `EOF`.
 
 ## 8. Function Body e importações\n\nO Lexer reconhece a palavra reservada `async` como token próprio; `assinc` não é palavra reservada e é classificada como identificador. A estrutura `incluir(modulo: ..., biblioteca: ...)` é formada lexicalmente pelos tokens `INCLUIR`, `ABRE_PAR`, `MODULO`, `DOIS_PONTOS`, identificadores, `VIRGULA`, `BIBLIOTECA`, `DOIS_PONTOS` e `FECHA_PAR`.\n\nA abertura e o fechamento visual de Function Body são emitidos como `ABRE_CHAVE` e `FECHA_CHAVE`; a palavra `fim` é emitida como `FIM_BLOCO`. O Lexer preserva esses elementos e suas localizações, mas a exigência de um `fim` por corpo, sua posição antes de `}` e a validade das construções pertencem à validação sintática do Parser.\n\n## 9. Operadores
 
