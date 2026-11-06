@@ -1962,16 +1962,17 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             }
         }
 
-        if conteudo.starts_with("senao") {
+        if conteudo.starts_with("senao") || conteudo.starts_with("sempre") || conteudo.starts_with("erro ") {
             if let Some(bloco) = blocos.last() {
-                if !bloco.explicito && bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
+                if !bloco.explicito && bloco.indentacao == nivel {
+                    let tipo = bloco.tipo;
                     saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
-                    saida.push(indentacao("senao: {", nivel));
+                    saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
                     blocos.pop();
                     blocos.push(Bloco {
                         indentacao: nivel,
-                        tipo: TipoBloco::Condicional,
+                        tipo,
                         explicito: false,
                         etapa: 0,
                     });
@@ -3891,7 +3892,7 @@ fim"#;
             ("N2006", "tipo A inteiro"),
             ("N2007", "funcao f() exibir(1)"),
             ("N2008", "variavel a ="),
-            ("N2009", "funcao f() {"),
+            ("N2009", "funcao f(): {"),
             ("N2010", "variavel = 1"),
             ("N2011", "variavel tentar = 1"),
             ("N2012", "variavel a = 1 < 2 < 3"),
@@ -4537,7 +4538,7 @@ criarUsuario(nome = "Ana", idade = 25)
             ("estrutura Pessoa: nome: texto fim", "N2030"),
             ("enumeracao Estado:\nPronto\nfim", "N2033"),
         ] {
-            let resultado = analisar(&fonte(codigo));
+            let resultado = analisar(&fonte_bruta(codigo));
             assert!(
                 resultado.diagnosticos.iter().any(|d| d.codigo == esperado),
                 "a declaração precisa exigir ':' seguido de indentação: {codigo:?}; {:#?}",
