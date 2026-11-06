@@ -2199,30 +2199,46 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"estrutura Medidas:
+            r#"estrutura Medidas: {
     curta: decimal32
     longa: decimal64
+    fim
+}
 fim
-enumeracao Evento:
+enumeracao Evento: {
     Vazio
     Medida(decimal64)
+    fim
+}
 fim
-funcao identidade(valor: Medidas): Medidas
+funcao identidade(valor: Medidas) -> Medidas: {
     devolver valor
+    fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel entrada = Medidas { curta: 1.25, longa: 42.5, fim }
     variavel retorno = identidade(entrada)
     variavel evento = Evento::Medida(42.5)
-    escolha evento
-        caso Evento::Medida(valor)
-            quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5)
+    escolha evento: {
+        caso Evento::Medida(valor): {
+            quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5): {
                 devolver 42
+                fim
+            }
             fim
-        caso Evento::Vazio
+            fim
+        }
+        caso Evento::Vazio: {
             passar
+            fim
+        }
+        fim
+    }
     fim
     devolver 0
+    fim
+}
 fim"#,
         )
         .unwrap();
