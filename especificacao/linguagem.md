@@ -16,9 +16,9 @@
 
 As palavras **DEVE**, **NÃO DEVE**, **PODE** e **RECOMENDA-SE** indicam requisito, proibição, opção e recomendação.
 
-1. Blocos de instrução DEVEM usar indentação explícita e terminar com `fim`.
-2. Chaves NÃO DEVEM substituir blocos de instrução.
-3. Chaves continuam válidas para construções de dados, como valores de estruturas.
+1. Todo corpo executável ou estrutural DEVE usar Function Body iniciado por `: {`.
+2. O conteúdo DEVE terminar com `fim` antes de `}`; construções completas também recebem `fim` após a chave.
+3. Chaves de dados são distintas de Function Body; dicionários em declarações comuns não exigem `fim`.
 4. Uma quebra de linha separa instruções quando a expressão anterior está completa.
 5. Ponto e vírgula também pode separar instruções explicitamente.
 6. Construções ambíguas devem ser rejeitadas, nunca resolvidas por adivinhação.
@@ -31,31 +31,35 @@ As palavras **DEVE**, **NÃO DEVE**, **PODE** e **RECOMENDA-SE** indicam requisi
 
 - Parênteses `()` agrupam expressões, parâmetros e argumentos.
 - Colchetes `[]` delimitam listas, tipos de lista e indexação.
-- Chaves `{}` delimitam construções de dados, como valores de estruturas; não delimitam corpos de instruções.
+- Chaves `{}` delimitam Function Body quando precedidas por `:` e também delimitam valores de dados no contexto de expressões.
 - Aspas duplas delimitam textos; aspas simples delimitam caracteres.
 - Ponto e vírgula `;` é separador explícito opcional entre instruções, exceto onde a gramática define separadores próprios.
 - Quebras de linha separam instruções quando a expressão anterior está completa.
-- Espaços e indentação dentro de um mesmo nível são livres, mas a indentação entre linhas define a extensão dos blocos.
-- Cada bloco de instrução começa após quebra de linha e aumento de indentação.
-- O corpo de cada bloco termina com dedentação e a palavra-chave `fim`.
-- Blocos aninhados terminam do mais interno para o mais externo.
+- A indentação deve ser consistente e usa espaços, mas não determina a extensão dos blocos.
+- Cada Function Body começa com `: {`.
+- O conteúdo de cada corpo termina com `fim` antes de `}`; construções completas recebem o `fim` externo após a chave.
+- Blocos aninhados encerram seus próprios conteúdos antes dos respectivos `}`.
 
 Exemplo normativo:
 
 ~~~nebula
-funcao principal() -> vazio
+funcao principal() -> vazio: {
     variavel nome = "Nebula"
     variavel idade = 18
 
-    quando idade >= 18
+    quando idade >= 18: {
         exibir("Olá, " + nome)
-    senao
+        fim
+    }
+    senao: {
         exibir("Olá")
+        fim
+    }
     fim
-fim
+} fim
 ~~~
 
-A gramática detalhada, as regras de dedentação e as construções aceitas estão em `gramatica.md`; os tokens e a geração lexical de `INDENT`/`DEDENT` estão em `tokens.md`.
+A gramática detalhada e as regras de Function Body estão em `gramatica.md`; os tokens e a geração lexical estão em `tokens.md`.
 
 ## 4. Identificadores e palavras reservadas
 
@@ -88,7 +92,7 @@ Metas de desempenho só podem ser anunciadas com benchmarks reproduzíveis e com
 
 ## 9. Módulos
 
-A forma inicial de inclusão é `incluir caminho`, com caminho qualificado e aliases opcionais conforme `gramatica.md`. Resolução de pacotes, visibilidade completa e ciclos dependem das etapas semânticas e de carregamento.
+A forma canônica de inclusão é `incluir(biblioteca: nome)` ou `incluir(modulo: nome, biblioteca: nome)`, com alias opcional `como`, conforme `gramatica.md`. Resolução de pacotes, visibilidade completa e ciclos dependem das etapas semânticas e de carregamento.
 
 ## 10. Diagnósticos
 
