@@ -21,7 +21,10 @@ pub enum Tipo {
 /// Assinatura pública de função disponibilizada por um módulo importado.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssinaturaFuncao {
+    pub genericos: Vec<String>,
     pub parametros: Vec<Tipo>,
+    pub nomes_parametros: Vec<String>,
+    pub parametros_padrao: Vec<bool>,
     pub retorno: Tipo,
 }
 
@@ -1502,9 +1505,17 @@ impl<'a> Analisador<'a> {
                     if let Expressao::Nome(alias) = modulo_expr.as_ref() {
                         if let Some(caminho) = self.modulos_importados.get(alias) {
                             let chave = if self.modulos.contains_key(caminho) { caminho.clone() } else { caminho.replace("::", ".") };
-                            if let Some(funcao) = self.modulos.get(&chave).and_then(|m| m.get(nome)).cloned() {
-                                self.validar_argumentos(argumentos, &funcao.parametros, nome);
-                                return funcao.retorno;
+                            if let Some(assinatura) = self.modulos.get(&chave).and_then(|m| m.get(nome)).cloned() {
+                                let funcao = Funcao {
+                                    genericos: assinatura.genericos,
+                                    parametros: assinatura.parametros,
+                                    nomes_parametros: assinatura.nomes_parametros,
+                                    parametros_padrao: assinatura.parametros_padrao.into_iter()
+                                        .map(|tem_padrao| tem_padrao.then_some(Expressao::Nulo))
+                                        .collect(),
+                                    retorno: assinatura.retorno,
+                                };
+                                return self.analisar_chamada_funcao(argumentos, &funcao, nome);
                             }
                         }
                     }
@@ -3245,7 +3256,13 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let mut modulos = ModulosDisponiveis::new();
         modulos.insert("Matematica".into(), HashMap::from([(
             "somar".into(),
-            AssinaturaFuncao { parametros: vec![Tipo::Inteiro, Tipo::Inteiro], retorno: Tipo::Inteiro },
+            AssinaturaFuncao {
+                genericos: Vec::new(),
+                parametros: vec![Tipo::Inteiro, Tipo::Inteiro],
+                nomes_parametros: vec!["a".into(), "b".into()],
+                parametros_padrao: vec![false, false],
+                retorno: Tipo::Inteiro,
+            },
         )]));
         let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir(biblioteca: Matematica) como Mat");
         let sintaxe = analisar(&fonte);
