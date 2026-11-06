@@ -188,17 +188,20 @@ impl<'a> Analisador<'a> {
                         let tipos: Vec<Tipo> = parametros.iter().map(|(_, tipo)| self.resolver_tipo(tipo)).collect();
                         let retorno = retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.resolver_tipo(tipo));
                         self.parametros_genericos = anteriores;
-                        if self.funcoes.contains_key(&chave) {
-                            self.erro("N3079", format!("Método '{metodo}' duplicado na classe '{nome}'."));
-                        } else {
-                            self.funcoes.insert(chave, Funcao {
-                                genericos: genericos.clone(),
-                                parametros: tipos,
-                                nomes_parametros: parametros.iter().map(|(nome, _)| nome.clone()).collect(),
-                                parametros_padrao: parametros_padrao.clone(),
-                                retorno,
-                            });
-                        }
+                        let duplicado = match self.funcoes.entry(chave) {
+                            std::collections::hash_map::Entry::Vacant(entrada) => {
+                                entrada.insert(Funcao {
+                                    genericos: genericos.clone(),
+                                    parametros: tipos,
+                                    nomes_parametros: parametros.iter().map(|(nome, _)| nome.clone()).collect(),
+                                    parametros_padrao: parametros_padrao.clone(),
+                                    retorno,
+                                });
+                                false
+                            }
+                            std::collections::hash_map::Entry::Occupied(_) => true,
+                        };
+                        if duplicado { self.erro("N3079", format!("Método '{metodo}' duplicado na classe '{nome}'.")); }
                     }
                 }
             }
@@ -245,7 +248,7 @@ impl<'a> Analisador<'a> {
                     let nomes_parametros = parametros.iter().map(|(nome, _)| nome.clone()).collect();
                     let padroes = parametros_padrao.clone();
                     let mut encontrou_padrao = false;
-                    for (indice, padrao) in padroes.iter().enumerate() {
+                    for padrao in &padroes {
                         if padrao.is_some() { encontrou_padrao = true; }
                         else if encontrou_padrao {
                             self.erro("N3066", format!("Parâmetros sem valor padrão não podem aparecer depois de parâmetros opcionais em '{nome}'."));
@@ -492,7 +495,7 @@ impl<'a> Analisador<'a> {
                 for instrucao in corpo { self.item(instrucao); }
                 self.fechar_escopo();
             }
-            NoAst::Classe { nome, herda, corpo } => {
+            NoAst::Classe { nome, herda: _, corpo } => {
                 if self.escopos.len() > 1 { self.erro("N3080", "Classes só podem ser declaradas no escopo do arquivo."); }
                 let anterior = self.classe_atual.replace(nome.clone());
                 self.abrir_escopo();
@@ -1642,8 +1645,8 @@ impl<'a> Analisador<'a> {
                 mapeados[indice] = Some(valor);
             }
         }
-        for indice in 0..mapeados.len() {
-            if mapeados[indice].is_none() && funcao.parametros_padrao.get(indice).is_none_or(Option::is_none) {
+        for (indice, argumento) in mapeados.iter().enumerate() {
+            if argumento.is_none() && funcao.parametros_padrao.get(indice).is_none_or(Option::is_none) {
                 self.erro("N3015", format!("O parâmetro obrigatório '{}' não foi informado na chamada de '{nome}'.", funcao.nomes_parametros.get(indice).map_or("?", String::as_str)));
             }
         }
