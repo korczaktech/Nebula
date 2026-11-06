@@ -118,14 +118,15 @@ impl TipoAst {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Self::Tupla(tipos) => format!(
-                "({})",
-                tipos
+            Self::Tupla(tipos) => {
+                let elementos = tipos
                     .iter()
                     .map(Self::para_texto)
                     .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+                    .join(", ");
+                let virgula = if tipos.len() == 1 { "," } else { "" };
+                format!("({elementos}{virgula})")
+            },
             Self::Funcao {
                 parametros,
                 retorno,
