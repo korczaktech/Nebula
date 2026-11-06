@@ -8,6 +8,7 @@ mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
+use nebula_fonte::IntervaloFonte;
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -43,7 +44,7 @@ pub fn analisar_semantica(programa: &Programa) -> ResultadoSemantico {
 /// Analisa um programa com os módulos e símbolos exportados fornecidos pelo chamador.
 #[must_use]
 pub fn analisar_com_modulos(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoSemantico {
-    let mut analisador = Analisador::novo(modulos);
+    let mut analisador = Analisador::novo(modulos, programa);
     analisador.analisar(programa);
     ResultadoSemantico {
         diagnosticos: analisador.diagnosticos,
@@ -60,7 +61,7 @@ struct Simbolo { tipo: Tipo, mutavel: bool, movido: bool, campos_movidos: HashSe
 enum LiteralNumerico { Inteiro(i128), InteiroSemSinal(u128), Decimal(f64) }
 
 #[derive(Debug, Clone)]
-struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, retorno: Tipo }
+struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, nomes_parametros: Vec<String>, parametros_padrao: Vec<Option<Expressao>>, retorno: Tipo }
 
 struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
@@ -77,10 +78,15 @@ struct Analisador<'a> {
     profundidade_laco: usize,
     funcoes_vistas: HashSet<String>,
     parametros_genericos: HashSet<String>,
+    intervalos_nos: Vec<(NoAst, IntervaloFonte)>,
+    intervalos_expressoes: Vec<(Expressao, IntervaloFonte)>,
+    intervalo_atual: Option<IntervaloFonte>,
+    classes: HashMap<String, Option<String>>,
+    classe_atual: Option<String>,
 }
 
 impl<'a> Analisador<'a> {
-    fn novo(modulos: &'a ModulosDisponiveis) -> Self {
+    fn novo(modulos: &'a ModulosDisponiveis, programa: &Programa) -> Self {
         Self {
             escopos: vec![HashMap::new()],
             funcoes: HashMap::new(),
@@ -96,6 +102,11 @@ impl<'a> Analisador<'a> {
             profundidade_laco: 0,
             funcoes_vistas: HashSet::new(),
             parametros_genericos: HashSet::new(),
+            intervalos_nos: programa.nos_localizados.iter().map(|localizado| (localizado.no.clone(), localizado.intervalo)).collect(),
+            intervalos_expressoes: programa.expressoes_localizadas.iter().map(|localizado| (localizado.expressao.clone(), localizado.intervalo)).collect(),
+            intervalo_atual: None,
+            classes: HashMap::new(),
+            classe_atual: None,
         }
     }
 
@@ -132,7 +143,14 @@ impl<'a> Analisador<'a> {
                     self.erro("N3039", format!("A enumeração '{nome}' foi declarada mais de uma vez."));
                 }
             }
+            if let NoAst::Classe { nome, herda, .. } = item {
+                if self.classes.insert(nome.clone(), herda.clone()).is_some() {
+                    self.erro("N3065", format!("A classe '{nome}' foi declarada mais de uma vez."));
+                }
+                self.estruturas.insert(nome.clone());
+            }
         }
+        self.validar_hierarquia_classes();
         let aliases: Vec<String> = self.aliases.keys().cloned().collect();
         for nome in aliases {
             if Self::tipo_contem_desconhecido(&self.resolver_tipo(&nome)) {
@@ -144,6 +162,40 @@ impl<'a> Analisador<'a> {
                 let descritores = campos.iter().map(|(campo, tipo)| (campo.clone(), self.resolver_tipo(tipo))).collect();
                 self.campos_estruturas.insert(nome.clone(), descritores);
             }
+            if let NoAst::Classe { nome, corpo, .. } = item {
+                let mut descritores = HashMap::new();
+                for membro in corpo {
+                    if let NoAst::Variavel { nome: campo, tipo: Some(tipo), .. } = membro {
+                        descritores.insert(campo.clone(), self.resolver_tipo(tipo));
+                    }
+                }
+                self.campos_estruturas.insert(nome.clone(), descritores);
+            }
+        }
+        for item in &programa.itens {
+            if let NoAst::Classe { nome, corpo, .. } = item {
+                for membro in corpo {
+                    if let NoAst::Funcao { nome: metodo, genericos, parametros, parametros_padrao, retorno, .. } = membro {
+                        let chave = format!("{nome}::{metodo}");
+                        let anteriores = self.parametros_genericos.clone();
+                        self.parametros_genericos.extend(genericos.iter().cloned());
+                        let tipos: Vec<Tipo> = parametros.iter().map(|(_, tipo)| self.resolver_tipo(tipo)).collect();
+                        let retorno = retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.resolver_tipo(tipo));
+                        self.parametros_genericos = anteriores;
+                        if self.funcoes.contains_key(&chave) {
+                            self.erro("N3079", format!("Método '{metodo}' duplicado na classe '{nome}'."));
+                        } else {
+                            self.funcoes.insert(chave, Funcao {
+                                genericos: genericos.clone(),
+                                parametros: tipos,
+                                nomes_parametros: parametros.iter().map(|(nome, _)| nome.clone()).collect(),
+                                parametros_padrao: parametros_padrao.clone(),
+                                retorno,
+                            });
+                        }
+                    }
+                }
+            }
         }
         for item in &programa.itens {
             if let NoAst::Enumeracao { nome, variantes } = item {
@@ -154,7 +206,7 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
-            if let NoAst::Funcao { nome, genericos, parametros, retorno, .. } = item {
+            if let NoAst::Funcao { nome, genericos, parametros, parametros_padrao, retorno, .. } = item {
                 let mut vistos = HashSet::new();
                 for parametro in genericos {
                     if !vistos.insert(parametro.clone()) {
@@ -181,9 +233,20 @@ impl<'a> Analisador<'a> {
                 if self.funcoes.contains_key(nome) {
                     self.erro("N3001", format!("A função '{nome}' foi declarada mais de uma vez."));
                 } else {
+                    let nomes_parametros = parametros.iter().map(|(nome, _)| nome.clone()).collect();
+                    let padroes = parametros_padrao.clone();
+                    let mut encontrou_padrao = false;
+                    for (indice, padrao) in padroes.iter().enumerate() {
+                        if padrao.is_some() { encontrou_padrao = true; }
+                        else if encontrou_padrao && indice + 1 < padroes.len() {
+                            self.erro("N3066", format!("Parâmetros sem valor padrão não podem aparecer depois de parâmetros opcionais em '{nome}'."));
+                        }
+                    }
                     self.funcoes.insert(nome.clone(), Funcao {
                         genericos: genericos.clone(),
                         parametros: tipos,
+                        nomes_parametros,
+                        parametros_padrao: padroes,
                         retorno,
                     });
                 }
@@ -197,7 +260,48 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn validar_hierarquia_classes(&mut self) {
+        let classes = self.classes.clone();
+        for (nome, base) in &classes {
+            if let Some(base) = base {
+                if !classes.contains_key(base) {
+                    self.erro("N3069", format!("A classe-base '{base}' da classe '{nome}' não foi declarada."));
+                } else if base == nome {
+                    self.erro("N3070", format!("A classe '{nome}' não pode herdar de si mesma."));
+                }
+            }
+        }
+        for inicio in classes.keys() {
+            let mut visitados = HashSet::new();
+            let mut atual = inicio.as_str();
+            while let Some(Some(base)) = classes.get(atual) {
+                if !visitados.insert(atual.to_owned()) || base == inicio {
+                    self.erro("N3070", format!("A hierarquia da classe '{inicio}' contém um ciclo de herança."));
+                    break;
+                }
+                atual = base;
+            }
+        }
+        for (nome, base) in &classes {
+            if let Some(base) = base {
+                if let Some(campos_base) = self.campos_estruturas.get(base).cloned() {
+                    let campos = self.campos_estruturas.entry(nome.clone()).or_default();
+                    for (campo, tipo) in campos_base {
+                        if let Some(tipo_proprio) = campos.get(&campo) {
+                            if !Self::tipos_compativeis(tipo_proprio, &tipo) {
+                                self.erro("N3081", format!("Campo herdado '{campo}' redefine tipo incompatível na classe '{nome}'."));
+                            }
+                        } else {
+                            campos.insert(campo, tipo);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn item(&mut self, item: &NoAst) {
+        if let Some((_, intervalo)) = self.intervalos_nos.iter().find(|(no, _)| no == item) { self.intervalo_atual = Some(*intervalo); }
         match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
                 let esperado_declarado = tipo.as_deref().map(|tipo| self.resolver_tipo(tipo));
@@ -221,9 +325,10 @@ impl<'a> Analisador<'a> {
                 };
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
             }
-            NoAst::Funcao { nome, genericos, parametros, corpo, .. } => {
-                if !self.funcoes_vistas.insert(nome.clone()) { return; }
-                let Some(funcao) = self.funcoes.get(nome).cloned() else {
+            NoAst::Funcao { nome, genericos, parametros, parametros_padrao, corpo, .. } => {
+                let chave = self.classe_atual.as_ref().map_or_else(|| nome.clone(), |classe| format!("{classe}::{nome}"));
+                if !self.funcoes_vistas.insert(chave.clone()) { return; }
+                let Some(funcao) = self.funcoes.get(&chave).cloned() else {
                     self.erro("N3023", format!("Função aninhada '{nome}' não é permitida no escopo inicial."));
                     return;
                 };
@@ -232,6 +337,14 @@ impl<'a> Analisador<'a> {
                 self.abrir_escopo();
                 for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
                     self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false, campos_movidos: HashSet::new() });
+                }
+                for (indice, padrao) in parametros_padrao.iter().enumerate() {
+                    if let Some(padrao) = padrao {
+                        if let Some(tipo_esperado) = funcao.parametros.get(indice) {
+                            let tipo_obtido = self.expressao_com_tipo_esperado(padrao, tipo_esperado);
+                            self.exigir_expressao_tipo(padrao, &tipo_obtido, tipo_esperado, "valor padrão do parâmetro");
+                        }
+                    }
                 }
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
@@ -250,7 +363,45 @@ impl<'a> Analisador<'a> {
                     self.erro("N3025", "Aliases de tipo só podem ser declarados no escopo do arquivo.");
                 }
             }
-            NoAst::Atributada { declaracao, .. } => self.item(declaracao),
+            NoAst::Atributada { atributos, declaracao } => {
+                let mut vistos = HashSet::new();
+                for atributo in atributos {
+                    if !vistos.insert(&atributo.nome) {
+                        self.erro("N3074", format!("Atributo '{}' foi declarado mais de uma vez.", atributo.nome));
+                    }
+                    match atributo.nome.as_str() {
+                        "alinhamento" => {
+                            if atributo.argumentos.len() != 1 { self.erro("N3075", "O atributo '@alinhamento' exige exatamente um argumento inteiro."); }
+                            for argumento in &atributo.argumentos {
+                                let tipo = self.expressao(argumento);
+                                if !Self::inteiro(&tipo) { self.erro("N3075", "O argumento de '@alinhamento' precisa ser inteiro."); }
+                                match Self::literal_numerico(argumento) {
+                                    Some(LiteralNumerico::Inteiro(valor)) if valor > 0 && (valor as u128).is_power_of_two() => {}
+                                    Some(LiteralNumerico::InteiroSemSinal(valor)) if valor > 0 && valor.is_power_of_two() => {}
+                                    _ => self.erro("N3075", "O alinhamento precisa ser um literal inteiro constante e potência de dois positiva."),
+                                }
+                            }
+                        }
+                        "representacao" | "convencao" => {
+                            if atributo.argumentos.len() != 1 { self.erro("N3076", format!("O atributo '@{}' exige exatamente um argumento de texto.", atributo.nome)); }
+                            for argumento in &atributo.argumentos {
+                                let tipo = self.expressao(argumento);
+                                self.exigir_tipo(&tipo, &Tipo::Texto, "argumento de atributo");
+                            }
+                        }
+                        "externa" => {
+                            if !atributo.argumentos.is_empty() || !matches!(declaracao.as_ref(), NoAst::Funcao { .. }) {
+                                self.erro("N3077", "O atributo '@externa' só pode ser aplicado sem argumentos a uma função.");
+                            }
+                        }
+                        outro => {
+                            for argumento in &atributo.argumentos { self.expressao(argumento); }
+                            self.erro("N3078", format!("Atributo '@{outro}' ainda não possui contrato semântico definido."));
+                        }
+                    }
+                }
+                self.item(declaracao);
+            },
             NoAst::Tente { corpo, capturas, sempre } => {
                 self.abrir_escopo();
                 for instrucao in corpo { self.item(instrucao); }
@@ -266,17 +417,56 @@ impl<'a> Analisador<'a> {
                 if let Some(mensagem) = mensagem { self.expressao(mensagem); }
             }
             NoAst::Escopo { .. } => {}
-            NoAst::BlocoContextual { corpo, .. } => {
+            NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo } => {
+                match contexto.as_str() {
+                    "critico" if argumento.is_some() || !tipos_genericos.is_empty() || !argumentos.is_empty() => self.erro("N3072", "O contexto 'critico' não aceita argumentos."),
+                    "seguro" if !tipos_genericos.is_empty() || !argumentos.is_empty() => self.erro("N3072", "O contexto 'seguro' não aceita tipos genéricos nem argumentos de chamada."),
+                    "privilegio" if argumento.as_deref() != Some("sistema") => self.erro("N3072", "O contexto 'privilegio' exige o perfil 'sistema'."),
+                    "montagem" if argumento.as_deref() != Some("x86_64") => self.erro("N3072", "O bloco 'montagem' só possui validação semântica para 'x86_64'."),
+                    "critico" | "seguro" | "privilegio" | "montagem" => {},
+                    _ => self.erro("N3072", format!("Contexto semântico desconhecido: '{contexto}'.")),
+                }
+                for nome_tipo in tipos_genericos {
+                    if Self::tipo_contem_desconhecido(&self.resolver_tipo(nome_tipo)) {
+                        self.erro("N3021", format!("Tipo '{nome_tipo}' do bloco contextual não foi declarado."));
+                    }
+                }
+                let mut nomes_argumentos = HashSet::new();
+                for argumento in argumentos {
+                    if let Expressao::ArgumentoNomeado { nome, valor } = argumento {
+                        if !nomes_argumentos.insert(nome) { self.erro("N3073", format!("Argumento contextual '{nome}' foi informado mais de uma vez.")); }
+                        self.expressao(valor);
+                    } else { self.expressao(argumento); }
+                }
                 self.abrir_escopo();
                 for instrucao in corpo { self.item(instrucao); }
                 self.fechar_escopo();
             }
-            NoAst::Classe { corpo, .. } => {
+            NoAst::Classe { nome, herda, corpo } => {
+                if self.escopos.len() > 1 { self.erro("N3080", "Classes só podem ser declaradas no escopo do arquivo."); }
+                if let Some(base) = herda {
+                    if !self.classes.contains_key(base) { self.erro("N3069", format!("A classe-base '{base}' da classe '{nome}' não foi declarada.")); }
+                }
+                let anterior = self.classe_atual.replace(nome.clone());
                 self.abrir_escopo();
+                self.declarar("isto", Simbolo { tipo: Tipo::Estrutura(nome.clone()), mutavel: false, movido: false, campos_movidos: HashSet::new() });
+                let mut membros = HashSet::new();
                 for membro in corpo {
+                    let nome_membro = match membro {
+                        NoAst::Variavel { nome, .. } | NoAst::Funcao { nome, .. } => Some(nome.as_str()),
+                        NoAst::Atributada { declaracao, .. } => match declaracao.as_ref() {
+                            NoAst::Variavel { nome, .. } | NoAst::Funcao { nome, .. } => Some(nome.as_str()),
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    if let Some(nome_membro) = nome_membro {
+                        if !membros.insert(nome_membro.to_owned()) { self.erro("N3079", format!("Membro '{nome_membro}' duplicado na classe '{nome}'.")); }
+                    }
                     self.item(membro);
                 }
                 self.fechar_escopo();
+                self.classe_atual = anterior;
             }
             NoAst::Passar | NoAst::Ceder(_) => {}
             NoAst::Estrutura { nome, campos } => {
@@ -547,6 +737,11 @@ impl<'a> Analisador<'a> {
     }
 
     fn expressao_com_tipo_esperado(&mut self, expressao: &Expressao, esperado: &Tipo) -> Tipo {
+        match expressao {
+            Expressao::Lambda { parametros, corpo } => return self.analisar_lambda_expressao(parametros, corpo, Some(esperado)),
+            Expressao::LambdaBloco { parametros, corpo } => return self.analisar_lambda_bloco(parametros, corpo, Some(esperado)),
+            _ => {}
+        }
         let Expressao::Chamada { alvo, argumentos, .. } = expressao else {
             return self.expressao(expressao);
         };
@@ -605,7 +800,55 @@ impl<'a> Analisador<'a> {
         Self::substituir_genericos(&funcao.retorno, &inferidos)
     }
 
+    fn analisar_lambda_expressao(&mut self, parametros: &[String], corpo: &Expressao, esperado: Option<&Tipo>) -> Tipo {
+        let (tipos, retorno_esperado) = match esperado {
+            Some(Tipo::Funcao(tipos, retorno)) => {
+                if tipos.len() != parametros.len() { self.erro("N3068", format!("Lambda declara {} parâmetro(s), mas o tipo esperado exige {}.", parametros.len(), tipos.len())); }
+                (tipos.clone(), Some((**retorno).clone()))
+            }
+            Some(outro) => { self.erro("N3068", format!("Lambda exige um tipo de função esperado; recebeu '{}'.", outro.nome())); (vec![Tipo::Desconhecido; parametros.len()], None) }
+            None => (vec![Tipo::Desconhecido; parametros.len()], None),
+        };
+        self.abrir_escopo();
+        for (indice, nome) in parametros.iter().enumerate() {
+            let tipo = tipos.get(indice).cloned().unwrap_or(Tipo::Desconhecido);
+            self.declarar(nome, Simbolo { tipo, mutavel: false, movido: false, campos_movidos: HashSet::new() });
+        }
+        let obtido = self.expressao(corpo);
+        if let Some(retorno) = retorno_esperado.as_ref() { self.exigir_tipo(&obtido, retorno, "retorno de lambda"); }
+        self.fechar_escopo();
+        Tipo::Funcao(tipos, Box::new(retorno_esperado.unwrap_or(obtido)))
+    }
+
+    fn analisar_lambda_bloco(&mut self, parametros: &[String], corpo: &[NoAst], esperado: Option<&Tipo>) -> Tipo {
+        let (tipos, retorno) = match esperado {
+            Some(Tipo::Funcao(tipos, retorno)) => {
+                if tipos.len() != parametros.len() { self.erro("N3068", format!("Lambda declara {} parâmetro(s), mas o tipo esperado exige {}.", parametros.len(), tipos.len())); }
+                (tipos.clone(), (**retorno).clone())
+            }
+            Some(outro) => { self.erro("N3068", format!("Lambda exige um tipo de função esperado; recebeu '{}'.", outro.nome())); (vec![Tipo::Desconhecido; parametros.len()], Tipo::Desconhecido) }
+            None => (vec![Tipo::Desconhecido; parametros.len()], Tipo::Desconhecido),
+        };
+        self.abrir_escopo();
+        for (indice, nome) in parametros.iter().enumerate() {
+            let tipo = tipos.get(indice).cloned().unwrap_or(Tipo::Desconhecido);
+            self.declarar(nome, Simbolo { tipo, mutavel: false, movido: false, campos_movidos: HashSet::new() });
+        }
+        let retorno_anterior = self.retorno_atual.replace(retorno.clone());
+        let laco_anterior = self.profundidade_laco;
+        self.profundidade_laco = 0;
+        for instrucao in corpo { self.item(instrucao); }
+        if retorno != Tipo::Desconhecido && retorno != Tipo::Vazio && !Self::garante_retorno(corpo) {
+            self.erro("N3024", "O bloco lambda pode terminar sem devolver um valor.");
+        }
+        self.profundidade_laco = laco_anterior;
+        self.retorno_atual = retorno_anterior;
+        self.fechar_escopo();
+        Tipo::Funcao(tipos, Box::new(retorno))
+    }
+
     fn expressao(&mut self, expressao: &Expressao) -> Tipo {
+        if let Some((_, intervalo)) = self.intervalos_expressoes.iter().find(|(origem, _)| origem == expressao) { self.intervalo_atual = Some(*intervalo); }
         match expressao {
             Expressao::Nome(nome) => {
                 if let Some(simbolo) = self.buscar(nome).cloned() {
@@ -691,13 +934,19 @@ impl<'a> Analisador<'a> {
                     _ => Tipo::Desconhecido,
                 }
             }
-            Expressao::Lambda { .. } | Expressao::LambdaBloco { .. } => Tipo::Desconhecido,
+            Expressao::Lambda { parametros, corpo } => self.analisar_lambda_expressao(parametros, corpo, None),
+            Expressao::LambdaBloco { parametros, corpo } => self.analisar_lambda_bloco(parametros, corpo, None),
             Expressao::Condicional { condicao, entao, senao } => {
                 let tipo_condicao = self.expressao(condicao);
                 self.exigir_tipo(&tipo_condicao, &Tipo::Logico, "condição ternária");
                 let tipo_entao = self.expressao(entao);
                 let tipo_senao = self.expressao(senao);
-                if tipo_entao == tipo_senao { tipo_entao } else { Tipo::Desconhecido }
+                if Self::tipos_compativeis(&tipo_entao, &tipo_senao) {
+                    if tipo_entao == Tipo::Desconhecido { tipo_senao } else { tipo_entao }
+                } else {
+                    self.erro("N3067", format!("Os ramos da expressão condicional possuem tipos incompatíveis: '{}' e '{}'.", tipo_entao.nome(), tipo_senao.nome()));
+                    Tipo::Desconhecido
+                }
             },
             Expressao::Binaria { esquerda, operador, direita } => {
                 let a = self.expressao(esquerda);
@@ -2259,7 +2508,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn erro(&mut self, codigo: &'static str, mensagem: impl Into<String>) {
-        self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, None));
+        self.diagnosticos.push(Diagnostico::novo(codigo, Severidade::Erro, mensagem, self.intervalo_atual));
     }
 
     fn snapshot_movidos(&self) -> HashSet<(usize, String, String)> {
@@ -3682,6 +3931,8 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     fn inferencia_de_chamada_generica_e_atomica_entre_argumentos_e_retorno() {
         let funcao = Funcao {
             genericos: vec!["T".into(), "R".into()],
+            nomes_parametros: vec!["primeiro".into(), "segundo".into()],
+            parametros_padrao: vec![None, None],
             parametros: vec![
                 Tipo::Lista(Box::new(Tipo::Parametro("T".into()))),
                 Tipo::Funcao(
