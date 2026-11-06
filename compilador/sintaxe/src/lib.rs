@@ -589,13 +589,32 @@ impl Parser {
 
     fn incluir(&mut self) -> Option<NoAst> {
         self.avancar();
-        if matches!(self.tipo(), TipoToken::Biblioteca | TipoToken::Modulo) { self.avancar(); }
-        let primeiro = self.caminho_modulo()?;
-        let caminho = if self.corresponde(TipoToken::De) {
-            let origem = self.caminho_modulo()?;
-            format!("{origem}::{primeiro}")
-        } else { primeiro };
-        let apelido = if self.corresponde(TipoToken::Como) { self.consumir_nome("Esperado apelido após 'como'.") } else { None };
+        self.esperar(TipoToken::AbrePar, "Esperado '(' após 'incluir'.");
+
+        let modulo = if self.corresponde(TipoToken::Modulo) {
+            self.esperar(TipoToken::DoisPontos, "Esperado ':' após 'modulo'.");
+            Some(self.caminho_modulo()?)
+        } else {
+            None
+        };
+
+        if modulo.is_some() {
+            self.esperar(TipoToken::Virgula, "Esperado ',' entre modulo e biblioteca.");
+        }
+
+        self.esperar(TipoToken::Biblioteca, "O argumento 'biblioteca' é obrigatório em incluir.");
+        self.esperar(TipoToken::DoisPontos, "Esperado ':' após 'biblioteca'.");
+        let biblioteca = self.caminho_modulo()?;
+        self.esperar(TipoToken::FechaPar, "Esperado ')' após os argumentos de incluir.");
+
+        let caminho = modulo.map_or(biblioteca.clone(), |nome_modulo| {
+            format!("{biblioteca}::{nome_modulo}")
+        });
+        let apelido = if self.corresponde(TipoToken::Como) {
+            self.consumir_nome("Esperado apelido após 'como'.")
+        } else {
+            None
+        };
         Some(NoAst::Incluir { caminho, apelido })
     }
     fn quando(&mut self) -> Option<NoAst> {
@@ -2066,18 +2085,18 @@ mod testes {
         assert!(!r.programa.itens.is_empty());
     }
     #[test]
-    fn incluir_aceita_caminho_qualificado() {
-        let r = analisar(&fonte("incluir Biblioteca::Texto"));
+    fn incluir_aceita_biblioteca_e_modulo_opcional() {
+        let r = analisar(&fonte("incluir(biblioteca: matematica)\nincluir(modulo: arquivos, biblioteca: sistema)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
-    fn incluir_rejeita_tipo_de_lista_como_caminho_de_modulo() {
-        let r = analisar(&fonte("incluir [inteiro]"));
+    fn incluir_rejeita_forma_antiga_sem_argumentos_nomeados() {
+        let r = analisar(&fonte("incluir matematica"));
         assert!(!r.diagnosticos.is_empty());
     }
     #[test]
     fn analisa_laco_para_e_inclusao_de_modulo() {
-        let r = analisar(&fonte("incluir Matematica como Mat\npara (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim"));
+        let r = analisar(&fonte("incluir(biblioteca: matematica) como Mat\npara (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.programa.itens.len(), 2);
     }
