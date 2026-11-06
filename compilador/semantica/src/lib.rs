@@ -117,6 +117,7 @@ impl<'a> Analisador<'a> {
 
     fn predeclarar(&mut self, programa: &Programa) {
         for item in &programa.itens {
+            let item = Self::alvo_atributo(item);
             if let NoAst::Incluir { caminho, apelido } = item {
                 let alternativo = caminho.replace("::", ".");
                 if !self.modulos.contains_key(caminho) && !self.modulos.contains_key(&alternativo) {
@@ -159,6 +160,7 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            let item = Self::alvo_atributo(item);
             if let NoAst::Estrutura { nome, campos } = item {
                 let descritores = campos.iter().map(|(campo, tipo)| (campo.clone(), self.resolver_tipo(tipo))).collect();
                 self.campos_estruturas.insert(nome.clone(), descritores);
@@ -166,6 +168,7 @@ impl<'a> Analisador<'a> {
             if let NoAst::Classe { nome, corpo, .. } = item {
                 let mut descritores = HashMap::new();
                 for membro in corpo {
+                    let membro = Self::alvo_atributo(membro);
                     if let NoAst::Variavel { nome: campo, tipo: Some(tipo), .. } = membro {
                         descritores.insert(campo.clone(), self.resolver_tipo(tipo));
                     }
@@ -174,8 +177,10 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            let item = Self::alvo_atributo(item);
             if let NoAst::Classe { nome, corpo, .. } = item {
                 for membro in corpo {
+                    let membro = Self::alvo_atributo(membro);
                     if let NoAst::Funcao { nome: metodo, genericos, parametros, parametros_padrao, retorno, .. } = membro {
                         let chave = format!("{nome}::{metodo}");
                         let anteriores = self.parametros_genericos.clone();
@@ -200,6 +205,7 @@ impl<'a> Analisador<'a> {
         }
         self.validar_hierarquia_classes();
         for item in &programa.itens {
+            let item = Self::alvo_atributo(item);
             if let NoAst::Enumeracao { nome, variantes } = item {
                 let descritores = variantes.iter().map(|(variante, payload)| {
                     (variante.clone(), payload.iter().map(|tipo| self.resolver_tipo(tipo)).collect())
@@ -208,6 +214,7 @@ impl<'a> Analisador<'a> {
             }
         }
         for item in &programa.itens {
+            let item = Self::alvo_atributo(item);
             if let NoAst::Funcao { nome, genericos, parametros, parametros_padrao, retorno, .. } = item {
                 let mut vistos = HashSet::new();
                 for parametro in genericos {
@@ -433,6 +440,9 @@ impl<'a> Analisador<'a> {
                             self.erro("N3078", format!("Atributo '@{outro}' ainda não possui contrato semântico definido."));
                         }
                     }
+                }
+                if atributos.iter().any(|atributo| atributo.nome == "externa") && matches!(alvo, NoAst::Funcao { .. }) {
+                    return;
                 }
                 self.item(declaracao);
             },
@@ -2448,13 +2458,12 @@ impl<'a> Analisador<'a> {
             self.erro("N3019", format!("O nome '{nome}' já identifica uma função ou módulo neste programa."));
             return;
         }
-        let escopo = self.escopos.last_mut().expect("sempre há escopo global");
-        if escopo.contains_key(nome) {
-            self.diagnosticos.push(Diagnostico::novo(
-                "N3019", Severidade::Erro,
-                format!("O nome '{nome}' já foi declarado neste escopo."), None,
-            ));
-        } else { escopo.insert(nome.to_owned(), simbolo); }
+        let ja_declarado = self.escopos.last().is_some_and(|escopo| escopo.contains_key(nome));
+        if ja_declarado {
+            self.erro("N3019", format!("O nome '{nome}' já foi declarado neste escopo."));
+        } else {
+            self.escopos.last_mut().expect("sempre há escopo global").insert(nome.to_owned(), simbolo);
+        }
     }
 
     fn buscar(&self, nome: &str) -> Option<&Simbolo> {
