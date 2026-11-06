@@ -710,6 +710,7 @@ funcao principal() -> inteiro: {
     variavel nome: texto = "Nebula"
     sem_retorno()
     quando logico e i8 == 127 e i16 == 32767 e i32 == 2147483647 e i64 > 0 e i128 > 0 e u8 == 255 e u16 == 65535 e u32 > 0 e u64 > 0 e u128 > 0 e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
+        exibir(42)
         devolver 42
         fim
     } fim
@@ -718,7 +719,7 @@ funcao principal() -> inteiro: {
 } fim
 "#,
     ).expect("grava fonte");
-    let saida = executar(&["executar", caminho.to_str().expect("caminho UTF-8")]);
+    let saida = executar(&["interpretar", caminho.to_str().expect("caminho UTF-8")]);
     let _ = std::fs::remove_file(caminho);
     assert!(
         saida.status.success(),
@@ -762,6 +763,7 @@ funcao principal() -> inteiro: {
                         }
                         caso Estado::Falha(mensagem): {
                             quando mensagem == "erro": {
+                                exibir(pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso)
                                 devolver pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso
                                 fim
                             } fim
