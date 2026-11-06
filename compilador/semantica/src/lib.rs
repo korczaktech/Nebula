@@ -3227,7 +3227,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn move_campo_sem_invalidar_campos_independentes() {
         let r = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.idade)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20, fim }\nvariavel nome = conta.nome\nexibir(conta.idade)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3235,12 +3235,12 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn rejeita_reuso_de_campo_movido_e_uso_integral_parcialmente_movido() {
         let campo = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta.nome)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20, fim }\nvariavel nome = conta.nome\nexibir(conta.nome)",
         );
         assert!(campo.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", campo.diagnosticos);
 
         let inteiro = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nexibir(conta)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20, fim }\nvariavel nome = conta.nome\nexibir(conta)",
         );
         assert!(inteiro.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", inteiro.diagnosticos);
     }
@@ -3248,7 +3248,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn atribuir_campo_move_o_valor_de_origem() {
         let r = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\nfim\nvariavel nome = \"Lia\"\nvariavel conta = Conta { nome: \"Ana\" }\nconta.nome = nome\nexibir(nome)",
+            "estrutura Conta:\n    nome: texto\nfim\nvariavel nome = \"Lia\"\nvariavel conta = Conta { nome: \"Ana\", fim }\nconta.nome = nome\nexibir(nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
@@ -3256,7 +3256,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn reatribuir_campo_reinicializa_movimento_parcial() {
         let r = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nvariavel nome = conta.nome\nconta.nome = \"Bia\"\nexibir(conta.nome)\nexibir(conta.idade)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20, fim }\nvariavel nome = conta.nome\nconta.nome = \"Bia\"\nexibir(conta.nome)\nexibir(conta.idade)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
@@ -3372,7 +3372,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn movimento_parcial_e_mesclado_entre_ramos() {
         let r = analisar_codigo(
-            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20 }\nquando verdadeiro\n    variavel nome = conta.nome\n\nsenao\n    passar\nfim\n\nexibir(conta.nome)",
+            "estrutura Conta:\n    nome: texto\n    idade: inteiro\nfim\nvariavel conta = Conta { nome: \"Lia\", idade: 20, fim }\nquando verdadeiro\n    variavel nome = conta.nome\n\nsenao\n    passar\nfim\n\nexibir(conta.nome)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
