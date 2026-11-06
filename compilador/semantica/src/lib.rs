@@ -1476,6 +1476,14 @@ impl<'a> Analisador<'a> {
     }
 
     fn resolver_tipo(&self, nome: &str) -> Tipo {
+        self.resolver_tipo_interno(nome, &mut HashSet::new())
+    }
+
+    fn resolver_tipo_interno(
+        &self,
+        nome: &str,
+        aliases_visitados: &mut HashSet<String>,
+    ) -> Tipo {
         if self.parametros_genericos.contains(nome) {
             return Tipo::Parametro(nome.to_owned());
         }
@@ -1504,7 +1512,9 @@ impl<'a> Analisador<'a> {
                     TipoAst::Tupla(elementos) => {
                         let tipos: Vec<_> = elementos
                             .iter()
-                            .map(|tipo| self.resolver_tipo(&tipo.para_texto()))
+                            .map(|tipo| {
+                                self.resolver_tipo_interno(&tipo.para_texto(), aliases_visitados)
+                            })
                             .collect();
                         if tipos.iter().any(Self::tipo_contem_desconhecido) {
                             Tipo::Desconhecido
@@ -1516,37 +1526,57 @@ impl<'a> Analisador<'a> {
                 }
             }
             _ if Self::dividir_tipo_funcao(nome).is_some() => {
-                let (parametros, retorno) = Self::dividir_tipo_funcao(nome)
-                    .expect("tipo de função reconhecido");
+                let (parametros, retorno) =
+                    Self::dividir_tipo_funcao(nome).expect("tipo de função reconhecido");
                 let parametros: Vec<_> = parametros
                     .iter()
-                    .map(|tipo| self.resolver_tipo(tipo))
+                    .map(|tipo| self.resolver_tipo_interno(tipo, aliases_visitados))
                     .collect();
-                let retorno = self.resolver_tipo(retorno);
-                if parametros.iter().any(|tipo| *tipo == Tipo::Vazio || Self::tipo_contem_desconhecido(tipo))
-                    || Self::tipo_contem_desconhecido(&retorno)
+                let retorno = self.resolver_tipo_interno(retorno, aliases_visitados);
+                if parametros.iter().any(|tipo| {
+                    *tipo == Tipo::Vazio || Self::tipo_contem_desconhecido(tipo)
+                }) || Self::tipo_contem_desconhecido(&retorno)
                 {
                     Tipo::Desconhecido
                 } else {
                     Tipo::Funcao(parametros, Box::new(retorno))
                 }
             }
-            _ if nome.starts_with('[') && nome.ends_with(']') => {
-                Tipo::Lista(Box::new(self.resolver_tipo(&nome[1..nome.len()-1])))
-            }
+            _ if nome.starts_with('[') && nome.ends_with(']') => Tipo::Lista(Box::new(
+                self.resolver_tipo_interno(&nome[1..nome.len() - 1], aliases_visitados),
+            )),
             _ if Self::argumentos_genericos(nome).is_some() => {
-                let (base, argumentos) = Self::argumentos_genericos(nome).expect("tipo genérico reconhecido");
-                let tipos: Vec<Tipo> = argumentos.iter().map(|argumento| self.resolver_tipo(argumento)).collect();
+                let (base, argumentos) =
+                    Self::argumentos_genericos(nome).expect("tipo genérico reconhecido");
+                let tipos: Vec<Tipo> = argumentos
+                    .iter()
+                    .map(|argumento| {
+                        self.resolver_tipo_interno(argumento, aliases_visitados)
+                    })
+                    .collect();
                 if tipos.iter().any(Self::tipo_contem_desconhecido) {
                     Tipo::Desconhecido
                 } else {
                     match (base, tipos.as_slice()) {
-                        ("Intervalo" | "intervalo", [interno]) => Tipo::Intervalo(Box::new(interno.clone())),
-                        ("Opcional" | "opcional", [interno]) => Tipo::Opcional(Box::new(interno.clone())),
-                        ("Resultado" | "resultado", [sucesso, falha]) => Tipo::Resultado(Box::new(sucesso.clone()), Box::new(falha.clone())),
-                        ("Tupla" | "tupla", elementos) if !elementos.is_empty() => Tipo::Tupla(elementos.to_vec()),
-                        ("Vetor" | "vetor", [elemento]) => Tipo::Lista(Box::new(elemento.clone())),
-                        ("Matriz" | "matriz", [elemento]) => Tipo::Lista(Box::new(Tipo::Lista(Box::new(elemento.clone())))),
+                        ("Intervalo" | "intervalo", [interno]) => {
+                            Tipo::Intervalo(Box::new(interno.clone()))
+                        }
+                        ("Opcional" | "opcional", [interno]) => {
+                            Tipo::Opcional(Box::new(interno.clone()))
+                        }
+                        ("Resultado" | "resultado", [sucesso, falha]) => Tipo::Resultado(
+                            Box::new(sucesso.clone()),
+                            Box::new(falha.clone()),
+                        ),
+                        ("Tupla" | "tupla", elementos) if !elementos.is_empty() => {
+                            Tipo::Tupla(elementos.to_vec())
+                        }
+                        ("Vetor" | "vetor", [elemento]) => {
+                            Tipo::Lista(Box::new(elemento.clone()))
+                        }
+                        ("Matriz" | "matriz", [elemento]) => Tipo::Lista(Box::new(
+                            Tipo::Lista(Box::new(elemento.clone())),
+                        )),
                         _ => Tipo::Desconhecido,
                     }
                 }
@@ -1554,13 +1584,15 @@ impl<'a> Analisador<'a> {
             _ if self.estruturas.contains(nome) => Tipo::Estrutura(nome.to_owned()),
             _ if self.enumeracoes.contains(nome) => Tipo::Enumeracao(nome.to_owned()),
             _ => {
-                let mut atual = nome;
-                let mut vistos = HashSet::new();
-                while let Some(destino) = self.aliases.get(atual) {
-                    if !vistos.insert(atual.to_owned()) { return Tipo::Desconhecido; }
-                    atual = destino;
+                let Some(destino) = self.aliases.get(nome) else {
+                    return Tipo::Desconhecido;
+                };
+                if !aliases_visitados.insert(nome.to_owned()) {
+                    return Tipo::Desconhecido;
                 }
-                if atual != nome { self.resolver_tipo(atual) } else { Tipo::Desconhecido }
+                let resolvido = self.resolver_tipo_interno(destino, aliases_visitados);
+                aliases_visitados.remove(nome);
+                resolvido
             }
         }
     }
@@ -2882,6 +2914,22 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     fn literal_de_comparacao_recebe_tipo_numerico_contextual() {
         let r = analisar_codigo("variavel valor: inteiro_u64 = 42\nvariavel igual = valor == 42");
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+    }
+
+    #[test]
+    fn detecta_ciclos_de_aliases_aninhados_em_tipos_compostos() {
+        for codigo in [
+            "tipo A = Vetor<A>",
+            "tipo A = (A,)",
+            "tipo A = Opcional<B>\ntipo B = Resultado<inteiro, A>",
+        ] {
+            let r = analisar_codigo(codigo);
+            assert!(
+                r.diagnosticos.iter().any(|d| d.codigo == "N3003"),
+                "{codigo}: {:?}",
+                r.diagnosticos,
+            );
+        }
     }
 
     #[test]
