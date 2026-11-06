@@ -2954,7 +2954,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     fn rejeita_colisao_entre_funcao_e_alias_de_modulo() {
         let mut modulos = ModulosDisponiveis::new();
         modulos.insert("Matematica".into(), HashMap::new());
-        let codigo = normalizar_blocos_legados("incluir(biblioteca: Matematica) como calcular\\nfuncao calcular(): inteiro\\n    devolver 1\\nfim");
+        let codigo = normalizar_blocos_legados("incluir(biblioteca: Matematica) como calcular\nfuncao calcular(): inteiro\n    devolver 1\nfim");
         let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3086,7 +3086,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn estruturas_com_texto_continuam_move_only() {
         let r = analisar_codigo(
-            "estrutura Documento:\n    conteudo: texto\nfim\nvariavel original = Documento { conteudo: \"texto\" }\nvariavel destino = original\nexibir(original.conteudo)",
+            "estrutura Documento:\n    conteudo: texto\nfim\nvariavel original = Documento { conteudo: \"texto\", fim }\nvariavel destino = original\nexibir(original.conteudo)",
         );
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3030"), "{:?}", r.diagnosticos);
     }
