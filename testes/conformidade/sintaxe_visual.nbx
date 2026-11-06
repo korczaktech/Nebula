@@ -2,7 +2,8 @@
 variavel nome = "Nebula"
 variavel versao = 1
 
-funcao principal(): vazio
+funcao principal(): {
     exibir(nome)
     exibir(versao);
-fim
+    fim
+} fim
