@@ -2724,7 +2724,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa { nome: \\"Ana\\", fim }",
+            "variavel estrutura_vazia = Pessoa { nome: \"Ana\", fim }",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
