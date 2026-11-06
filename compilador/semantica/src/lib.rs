@@ -1570,8 +1570,10 @@ impl<'a> Analisador<'a> {
                 if *operador == TipoToken::Ponto {
                     if let Some((raiz, caminho)) = Self::decompor_caminho_campo(alvo) {
                         if let Some(Tipo::Estrutura(nome_estrutura)) = self.resolver_tipo_caminho_puro(&raiz, &caminho) {
-                            if let Some(tipo_campo) = self.campos_estruturas.get(&nome_estrutura).and_then(|campos| campos.get(nome)).cloned() {
-                                return tipo_campo;
+                            if self.campos_estruturas.get(&nome_estrutura).is_some_and(|campos| campos.contains_key(nome)) {
+                                let mut caminho_completo = caminho.clone();
+                                caminho_completo.push(nome.clone());
+                                return self.resolver_tipo_caminho(&raiz, &caminho_completo, true);
                             }
                             if let Some(funcao) = self.buscar_metodo_classe(&nome_estrutura, nome) {
                                 if !funcao.genericos.is_empty() {
