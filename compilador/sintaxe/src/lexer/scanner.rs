@@ -110,6 +110,8 @@ impl<'a> Lexer<'a> {
         });
     }
     fn erro(&mut self, codigo: &'static str, mensagem: &str, inicio: usize, fim: usize) {
+        let inicio = inicio.min(self.bytes.len());
+        let fim = fim.min(self.bytes.len()).max(inicio);
         self.diagnosticos.push(Diagnostico::novo(
             codigo,
             Severidade::Erro,
