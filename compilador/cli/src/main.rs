@@ -1687,7 +1687,6 @@ fim"#,
     Falha(inteiro64)
     Vazio
     fim
-    fim
 }
 fim
 funcao transformar(resposta: Resposta) -> Resposta: {
@@ -1727,6 +1726,7 @@ funcao principal() -> inteiro: {
         }
         fim
     }
+    fim
     fim
 }
 fim"#,
