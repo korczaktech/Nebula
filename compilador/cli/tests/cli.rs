@@ -112,7 +112,7 @@ fn limpar_remove_somente_executavel_elf64_padrao() {
     ));
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
-    std::fs::write(&fonte, "funcao principal(): inteiro\n    devolver 42\nfim").unwrap();
+    std::fs::write(&fonte, "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim").unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
     assert!(
         compilar.status.success(),
@@ -144,7 +144,7 @@ fn limpar_preserva_arquivo_out_que_nao_seja_elf64() {
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
     let artefato = fonte.with_extension("out");
-    std::fs::write(&fonte, "funcao principal(): vazio\n    passar\nfim").unwrap();
+    std::fs::write(&fonte, "funcao principal(): {\n    passar\n    fim\n} fim").unwrap();
     std::fs::write(&artefato, b"arquivo de usuario").unwrap();
     let limpar = executar(&["limpar", fonte.to_str().unwrap()]);
     assert_eq!(limpar.status.code(), Some(1));
@@ -311,7 +311,7 @@ fn analisar_aceita_programa_com_tipos_validos() {
     let caminho = std::env::temp_dir().join(format!("nebula-semantica-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao soma(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nvariavel total = soma(2, 3)",
+        "funcao soma(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n    fim\n} fim\nvariavel total = soma(2, 3)",
     )
     .expect("grava arquivo");
     let saida = executar(&["analisar", caminho.to_str().expect("caminho UTF-8")]);
@@ -340,7 +340,7 @@ fn interpreta_aliases_de_controle_e_operador_de_atribuicao() {
     let caminho = std::env::temp_dir().join(format!("nebula-aliases-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "definir total = 0\ncada numero em [1, 2, 3]\n    alterar total <- total + numero\nfim\ndurante falso\n    exibir(100)\nfim\nrepetir verdadeiro\n    encerrar\nfim\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional\n    caso Opcional::Algum(valor)\n        exibir(valor)\n    caso Opcional::Nenhum\n        exibir(0)\nfim",
+        "definir total = 0\ncada numero em [1, 2, 3]: {\n    alterar total <- total + numero\n    fim\n} fim\ndurante falso: {\n    exibir(100)\n    fim\n} fim\nrepetir verdadeiro: {\n    encerrar\n    fim\n} fim\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional: {\n    caso Opcional::Algum(valor): {\n        exibir(valor)\n        fim\n    } fim\n    caso Opcional::Nenhum: {\n        exibir(0)\n        fim\n    } fim\n    fim\n} fim",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -405,7 +405,7 @@ fn pulso_executa_ciclos_ate_encerrar() {
     let caminho = std::env::temp_dir().join(format!("nebula-pulso-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel batidas = 0\npulso(1)\n    alterar batidas <- batidas + 1\n    quando batidas >= 2\n        encerrar\n    fim\nfim\nexibir(batidas)",
+        "variavel batidas = 0\npulso(1): {\n    alterar batidas <- batidas + 1\n    quando batidas >= 2: {\n        encerrar\n        fim\n    } fim\n    fim\n} fim\nexibir(batidas)",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -423,7 +423,7 @@ fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
     let caminho = std::env::temp_dir().join(format!("nebula-paralelo-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao um(): inteiro\n    devolver 11\nfim\nfuncao dois(): inteiro\n    devolver 22\nfim\nvariavel resultados = em_paralelo(um, dois)\nexibir(resultados[0])\nexibir(resultados[1])",
+        "funcao um() -> inteiro: {\n    devolver 11\n    fim\n} fim\nfuncao dois() -> inteiro: {\n    devolver 22\n    fim\n} fim\nvariavel resultados = em_paralelo(um, dois)\nexibir(resultados[0])\nexibir(resultados[1])",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -522,12 +522,12 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     let modulo = diretorio.join("Base.nbx");
     std::fs::write(
         &modulo,
-        "publico funcao valor(): inteiro\n    devolver 40\nfim",
+        "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n} fim",
     )
     .unwrap();
     std::fs::write(
         &fonte,
-        "incluir(biblioteca: Base)\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
+        "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n} fim",
     )
     .unwrap();
 
@@ -556,7 +556,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
 
     std::fs::write(
         &modulo,
-        "publico funcao valor(): inteiro\n    devolver 39\nfim",
+        "publico funcao valor() -> inteiro: {\n    devolver 39\n    fim\n} fim",
     )
     .unwrap();
     assert_eq!(compilar(), Some(41));
@@ -582,7 +582,7 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     ));
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
-    std::fs::write(&fonte, "funcao principal(): inteiro\n    devolver 42\nfim").unwrap();
+    std::fs::write(&fonte, "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim").unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
     assert!(
         compilar.status.success(),
