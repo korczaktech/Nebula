@@ -127,4 +127,40 @@ Mensagens não devem depender da localização do sistema operacional. A CLI pod
 | N3027 | Lista vazia sem contexto para inferência de tipo |
 | N3028 | Literal numérico fora do intervalo representável |
 
+| N3030 | Uso de valor ou agregado parcialmente movido |
+| N3031 | Parâmetro genérico duplicado |
+| N3032 | Falha de inferência genérica inconsistente entre ocorrências |
+| N3033 | Parâmetro genérico sem inferência suficiente |
+| N3034 | Tipo de campo de estrutura não declarado |
+| N3035 | Enumeração declarada fora do escopo de arquivo |
+| N3036 | Variante de enumeração duplicada |
+| N3037 | Tipo de payload de enumeração não declarado |
+| N3038 | Estrutura duplicada |
+| N3039 | Enumeração duplicada |
+| N3040 | Campo inexistente em estrutura |
+| N3041 | Tipo sem campos acessíveis |
+| N3042 | Construção sobre nome que não é estrutura |
+| N3043 | Campo obrigatório ausente |
+| N3044 | Aridade incorreta de payload de variante |
+| N3045 | Variante inexistente |
+| N3046 | Escolha aplicada a tipo não algébrico |
+| N3047 | Declaração de enumeração não encontrada |
+| N3048 | Caso de outra enumeração |
+| N3049 | Variante repetida em escolha |
+| N3050 | Quantidade incorreta de vínculos de payload |
+| N3051 | Variante inexistente na enumeração escolhida |
+| N3052 | Mais de um caso curinga |
+| N3053 | Escolha não exaustiva |
+| N3054 | Caso curinga fora da última posição |
+| N3055 | Quantidade incorreta de valores na construção de variante |
+| N3056 | Tipo sem implementação de igualdade |
+| N3057 | Função genérica usada como valor sem instância concreta |
+| N3058 | Valor não iterável em cada |
+| N3059 | Tipo de pulso inválido |
+| N3060 | Argumentos inválidos para em_paralelo |
+| N3061 | Tipos de retorno incompatíveis em em_paralelo |
+| N3062 | Estrutura declarada fora do escopo de arquivo |
+| N3063 | Índice de tupla inválido ou fora dos limites |
+| N3064 | Parâmetro genérico não inferido pelos argumentos nem pelo contexto |
+
 Os diagnósticos semânticos são globais nesta fase e podem não conter intervalo de origem, pois os nós da AST inicial ainda não carregam spans próprios. A localização exata por nó é uma melhoria planejada, não uma garantia atual.
