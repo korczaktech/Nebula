@@ -482,7 +482,11 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
     let (modulos, programas_modulos, _) = carregar_modulos(caminho, &sintaxe.programa)?;
     let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
     if !semantica.diagnosticos.is_empty() {
-        return Err(formatar_diagnosticos_texto(caminho, &semantica.diagnosticos, &fonte));
+        return Err(formatar_diagnosticos_texto(
+            caminho,
+            &semantica.diagnosticos,
+            &fonte,
+        ));
     }
     let resultado = baixar(&sintaxe.programa, &modulos);
     if !resultado.diagnosticos.is_empty() {
@@ -575,17 +579,25 @@ fn separar_argumentos_tipo(texto: &str) -> Option<Vec<&str>> {
             '>' | ')' | ']' => profundidade -= 1,
             ',' if profundidade == 0 => {
                 let argumento = texto[inicio..indice].trim();
-                if argumento.is_empty() { return None; }
+                if argumento.is_empty() {
+                    return None;
+                }
                 argumentos.push(argumento);
                 inicio = indice + caractere.len_utf8();
             }
             _ => {}
         }
-        if profundidade < 0 { return None; }
+        if profundidade < 0 {
+            return None;
+        }
     }
-    if profundidade != 0 { return None; }
+    if profundidade != 0 {
+        return None;
+    }
     let ultimo = texto[inicio..].trim();
-    if !ultimo.is_empty() { argumentos.push(ultimo); }
+    if !ultimo.is_empty() {
+        argumentos.push(ultimo);
+    }
     Some(argumentos)
 }
 
@@ -616,18 +628,32 @@ fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
         "byte" => Some(Tipo::Byte),
         _ => None,
     };
-    if primitivo.is_some() { return primitivo; }
+    if primitivo.is_some() {
+        return primitivo;
+    }
 
     if nome.starts_with('[') && nome.ends_with(']') {
-        return Some(Tipo::Lista(Box::new(tipo_assinatura_modulo(&nome[1..nome.len() - 1], genericos)?)));
+        return Some(Tipo::Lista(Box::new(tipo_assinatura_modulo(
+            &nome[1..nome.len() - 1],
+            genericos,
+        )?)));
     }
     for (prefixo, construtor) in [
-        ("Lista", 0u8), ("lista", 0u8), ("Opcional", 1u8), ("opcional", 1u8),
-        ("Intervalo", 2u8), ("intervalo", 2u8),
+        ("Lista", 0u8),
+        ("lista", 0u8),
+        ("Opcional", 1u8),
+        ("opcional", 1u8),
+        ("Intervalo", 2u8),
+        ("intervalo", 2u8),
     ] {
-        if let Some(conteudo) = nome.strip_prefix(&format!("{prefixo}<")).and_then(|v| v.strip_suffix('>')) {
+        if let Some(conteudo) = nome
+            .strip_prefix(&format!("{prefixo}<"))
+            .and_then(|v| v.strip_suffix('>'))
+        {
             let partes = separar_argumentos_tipo(conteudo)?;
-            if partes.len() != 1 { return None; }
+            if partes.len() != 1 {
+                return None;
+            }
             let interno = Box::new(tipo_assinatura_modulo(partes[0], genericos)?);
             return Some(match construtor {
                 0 => Tipo::Lista(interno),
@@ -639,7 +665,9 @@ fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
     for prefixo in ["Resultado<", "resultado<"] {
         if let Some(conteudo) = nome.strip_prefix(prefixo).and_then(|v| v.strip_suffix('>')) {
             let partes = separar_argumentos_tipo(conteudo)?;
-            if partes.len() != 2 { return None; }
+            if partes.len() != 2 {
+                return None;
+            }
             return Some(Tipo::Resultado(
                 Box::new(tipo_assinatura_modulo(partes[0], genericos)?),
                 Box::new(tipo_assinatura_modulo(partes[1], genericos)?),
@@ -649,8 +677,15 @@ fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
     for prefixo in ["Tupla<", "tupla<"] {
         if let Some(conteudo) = nome.strip_prefix(prefixo).and_then(|v| v.strip_suffix('>')) {
             let partes = separar_argumentos_tipo(conteudo)?;
-            if partes.len() < 2 { return None; }
-            return Some(Tipo::Tupla(partes.iter().map(|parte| tipo_assinatura_modulo(parte, genericos)).collect::<Option<Vec<_>>>()?));
+            if partes.len() < 2 {
+                return None;
+            }
+            return Some(Tipo::Tupla(
+                partes
+                    .iter()
+                    .map(|parte| tipo_assinatura_modulo(parte, genericos))
+                    .collect::<Option<Vec<_>>>()?,
+            ));
         }
     }
     if let Some(resto) = nome.strip_prefix("funcao(") {
@@ -661,15 +696,17 @@ fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
                 '(' => profundidade += 1,
                 ')' => {
                     profundidade -= 1;
-                    if profundidade == 0 { fechamento = Some(indice); break; }
+                    if profundidade == 0 {
+                        fechamento = Some(indice);
+                        break;
+                    }
                 }
                 _ => {}
             }
         }
         let fechamento = fechamento?;
         let parametros_texto = &resto[..fechamento];
-        let retorno_texto = resto[fechamento + 1..].trim()
-            .strip_prefix("->")?.trim();
+        let retorno_texto = resto[fechamento + 1..].trim().strip_prefix("->")?.trim();
         let parametros = if parametros_texto.trim().is_empty() {
             Vec::new()
         } else {
@@ -678,7 +715,10 @@ fn tipo_assinatura_modulo(nome: &str, genericos: &[String]) -> Option<Tipo> {
                 .map(|tipo| tipo_assinatura_modulo(tipo, genericos))
                 .collect::<Option<Vec<_>>>()?
         };
-        return Some(Tipo::Funcao(parametros, Box::new(tipo_assinatura_modulo(retorno_texto, genericos)?)));
+        return Some(Tipo::Funcao(
+            parametros,
+            Box::new(tipo_assinatura_modulo(retorno_texto, genericos)?),
+        ));
     }
     None
 }
@@ -1282,7 +1322,10 @@ fn mostrar_ir(caminho: &Path) {
     let semantica = analisar_com_modulos(&sintaxe.programa, &modulos);
     if !semantica.diagnosticos.is_empty() {
         for diagnostico in &semantica.diagnosticos {
-            eprintln!("{}", formatar_diagnosticos_texto(caminho, std::slice::from_ref(diagnostico), &fonte));
+            eprintln!(
+                "{}",
+                formatar_diagnosticos_texto(caminho, std::slice::from_ref(diagnostico), &fonte)
+            );
         }
         std::process::exit(1);
     }
@@ -1320,14 +1363,32 @@ fn formatar_diagnosticos_texto(
     diagnosticos: &[Diagnostico],
     fonte: &ArquivoFonte,
 ) -> String {
-    diagnosticos.iter().map(|diagnostico| {
-        let local = diagnostico.intervalo.and_then(|intervalo| fonte.linha_coluna(intervalo.inicio));
-        if let Some((linha, coluna)) = local {
-            format!("{} {}:{}:{} — {}", diagnostico.codigo, caminho.display(), linha, coluna, diagnostico.mensagem)
-        } else {
-            format!("{} {} — {}", diagnostico.codigo, caminho.display(), diagnostico.mensagem)
-        }
-    }).collect::<Vec<_>>().join("\n")
+    diagnosticos
+        .iter()
+        .map(|diagnostico| {
+            let local = diagnostico
+                .intervalo
+                .and_then(|intervalo| fonte.linha_coluna(intervalo.inicio));
+            if let Some((linha, coluna)) = local {
+                format!(
+                    "{} {}:{}:{} — {}",
+                    diagnostico.codigo,
+                    caminho.display(),
+                    linha,
+                    coluna,
+                    diagnostico.mensagem
+                )
+            } else {
+                format!(
+                    "{} {} — {}",
+                    diagnostico.codigo,
+                    caminho.display(),
+                    diagnostico.mensagem
+                )
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn diagnosticos_json(
@@ -1468,7 +1529,10 @@ fn analisar_arquivo(caminho: &Path, json: bool) {
     } else if resultado.diagnosticos.is_empty() {
         println!("Arquivo válido semanticamente: {}", caminho.display());
     } else if !resultado.diagnosticos.is_empty() {
-        eprintln!("{}", formatar_diagnosticos_texto(caminho, &resultado.diagnosticos, &fonte));
+        eprintln!(
+            "{}",
+            formatar_diagnosticos_texto(caminho, &resultado.diagnosticos, &fonte)
+        );
     }
     if !resultado.diagnosticos.is_empty() {
         std::process::exit(1);

@@ -1021,11 +1021,46 @@ mod testes {
             (TipoRuntime::Vazio, 0, 1),
             (TipoRuntime::Logico, 1, 1),
             (TipoRuntime::Byte, 1, 1),
-            (TipoRuntime::Inteiro { bits: 8, assinado: true }, 1, 1),
-            (TipoRuntime::Inteiro { bits: 16, assinado: false }, 2, 2),
-            (TipoRuntime::Inteiro { bits: 32, assinado: true }, 4, 4),
-            (TipoRuntime::Inteiro { bits: 64, assinado: false }, 8, 8),
-            (TipoRuntime::Inteiro { bits: 128, assinado: true }, 16, 16),
+            (
+                TipoRuntime::Inteiro {
+                    bits: 8,
+                    assinado: true,
+                },
+                1,
+                1,
+            ),
+            (
+                TipoRuntime::Inteiro {
+                    bits: 16,
+                    assinado: false,
+                },
+                2,
+                2,
+            ),
+            (
+                TipoRuntime::Inteiro {
+                    bits: 32,
+                    assinado: true,
+                },
+                4,
+                4,
+            ),
+            (
+                TipoRuntime::Inteiro {
+                    bits: 64,
+                    assinado: false,
+                },
+                8,
+                8,
+            ),
+            (
+                TipoRuntime::Inteiro {
+                    bits: 128,
+                    assinado: true,
+                },
+                16,
+                16,
+            ),
             (TipoRuntime::Decimal { bits: 32 }, 4, 4),
             (TipoRuntime::Decimal { bits: 64 }, 8, 8),
             (TipoRuntime::Caractere, 4, 4),
@@ -1034,7 +1069,11 @@ mod testes {
         ];
         for (tipo, tamanho, alinhamento) in casos {
             let layout = calcular_layout(&tipo).unwrap();
-            assert_eq!((layout.tamanho, layout.alinhamento), (tamanho, alinhamento), "{tipo:?}");
+            assert_eq!(
+                (layout.tamanho, layout.alinhamento),
+                (tamanho, alinhamento),
+                "{tipo:?}"
+            );
         }
     }
 
@@ -1047,15 +1086,15 @@ mod testes {
                     nome: "Pequeno".into(),
                     payload: vec![
                         TipoRuntime::Byte,
-                        TipoRuntime::Inteiro { bits: 64, assinado: true },
+                        TipoRuntime::Inteiro {
+                            bits: 64,
+                            assinado: true,
+                        },
                     ],
                 },
                 VarianteRuntime {
                     nome: "Grande".into(),
-                    payload: vec![
-                        TipoRuntime::Texto,
-                        TipoRuntime::Decimal { bits: 32 },
-                    ],
+                    payload: vec![TipoRuntime::Texto, TipoRuntime::Decimal { bits: 32 }],
                 },
             ],
         };
@@ -1070,17 +1109,29 @@ mod testes {
     #[test]
     fn layout_de_agregado_maior_que_dois_registradores_eh_preservado() {
         let tipo = TipoRuntime::Tupla(vec![
-            TipoRuntime::Inteiro { bits: 64, assinado: true },
-            TipoRuntime::Inteiro { bits: 64, assinado: true },
-            TipoRuntime::Inteiro { bits: 64, assinado: true },
+            TipoRuntime::Inteiro {
+                bits: 64,
+                assinado: true,
+            },
+            TipoRuntime::Inteiro {
+                bits: 64,
+                assinado: true,
+            },
+            TipoRuntime::Inteiro {
+                bits: 64,
+                assinado: true,
+            },
         ]);
         let layout = calcular_layout(&tipo).unwrap();
         assert_eq!(layout.tamanho, 24);
         assert_eq!(layout.alinhamento, 8);
         assert_eq!(
-            layout.campos.iter().map(|campo| campo.deslocamento).collect::<Vec<_>>(),
+            layout
+                .campos
+                .iter()
+                .map(|campo| campo.deslocamento)
+                .collect::<Vec<_>>(),
             vec![0, 8, 16]
         );
     }
-
 }

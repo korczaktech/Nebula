@@ -340,16 +340,28 @@ mod testes {
     fn argumentos_e_retornos_grandes_usam_endereco_sem_truncamento() {
         assert_eq!(
             classificar_agregado(24, 8).unwrap(),
-            ClasseAgregado::Indireto { tamanho: 24, alinhamento: 8 }
+            ClasseAgregado::Indireto {
+                tamanho: 24,
+                alinhamento: 8
+            }
         );
         assert_eq!(
             classificar_retorno_agregado(24, 8).unwrap(),
-            RetornoAgregado::DestinoOculto { tamanho: 24, alinhamento: 8 }
+            RetornoAgregado::DestinoOculto {
+                tamanho: 24,
+                alinhamento: 8
+            }
         );
         let plano = planejar_argumentos(&[(24, 8), (40, 16)], Some((32, 16))).unwrap();
         assert!(plano.destino_oculto);
-        assert_eq!(plano.argumentos[0], vec![LocalArgumento::PonteiroRegistrador(1)]);
-        assert_eq!(plano.argumentos[1], vec![LocalArgumento::PonteiroRegistrador(2)]);
+        assert_eq!(
+            plano.argumentos[0],
+            vec![LocalArgumento::PonteiroRegistrador(1)]
+        );
+        assert_eq!(
+            plano.argumentos[1],
+            vec![LocalArgumento::PonteiroRegistrador(2)]
+        );
     }
 
     #[test]
@@ -359,9 +371,14 @@ mod testes {
             .chain([(24, 16), (32, 32)])
             .collect::<Vec<_>>();
         let plano = planejar_argumentos(&argumentos, None).unwrap();
-        assert_eq!(plano.argumentos[6], vec![LocalArgumento::PonteiroPilha { deslocamento: 0 }]);
-        assert_eq!(plano.argumentos[7], vec![LocalArgumento::PonteiroPilha { deslocamento: 8 }]);
+        assert_eq!(
+            plano.argumentos[6],
+            vec![LocalArgumento::PonteiroPilha { deslocamento: 0 }]
+        );
+        assert_eq!(
+            plano.argumentos[7],
+            vec![LocalArgumento::PonteiroPilha { deslocamento: 8 }]
+        );
         assert_eq!(plano.tamanho_pilha, 16);
     }
-
 }
