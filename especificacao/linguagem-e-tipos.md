@@ -1,6 +1,6 @@
 # Especificação normativa da linguagem e do sistema de tipos Nebula
 
-**Status:** especificação-alvo da Fase 5; a conformidade da implementação deve ser demonstrada separadamente pelos testes. Este documento define contratos de linguagem. Uma regra descrita aqui não deve ser anunciada como implementada até existir suporte em Lexer/Parser, AST, análise semântica, IR, execução e backends declarados.
+**Status:** especificação normativa da linguagem e do sistema de tipos. As regras abaixo definem o comportamento independente de plataforma; a representação física e a ABI são específicas de cada alvo. A conformidade de cada recurso é registrada separadamente em `criterios-fase-5.md` e deve ser demonstrada por testes em todas as camadas aplicáveis. Uma regra normativa não significa, por si só, que todo backend já a implemente.
 
 ## 1. Princípios
 
@@ -11,10 +11,11 @@
 5. Um programa que viole uma regra estática não pode ser executado pelo interpretador nem gerar executável.
 6. O interpretador e todos os backends devem observar a mesma semântica definida neste documento.
 7. O compilador não pode aceitar silenciosamente uma construção que o backend selecionado não consegue representar.
+8. A semântica observável da linguagem é independente do sistema operacional e da arquitetura hospedeira. Um alvo pode impor limites de representação documentados, mas deve rejeitar recursos fora desses limites em vez de alterar seu significado.
 
 ## 2. Tipos primitivos
 
-Os tipos primitivos planejados são:
+Os tipos primitivos da linguagem são:
 
 | Família | Tipos | Regra |
 |---|---|---|
@@ -51,7 +52,7 @@ Uma tupla é heterogênea e posicional. A sintaxe de valor é `(a, b)`; tupla un
 
 ### 3.3 Estruturas
 
-Forma normativa planejada:
+Forma normativa:
 
 ```nebula
 estrutura Pessoa: {
@@ -78,7 +79,7 @@ enumeracao Estado: {
 } fim
 ```
 
-Uma enumeração é uma união discriminada. Cada variante tem discriminante único e pode carregar zero ou mais valores tipados. A construção deve nomear uma variante existente e fornecer os argumentos exigidos. A inspeção de variantes deve ser exaustiva; qualquer padrão não coberto gera diagnóstico estático. O compilador não pode tratar uma enumeração como inteiro sem conversão explícita.
+Uma enumeração é uma união discriminada. Cada variante tem discriminante único e pode carregar zero ou mais valores tipados. Na ausência de discriminantes explícitos, os valores são atribuídos em ordem de declaração, começando em zero; essa numeração é interna e não constitui conversão implícita para inteiro. A construção deve nomear uma variante existente e fornecer os argumentos exigidos. A inspeção de variantes deve ser exaustiva; qualquer padrão não coberto gera diagnóstico estático. O compilador não pode tratar uma enumeração como inteiro sem conversão explícita.
 
 #### 3.4.1 Correspondência de padrões
 
@@ -102,8 +103,9 @@ Cada caso nomeia a enumeração e a variante. Os identificadores entre parêntes
 
 ### 3.5 Opcionais e resultados
 
-- `Opcional<T>` representa presença ou ausência de um valor: `Algum(valor)` e `Nenhum`.
-- `Resultado<T, E>` representa sucesso ou falha: `Sucesso(valor)` e `Falha(erro)`.
+- `Opcional<T>` representa presença ou ausência de um valor: `Opcional::Algum(valor)` e `Opcional::Nenhum`.
+- `Resultado<T, E>` representa sucesso ou falha: `Resultado::Sucesso(valor)` e `Resultado::Falha(erro)`.
+- `Nenhum` e variantes sem payload não recebem parênteses; variantes com payload exigem exatamente a quantidade e os tipos declarados.
 - Os parâmetros genéricos devem ser preservados na construção, inferência, retorno, armazenamento e chamada.
 - A inferência de parâmetros genéricos é transacional: todos os componentes de uma unificação composta precisam concordar; se qualquer componente falhar ou permanecer sem tipo concreto, nenhuma vinculação parcial pode ser aproveitada. Lacunas de inferência não são convertidas silenciosamente em tipos concretos.
 - A extração de um valor exige correspondência de padrão ou operação explícita que trate o caso ausente/falho.
@@ -185,6 +187,6 @@ A tabela abaixo é normativa; níveis maiores vinculam primeiro. Operadores no m
 
 A avaliação de chamadas e operadores binários é da esquerda para a direita, salvo quando a tabela declarar associatividade à direita. Curto-circuito lógico não avalia o operando direito quando o resultado já é determinado pelo esquerdo. A ordem de avaliação não pode ser alterada por otimizações quando houver efeitos observáveis. Comparações relacionais e operadores de intervalo encadeados são erros sintáticos; agrupamento explícito com parênteses é permitido.
 
-## 10. Matriz de conformidade da implementação
+## 10. Conformidade da implementação
 
-A especificação é normativa, mas não afirma que todos os recursos já estão implementados. A implementação só é conforme quando cada recurso percorre Lexer/Parser, AST, análise semântica, IR, interpretador, backend aplicável e testes de conformidade. O status real deve permanecer registrado em `criterios-fase-5.md`. Em particular, estruturas, enumerações, opcionais/resultados executáveis, inteiros sem sinal, ABI de agregados e suporte nativo completo não podem ser marcados como concluídos sem testes executáveis em cada camada aplicável.
+Esta especificação é normativa; a implementação pode estar em estágio diferente. Um recurso só é considerado implementado quando percorre as camadas que lhe são aplicáveis: Lexer/Parser, AST, análise semântica, IR, interpretador, backend e testes de conformidade. O interpretador de referência deve preservar a semântica da linguagem. Cada backend deve implementar a representação declarada para seu alvo ou emitir diagnóstico explícito antes de gerar um artefato. O estado verificável, os limites por alvo e as evidências de CI permanecem registrados em `criterios-fase-5.md` e `tipos.md`.
