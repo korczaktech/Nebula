@@ -291,11 +291,10 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim";
-    let resultado = analisar(&ArquivoFonte::novo(
-        "ast.nbx",
-        normalizar_blocos_legados(codigo),
-    ));
+    let codigo = normalizar_blocos_legados(
+        "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim",
+    );
+    let resultado = analisar(&ArquivoFonte::novo("ast.nbx", &codigo));
     assert!(
         resultado.diagnosticos.is_empty(),
         "programa de teste deve ser válido: {:#?}",
@@ -512,11 +511,10 @@ variavel construcao = Pessoa { nome: "Ana", fim }
 
 #[test]
 fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
-    let codigo = "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim";
-    let resultado = analisar(&ArquivoFonte::novo(
-        "recuperacao.nbx",
-        normalizar_blocos_legados(codigo),
-    ));
+    let codigo = normalizar_blocos_legados(
+        "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim",
+    );
+    let resultado = analisar(&ArquivoFonte::novo("recuperacao.nbx", &codigo));
 
     assert!(
         !resultado.diagnosticos.is_empty(),
