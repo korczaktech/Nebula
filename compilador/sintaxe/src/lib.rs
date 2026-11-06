@@ -1244,7 +1244,7 @@ impl Parser {
                 if parece_construcao && self.corresponde(TipoToken::AbreChave) {
                     let mut campos = Vec::new();
                     self.separadores();
-                    while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) {
+                    while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Fim) {
                         let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
                         let campo = match self.consumir_nome("Esperado nome do campo na construção da estrutura.") {
                             Some(campo) => campo,
@@ -1304,6 +1304,11 @@ impl Parser {
                         }
                         self.separadores();
                     }
+                    if self.corresponde(TipoToken::FimBloco) {
+                        self.separadores();
+                    } else {
+                        self.erro_atual("N2009", "Construção de objeto precisa terminar com 'fim' antes de '}'.");
+                    }
                     self.esperar(TipoToken::FechaChave, "Construção de estrutura não foi fechada com '}'.");
                     Expressao::ConstrucaoEstrutura { nome, campos }
                 } else {
@@ -1349,6 +1354,67 @@ impl Parser {
                         primeiro
                     }
                 }
+            }
+            TipoToken::AbreChave => {
+                self.avancar();
+                let mut campos = Vec::new();
+                self.separadores();
+                while !self.verifica(TipoToken::FechaChave)
+                    && !self.verifica(TipoToken::FimBloco)
+                    && !self.verifica(TipoToken::Fim)
+                {
+                    let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
+                    let chave = match self.tipo() {
+                        TipoToken::Texto | TipoToken::Identificador => self.avancar().lexema,
+                        _ => {
+                            self.erro_atual("N2038", "Esperada chave textual ou identificador no dicionário.");
+                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                            if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                                self.separadores();
+                                continue;
+                            }
+                            break;
+                        }
+                    };
+                    if !self.corresponde(TipoToken::DoisPontos) {
+                        self.erro_atual("N2038", "Esperado ':' após chave do dicionário.");
+                        self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                        if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                            self.separadores();
+                            continue;
+                        }
+                        break;
+                    }
+                    let valor = match self.expressao(0) {
+                        Some(valor) => valor,
+                        None => {
+                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                            if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
+                                self.separadores();
+                                continue;
+                            }
+                            break;
+                        }
+                    };
+                    if campos.iter().any(|(existente, _)| existente == &chave) {
+                        self.erro_intervalo("N2037", "Chave repetida no dicionário.", intervalo);
+                    } else {
+                        campos.push((chave, valor));
+                    }
+                    if !self.corresponde(TipoToken::Virgula) && !self.separador_atual()
+                        && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::FechaChave) {
+                        self.erro_atual("N2038", "Esperado ',' ou quebra de linha entre entradas do dicionário.");
+                        self.sincronizar();
+                    }
+                    self.separadores();
+                }
+                if self.corresponde(TipoToken::FimBloco) {
+                    self.separadores();
+                } else {
+                    self.erro_atual("N2009", "Dicionário precisa terminar com 'fim' antes de '}'.");
+                }
+                self.esperar(TipoToken::FechaChave, "Dicionário não foi fechado com '}'.");
+                Expressao::ConstrucaoEstrutura { nome: "dicionario".into(), campos }
             }
             TipoToken::AbreColchete => {
                 self.avancar();
@@ -2120,6 +2186,19 @@ mod testes {
         let r = analisar(&fonte("incluir(modulo: arquivos, biblioteca: sistema)"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Incluir { caminho, .. } if caminho == "sistema::arquivos"));
+    }
+
+    #[test]
+    fn analisa_dicionario_com_fim_antes_da_chave() {
+        let r = analisar(&fonte("variavel dados: dicionario = {\\n    \\"nome\\": \\"Nebula\\",\\n    versao: 1\\n    fim\\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } if nome == "dicionario" && campos.len() == 2));
+    }
+
+    #[test]
+    fn rejeita_dicionario_sem_fim_antes_da_chave() {
+        let r = analisar(&fonte("variavel dados: dicionario = {\\n    \\"nome\\": \\"Nebula\\"\\n}"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
     }
 
     #[test]
