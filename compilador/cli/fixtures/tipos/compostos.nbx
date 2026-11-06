@@ -1,11 +1,15 @@
-estrutura Conta:
+estrutura Conta: {
     nome: texto
     idade: inteiro
+    fim
+}
 fim
-enumeracao Estado:
+enumeracao Estado: {
     Inativo
     Ativo
     Falha(texto)
+    fim
+}
 fim
 variavel conta = Conta { nome: "Lia", idade: 20, fim }
 variavel estado = Estado::Ativo
