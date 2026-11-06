@@ -247,6 +247,26 @@ mod testes {
     }
 
     #[test]
+    fn analisa_tipos_de_tupla_vazia_unitaria_e_composta() {
+        assert_eq!(TipoAst::analisar("()"), TipoAst::Tupla(Vec::new()));
+        assert_eq!(
+            TipoAst::analisar("(inteiro,)"),
+            TipoAst::Tupla(vec![TipoAst::Nome("inteiro".into())]),
+        );
+        assert_eq!(
+            TipoAst::analisar("(inteiro, texto)"),
+            TipoAst::Tupla(vec![
+                TipoAst::Nome("inteiro".into()),
+                TipoAst::Nome("texto".into()),
+            ]),
+        );
+        assert_eq!(
+            TipoAst::analisar("(inteiro)"),
+            TipoAst::Nome("inteiro".into())
+        );
+    }
+
+    #[test]
     fn analisa_caminhos_listas_tuplas_e_funcoes() {
         assert_eq!(
             TipoAst::analisar("Modulo::Pessoa"),
@@ -273,28 +293,5 @@ mod testes {
                 retorno: Box::new(TipoAst::Nome("logico".into()))
             }
         );
-    }
-}
-
-
-#[cfg(test)]
-mod testes {
-    use super::TipoAst;
-
-    #[test]
-    fn analisa_tipos_de_tupla_vazia_unitaria_e_composta() {
-        assert_eq!(TipoAst::analisar("()"), TipoAst::Tupla(Vec::new()));
-        assert_eq!(
-            TipoAst::analisar("(inteiro,)"),
-            TipoAst::Tupla(vec![TipoAst::Nome("inteiro".into())]),
-        );
-        assert_eq!(
-            TipoAst::analisar("(inteiro, texto)"),
-            TipoAst::Tupla(vec![
-                TipoAst::Nome("inteiro".into()),
-                TipoAst::Nome("texto".into()),
-            ]),
-        );
-        assert_eq!(TipoAst::analisar("(inteiro)"), TipoAst::Nome("inteiro".into()));
     }
 }
