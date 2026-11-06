@@ -226,12 +226,9 @@ fn compila_e_exibe_literal_texto_no_backend_nativo() {
 #[test]
 fn exibir_aceita_varios_textos_com_espacamento() {
     let (origem, executavel) = caminhos("exibir-variadico");
-    let codigo = r#"funcao principal() -> vazio: {
-    variavel nome = "Nebula"
-    exibir("Olá", nome, "2026")
-    exibir()
-    fim
-} fim
+    let codigo = r#"variavel nome = "Nebula"
+exibir("Olá", nome, "2026")
+exibir()
 "#;
     fs::write(&origem, codigo).unwrap();
 
