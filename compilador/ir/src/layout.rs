@@ -365,7 +365,9 @@ mod testes {
 
     #[test]
     fn calcula_layout_de_enum_declarada() {
-        let ast = programa("enumeracao Estado: {\n    Inativo\n    Ativo\n    Falha(texto)\n    fim\n}\nfim");
+        let ast = programa(
+            "enumeracao Estado: {\n    Inativo\n    Ativo\n    Falha(texto)\n    fim\n}\nfim",
+        );
         let tipo = Tipo::Enumeracao("Estado".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
         assert_eq!(layout.tamanho_tag, 1);
