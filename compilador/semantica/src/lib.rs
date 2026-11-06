@@ -2312,8 +2312,8 @@ enumeracao Estado:
     Ativo
     Falha(texto)
 fim
-variavel a = Pessoa { nome: "Lia", idade: 20 }
-variavel b = Pessoa { nome: "Lia", idade: 20 }
+variavel a = Pessoa { nome: "Lia", idade: 20, fim }
+variavel b = Pessoa { nome: "Lia", idade: 20, fim }
 variavel equivalentes = a == b
 variavel estado = Estado::Falha("erro")
 variavel estados_iguais = estado == Estado::Falha("erro")
