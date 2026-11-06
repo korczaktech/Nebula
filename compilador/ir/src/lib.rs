@@ -1640,6 +1640,8 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
             u32::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u32.".into()),
         (Tipo::InteiroU64, ValorIr::Inteiro(v)) if v >= 0 =>
             u64::try_from(v as u128).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u64.".into()),
+        (Tipo::InteiroU128, ValorIr::Inteiro(v)) if v >= 0 =>
+            Ok(ValorIr::InteiroSemSinal(v as u128)),
         (Tipo::InteiroU8 | Tipo::Byte, ValorIr::InteiroSemSinal(v)) =>
             u8::try_from(v).map(|v| ValorIr::InteiroSemSinal(v as u128)).map_err(|_| "Valor fora da faixa de inteiro_u8/byte.".into()),
         (Tipo::InteiroU16, ValorIr::InteiroSemSinal(v)) =>
