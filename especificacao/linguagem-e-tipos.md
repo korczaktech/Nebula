@@ -54,15 +54,13 @@ Uma tupla é heterogênea e posicional. A sintaxe de valor é `(a, b)`; tupla un
 Forma normativa planejada:
 
 ```nebula
-estrutura Pessoa {
+estrutura Pessoa: {
     nome: texto
     idade: inteiro
-}
+    fim
+} fim
 
-variavel pessoa: Pessoa = Pessoa {
-    nome: "Ana"
-    idade: 30
-}
+variavel pessoa: Pessoa = Pessoa { nome: "Ana", idade: 30, fim }
 ```
 
 Cada campo tem nome único e tipo declarado. A construção exige todos os campos obrigatórios exatamente uma vez; campos desconhecidos, ausentes ou duplicados são erros. Acesso é feito por membro (`pessoa.nome`). A ordem declarada dos campos determina a ordem lógica, mas não autoriza assumir layout de memória sem consultar a regra de ABI do alvo. Estruturas são tipos nominais: dois tipos com campos iguais, mas nomes diferentes, não são intercambiáveis implicitamente.
@@ -72,11 +70,12 @@ Cada campo tem nome único e tipo declarado. A construção exige todos os campo
 Forma normativa planejada:
 
 ```nebula
-enumeracao Estado {
+enumeracao Estado: {
     Inativo
     Ativo
     Falha(texto)
-}
+    fim
+} fim
 ```
 
 Uma enumeração é uma união discriminada. Cada variante tem discriminante único e pode carregar zero ou mais valores tipados. A construção deve nomear uma variante existente e fornecer os argumentos exigidos. A inspeção de variantes deve ser exaustiva; qualquer padrão não coberto gera diagnóstico estático. O compilador não pode tratar uma enumeração como inteiro sem conversão explícita.
@@ -86,14 +85,17 @@ Uma enumeração é uma união discriminada. Cada variante tem discriminante ún
 A instrução `escolha` inspeciona uma enumeração e executa o corpo do primeiro caso correspondente:
 
 ```nebula
-escolha resultado {
-    caso Resultado::Sucesso(valor) {
+escolha resultado: {
+    caso Resultado::Sucesso(valor): {
         exibir(valor)
+        fim
     }
-    caso Resultado::Falha(mensagem) {
+    caso Resultado::Falha(mensagem): {
         exibir(mensagem)
+        fim
     }
-}
+    fim
+} fim
 ```
 
 Cada caso nomeia a enumeração e a variante. Os identificadores entre parênteses vinculam, na ordem declarada, os valores do payload ao escopo do corpo. Variantes sem payload não recebem parênteses nem vínculos. O padrão curinga `caso _` cobre todas as variantes restantes e, quando presente, deve ser o último caso. Sem curinga, todas as variantes declaradas precisam aparecer exatamente uma vez. Variantes inexistentes, repetidas, de outra enumeração, payloads com aridade incorreta e escolhas não exaustivas são erros estáticos. O interpretador executa a correspondência. O backend ELF x86-64 também gera construção e correspondência de enumerações, `Opcional` e `Resultado` quando o layout cabe na ABI própria: tag em um registrador e, no máximo, um payload escalar em outro. Payloads múltiplos ou maiores que um registrador continuam rejeitados.
