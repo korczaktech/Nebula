@@ -1,574 +1,339 @@
 # Nebula
 
-> **Uma linguagem própria, construída para fazer tudo.**
+> Linguagem de programação própria da Korczak Technologies.
 
-Nebula é uma linguagem de programação de propósito geral, com identidade brasileira, sintaxe própria e foco em desempenho, simplicidade, organização e portabilidade.
+Nebula é uma linguagem de propósito geral, com sintaxe original em português brasileiro, tipagem estática, inferência controlada e modelo híbrido de memória. Seu projeto busca combinar desempenho, legibilidade, segurança, portabilidade e controle de baixo nível.
 
 | Propriedade | Definição |
 |---|---|
 | Nome | Nebula |
 | Extensão | `.nbx` |
-| Idioma principal | Português brasileiro |
-| Implementação inicial do compilador | Rust |
+| Idioma da linguagem | Português brasileiro, conforme as regras léxicas oficiais |
+| Implementação do compilador | Rust |
 | Modelo | Compilada, multiparadigma e multiplataforma |
-| Tipagem | Estática, com inferência controlada |
-| Blocos | Function Body obrigatório: `: { ... fim }` |
+| Tipagem | Estática, forte e com inferência controlada |
 | Memória | Modelo híbrido |
-| Alvos planejados | Código nativo e WebAssembly |
+| Alvos | Nativo e WebAssembly, em evolução |
+| Repositório | [korczaktech/Nebula](https://github.com/korczaktech/Nebula) |
+| Extensão VS Code | [Nebula-Extension](https://github.com/korczaktech/Nebula-Extension) |
 
-A meta de desempenho é investigar e buscar resultados de até 3× C++ em cargas específicas. Isso é uma meta experimental, não uma garantia universal: qualquer comparação deverá ser sustentada por benchmarks reproduzíveis.
+A meta histórica de investigar desempenho de até 3× C++ é experimental e restrita a cargas específicas. Não representa uma garantia. Qualquer comparação deverá utilizar benchmarks públicos, reproduzíveis e equivalentes.
 
 ---
 
-## 1. Visão e objetivos
+## 1. Objetivos
 
-Nebula deverá permitir o desenvolvimento de:
+Nebula foi concebida para permitir a criação de:
 
-- Sistemas operacionais, kernels e drivers.
-- Aplicativos desktop e móveis.
-- Aplicações web e backends.
-- APIs, serviços e sistemas distribuídos.
-- Jogos e motores gráficos.
-- Sistemas embarcados.
-- Bibliotecas, ferramentas e infraestrutura.
+- Sistemas operacionais, kernels, drivers e sistemas embarcados.
+- Aplicativos desktop, móveis e web.
+- APIs, serviços, backends e sistemas distribuídos.
+- Jogos, motores gráficos e ferramentas de desenvolvimento.
+- Bibliotecas, infraestrutura, automação e aplicações científicas.
+- Componentes de baixo nível com controle explícito de memória e hardware.
 
-### Princípios
+### Princípios de projeto
 
-1. Desempenho como prioridade arquitetural.
-2. Sintaxe original, não uma tradução de Python, C++ ou outra linguagem.
-3. Facilidade de leitura e aprendizagem.
-4. Organização rigorosa e regras consistentes.
-5. Controle previsível de memória.
-6. Segurança sem sacrificar desempenho desnecessariamente.
-7. Compilação para múltiplas plataformas.
-8. Biblioteca padrão modular.
-9. Diagnósticos claros em português.
-10. Possibilidade futura de autocompilação.
+1. Sintaxe própria: Nebula não é uma tradução de Python, C, C++ ou JavaScript.
+2. Desempenho mensurável e previsível.
+3. Regras léxicas, sintáticas e semânticas consistentes.
+4. Diagnósticos claros, com códigos estáveis e localização precisa.
+5. Tipos explícitos quando necessários e inferência quando segura.
+6. Controle de memória adequado tanto a aplicações quanto a sistemas.
+7. Biblioteca padrão modular.
+8. Portabilidade sem esconder diferenças entre plataformas.
+9. Capacidade de compilar código freestanding e bare-metal conforme os backends evoluírem.
+10. Ferramentas oficiais integradas ao fluxo de desenvolvimento.
 
-## 2. Identidade e regras da linguagem
+## 2. Sintaxe e identidade
 
-O contrato normativo único da linguagem e do sistema de tipos está em [especificacao/linguagem-e-tipos.md](especificacao/linguagem-e-tipos.md). A [gramática formal](especificacao/gramatica.md) e as [regras léxicas](especificacao/tokens.md) são anexos técnicos subordinados e servem de referência ao Lexer, Parser e AST do crate `nebula-sintaxe`.
+A especificação normativa está organizada em `especificacao/`. Ela define a linguagem; o código do compilador e os testes determinam quais partes já estão implementadas.
 
-- Código-fonte UTF-8; identificadores Unicode comparados em NFC.
-- Palavras-chave e mensagens oficiais em português brasileiro.
-- Todo corpo executável ou estrutural abre com `: {`, termina com `fim` antes de `}`, e recebe outro `fim` após a chave quando a construção for completa.
-- A indentação é obrigatória para legibilidade e deve ser consistente, mas não delimita blocos.
-- Chaves de dados são distintas de Function Body; dicionários em declarações comuns não exigem `fim`.
-- Instruções são separadas por quebra de linha ou ponto e vírgula, conforme as regras da gramática.
-- Quebras dentro de parênteses e colchetes são continuações; regras específicas também permitem expressões multilinha.
-- A lista de palavras reservadas implementadas e a lista de palavras reservadas futuras estão em [especificacao/tokens.md](especificacao/tokens.md).
+Características centrais:
 
-Exemplo da sintaxe atual:
+- Arquivos de código com extensão `.nbx`.
+- Fonte em UTF-8.
+- Palavras-chave e APIs com identidade em português.
+- Identificadores Unicode tratados conforme as regras de normalização da especificação.
+- Indentação consistente para legibilidade.
+- Delimitadores e encerramentos definidos pela gramática oficial.
+- Comentários, operadores, declarações, funções, tipos e estruturas de controle com regras próprias.
 
-~~~nebula
+Exemplo ilustrativo da sintaxe documentada:
+
+```nebula
 funcao principal() -> vazio: {
     variavel nome = "Nebula"
     constante idade: inteiro = 18
 
     quando idade >= 18: {
-        exibir("Olá, " + nome)
+        exibir("Ola, " + nome)
         fim
     }
     senao: {
-        exibir("Olá")
+        exibir("Bem-vindo")
         fim
     }
     fim
     fim
 } fim
-~~~
-
-O exemplo demonstra a sintaxe; chamadas como `exibir` dependem do runtime/biblioteca padrão e do alvo utilizado.
-
-## 3. Arquitetura geral do compilador
-
-O compilador será desenvolvido inicialmente em Rust e organizado em componentes independentes.
-
-```text
-Código-fonte (.nbx)
-        |
-        v
-Analisador léxico (Lexer)
-        |
-        v
-Analisador sintático (Parser)
-        |
-        v
-Árvore sintática abstrata (AST)
-        |
-        v
-Análise semântica
-        |
-        v
-Sistema de tipos
-        |
-        v
-Representação intermediária (IR)
-        |
-        v
-Otimizador
-        |
-        v
-Gerenciador de alvos
-      /       \
-     v         v
-  Nativo     WebAssembly
-     \         /
-      v       v
-   Executável / módulo
 ```
 
-### 3.1 Fonte e Lexer
+O exemplo demonstra a organização sintática. A disponibilidade de cada função depende da biblioteca, do runtime e do alvo utilizado.
 
-O crate `nebula-sintaxe` implementa o Lexer do subconjunto inicial e produz tokens com lexemas originais e intervalos em bytes.
+**Importante:** existem documentos históricos e complementares de sintaxe no projeto. Em caso de divergência, deve prevalecer o contrato normativo mais recente em `especificacao/`, acompanhado pelos testes de conformidade do compilador. Documentos antigos não tornam automaticamente uma construção válida.
 
-O Lexer reconhece palavras reservadas, identificadores Unicode, números, textos, caracteres, operadores, comentários e quebras de linha. Aplica maior correspondência aos operadores, normaliza identificadores em NFC e diagnostica entradas léxicas inválidas. A leitura da CLI rejeita arquivos que não sejam UTF-8 válido.
+## 3. Arquitetura do compilador
 
-### 3.2 Parser
+O compilador é desenvolvido em Rust e dividido em componentes independentes.
 
-O Parser do crate `nebula-sintaxe` transforma os tokens em uma AST independente da CLI, valida o subconjunto gramatical inicial e emite diagnósticos para construções inválidas. Implementa recuperação para continuar a análise quando possível e preservar uma AST parcial.
+```text
+Fonte .nbx
+   |
+   v
+Lexer e tokens
+   |
+   v
+Parser
+   |
+   v
+AST
+   |
+   v
+Análise semântica
+   |
+   v
+Sistema de tipos
+   |
+   v
+Representação intermediária (IR)
+   |
+   v
+Otimizador
+   |
+   v
+Backend e alvo
+   |
+   +----> Executável nativo
+   |
+   +----> WebAssembly
+```
 
-### 3.3 AST
+### Componentes
 
-Representa a estrutura lógica do programa sem depender de plataforma específica.
+| Componente | Responsabilidade |
+|---|---|
+| Fonte | Leitura, validação e localização do código-fonte |
+| Diagnósticos | Erros, avisos, códigos e sugestões |
+| Sintaxe | Lexer, Parser, tokens e AST |
+| Semântica | Escopos, resolução de nomes e validações |
+| IR | Representação intermediária independente de alvo |
+| Backend | Geração de código para arquiteturas suportadas |
+| CLI | Interface de compilação e execução |
+| Runtime | Serviços necessários durante a execução |
+| Pacotes | Organização e resolução de dependências |
+| Segurança | Verificações e mecanismos de proteção |
+| Cache | Reutilização de resultados de compilação |
+| LSP | Integração com editores e ferramentas de linguagem |
+| Biblioteca | APIs públicas e módulos reutilizáveis |
 
-Deverá contemplar declarações, variáveis, constantes, funções, tipos, condicionais, repetições, operações, chamadas, módulos, tratamento de erros, concorrência e estruturas de dados.
+O workspace Rust e seus membros estão definidos no `Cargo.toml` da raiz. A arquitetura não exige LLVM como dependência do compilador.
 
-### 3.4 Análise semântica
+### Lexer, Parser e AST
 
-Verifica o significado do código:
-- Escopos e resolução de nomes.
-- Compatibilidade de tipos.
-- Visibilidade e acesso.
-- Inicialização e fluxo de controle.
-- Uso de módulos.
-- Regras de propriedade, empréstimo e vida útil da memória.
+O Lexer transforma caracteres em tokens e identifica palavras reservadas, identificadores, números, textos, operadores, comentários e separadores. O Parser valida a gramática e constrói a AST. A AST representa a estrutura do programa sem depender diretamente da plataforma de destino.
 
-### 3.5 Sistema de tipos
+A suíte de testes de conformidade deve cobrir tanto entradas válidas quanto inválidas, incluindo diagnósticos obrigatórios, recuperação de erros e localização no código-fonte.
 
-A tipagem será estática por padrão, com inferência controlada.
+### Análise semântica e tipos
 
-Deverá suportar tipos primitivos, compostos, definidos pelo usuário, genéricos, opcionais, funções e tipos de baixo nível.
+A análise semântica deverá verificar:
 
-Tipos iniciais em estudo: `inteiro`, `decimal`, `lógico`, `texto`, `caractere`, `byte` e `vazio`. Tamanhos numéricos explícitos deverão estar disponíveis, incluindo variantes de 8, 16, 32 e 64 bits e, quando suportado, 128 bits.
+- Declarações e resolução de identificadores.
+- Escopos e visibilidade.
+- Compatibilidade e inferência de tipos.
+- Fluxo de controle e retornos.
+- Uso de módulos e funções.
+- Regras de propriedade, referências e vida útil.
+- Operações permitidas em contextos de baixo nível.
 
-### 3.6 Representação intermediária (IR)
+O sistema de tipos deverá contemplar tipos primitivos, compostos, definidos pelo usuário, genéricos, opcionais, funções e tipos específicos de sistemas.
 
-A IR será o núcleo independente de plataforma do compilador.
+### Representação intermediária e otimização
 
-Deverá representar operações, fluxo de controle, chamadas, memória e estruturas de dados de forma tipada e explícita. Todos os backends receberão IR, não deverão implementar diretamente a semântica da linguagem.
+A IR é a fronteira entre a semântica da linguagem e a geração de código. Os backends devem receber operações tipadas e explícitas, sem redefinir o comportamento da linguagem.
 
-O projeto não será definido nem dependerá de LLVM. Os backends próprios serão implementados em Rust, com geração direta para cada alvo suportado.
-
-### 3.7 Otimizador
-
-Níveis planejados:
+Níveis de otimização previstos:
 
 | Nível | Objetivo |
 |---|---|
-| O0 | Preserva a IR |
-| O1 | Dobramento conservador de constantes |
-| O2 | Simplificação de ramos constantes e remoção de laços comprovadamente inexecutáveis |
-| O3 | Remove instruções posteriores a transferências incondicionais |
-| Os | Aplica O3 e remove blocos vazios |
+| O0 | Compilação com otimização mínima |
+| O1 | Simplificações conservadoras |
+| O2 | Otimizações intermediárias |
+| O3 | Otimizações avançadas |
+| Os | Redução do tamanho do código |
 
-Transformações atualmente implementadas: dobramento seguro de constantes, simplificação de fluxo constante, remoção de laços comprovadamente inexecutáveis, remoção de instruções inalcançáveis e blocos vazios. Eliminação de cópias redundantes, otimização de chamadas e especialização ainda não estão implementadas.
+Toda transformação deve preservar a semântica, respeitar efeitos colaterais e possuir testes de correção. Recursos descritos como planejados não devem ser confundidos com otimizações já implementadas.
 
-Nenhuma otimização poderá alterar o comportamento definido pela linguagem. Cada transformação deverá possuir testes de correção e, quando relevante, benchmarks.
+## 4. Memória e runtime
 
-## 4. Memória e execução
+Nebula adota um modelo híbrido de memória:
 
-Nebula adotará um modelo híbrido:
+- Gerenciamento automático quando adequado.
+- Controle explícito para aplicações de sistemas.
+- Possibilidade de execução sem runtime obrigatório.
+- Alocadores configuráveis conforme o ambiente.
+- Regras de propriedade e vida útil destinadas a evitar referências inválidas.
+- Operações de baixo nível com contratos explícitos de segurança.
 
-- Gestão automática quando for segura e adequada.
-- Controle explícito para sistemas, drivers, infraestrutura e código de baixo nível.
-- Propriedade, empréstimo e verificação estática planejados para reduzir referências inválidas, cópias e acessos inseguros.
-- Alocadores e estratégias configuráveis conforme o ambiente.
+O runtime Rust existente reúne recursos como valores dinâmicos, escopos léxicos, constantes imutáveis, coleções compartilhadas protegidas, operações matemáticas verificadas, conversões numéricas, manipulação Unicode, arquivos, diretórios, relógio, tarefas, canais, atomics e cancelamento cooperativo.
 
-O crate `nebula-runtime` já fornece valores dinâmicos, escopos léxicos, constantes imutáveis, listas compartilhadas com proteção por locks, operações inteiras/decimais e matemáticas verificadas, conversões numéricas, texto Unicode (recorte, busca, prefixos, sufixos, substituição e normalização de espaços), leitura, escrita, cópia, movimentação e remoção de arquivos, consulta e listagem determinística de diretórios, relógio e suspensão, tarefas em threads, canais, inteiros atômicos e cancelamento cooperativo. O crate `nebula-biblioteca` organiza as APIs reais implementadas em módulos públicos e oferece cliente TCP síncrono com timeout e limite de leitura. O interpretador de referência da IR usa esse runtime por meio de builtins semântica e execução. Isso ainda não equivale a um borrow checker, a um modelo completo de propriedade ou à integração do runtime ao backend ELF nativo.
-
-Não há exigência de um coletor de lixo global em todos os programas. O runtime deverá ser opcional sempre que possível, especialmente em código de baixo nível.
+A biblioteca pública organiza funcionalidades em módulos. A presença de uma API no runtime não significa que ela esteja disponível em todos os backends ou perfis de compilação.
 
 ### Concorrência
 
-A linguagem deverá oferecer tarefas assíncronas, paralelismo, sincronização, operações atômicas, comunicação entre tarefas e compartilhamento seguro de dados. Recursos de runtime serão incluídos apenas quando necessários ao programa.
+A arquitetura prevê:
 
-## 5. Módulos e biblioteca padrão
+- Tarefas e execução assíncrona.
+- Threads e paralelismo.
+- Canais e comunicação entre tarefas.
+- Operações atômicas.
+- Sincronização e cancelamento cooperativo.
+- Regras de compartilhamento seguro de dados.
 
-A inclusão de módulos será explícita e modular:
+## 5. Biblioteca padrão
 
-```nebula
-incluir(biblioteca: matematica)
-incluir(biblioteca: arquivos)
-incluir(biblioteca: rede)
-```
-
-Cada módulo deverá ter identidade, interface, dependências e regras de visibilidade definidas. O compilador deverá processar somente os módulos necessários.
-
-Módulos planejados para a biblioteca padrão:
+A biblioteca deverá ser modular, com dependências explícitas e sem carregar componentes desnecessários.
 
 | Módulo | Responsabilidade |
 |---|---|
-| Núcleo | Recursos essenciais |
-| Matemática | Operações matemáticas |
-| Texto | Manipulação de textos |
-| Coleções | Vetores, listas e mapas |
-| Arquivos | Sistema de arquivos |
-| Rede | Comunicação de rede |
-| Tempo | Datas, horários e intervalos |
-| Sistema | Recursos do sistema operacional |
-| Memória | Alocação e controle |
-| Paralelo | Concorrência e paralelismo |
-| Segurança | Operações criptográficas e seguras |
+| Núcleo | Tipos e operações essenciais |
+| Matemática | Funções matemáticas |
+| Texto | Strings, Unicode e manipulação textual |
+| Coleções | Listas, vetores, mapas e estruturas |
+| Arquivos | Arquivos e diretórios |
+| Rede | Comunicação e protocolos |
+| Tempo | Datas, horários e temporizadores |
+| Sistema | Informações e serviços do ambiente |
+| Memória | Alocação e controle de memória |
+| Paralelo | Concorrência e sincronização |
+| Segurança | Operações criptográficas e proteção |
 | Dados | Serialização e formatos |
-| Interface | Interfaces de usuário |
-| Gráficos | Computação gráfica |
+| Interface | Recursos de interface de usuário |
+| Gráficos | Computação e renderização gráfica |
 | Banco | Integração com bancos de dados |
+| Hardware | Recursos específicos de dispositivos e sistemas |
 
-## 6. Backends e plataformas
+A lista é o catálogo arquitetural. Cada módulo deve indicar sua situação real: implementado, experimental ou planejado.
 
-### Backend nativo
+## 6. Backends e portabilidade
 
-Geração de executáveis para arquiteturas como x86-64 e ARM64, com suporte progressivo a Linux, Windows, macOS e sistemas embarcados.
+### Código nativo
 
-### Backend WebAssembly
+O objetivo é gerar executáveis nativos para arquiteturas como x86-64 e ARM64, com suporte progressivo a Linux, Windows, macOS e sistemas embarcados.
 
-Geração de módulos WebAssembly para navegadores, aplicações web, serviços isolados e ambientes portáveis. Integrações com JavaScript serão oferecidas quando necessárias.
+### WebAssembly
 
-### Baixo nível
+O alvo WebAssembly deverá permitir execução em navegadores e ambientes compatíveis, com interfaces controladas para comunicação com o ambiente hospedeiro.
 
-A arquitetura deverá permitir programas sem runtime obrigatório, com controle de ponto de entrada, memória, interrupções, hardware, ABI e ligação de símbolos. Isso será essencial para kernels, drivers e sistemas embarcados.
+### Freestanding e bare-metal
+
+A arquitetura deverá permitir programas sem runtime de sistema hospedeiro, com ponto de entrada, memória, ABI, interrupções, ligação e operações de hardware definidas pelo alvo.
+
+O suporte a uma plataforma só deve ser anunciado como funcional após backend, runtime quando aplicável, testes e validação específicos.
 
 ## 7. Diagnósticos
 
-Mensagens oficiais em português, com dois formatos:
+Os diagnósticos oficiais devem ser escritos em português e possuir:
 
-**Compacto**
-```text
-Erro N001: identificador não declarado.
-Arquivo: Agendamento.nbx
-Linha: 12
-```
+- Código estável.
+- Gravidade.
+- Descrição da causa.
+- Arquivo, linha e coluna.
+- Trecho relacionado.
+- Sugestão de correção quando possível.
 
-**Detalhado**
+Exemplo de formato:
+
 ```text
 Erro N001 — Identificador desconhecido
-
-O identificador "cliente" não foi declarado neste escopo.
-
-Localização: Agendamento.nbx:12:8
-
-Sugestão: declare a variável antes de utilizá-la.
+Arquivo: exemplo.nbx
+Localização: 12:8
+O identificador não foi declarado neste escopo.
+Sugestão: declare-o antes de utilizá-lo.
 ```
 
-Cada diagnóstico deverá possuir código estável, gravidade, mensagem, arquivo, linha, coluna, trecho do código e sugestão de correção quando possível.
+## 8. CLI oficial
 
-## 8. Ferramenta de linha de comando
+A interface de linha de comando oferece operações de desenvolvimento. Os comandos disponíveis devem ser consultados com `nebula --help`.
 
-A CLI oficial deverá oferecer comandos equivalentes a:
+Formas de uso previstas e documentadas:
 
-```text
+```sh
 nebula criar
-nebula compilar
-nebula executar
-nebula verificar
-nebula formatar
+nebula compilar arquivo.nbx
+nebula executar arquivo.nbx
+nebula interpretar arquivo.nbx
+nebula verificar arquivo.nbx
+nebula formatar arquivo.nbx
 nebula testar
-nebula analisar
-nebula interpretar
-nebula depurar --dap <arquivo.nbx>
+nebula analisar arquivo.nbx
+nebula depurar --dap arquivo.nbx
 nebula dependencias
 nebula limpar
 nebula versao
 ```
 
-O comando `compilar` aceita `-O0`, `-O1`, `-O2`, `-O3` e `-Os`. O comando `interpretar` executa a IR pelo runtime Rust de referência; `executar` continua usando o backend nativo Linux x86-64. O comando `depurar --dap` inicia o adaptador Debug Adapter Protocol para depuração pelo VS Code, com breakpoints por linha, pilha de chamadas, escopos, variáveis, continuar, avançar, step-over, step-out e pausa. A seleção de plataformas e arquiteturas adicionais ainda não está implementada.
+Nem todos os comandos ou alvos possuem necessariamente o mesmo nível de implementação. A execução interpretada pela IR é diferente da geração e execução de um binário nativo.
 
-## 9. Estrutura planejada do repositório
+## 9. Integração com ferramentas
 
-A estrutura atual do repositório é:
+O projeto mantém uma extensão oficial para Visual Studio Code no repositório [Nebula-Extension](https://github.com/korczaktech/Nebula-Extension).
 
-```text
-nebula/
-├── README.md
-├── CONTRIBUTING.md
-├── CHANGELOG.md
-├── Cargo.toml
-├── Cargo.lock
-├── rust-toolchain.toml
-├── .gitignore
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── especificacao/
-│   ├── linguagem.md
-│   ├── decisoes.md
-│   ├── criterios-fase-3.md
-│   ├── criterios-fase-4.md
-│   ├── gramatica.md
-│   ├── tokens.md
-│   ├── tipos.md
-│   ├── memoria.md
-│   ├── operadores.md
-│   ├── modulos.md
-│   ├── diagnosticos.md
-│   ├── alvos.md
-│   └── criterios-fase-1.md
-├── compilador/
-│   ├── sintaxe/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── fonte/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── semantica/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── ir/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── backend/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── runtime/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   ├── diagnosticos/
-│   │   ├── Cargo.toml
-│   │   └── src/lib.rs
-│   └── cli/
-│       ├── Cargo.toml
-│       ├── src/main.rs
-│       └── tests/
-│           ├── cli.rs
-│           └── native.rs
-├── benchmarks/
-│   ├── README.md
-│   ├── executar.sh
-│   ├── loop.nbx
-│   └── fibonacci.nbx
-├── exemplos/
-│   └── ola_mundo.nbx
-├── testes/
-│   └── conformidade/
-│       ├── README.md
-│       └── sintaxe_visual.nbx
-```
+A integração pode incluir:
 
-Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, tipos e IR estão em `nebula-semantica` e `nebula-ir`. O backend nativo próprio da Fase 4 gera ELF x86-64 diretamente em Rust para o subconjunto documentado; implementação e critérios de aceite foram validados pela CI em Linux x86-64.
+- Reconhecimento de arquivos `.nbx`.
+- Realce de sintaxe.
+- Snippets e configurações de edição.
+- Autocomplete e informações contextuais.
+- Diagnósticos e navegação.
+- Language Server Protocol.
+- Compilação, interpretação e execução.
+- Depuração por DAP, conforme os recursos disponíveis.
 
-### Crates Rust
+## 10. Organização do repositório
 
-**Criadas na Fase 1:**
-- `nebula-fonte`: arquivo-fonte, intervalos e posições.
-- `nebula-diagnosticos`: estrutura de diagnóstico independente da interface.
-- `nebula-cli`: interface de linha de comando.
+A organização é dividida por responsabilidade:
 
-**Criada na Fase 2:**
-- `nebula-sintaxe`: Lexer, AST e Parser do subconjunto gramatical inicial.
+- `compilador/`: crates e componentes do compilador.
+- `biblioteca/`: APIs e módulos públicos.
+- `especificacao/`: contratos normativos e decisões da linguagem.
+- `testes/`: testes unitários, de integração e conformidade.
+- `exemplos/`: programas de demonstração.
+- `benchmarks/`: medições reproduzíveis.
+- `.github/workflows/`: automação de validação.
 
-**Criadas na Fase 3:**
-- `nebula-semantica`: símbolos, escopos, resolução de módulos, inferência e verificação estática.
-- `nebula-ir`: representação intermediária e interpretador de referência.
+A estrutura real da branch principal é a referência para os caminhos existentes.
 
-**Criadas na Fase 4 e Fase 5:**
-- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. Literais de texto são armazenados no segmento de dados; `exibir(texto...)` escreve argumentos textuais separados por espaços, `comprimento(texto)` conta escalares Unicode, `contem`, `comeca_com` e `termina_com` comparam trechos UTF-8, e `==`/`!=` comparam o conteúdo de textos. A concatenação textual dinâmica ainda depende do alocador do runtime e é recusada pelo backend nativo; concatenações constantes podem ser resolvidas durante a compilação. `dormir`/`aguardar` suspendem a execução e `tempo()` consulta milissegundos Unix. Esses builtins usam chamadas de sistema Linux e não representam a integração do runtime completo.
-- `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, operações Unicode de texto, operações de arquivos e diretórios, tempo, tarefas, canais e inteiros atômicos concorrentes. Integrado ao interpretador de referência da IR.
-- `nebula-ir::otimizador`: níveis O0, O1, O2, O3 e Os, com passes conservadores e métricas de transformações.
+## 11. Qualidade e critérios de evolução
 
-O comando `nebula compilar` publica o executável atomicamente; falhas não deixam arquivos parciais nem substituem uma saída anterior. O backend ELF x86-64 liga chamadas qualificadas a funções de módulos locais. O comando `nebula interpretar` executa a IR pelo runtime de referência e carrega os mesmos módulos recursivamente. O carregador resolve imports aninhados recursivamente, valida os identificadores dos caminhos, bloqueia travessia de diretórios, liga chamadas qualificadas entre módulos e rejeita ciclos de dependência. Módulos importados ainda não aceitam inicializadores globais. O crate `nebula-pacotes` lê manifestos `nebula.toml`, resolve dependências locais transitivas e gera `nebula.lock`; dependências de registro remoto e cache ainda não estão disponíveis. O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.
+Uma funcionalidade só pode ser considerada concluída quando:
 
-**Ainda planejadas:**
-- Expansão da biblioteca padrão para os módulos ainda não implementados
-- Registro remoto, cache e verificação criptográfica de pacotes
-- Backends para ARM64, Windows, macOS e WebAssembly
+1. Possuir implementação integrada ao fluxo correto.
+2. Tiver testes positivos e negativos.
+3. Produzir diagnósticos adequados quando aplicável.
+4. Respeitar a especificação.
+5. Não quebrar funcionalidades existentes.
+6. Passar pelas verificações de formatação, lint e testes do workspace.
+7. Tiver documentação correspondente.
+8. Possuir benchmark quando houver alegação de desempenho.
 
-As dependências deverão ser unidirecionais sempre que possível. AST não dependerá da CLI; Lexer não dependerá do Backend.
+A CI deve validar os componentes relevantes e impedir que falhas conhecidas sejam tratadas como sucesso.
 
-## 10. Testes, segurança e qualidade
+## 12. Licença e autoria
 
-Cada componente deverá possuir testes unitários, integração e regressão. O compilador deverá testar programas válidos e inválidos, diferentes estilos de espaçamento e delimitadores, tipos, nomes, memória, concorrência, geração e execução de artefatos.
-
-O CI deverá executar formatação, análise estática, compilação e testes automaticamente.
-
-Regras de qualidade:
-1. Não implementar funcionalidades fictícias.
-2. Não declarar componentes concluídos sem testes.
-3. Não misturar responsabilidades entre módulos.
-4. Não acoplar a linguagem a uma única plataforma.
-5. Não adicionar dependências sem justificativa.
-6. Não sacrificar segurança sem necessidade técnica.
-7. Não imitar sintaxe de outras linguagens sem uma decisão de projeto.
-8. Documentar decisões arquiteturais.
-9. Medir desempenho antes de declarar otimizações eficazes.
-10. Manter a especificação sincronizada com a implementação.
-
-## 11. Autocompilação
-
-A meta futura é que o compilador Nebula possa ser compilado pela própria linguagem.
-
-Isso exigirá que Nebula tenha tipos, módulos, estruturas de dados, funções, arquivos, recursos de baixo nível e ferramentas estáveis. A implementação inicial permanecerá em Rust até que a autocompilação seja confiável.
+Nebula é um projeto da Korczak Technologies. Consulte `LICENSE` e `LICENSE-STATUS.md` para conhecer os termos aplicáveis, inclusive as condições de uso e redistribuição.
 
 ---
 
-# 12. Plano de desenvolvimento — 5 fases
-
-O projeto será desenvolvido em cinco fases. As quatro primeiras deverão entregar, em conjunto, pelo menos **75% de um compilador utilizável e de seu ecossistema essencial**. A quinta fase será reservada para evoluir esse resultado de 75% ou mais até 100%.
-
-Os percentuais são metas de conclusão do escopo total planejado, não medidas automáticas de linhas de código. Uma fase só será considerada concluída quando seus critérios de aceite forem atendidos.
-
-## Fase 1 — Fundação e especificação (meta acumulada: 10%)
-
-**Estado: Fase 1 concluída; especificação consolidada e CI aprovado.**
-
-**Objetivo:** estabelecer a identidade técnica e preparar a base reproduzível do projeto.
-
-Entregas realizadas:
-- Especificação inicial consolidada da linguagem, tokens, gramática, tipos, memória, operadores, módulos, diagnósticos, alvos e registro de decisões.
-- Separação explícita entre palavras reservadas da gramática inicial e palavras reservadas futuras.
-- Regras léxicas e gramaticais alinhadas para quebras de linha, delimitadores, precedência, literais e construções suportadas.
-- Regras de separação visual flexível, com delimitadores opcionais e indentação sem significado semântico.
-- Workspace Cargo com Rust 1.85.0 fixado, edição 2024 e Cargo.lock versionado.
-- Crates iniciais `nebula-fonte`, `nebula-diagnosticos` e `nebula-cli`.
-- Tipos básicos de fonte, intervalos, linha/coluna e diagnósticos.
-- CLI informativa com ajuda e versão, sem alegar compilação de arquivos.
-- Exemplo .nbx e fixtures de conformidade.
-- CI para formatação, Clippy e testes com versão Rust e dependências travadas pelo lockfile.
-- Política de contribuição, progresso e changelog.
-
-Critérios de conclusão:
-- A estrutura e os contratos iniciais estão registrados.
-- O código-base está preparado para validação automatizada.
-- Gramática e tokens descrevem o mesmo subconjunto inicial, documentam regras de separação e identificam explicitamente os recursos futuros e as decisões ainda abertas.
-- Toolchain e resolução de dependências são reproduzíveis por versão fixada e Cargo.lock.
-- Workspace compila, passa pela formatação, análise Clippy e testes automatizados no GitHub Actions.
-
-## Fase 2 — Frontend da linguagem (meta acumulada: 30%)
-
-**Estado: Fase 2 concluída; CI verde no commit `d50b121317e19d4eb73453407b095a4c6ad44283`.**
-
-**Objetivo:** transformar código Nebula em uma representação sintática confiável.
-
-Entregas:
-- Leitor de arquivos e posições de origem.
-- Lexer para o subconjunto léxico normativo, com tokens e intervalos de origem.
-- Parser Pratt e AST pública para o subconjunto gramatical aprovado.
-- Recuperação de erros e diagnósticos em português.
-- Testes positivos, negativos, de regressão e fixtures de conformidade.
-- CLI `nebula verificar <arquivo.nbx>` para validação léxica e sintática.
-
-Critérios de conclusão:
-- Arquivos de exemplo são tokenizados e analisados corretamente.
-- Erros indicam localização precisa.
-- Testes cobrem tokens, precedência, estruturas gramaticais e variações válidas de espaçamento e delimitadores.
-- Nenhuma etapa depende de análise textual improvisada em substituição à AST.
-
-## Fase 3 — Semântica, tipos e IR (meta acumulada: 50%)
-
-**Estado: Fase 3 concluída — 108 testes aprovados, 0 falhas; CI verde.**
-
-[Ver validação completa no GitHub Actions](https://github.com/korczaktech/Nebula/actions/runs/41373497754).
-
-**Objetivo:** dar significado e consistência aos programas.
-
-Entregas implementadas:
-- Tabelas de símbolos e escopos léxicos, com pré-declaração de funções e aliases.
-- Resolução de nomes e de funções exportadas por módulos fornecidos explicitamente.
-- Sistema de tipos estáticos, incluindo larguras inteiras, decimais e listas homogêneas.
-- Inferência local controlada.
-- Verificação de chamadas, operadores, condições, retornos, mutabilidade e controle de laços.
-- Regras iniciais de memória: constantes imutáveis e valores por valor; sem borrow checker nesta fase.
-- Construção da IR com operadores normalizados.
-- Interpretador de referência com limite de passos e profundidade de chamadas.
-- Testes semânticos, de IR e integração da CLI.
-
-Critérios de conclusão:
-- Programas corretos passam pela análise.
-- Programas com tipos ou nomes inválidos são rejeitados.
-- IR representa os recursos já aprovados da linguagem.
-- Testes validam o comportamento da análise e da representação intermediária.
-
-## Fase 4 — Compilação nativa própria (escopo inicial concluído)
-
-**Estado: CONCLUÍDA E VALIDADA.** CI aprovada no commit `e3a2ad338f96b832bd652876e220114f8bd53858`: `cargo fmt`, `cargo clippy`, 169 testes e benchmark inicial.
-
-**Objetivo:** transformar a IR em executáveis nativos sem gerar outra linguagem e sem depender de compilador, assembler ou linker externo.
-
-Entregas implementadas no alvo inicial:
-- Backend Rust que gera diretamente instruções x86-64 e executáveis ELF64 para Linux.
-- Segmento de código RX, segmento de dados globais RW separado e pilha NX.
-- Funções, parâmetros System V AMD64 (até seis argumentos), chamadas aninhadas e recursão.
-- Variáveis locais e globais, escopos, sombreamento, condicionais e laços.
-- Aritmética signed de 64 bits, comparações, lógica de curto-circuito e potência por quadratura.
-- Detecção de overflow em soma, subtração, multiplicação, negação, divisão, resto e potência; falhas aritméticas em tempo de execução encerram com código 2.
-- Validação de alcance de saltos relativos e relocação RIP-relative para dados globais.
-- CLI que grava executáveis atomicamente e não invoca compiladores, assemblers ou linkers externos.
-- Testes Rust unitários e de integração que executam os binários gerados.
-
-Limites explícitos desta etapa:
-- O único alvo nativo implementado é Linux x86-64 / ELF64.
-- Inteiros de 8, 16, 32 e 128 bits, byte, strings, decimais, listas, indexação, caracteres Unicode e entrada/saída aguardam suas etapas próprias.
-- Módulos e chamadas qualificadas ainda não são ligados pelo backend.
-- Na conclusão da Fase 4, runtime Nebula, biblioteca padrão e otimizador ainda estavam adiados; o runtime e o otimizador foram iniciados posteriormente na Fase 5.
-- O benchmark é uma linha de base sem otimizações; não comprova superioridade sobre C/C++.
-
-A conclusão foi confirmada pela aprovação de formatação, Clippy, 169 testes e benchmark no GitHub Actions. Consulte [critérios da Fase 4](especificacao/criterios-fase-4.md) e a [execução aprovada](https://github.com/korczaktech/Nebula/actions/runs/41392238233).
-
-
-## Fase 5 — Consolidação e conclusão (de 75%+ até 100%)
-
-**Critérios integrais de aceite:** [especificacao/criterios-fase-5.md](especificacao/criterios-fase-5.md). O documento define o escopo solicitado para a versão 1.0 e os portões de validação; não significa que os recursos já estejam implementados.
-
-**Objetivo:** completar, endurecer e preparar a primeira versão estável do ecossistema.
-
-Entregas previstas:
-- Completar recursos da linguagem ainda pendentes.
-- Expandir e estabilizar o sistema de tipos.
-- Completar regras de memória, propriedade e concorrência.
-- Ampliar backends e arquiteturas suportadas.
-- Completar biblioteca padrão planejada para a versão.
-- Melhorar otimizações com evidências de benchmark.
-- Melhorar compilação incremental e experiência de desenvolvimento.
-- Completar formatador, testes e ferramentas oficiais.
-- Documentação de linguagem, CLI e biblioteca.
-- Testes de compatibilidade, segurança, regressão e desempenho.
-- Empacotamento e distribuição.
-- Auditoria da especificação e remoção de inconsistências.
-- Definição de critérios para estabilidade e compatibilidade.
-- Avaliação da autocompilação como objetivo posterior ou entrega experimental, conforme maturidade.
-
-Critérios de conclusão:
-- Todos os recursos declarados como estáveis estão implementados e testados.
-- Nenhuma funcionalidade anunciada como pronta permanece apenas simulada.
-- Documentação corresponde ao comportamento real.
-- Testes obrigatórios passam nos alvos oficialmente suportados.
-- Benchmarks e limitações estão publicados.
-- A versão 1.0 possui escopo, compatibilidade e processo de distribuição definidos.
-
-**Marco final:** 100% do escopo aprovado para a versão 1.0. Recursos futuros fora desse escopo não serão usados para impedir artificialmente a conclusão.
-
----
-
-## 13. Política de progresso
-
-O progresso será acompanhado por entregas verificáveis, não por estimativas subjetivas.
-
-Para cada item:
-- **Não iniciado:** ainda não existe implementação.
-- **Em desenvolvimento:** implementação parcial.
-- **Implementado:** código presente, ainda aguardando validação.
-- **Testado:** testes relevantes aprovados.
-- **Concluído:** implementação, testes e documentação aprovados.
-
-Uma fase não será concluída apenas porque os arquivos foram criados ou porque o código compila. O critério é o comportamento funcional comprovado.
-
-## 14. Objetivo final
-
-Nebula deverá se tornar uma linguagem brasileira, independente, eficiente e de propósito geral, capaz de atender desde pequenos programas até aplicações empresariais, servidores, sistemas operacionais e softwares de alto desempenho.
-
-**Nebula — uma linguagem própria, construída para fazer tudo.**
-
-
-## Estado atual da Fase 3
-
-A Fase 3 e a Fase 4 estão concluídas dentro de seus escopos documentados. Na Fase 5, o runtime Rust está integrado ao interpretador de referência; o otimizador O0/O1/O2/O3/Os está implementado na IR e selecionável pela CLI; e a CLI oferece `interpretar`. O sistema de tipos já percorre estruturas, enumerações, tuplas, opcionais, resultados, funções genéricas e valores de função com chamadas indiretas. O backend ELF x86-64 também gera chamadas indiretas para assinaturas escalares, representa caracteres Unicode por pontos de código, implementa operações SSE2 de decimal32/decimal64 e conversões numéricas explícitas entre inteiros de até 64 bits e decimais. Ainda faltam, entre outros critérios, ABI nativa completa (os formatos iniciais de agregados e inteiros de 128 bits já são suportados parcialmente), borrow checker completo, expansão da biblioteca padrão, backends adicionais, integração do runtime ao backend nativo e os demais requisitos de estabilidade 1.0. A CI valida somente os recursos cobertos pelos jobs executados; isso não significa que a Fase 5 esteja concluída.
+**Nebula — linguagem, compilador e ecossistema de desenvolvimento da Korczak Technologies.**
