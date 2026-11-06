@@ -517,7 +517,5 @@ fn rejeita_concatenacao_textual_sem_alocador() {
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
     assert!(!compilacao.status.success());
-    assert!(
-        String::from_utf8_lossy(&compilacao.stderr).contains("alocador do runtime nativo")
-    );
+    assert!(String::from_utf8_lossy(&compilacao.stderr).contains("alocador do runtime nativo"));
 }
