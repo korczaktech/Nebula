@@ -1957,6 +1957,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                     saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao("senao: {", nivel));
+                    blocos.pop();
                     blocos.push(Bloco {
                         indentacao: nivel,
                         tipo: TipoBloco::Condicional,
