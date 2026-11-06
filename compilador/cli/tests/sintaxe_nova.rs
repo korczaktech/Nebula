@@ -222,7 +222,6 @@ fn compila_e_exibe_literal_texto_no_backend_nativo() {
     assert_eq!(execucao.stdout, "Olá, Nebula\n".as_bytes());
 }
 
-
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn exibir_aceita_varios_textos_com_espacamento() {
