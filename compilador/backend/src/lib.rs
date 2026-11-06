@@ -3203,7 +3203,7 @@ impl Emissor {
         self.armazenar_rax(slot_comprimento);
         self.codigo.extend_from_slice(&[0x48, 0x3D]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
-        let limite = self.emitir_jcc(0x87); // ja: buffer cheio
+        let limite = self.emitir_jcc(0x86); // jbe: tamanho ainda dentro do limite
         self.encerrar_com_erro(88);
         let apos_limite = self.codigo.len();
         self.aplicar_salto(limite, apos_limite);
