@@ -1152,21 +1152,21 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
-                if self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto) {
-                    match operador {
-                        OperadorIr::Igual | OperadorIr::Diferente => {
-                            self.emitir_igualdade_texto(
-                                esquerda,
-                                direita,
-                                *operador == OperadorIr::Diferente,
-                            )?;
-                            return Ok(());
-                        }
-                        OperadorIr::Mais => {
-                            return Err("Concatenação de textos ainda exige o alocador do runtime nativo.".into());
-                        }
-                        _ => {}
-                    }
+                if *operador == OperadorIr::Mais
+                    && self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
+                    && self.tipo_expressao_atual(direita).as_ref() == Some(&Tipo::Texto)
+                {
+                    return Err("Concatenação de textos ainda exige o alocador do runtime nativo.".into());
+                }
+                if self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
+                    && matches!(operador, OperadorIr::Igual | OperadorIr::Diferente)
+                {
+                    self.emitir_igualdade_texto(
+                        esquerda,
+                        direita,
+                        *operador == OperadorIr::Diferente,
+                    )?;
+                    return Ok(());
                 }
                 if inteiro_128_expressao(esquerda) {
                     self.expressao(esquerda)?;
