@@ -4088,7 +4088,7 @@ fim"#;
 
     #[test]
     fn indentacao_define_niveis_e_fim_fecha_blocos() {
-        let codigo = "funcao principal(): {\n    variavel primeiro = 1\n    quando sim: {\n        variavel segundo = 2\n        fim\n    }\n    fim\n}\nfim";
+        let codigo = "funcao principal(): {\n    variavel primeiro = 1\n    quando sim: {\n        variavel segundo = 2\n        fim\n    }\n    fim\nfim\n}\nfim";
         let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
