@@ -1507,7 +1507,19 @@ impl Emissor {
                     self.emitir_tempo_unix_milisegundos()?;
                     return Ok(());
                 }
-                if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
+                if nome == "ler_texto" || nome == "receber" || nome == "perguntar" {
+                    if argumentos.len() > 1 {
+                        return Err(format!("'{nome}' aceita no máximo um texto de prompt no backend nativo."));
+                    }
+                    if let Some(prompt) = argumentos.first() {
+                        if self.tipo_expressao_atual(prompt).as_ref() != Some(&Tipo::Texto) {
+                            return Err(format!("O prompt de '{nome}' precisa ser texto."));
+                        }
+                    }
+                    self.emitir_ler_texto(argumentos)?;
+                    return Ok(());
+                }
+                if nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
                 let retorno_grande = self.retornos_funcoes.get(nome)
@@ -3133,6 +3145,69 @@ impl Emissor {
         self.aplicar_salto(contar_tres, contar);
         self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC0]); // rax = r8
         self.mov_rdx(0);
+        Ok(())
+    }
+
+    /// Lê uma linha de stdin para um buffer local do quadro da função.
+    /// O limite explícito evita sobrescrever a pilha: entradas maiores falham
+    /// com código estável em vez de corromper memória.
+    fn emitir_ler_texto(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
+        const LIMITE_ENTRADA: i64 = 4096;
+        let buffer = self.reservar_agregado(LIMITE_ENTRADA as u64, 8)?;
+
+        if let Some(prompt) = argumentos.first() {
+            self.expressao(prompt)?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = texto
+            self.mov_rax(1); // SYS_write
+            self.codigo.extend_from_slice(&[0xBF, 1, 0, 0, 0]); // stdout
+            self.codigo.extend_from_slice(&[0x0F, 0x05]);
+        }
+
+        self.emitir_endereco_rbp_rax(buffer);
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // r9 = início do buffer
+        self.codigo.extend_from_slice(&[0x45, 0x31, 0xC0]); // r8 = comprimento
+
+        let inicio_leitura = self.codigo.len();
+        self.codigo.extend_from_slice(&[0x31, 0xC0]); // eax = SYS_read
+        self.codigo.extend_from_slice(&[0x31, 0xFF]); // stdin
+        self.codigo.extend_from_slice(&[0xBA, 1, 0, 0, 0]); // um byte
+        self.codigo.extend_from_slice(&[0x0F, 0x05]); // syscall
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+        let fim_entrada = self.emitir_jcc(0x84); // EOF
+        let leitura_valida = self.emitir_jcc(0x89); // jns
+        self.encerrar_com_erro(1);
+        let apos_erro = self.codigo.len();
+        self.aplicar_salto(leitura_valida, apos_erro);
+
+        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\\n']); // cmp byte [rsi], LF
+        let encontrou_linha = self.emitir_jcc(0x84);
+        self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC6]); // próximo byte
+        self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC0]); // comprimento++
+        self.codigo.extend_from_slice(&[0x49, 0x81, 0xF8]);
+        self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
+        let limite = self.emitir_jcc(0x83); // jae: buffer cheio
+        self.encerrar_com_erro(1);
+        let apos_limite = self.codigo.len();
+        self.aplicar_salto(limite, apos_limite);
+        self.emitir_salto_para(inicio_leitura);
+
+        let fim = self.codigo.len();
+        self.aplicar_salto(fim_entrada, fim);
+        self.aplicar_salto(encontrou_linha, fim);
+
+        // O runtime de referência remove também um CR imediatamente anterior.
+        self.codigo.extend_from_slice(&[0x4D, 0x85, 0xC0]); // test r8, r8
+        let vazio = self.emitir_jcc(0x84);
+        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\\r']); // cmp byte [rsi-1], CR
+        let sem_cr = self.emitir_jcc(0x85);
+        self.codigo.extend_from_slice(&[0x48, 0xFF, 0xCE]); // rsi--
+        self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC8]); // r8--
+        let finalizado = self.codigo.len();
+        self.aplicar_salto(vazio, finalizado);
+        self.aplicar_salto(sem_cr, finalizado);
+
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC8]); // rax = início
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC2]); // rdx = comprimento
         Ok(())
     }
 
