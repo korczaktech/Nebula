@@ -4049,7 +4049,7 @@ mod testes {
         valido.funcoes.get_mut("principal").unwrap().corpo = vec![
             InstrucaoIr::Expressao(ExpressaoIr::Chamada {
                 nome: "json_valido".into(),
-                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\\"x\\":1}".into()))],
+                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\"x\":1}".into()))],
             }),
         ];
         assert!(gerar_executavel(&valido).is_ok());
@@ -4058,7 +4058,7 @@ mod testes {
         canonico.funcoes.get_mut("principal").unwrap().corpo = vec![
             InstrucaoIr::Expressao(ExpressaoIr::Chamada {
                 nome: "json_canonico".into(),
-                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\\"b\\":2,\\"a\\":1}".into()))],
+                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\"b\":2,\"a\":1}".into()))],
             }),
         ];
         assert!(gerar_executavel(&canonico).is_ok());
