@@ -2097,6 +2097,21 @@ mod testes {
     }
 
     #[test]
+    fn analisa_escolha_com_function_body_delimitado() {
+        let codigo = "escolha opcao: {\n    caso 1: {\n        exibir(1)\n        fim\n    }\n    caso 2: {\n        exibir(2)\n        fim\n    }\n    fim\n}\nfim";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Escolha { casos, .. } if casos.len() == 2));
+    }
+
+    #[test]
+    fn incluir_monta_caminho_com_biblioteca_e_modulo() {
+        let r = analisar(&fonte("incluir(modulo: arquivos, biblioteca: sistema)"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Incluir { caminho, .. } if caminho == "sistema::arquivos"));
+    }
+
+    #[test]
     fn recupera_e_emite_diagnostico_de_sintaxe() {
         let r = analisar(&fonte("variavel =\nvariavel correto = 2"));
         assert!(!r.diagnosticos.is_empty());
