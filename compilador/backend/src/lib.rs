@@ -1156,7 +1156,8 @@ impl Emissor {
                     && self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
                     && self.tipo_expressao_atual(direita).as_ref() == Some(&Tipo::Texto)
                 {
-                    return Err("Concatenação de textos ainda exige o alocador do runtime nativo.".into());
+                    self.concatenar_textos(esquerda, direita)?;
+                    return Ok(());
                 }
                 if self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
                     && matches!(operador, OperadorIr::Igual | OperadorIr::Diferente)
@@ -2846,6 +2847,80 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
         self.mov_rax(0);
         self.mov_rdx(0);
+        Ok(())
+    }
+
+    /// Concatena dois textos usando mmap como arena de vida útil do processo.
+    ///
+    /// O valor texto é representado por (ponteiro em RAX, comprimento em RDX).
+    /// A alocação permanece válida até o encerramento do processo, evitando
+    /// liberar memória enquanto cópias do texto ainda podem estar em uso.
+    fn concatenar_textos(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+    ) -> Result<(), String> {
+        let temporario = self.reservar_agregado(48, 8)?;
+
+        self.expressao(esquerda)?;
+        self.armazenar_rax(temporario);
+        self.armazenar_rdx(temporario - 8);
+
+        self.expressao(direita)?;
+        self.armazenar_rax(temporario - 16);
+        self.armazenar_rdx(temporario - 24);
+
+        // Soma os comprimentos com detecção de overflow.
+        self.carregar_rax(temporario - 8);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = comprimento esquerdo
+        self.carregar_rax(temporario - 24);
+        self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); // rax = direito + esquerdo
+        let sem_overflow = self.emitir_jcc(0x81); // jno
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(sem_overflow, self.codigo.len());
+        self.armazenar_rax(temporario - 32);
+
+        // mmap(NULL, max(total, 1), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)
+        self.carregar_rax(temporario - 32);
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+        let tamanho_nao_zero = self.emitir_jcc(0x85); // jne
+        self.mov_rax(1);
+        let tamanho_pronto = self.codigo.len();
+        self.aplicar_salto(tamanho_nao_zero, tamanho_pronto);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = tamanho
+        self.codigo.extend_from_slice(&[0x48, 0x31, 0xFF]); // rdi = NULL
+        self.codigo.extend_from_slice(&[0xBA, 0x03, 0x00, 0x00, 0x00]); // rdx = PROT_READ|PROT_WRITE
+        self.codigo.extend_from_slice(&[0x49, 0xC7, 0xC2, 0x22, 0x00, 0x00, 0x00]); // r10 = MAP_PRIVATE|MAP_ANONYMOUS
+        self.codigo.extend_from_slice(&[0x49, 0xC7, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF]); // r8 = -1
+        self.codigo.extend_from_slice(&[0x45, 0x31, 0xC9]); // r9 = 0
+        self.codigo.extend_from_slice(&[0xB8, 0x09, 0x00, 0x00, 0x00]); // SYS_mmap
+        self.codigo.extend_from_slice(&[0x0F, 0x05]); // syscall
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+        let alocacao_ok = self.emitir_jcc(0x89); // jns
+        self.encerrar_com_erro(1);
+        self.aplicar_salto(alocacao_ok, self.codigo.len());
+        self.armazenar_rax(temporario - 40);
+
+        // Copia o primeiro texto para o início da região.
+        self.carregar_rax(temporario - 40);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
+        self.carregar_rax(temporario);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = origem
+        self.carregar_rax(temporario - 8);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = comprimento
+        self.codigo.extend_from_slice(&[0xFC, 0xF3, 0xA4]); // cld; rep movsb
+
+        // REP MOVSB deixou RDI logo após o primeiro texto.
+        self.carregar_rax(temporario - 16);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = segundo texto
+        self.carregar_rax(temporario - 24);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = segundo comprimento
+        self.codigo.extend_from_slice(&[0xFC, 0xF3, 0xA4]); // cld; rep movsb
+
+        self.carregar_rax(temporario - 40);
+        self.carregar_rax(temporario - 32);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // rdx = comprimento total
+        self.carregar_rax(temporario - 40); // rax = ponteiro resultante
         Ok(())
     }
 
