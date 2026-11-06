@@ -1523,7 +1523,7 @@ impl Emissor {
                         ));
                     };
                     if nome == "json_valido" {
-                        self.mov_rax(i64::from(analisar_json(texto).is_ok()));
+                        self.mov_rax(if analisar_json(texto).is_ok() { 1 } else { 0 });
                     } else {
                         let valor = analisar_json(texto)
                             .map_err(|erro| format!("JSON inválido em 'json_canonico': {erro}"))?;
