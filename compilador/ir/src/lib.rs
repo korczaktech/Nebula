@@ -4012,10 +4012,10 @@ mod testes {
             &Tipo::Decimal32,
             ValorIr::Decimal(f64::MAX),
         ).is_err());
-        assert!(normalizar_valor(
-            &Tipo::Decimal64,
-            ValorIr::Decimal(f64::NAN),
-        ).unwrap().eq(&ValorIr::Decimal(f64::NAN)) == false);
+        assert!(matches!(
+            normalizar_valor(&Tipo::Decimal64, ValorIr::Decimal(f64::NAN)),
+            Ok(ValorIr::Decimal(valor)) if valor.is_nan()
+        ));
     }
 
     #[test]
