@@ -2366,11 +2366,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             fim
         }
         fim
+        fim
     }
     fim
-    fim
-    fim
-}
+fim
 fim
 
 exportar funcao iniciar(): {
@@ -3779,7 +3778,7 @@ fim"#;
             "variavel pessoa = Pessoa { nome: \"Ana\"",
             "tipo Lista = [inteiro",
             "tipo Acao = funcao(inteiro",
-            "funcao principal(): { exibir(1)",
+            "funcao principal(): {\n exibir(1)",
             "funcao principal()\n exibir(1)",
         ] {
             let resultado = analisar(&fonte(codigo));
