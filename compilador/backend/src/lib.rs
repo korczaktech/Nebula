@@ -2210,11 +2210,28 @@ impl Emissor {
             ExpressaoIr::Normalizar { tipo, .. }
             | ExpressaoIr::Conversao { tipo, .. }
             | ExpressaoIr::ReferenciaFuncao { tipo, .. }
-            | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => Some(tipo.clone()),
+            | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. }
+            | ExpressaoIr::Atribuicao { tipo, .. }
+            | ExpressaoIr::AtribuicaoCampo { tipo, .. } => Some(tipo.clone()),
             ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
             ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
             ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
+            ExpressaoIr::Constante(ValorIr::Logico(_)) => Some(Tipo::Logico),
             ExpressaoIr::Constante(ValorIr::Texto(_)) => Some(Tipo::Texto),
+            ExpressaoIr::Constante(ValorIr::Caractere(_)) => Some(Tipo::Caractere),
+            ExpressaoIr::Constante(ValorIr::Estrutura { nome, .. }) => {
+                Some(Tipo::Estrutura(nome.clone()))
+            }
+            ExpressaoIr::Constante(ValorIr::Intervalo(_, _)) => {
+                Some(Tipo::Intervalo(Box::new(Tipo::Inteiro)))
+            }
+            ExpressaoIr::Constante(ValorIr::IntervaloSemSinal(_, _)) => {
+                Some(Tipo::Intervalo(Box::new(Tipo::InteiroU128)))
+            }
+            ExpressaoIr::Constante(ValorIr::IntervaloDecimal(_, _)) => {
+                Some(Tipo::Intervalo(Box::new(Tipo::Decimal64)))
+            }
+            ExpressaoIr::Constante(ValorIr::Vazio) => Some(Tipo::Vazio),
             ExpressaoIr::Variavel(nome) => self
                 .buscar_tipo_local(nome)
                 .cloned()
@@ -2223,7 +2240,32 @@ impl Emissor {
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => {
                 self.retornos_funcoes.get(&format!("{modulo}::{nome}")).cloned()
             }
+            ExpressaoIr::Unaria {
+                operador: OperadorIr::Nao | OperadorIr::Negacao,
+                ..
+            } => Some(Tipo::Logico),
             ExpressaoIr::Unaria { valor, .. } => self.tipo_expressao_atual(valor),
+            ExpressaoIr::Binaria {
+                operador:
+                    OperadorIr::Igual
+                    | OperadorIr::Diferente
+                    | OperadorIr::Menor
+                    | OperadorIr::MenorIgual
+                    | OperadorIr::Maior
+                    | OperadorIr::MaiorIgual
+                    | OperadorIr::E
+                    | OperadorIr::Ou,
+                ..
+            } => Some(Tipo::Logico),
+            ExpressaoIr::Binaria {
+                esquerda,
+                operador: OperadorIr::Mais,
+                direita,
+            } if self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
+                && self.tipo_expressao_atual(direita).as_ref() == Some(&Tipo::Texto) =>
+            {
+                Some(Tipo::Texto)
+            }
             ExpressaoIr::Binaria {
                 esquerda,
                 operador: OperadorIr::Intervalo,
@@ -2231,6 +2273,26 @@ impl Emissor {
             } => self
                 .tipo_expressao_atual(esquerda)
                 .map(|tipo| Tipo::Intervalo(Box::new(tipo))),
+            ExpressaoIr::Lista(itens) => itens
+                .first()
+                .and_then(|item| self.tipo_expressao_atual(item))
+                .map(|tipo| Tipo::Lista(Box::new(tipo))),
+            ExpressaoIr::Tupla(itens) => itens
+                .iter()
+                .map(|item| self.tipo_expressao_atual(item))
+                .collect::<Option<Vec<_>>>()
+                .map(Tipo::Tupla),
+            ExpressaoIr::ConstrucaoEstrutura { nome, .. } => {
+                Some(Tipo::Estrutura(nome.clone()))
+            }
+            ExpressaoIr::ConstrucaoEnumeracao { nome, .. } => {
+                Some(Tipo::Enumeracao(nome.clone()))
+            }
+            ExpressaoIr::Indexacao { alvo, .. } => match self.tipo_expressao_atual(alvo)? {
+                Tipo::Lista(tipo) => Some(*tipo),
+                Tipo::Texto => Some(Tipo::Caractere),
+                _ => None,
+            },
             _ => None,
         }
     }
