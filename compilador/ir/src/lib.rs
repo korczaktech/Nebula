@@ -3794,7 +3794,10 @@ mod testes {
         modulos.insert("Matematica".into(), HashMap::from([(
             "somar".into(),
             nebula_semantica::AssinaturaFuncao {
+                genericos: Vec::new(),
                 parametros: vec![Tipo::Inteiro, Tipo::Inteiro],
+                nomes_parametros: vec!["a".into(), "b".into()],
+                parametros_padrao: vec![false, false],
                 retorno: Tipo::Inteiro,
             },
         )]));
