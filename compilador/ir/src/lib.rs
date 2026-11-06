@@ -3956,6 +3956,7 @@ mod testes {
     #[test]
     fn valida_limites_de_todas_as_larguras_primitivas() {
         let assinados = [
+            (Tipo::Inteiro, i64::MIN as i128, i64::MAX as i128),
             (Tipo::Inteiro8, i8::MIN as i128, i8::MAX as i128),
             (Tipo::Inteiro16, i16::MIN as i128, i16::MAX as i128),
             (Tipo::Inteiro32, i32::MIN as i128, i32::MAX as i128),
@@ -4016,6 +4017,19 @@ mod testes {
             normalizar_valor(&Tipo::Decimal64, ValorIr::Decimal(f64::NAN)),
             Ok(ValorIr::Decimal(valor)) if valor.is_nan()
         ));
+        assert!(normalizar_valor(&Tipo::Decimal, ValorIr::Decimal(f64::INFINITY)).is_ok());
+        assert_eq!(
+            normalizar_valor(&Tipo::Caractere, ValorIr::Caractere('🪐')).unwrap(),
+            ValorIr::Caractere('🪐'),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Texto, ValorIr::Texto("Nebula 🪐".into())).unwrap(),
+            ValorIr::Texto("Nebula 🪐".into()),
+        );
+        assert_eq!(
+            normalizar_valor(&Tipo::Vazio, ValorIr::Vazio).unwrap(),
+            ValorIr::Vazio,
+        );
     }
 
     #[test]
