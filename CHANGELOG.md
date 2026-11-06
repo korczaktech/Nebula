@@ -2,6 +2,8 @@
 
 ## Não lançado — Ferramentas, qualidade e preparação de lançamento
 
+- Adiciona suporte inicial a literais de texto no backend ELF Linux x86-64, transporte de ponteiro/comprimento pela ABI e `exibir(texto)` via syscall; não integra ainda o runtime completo nem outros builtins de texto.
+
 - Integra o formatador à CLI principal e mantém o binário independente `nebula-formatar`, com validação sintática, indentação de blocos, modo `--check`, gravação temporária exclusiva e preservação de permissões.
 - Adiciona saída JSON de diagnósticos sintáticos e semânticos nos comandos `verificar` e `analisar`, com código, severidade, mensagem, intervalo em bytes e linha/coluna.
 - Adiciona `nebula alvos` e seleção explícita `compilar --alvo`; destinos sem backend real são rejeitados.
