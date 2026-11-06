@@ -2275,6 +2275,12 @@ impl Emissor {
                 .buscar_tipo_local(nome)
                 .cloned()
                 .or_else(|| self.tipos_globais.get(nome).cloned()),
+            ExpressaoIr::Chamada { nome, .. } if nome == "json_canonico" => {
+                Some(Tipo::Texto)
+            }
+            ExpressaoIr::Chamada { nome, .. } if nome == "json_valido" => {
+                Some(Tipo::Logico)
+            }
             ExpressaoIr::Chamada { nome, .. } => self.retornos_funcoes.get(nome).cloned(),
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => {
                 self.retornos_funcoes.get(&format!("{modulo}::{nome}")).cloned()
