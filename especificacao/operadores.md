@@ -1,4 +1,7 @@
-# Operadores e precedência
+# Referência de operadores e precedência
+
+**Estado:** resumo informativo. A precedência, associatividade e avaliação normativa estão definidas em `linguagem-e-tipos.md`; este documento apenas resume essas regras.
+
 
 ## Atribuição e comparação
 
