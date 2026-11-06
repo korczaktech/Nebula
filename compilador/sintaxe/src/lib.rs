@@ -402,16 +402,11 @@ impl Parser {
             }
             self.esperar(TipoToken::FechaPar, "Esperado ')' após argumentos do contexto.");
         }
-        if self.corresponde(TipoToken::DoisPontos)
-            || self.verifica(TipoToken::NovaLinha)
-            || self.verifica(TipoToken::Indent)
-        {
+        if self.verifica(TipoToken::DoisPontos) {
             let corpo = self.bloco()?;
             Some(NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo })
-        } else if self.corresponde(TipoToken::FimBloco) {
-            Some(NoAst::BlocoContextual { contexto, argumento, tipos_genericos, argumentos, corpo: Vec::new() })
         } else {
-            self.erro_atual("N2007", "Esperado bloco após declaração de contexto.");
+            self.erro_atual("N2007", "Bloco contextual exige Function Body iniciado por ': {'. Formas sem abertura explícita foram removidas.");
             None
         }
     }
