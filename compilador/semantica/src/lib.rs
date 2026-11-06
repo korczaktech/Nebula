@@ -6,7 +6,7 @@
 #[rustfmt::skip]
 mod implementacao {
 use nebula_diagnosticos::{Diagnostico, Severidade};
-use nebula_sintaxe::{Expressao, NoAst, Programa, TipoToken};
+use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
@@ -1499,6 +1499,22 @@ impl<'a> Analisador<'a> {
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
+            _ if nome.starts_with('(') && nome.ends_with(')') => {
+                match TipoAst::analisar(nome) {
+                    TipoAst::Tupla(elementos) => {
+                        let tipos: Vec<_> = elementos
+                            .iter()
+                            .map(|tipo| self.resolver_tipo(&tipo.para_texto()))
+                            .collect();
+                        if tipos.iter().any(Self::tipo_contem_desconhecido) {
+                            Tipo::Desconhecido
+                        } else {
+                            Tipo::Tupla(tipos)
+                        }
+                    }
+                    _ => Tipo::Desconhecido,
+                }
+            }
             _ if Self::dividir_tipo_funcao(nome).is_some() => {
                 let (parametros, retorno) = Self::dividir_tipo_funcao(nome)
                     .expect("tipo de função reconhecido");
