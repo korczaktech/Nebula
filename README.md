@@ -12,7 +12,7 @@ Nebula é uma linguagem de programação de propósito geral, com identidade bra
 | Implementação inicial do compilador | Rust |
 | Modelo | Compilada, multiparadigma e multiplataforma |
 | Tipagem | Estática, com inferência controlada |
-| Organização visual | Delimitadores flexíveis; uso conforme necessidade de clareza |
+| Blocos | Function Body obrigatório: `: { ... fim }` |
 | Memória | Modelo híbrido |
 | Alvos planejados | Código nativo e WebAssembly |
 
@@ -51,9 +51,9 @@ A gramática e as regras léxicas normativas estão em [especificacao/gramatica.
 
 - Código-fonte UTF-8; identificadores Unicode comparados em NFC.
 - Palavras-chave e mensagens oficiais em português brasileiro.
-- Blocos de instrução exigem indentação e terminam com `fim`.
-- Chaves não substituem blocos de instrução; continuam válidas em construções de dados, como valores de estruturas.
-- O Lexer emite `INDENT` e `DEDENT` para delimitar fisicamente os corpos indentados.
+- Todo corpo executável ou estrutural abre com `: {`, termina com `fim` antes de `}`, e recebe outro `fim` após a chave quando a construção for completa.
+- A indentação é obrigatória para legibilidade e deve ser consistente, mas não delimita blocos.
+- Chaves de dados são distintas de Function Body; dicionários em declarações comuns não exigem `fim`.
 - Instruções são separadas por quebra de linha ou ponto e vírgula, conforme as regras da gramática.
 - Quebras dentro de parênteses e colchetes são continuações; regras específicas também permitem expressões multilinha.
 - A lista de palavras reservadas implementadas e a lista de palavras reservadas futuras estão em [especificacao/tokens.md](especificacao/tokens.md).
@@ -61,16 +61,20 @@ A gramática e as regras léxicas normativas estão em [especificacao/gramatica.
 Exemplo da sintaxe atual:
 
 ~~~nebula
-funcao principal() -> vazio
+funcao principal() -> vazio: {
     variavel nome = "Nebula"
     constante idade: inteiro = 18
 
-    quando idade >= 18
+    quando idade >= 18: {
         exibir("Olá, " + nome)
-    senao
+        fim
+    }
+    senao: {
         exibir("Olá")
+        fim
+    }
     fim
-fim
+} fim
 ~~~
 
 O exemplo demonstra a sintaxe; chamadas como `exibir` dependem do runtime/biblioteca padrão e do alvo utilizado.
@@ -193,9 +197,9 @@ A linguagem deverá oferecer tarefas assíncronas, paralelismo, sincronização,
 A inclusão de módulos será explícita e modular:
 
 ```nebula
-incluir Matemática
-incluir Arquivos
-incluir Rede
+incluir(biblioteca: matematica)
+incluir(biblioteca: arquivos)
+incluir(biblioteca: rede)
 ```
 
 Cada módulo deverá ter identidade, interface, dependências e regras de visibilidade definidas. O compilador deverá processar somente os módulos necessários.
