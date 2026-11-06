@@ -738,8 +738,73 @@ impl Emissor {
                 let _ = self.escopos.pop();
                 let _ = self.tipos_escopos.pop();
             }
-            InstrucaoIr::Pulso { .. } => {
-                return Err("'pulso' ainda não possui implementação no backend ELF nativo; use 'nebula interpretar'.".into());
+            InstrucaoIr::Pulso { intervalo, corpo } => {
+                let tipo_intervalo = self.tipo_expressao_atual(intervalo)
+                    .ok_or("O backend nativo não conseguiu determinar o tipo do intervalo de 'pulso'.")?;
+                let sem_sinal = matches!(
+                    tipo_intervalo,
+                    Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                        | Tipo::InteiroU64 | Tipo::Byte
+                );
+                if !matches!(
+                    tipo_intervalo,
+                    Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+                        | Tipo::Inteiro32 | Tipo::Inteiro64
+                        | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                        | Tipo::InteiroU64 | Tipo::Byte
+                ) {
+                    return Err(format!(
+                        "O backend ELF nativo não suporta o intervalo de 'pulso' do tipo '{}'.",
+                        tipo_intervalo.nome()
+                    ));
+                }
+
+                self.escopos.push(HashMap::new());
+                self.tipos_escopos.push(HashMap::new());
+                let slot_intervalo = self.declarar_tipado("\0nebula_pulso_intervalo", &tipo_intervalo)?;
+                let timespec = self.reservar_agregado(16, 8)?;
+                self.expressao(intervalo)?;
+                if !sem_sinal {
+                    self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+                    let nao_negativo = self.emitir_jcc(0x89); // jns
+                    self.encerrar_com_erro(2);
+                    self.aplicar_salto(nao_negativo, self.codigo.len());
+                }
+                self.armazenar_rax(slot_intervalo);
+
+                let inicio_laco = self.codigo.len();
+                self.lacos.push(Laco { saidas: Vec::new(), continuacoes: Vec::new() });
+                self.bloco(corpo)?;
+                let laco = self.lacos.pop().expect("laço ativo");
+                let inicio_sono = self.codigo.len();
+                for salto in laco.continuacoes {
+                    self.aplicar_salto(salto, inicio_sono);
+                }
+
+                self.carregar_rax(slot_intervalo);
+                self.codigo.extend_from_slice(&[
+                    0x48, 0xB9, 0xE8, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                ]); // mov rcx, 1000
+                self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2]); // xor rdx, rdx
+                self.codigo.extend_from_slice(&[0x48, 0xF7, 0xF1]); // div rcx
+                self.armazenar_rax(timespec); // tv_sec
+                self.mov_rax(1_000_000);
+                self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xD0]); // imul rdx, rax
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // rax = tv_nsec
+                self.armazenar_rax(timespec + 8);
+                self.emitir_endereco_rbp_rax(timespec);
+                self.mover_rax_registrador(7); // rdi = timespec
+                self.codigo.extend_from_slice(&[0x31, 0xF6]); // rsi = NULL
+                self.mov_rax(35); // nanosleep
+                self.codigo.extend_from_slice(&[0x0F, 0x05]); // syscall
+                self.emitir_salto_para(inicio_laco);
+
+                let fim_laco = self.codigo.len();
+                for salto in laco.saidas {
+                    self.aplicar_salto(salto, fim_laco);
+                }
+                let _ = self.escopos.pop();
+                let _ = self.tipos_escopos.pop();
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
                 self.escopos.push(HashMap::new());
