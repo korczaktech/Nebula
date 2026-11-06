@@ -227,7 +227,9 @@ fn compila_e_exibe_literal_texto_no_backend_nativo() {
 fn exibir_aceita_varios_textos_com_espacamento() {
     let (origem, executavel) = caminhos("exibir-variadico");
     let codigo = r#"funcao principal() -> vazio: {
-    exibir("Olá", "Nebula", "2026")
+    variavel nome = "Nebula"
+    exibir("Olá", nome, "2026")
+    exibir()
     fim
 } fim
 "#;
@@ -254,5 +256,5 @@ fn exibir_aceita_varios_textos_com_espacamento() {
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
     assert!(execucao.status.success());
-    assert_eq!(execucao.stdout, "Olá Nebula 2026\n".as_bytes());
+    assert_eq!(execucao.stdout, "Olá Nebula 2026\n\n".as_bytes());
 }
