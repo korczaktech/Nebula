@@ -659,6 +659,7 @@ fn ler_texto_le_stdin_e_remove_quebra_de_linha_e_crlf() {
     let codigo = normalizar_blocos_legados(
         r#"funcao principal(): inteiro
     variavel entrada = ler_texto("Digite: ")
+    exibir(entrada)
     quando entrada == "Nebula"
         devolver 42
     fim
