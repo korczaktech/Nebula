@@ -736,9 +736,11 @@ fn tipos_compostos_e_algebricos_sao_construidos_no_interpretador() {
     let caminho = std::env::temp_dir().join(format!("nebula-compostos-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        r#"estrutura Pessoa: {
+        r#"tipo Idade = inteiro
+tipo ListaIdades = Vetor<Idade>
+estrutura Pessoa: {
     nome: texto
-    idade: inteiro
+    idade: Idade
     fim
 } fim
 enumeracao Estado: {
@@ -749,7 +751,10 @@ enumeracao Estado: {
 funcao principal() -> inteiro: {
     variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 10, fim }
     variavel par: (inteiro, texto) = (pessoa.idade, "Nebula")
+    variavel vazio: () = ()
+    variavel unitario: (inteiro,) = (7,)
     variavel vetor: Vetor<inteiro> = [1, 2, 3]
+    variavel idades: ListaIdades = [10, 20]
     variavel matriz: Matriz<inteiro> = [[3, 4], [6, 7]]
     variavel opcional: Opcional<inteiro> = Opcional::Algum(8)
     variavel resultado: Resultado<inteiro, texto> = Resultado::Sucesso(9)
@@ -764,7 +769,7 @@ funcao principal() -> inteiro: {
                             fim
                         }
                         caso Estado::Falha(mensagem, codigo): {
-                            quando mensagem == "erro" e codigo == 7: {
+                            quando mensagem == "erro" e codigo == 7 e vazio == () e unitario[0] == 7 e idades[0] == 10: {
                                 exibir(pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso)
                                 devolver pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso
                                 fim
