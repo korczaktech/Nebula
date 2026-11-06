@@ -3180,7 +3180,7 @@ impl Emissor {
         let apos_erro = self.codigo.len();
         self.aplicar_salto(leitura_valida, apos_erro);
 
-        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\\n']); // cmp byte [rsi], LF
+        self.codigo.extend_from_slice(&[0x80, 0x3E, b'\n']); // cmp byte [rsi], LF
         let encontrou_linha = self.emitir_jcc(0x84);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xC6]); // próximo byte
         self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC0]); // comprimento++
@@ -3199,7 +3199,7 @@ impl Emissor {
         // O runtime de referência remove também um CR imediatamente anterior.
         self.codigo.extend_from_slice(&[0x4D, 0x85, 0xC0]); // test r8, r8
         let vazio = self.emitir_jcc(0x84);
-        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\\r']); // cmp byte [rsi-1], CR
+        self.codigo.extend_from_slice(&[0x80, 0x7E, 0xFF, b'\r']); // cmp byte [rsi-1], CR
         let sem_cr = self.emitir_jcc(0x85);
         self.codigo.extend_from_slice(&[0x48, 0xFF, 0xCE]); // rsi--
         self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC8]); // r8--
