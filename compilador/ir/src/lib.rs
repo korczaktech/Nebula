@@ -957,9 +957,14 @@ impl Lowerer {
             }),
             Expressao::Membro { alvo, operador: TipoToken::Escopo, nome: variante } => {
                 if let Expressao::Nome(tipo_enum) = alvo.as_ref() {
-                    if self.variantes_enumeracoes.get(tipo_enum)
+                    let variante_sem_payload = self.variantes_enumeracoes.get(tipo_enum)
                         .and_then(|variantes| variantes.get(variante))
-                        .is_some_and(Vec::is_empty) {
+                        .is_some_and(Vec::is_empty)
+                        || matches!(
+                            (tipo_enum.as_str(), variante.as_str()),
+                            ("Opcional" | "opcional", "Nenhum")
+                        );
+                    if variante_sem_payload {
                         Some(ExpressaoIr::ConstrucaoEnumeracao {
                             nome: tipo_enum.clone(),
                             variante: variante.clone(),
