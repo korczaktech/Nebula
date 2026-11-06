@@ -2272,15 +2272,15 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(
             &r.programa.itens[0],
-            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "()"
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo == "()"
         ));
         assert!(matches!(
             &r.programa.itens[1],
-            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "(inteiro,)"
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo == "(inteiro,)"
         ));
         assert!(matches!(
             &r.programa.itens[2],
-            NoAst::Variavel { tipo: Some(tipo), .. } if tipo.para_texto() == "(inteiro, texto)"
+            NoAst::Variavel { tipo: Some(tipo), .. } if tipo == "(inteiro, texto)"
         ));
     }
 
