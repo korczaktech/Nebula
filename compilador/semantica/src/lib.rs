@@ -2785,6 +2785,8 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
             AssinaturaFuncao { parametros: vec![Tipo::Inteiro, Tipo::Inteiro], retorno: Tipo::Inteiro },
         )]));
         let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir(biblioteca: Matematica) como Mat");
+        let codigo = normalizar_blocos_legados("incluir(biblioteca: Matematica) como calcular\\nfuncao calcular(): inteiro\\n    devolver 1\\nfim");
+        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
@@ -3448,7 +3450,8 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     }
 
 fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
-    let fonte = nebula_fonte::ArquivoFonte::novo("teste-fase5.nbx", codigo);
+    let codigo = normalizar_blocos_legados(codigo);
+    let fonte = nebula_fonte::ArquivoFonte::novo("teste-fase5.nbx", &codigo);
     let sintaxe = nebula_sintaxe::analisar(&fonte);
     assert!(
         sintaxe.diagnosticos.is_empty(),
