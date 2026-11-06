@@ -147,10 +147,11 @@ impl<'a> Analisador<'a> {
                 if self.classes.insert(nome.clone(), herda.clone()).is_some() {
                     self.erro("N3065", format!("A classe '{nome}' foi declarada mais de uma vez."));
                 }
-                self.estruturas.insert(nome.clone());
+                if !self.estruturas.insert(nome.clone()) {
+                    self.erro("N3086", format!("O nome '{nome}' já foi usado por uma estrutura ou classe."));
+                }
             }
         }
-        self.validar_hierarquia_classes();
         let aliases: Vec<String> = self.aliases.keys().cloned().collect();
         for nome in aliases {
             if Self::tipo_contem_desconhecido(&self.resolver_tipo(&nome)) {
@@ -172,6 +173,7 @@ impl<'a> Analisador<'a> {
                 self.campos_estruturas.insert(nome.clone(), descritores);
             }
         }
+        self.validar_hierarquia_classes();
         for item in &programa.itens {
             if let NoAst::Classe { nome, corpo, .. } = item {
                 for membro in corpo {
@@ -238,7 +240,7 @@ impl<'a> Analisador<'a> {
                     let mut encontrou_padrao = false;
                     for (indice, padrao) in padroes.iter().enumerate() {
                         if padrao.is_some() { encontrou_padrao = true; }
-                        else if encontrou_padrao && indice + 1 < padroes.len() {
+                        else if encontrou_padrao {
                             self.erro("N3066", format!("Parâmetros sem valor padrão não podem aparecer depois de parâmetros opcionais em '{nome}'."));
                         }
                     }
@@ -282,19 +284,35 @@ impl<'a> Analisador<'a> {
                 atual = base;
             }
         }
-        for (nome, base) in &classes {
-            if let Some(base) = base {
-                if let Some(campos_base) = self.campos_estruturas.get(base).cloned() {
-                    let campos = self.campos_estruturas.entry(nome.clone()).or_default();
-                    for (campo, tipo) in campos_base {
-                        if let Some(tipo_proprio) = campos.get(&campo) {
-                            if !Self::tipos_compativeis(tipo_proprio, &tipo) {
-                                self.erro("N3081", format!("Campo herdado '{campo}' redefine tipo incompatível na classe '{nome}'."));
-                            }
-                        } else {
-                            campos.insert(campo, tipo);
+        for _ in 0..classes.len() {
+            let snapshot = self.campos_estruturas.clone();
+            for (nome, base) in &classes {
+                if let Some(base) = base {
+                    if let Some(campos_base) = snapshot.get(base) {
+                        let campos = self.campos_estruturas.entry(nome.clone()).or_default();
+                        for (campo, tipo) in campos_base {
+                            campos.entry(campo.clone()).or_insert_with(|| tipo.clone());
                         }
                     }
+                }
+            }
+        }
+        for (nome, base) in &classes {
+            let Some(base) = base else { continue; };
+            for (chave, metodo) in &self.funcoes {
+                let Some(nome_metodo) = chave.strip_prefix(&format!("{nome}::")) else { continue; };
+                let mut ancestral = Some(base.as_str());
+                while let Some(nome_ancestral) = ancestral {
+                    if let Some(metodo_base) = self.funcoes.get(&format!("{nome_ancestral}::{nome_metodo}")) {
+                        if metodo.parametros.len() != metodo_base.parametros.len()
+                            || !metodo.parametros.iter().zip(&metodo_base.parametros).all(|(a, b)| Self::tipos_compativeis(a, b))
+                            || !Self::tipos_compativeis(&metodo.retorno, &metodo_base.retorno)
+                        {
+                            self.erro("N3087", format!("O método '{nome_metodo}' da classe '{nome}' não respeita a assinatura herdada."));
+                        }
+                        break;
+                    }
+                    ancestral = classes.get(nome_ancestral).and_then(Option::as_deref);
                 }
             }
         }
@@ -335,16 +353,12 @@ impl<'a> Analisador<'a> {
                 let genericos_anteriores = self.parametros_genericos.clone();
                 self.parametros_genericos.extend(genericos.iter().cloned());
                 self.abrir_escopo();
-                for ((nome_parametro, _), tipo) in parametros.iter().zip(&funcao.parametros) {
-                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false, campos_movidos: HashSet::new() });
-                }
-                for (indice, padrao) in parametros_padrao.iter().enumerate() {
-                    if let Some(padrao) = padrao {
-                        if let Some(tipo_esperado) = funcao.parametros.get(indice) {
-                            let tipo_obtido = self.expressao_com_tipo_esperado(padrao, tipo_esperado);
-                            self.exigir_expressao_tipo(padrao, &tipo_obtido, tipo_esperado, "valor padrão do parâmetro");
-                        }
+                for (indice, ((nome_parametro, _), tipo)) in parametros.iter().zip(&funcao.parametros).enumerate() {
+                    if let Some(Some(padrao)) = parametros_padrao.get(indice) {
+                        let tipo_obtido = self.expressao_com_tipo_esperado(padrao, tipo);
+                        self.exigir_expressao_tipo(padrao, &tipo_obtido, tipo, "valor padrão do parâmetro");
                     }
+                    self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false, campos_movidos: HashSet::new() });
                 }
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
@@ -773,15 +787,17 @@ impl<'a> Analisador<'a> {
         let Expressao::Nome(nome) = alvo.as_ref() else {
             return self.expressao(expressao);
         };
-        let Some(funcao) = self.funcoes.get(nome).cloned() else {
+        let chave_metodo = self.classe_atual.as_ref().map(|classe| format!("{classe}::{nome}"));
+        let Some(funcao) = self.funcoes.get(nome).or_else(|| chave_metodo.as_ref().and_then(|chave| self.funcoes.get(chave))).cloned() else {
             return self.expressao(expressao);
         };
-        if funcao.genericos.is_empty() || argumentos.len() != funcao.parametros.len() {
+        if funcao.genericos.is_empty() {
             return self.expressao(expressao);
         }
 
-        let tipos_obtidos: Vec<Tipo> = argumentos.iter()
-            .map(|argumento| self.expressao(argumento))
+        let mapeados = self.mapear_argumentos_funcao(argumentos, &funcao, nome);
+        let tipos_obtidos: Vec<Tipo> = mapeados.iter()
+            .map(|argumento| argumento.map_or(Tipo::Desconhecido, |valor| self.expressao(valor)))
             .collect();
         let (inferencia_valida, inferidos) =
             Self::inferir_genericos_chamada(&funcao, &tipos_obtidos, Some(esperado));
@@ -793,9 +809,12 @@ impl<'a> Analisador<'a> {
                 self.erro("N3064", format!("O parâmetro genérico '{parametro}' da função '{nome}' não pôde ser inferido pelos argumentos nem pelo tipo esperado."));
             }
         }
-        for (parametro, obtido) in funcao.parametros.iter().zip(&tipos_obtidos) {
+        for (indice, (parametro, obtido)) in funcao.parametros.iter().zip(&tipos_obtidos).enumerate() {
             let parametro = Self::substituir_genericos(parametro, &inferidos);
-            self.exigir_tipo(obtido, &parametro, "argumento de função genérica");
+            if let Some(Some(argumento)) = mapeados.get(indice) {
+                self.exigir_expressao_tipo(argumento, obtido, &parametro, "argumento de função genérica");
+                if !self.tipo_copiavel(obtido) { self.mover_valor(argumento); }
+            }
         }
         Self::substituir_genericos(&funcao.retorno, &inferidos)
     }
@@ -856,7 +875,7 @@ impl<'a> Analisador<'a> {
                         self.erro("N3030", format!("O valor '{nome}' ou parte de seus campos foi movido e não pode ser utilizado integralmente."));
                     }
                     simbolo.tipo
-                } else if let Some(f) = self.funcoes.get(nome) {
+                } else if let Some(f) = self.funcoes.get(nome).or_else(|| self.classe_atual.as_ref().and_then(|classe| self.funcoes.get(&format!("{classe}::{nome}")))) {
                     if !f.genericos.is_empty() {
                         self.erro(
                             "N3057",
@@ -1424,7 +1443,8 @@ impl<'a> Analisador<'a> {
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Desconhecido;
                     }
-                    if let Some(funcao) = self.funcoes.get(nome).cloned() {
+                    let chave_metodo = self.classe_atual.as_ref().map(|classe| format!("{classe}::{nome}"));
+                    if let Some(funcao) = self.funcoes.get(nome).or_else(|| chave_metodo.as_ref().and_then(|chave| self.funcoes.get(chave))).cloned() {
                         let mapeados = self.mapear_argumentos_funcao(argumentos, &funcao, nome);
                         if funcao.genericos.is_empty() {
                             for (indice, argumento) in mapeados.iter().enumerate() {
