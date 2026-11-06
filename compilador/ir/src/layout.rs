@@ -347,7 +347,7 @@ mod testes {
     #[test]
     fn calcula_layout_de_estrutura_declarada() {
         let ast = programa(
-            "estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nfim",
+            "estrutura Pessoa: {\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\n    fim\n}\nfim",
         );
         let tipo = Tipo::Estrutura("Pessoa".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
@@ -365,7 +365,7 @@ mod testes {
 
     #[test]
     fn calcula_layout_de_enum_declarada() {
-        let ast = programa("enumeracao Estado:\n    Inativo\n    Ativo\n    Falha(texto)\nfim");
+        let ast = programa("enumeracao Estado: {\n    Inativo\n    Ativo\n    Falha(texto)\n    fim\n}\nfim");
         let tipo = Tipo::Enumeracao("Estado".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
         assert_eq!(layout.tamanho_tag, 1);
@@ -381,7 +381,7 @@ mod testes {
 
     #[test]
     fn rejeita_estrutura_recursiva_por_valor() {
-        let ast = programa("estrutura Elo:\n    proximo: Elo\nfim");
+        let ast = programa("estrutura Elo: {\n    proximo: Elo\n    fim\n}\nfim");
         assert!(
             calcular_layout_tipo(&ast, &Tipo::Estrutura("Elo".into()))
                 .unwrap_err()
@@ -391,7 +391,7 @@ mod testes {
 
     #[test]
     fn rejeita_enumeracao_recursiva_por_valor() {
-        let ast = programa("enumeracao Lista:\n    No\n    Proximo(Lista)\nfim");
+        let ast = programa("enumeracao Lista: {\n    No\n    Proximo(Lista)\n    fim\n}\nfim");
         assert!(
             calcular_layout_tipo(&ast, &Tipo::Enumeracao("Lista".into()))
                 .unwrap_err()
