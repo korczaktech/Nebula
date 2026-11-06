@@ -13,76 +13,68 @@ Esta gramática descreve a sintaxe reconhecida. Resolução de nomes, compatibil
 - Nomes em maiúsculas representam categorias de tokens produzidas pelo Lexer.
 - `EOF` é o fim do arquivo.
 - `NOVA_LINHA` é uma quebra lógica de linha preservada.
-- `INDENT` inicia um nível de indentação; `DEDENT` encerra um ou mais níveis.
+- `ABRE_CHAVE` e `FECHA_CHAVE` delimitam o Function Body.
 - `FIM_BLOCO` é a palavra-chave `fim`.
 - `separador` é `NOVA_LINHA` ou `;`.
 
-O Lexer emite `INDENT` e `DEDENT` a partir das colunas de indentação. Eles são tokens estruturais, não caracteres que precisem ser escritos no arquivo.
+A indentação organiza visualmente o código e é validada como estilo. Os limites sintáticos dos blocos são definidos por `: {`, `fim` e `}`; `INDENT` e `DEDENT` não substituem esses delimitadores.
 
-## 2. Regra normativa de indentação
+## 2. Regra normativa do Function Body
 
 ### 2.1 Princípios obrigatórios
 
-1. Todo bloco de instruções DEVE começar em uma nova linha e em um nível de indentação maior que o nível do cabeçalho.
-2. Todo bloco de instruções DEVE terminar com `fim`, depois que seu nível de indentação for encerrado.
-3. O corpo de um bloco DEVE manter um nível de indentação consistente. Blocos aninhados DEVEM aumentar a indentação e encerrar esse nível antes do `fim` do bloco externo.
-4. O nível-base do arquivo é a coluna zero. Um item no escopo do arquivo NÃO DEVE começar indentado.
-5. A indentação usa espaços. Tabulações são diagnosticadas como ambíguas; código normativo DEVE usar espaços.
-6. Linhas vazias e linhas contendo apenas comentários NÃO alteram a pilha de indentação.
-7. A indentação não pode ser usada para fechar implicitamente um bloco: o `DEDENT` fecha o nível visual, mas o `fim` explícito fecha a construção sintática.
-8. Chaves NÃO substituem a indentação de funções, condicionais, laços, classes, contextos ou outros blocos de instrução.
-9. Estruturas e enumerações também usam cabeçalho terminado em dois-pontos, corpo indentado, `DEDENT` e `fim`.
-10. O Parser rejeita indentação inesperada, ausência de indentação, ausência de `fim` e delimitadores de bloco incompatíveis.
+1. Todo corpo executável ou estrutural DEVE começar com dois-pontos seguido de abertura de chave: `: {`.
+2. O conteúdo de cada Function Body DEVE terminar com `fim` imediatamente antes do `}` correspondente.
+3. Depois de fechar a chave, declarações e blocos completos DEVEM receber um segundo `fim` para encerrar a construção externa.
+4. Blocos aninhados DEVEM encerrar seu próprio conteúdo com `fim` antes de fechar sua chave. O encerramento de um bloco interno não encerra o bloco externo.
+5. Cláusulas encadeadas, como `sendo`, `senao`, `caso`, `erro` e `sempre`, usam um Function Body cada; a construção externa consome seu `fim` depois da última cláusula.
+6. A indentação DEVE ser consistente e usar espaços. Ela organiza e valida a apresentação, mas não substitui `fim` nem as chaves.
+7. A forma antiga baseada somente em linhas indentadas, sem `: {`, é inválida e DEVE ser rejeitada.
+8. Chaves usadas em valores de dados, como objetos e dicionários em declarações comuns, não se tornam Function Body automaticamente e não exigem `fim` apenas por serem delimitadores de dados.
+9. Uma declaração comum de variável não exige Function Body, salvo quando a construção declarada introduzir explicitamente um corpo estrutural.
+10. O Parser DEVE rejeitar ausência de abertura, ausência de `fim`, fechamento fora de ordem e delimitadores incompatíveis.
 
-### 2.2 Formação dos níveis
+### 2.2 Estrutura dos delimitadores
 
-- O Lexer inicia com uma pilha de colunas contendo apenas a coluna zero.
-- Ao encontrar uma linha com código fora de delimitadores, compara a coluna inicial com o topo da pilha.
-- Coluna maior: empilha a coluna e emite um `INDENT`.
-- Coluna igual: não emite token de indentação.
-- Coluna menor: desempilha e emite um `DEDENT` para cada nível encerrado.
-- A coluna resultante DEVE corresponder a um nível anterior. Se não corresponder, o Lexer emite diagnóstico de indentação inconsistente.
-- Ao chegar ao fim do arquivo, o Lexer emite os `DEDENT` restantes antes de `EOF`.
-- O primeiro nível de código não pode começar em coluna maior que zero.
+- O Lexer preserva `:`, `{`, `fim` e `}` como tokens distintos.
+- Dentro de chaves, quebras de linha continuam disponíveis como separadores de instruções.
+- A indentação dentro de chaves não cria nem fecha blocos sintáticos.
+- Dentro de parênteses `()` e colchetes `[]`, quebras físicas são continuação de linha e não separam instruções.
+- Chaves de dados e chaves de Function Body são distinguidas pelo contexto do Parser.
+- Tabulações em posições de indentação geram diagnóstico; código normativo usa espaços.
 
-A indentação é medida em colunas de espaços. Tabulação é diagnosticada; sua largura interna de recuperação não constitui estilo permitido pela linguagem.
-
-### 2.3 Delimitadores e continuação de linha
-
-- Dentro de parênteses `()` e colchetes `[]`, quebras físicas são continuação de linha e não geram separadores de instrução nem níveis de indentação.
-- Enquanto qualquer delimitador estiver aberto, o Lexer suprime a geração de tokens de indentação. Isso inclui chaves usadas em construções de dados.
-- Dentro de chaves, quebras de linha permanecem disponíveis como separadores, mas a indentação não cria blocos.
-- Uma expressão pode continuar após operador binário, atribuição, vírgula, ponto, `::`, chamada ou indexação conforme as regras da seção 8.
-- Uma quebra usada para continuar expressão não abre bloco por si só. A indentação extra de continuação é consumida como continuação e não pode ser confundida com um bloco de instrução.
-
-### 2.4 Forma canônica de um bloco
+### 2.3 Forma canônica de um bloco
 
 ~~~ebnf
-bloco                   = [ ":" ], NOVA_LINHA, { separador },
-                          INDENT, lista_itens, DEDENT, "fim" ;
-bloco_sem_fim           = [ ":" ], NOVA_LINHA, { separador },
-                          INDENT, lista_itens, DEDENT ;
+bloco                   = ":", "{", { separador }, lista_itens,
+                          { separador }, "fim", "}", { separador }, "fim" ;
+bloco_sem_fim           = ":", "{", { separador }, lista_itens,
+                          { separador }, "fim", "}" ;
 lista_itens             = [ item, { separador, item }, { separador } ] ;
 separador               = NOVA_LINHA | ";" ;
 ~~~
 
-`bloco_sem_fim` é uma regra interna para construções com cláusulas encadeadas, como `quando/sendo/senao`, `escolha/caso` e `tente/erro/sempre`. A construção externa consome um único `fim` depois de todas as cláusulas. Não significa que o programa possa omitir o terminador.
+`bloco` representa uma construção completa: o primeiro `fim` fecha o conteúdo antes de `}`; o segundo `fim`, depois de `}`, encerra a declaração ou instrução externa. `bloco_sem_fim` representa o corpo de uma cláusula encadeada; a construção externa consome um único `fim` depois de todas as cláusulas.
 
 Exemplo normativo:
 
 ~~~nebula
-funcao principal() -> vazio
+funcao principal() -> vazio: {
     variavel pronto = verdadeiro
-
-    quando pronto
+    se pronto: {
         exibir("Iniciado")
-    senao
+        fim
+    }
+    senao: {
         exibir("Aguardando")
+        fim
+    }
     fim
+}
 fim
 ~~~
 
-O `fim` mais interno encerra o condicional; o último encerra a função.
+O primeiro `fim` fecha o corpo de `se`; o segundo fecha o corpo de `senao`; o `fim` após a chave do condicional encerra a construção condicional; o `fim` final encerra a função.
 
 ## 3. Arquivo e itens
 
@@ -159,11 +151,11 @@ separador_variante      = "," | NOVA_LINHA | ";" ;
 Observações normativas:
 
 - O retorno de função omitido equivale a `vazio`.
-- A forma `: tipo` após os parâmetros declara retorno quando existe um tipo na mesma linha; `: NOVA_LINHA` introduz o corpo indentado sem declarar retorno.
+- A forma `-> tipo` após os parâmetros declara o retorno; `: {` inicia o Function Body. O retorno omitido equivale a `vazio`.
 - `externa funcao ...` declara função externa sem corpo. `global nome` e `externa nome` declaram referências de escopo.
 - `exportar funcao ...` equivale a uma declaração de função pública.
 - Modificadores de função são aceitos antes de `funcao`; `assinc` marca a função como assíncrona.
-- `estrutura` exige dois-pontos, quebra de linha, indentação e `fim`. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
+- `estrutura` exige `: {`, `fim` antes de `}` e outro `fim` após a chave. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
 - `enumeracao` exige ao menos uma variante. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
 - Atributos podem ser repetidos antes de uma declaração e recebem argumentos posicionais.
 - `montagem` também pode aparecer como expressão de chamada nativa; a forma contextual acima representa o bloco contextual.
@@ -249,7 +241,7 @@ expressao_antes_bloco   = expressao ;
 Regras específicas:
 
 - `quando` aceita `se` como alias. As cláusulas `sendo` repetem condições alternativas. `senao` é opcional e pode conter outro condicional. Um único `fim` encerra a construção completa.
-- `escolha` exige dois-pontos, nova linha e indentação. Cada caso ocupa seu próprio bloco indentado; `caso` recebe padrão e `padrao` representa o caso curinga. Um único `fim` encerra a escolha.
+- `escolha` exige `: {`. Cada caso ocupa seu próprio Function Body; o `fim` interno antecede `}`, e um `fim` externo encerra a escolha.
 - Padrões aceitos: `Enum::Variante`, `Enum::Variante(vinculo, ...)`, `_`, `padrao` e literais. Padrões de enumeração e curinga duplicados são rejeitados; o curinga pode aparecer antes ou depois de variantes.
 - `tente` possui um corpo, zero ou mais cláusulas `erro` e uma cláusula `sempre` opcional. Deve existir pelo menos uma cláusula `erro` ou `sempre`. Um único `fim` encerra a construção.
 - `para nome dentro iteravel` é a forma iterativa. A forma tradicional usa três partes separadas por ponto e vírgula dentro de parênteses.
@@ -317,7 +309,7 @@ literal                 = INTEIRO | DECIMAL | TEXTO | TEXTO_INTERPOLADO
 
 A AST de expressões inclui atribuições simples e compostas, operações binárias e unárias, chamadas posicionais e nomeadas, chamadas genéricas, acesso a membros, acesso opcional, indexação, listas, tuplas, construções de estruturas, lambdas, lambdas com bloco, expressões condicionais e propagação opcional.
 
-O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com corpo indentado e `fim`. A palavra `lambda` introduz a forma `lambda x: expressão`.
+O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... fim } fim`. A palavra `lambda` introduz a forma `lambda x: expressão`.
 
 Construções de estrutura usam chaves e campos `nome: expressão`; não são blocos de instrução. Campos podem conter expressões aninhadas. Campos duplicados são erro. Em cabeçalhos que aguardam bloco, uma construção vazia com chaves deve ser agrupada para não ser confundida com o início de bloco.
 
@@ -350,7 +342,7 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 
 1. Entre itens independentes no arquivo e dentro de blocos, DEVE existir ao menos um separador: quebra lógica de linha ou `;`.
 2. Quebras repetidas, linhas vazias e pontos e vírgulas repetidos são aceitos entre itens.
-3. Separador final é permitido antes de `DEDENT`, `fim` e `EOF`.
+3. Separador final é permitido antes de `fim`, `}` e `EOF`.
 4. Dentro de `()` e `[]`, quebras físicas são ignoradas como separadores e funcionam como espaço.
 5. Dentro de `()` e `[]`, `;` continua token explícito e NÃO substitui vírgula de parâmetros, argumentos, listas, tuplas ou tipos.
 6. Dentro de chaves usadas em construções de estrutura, quebras e `;` separam campos.
@@ -362,14 +354,14 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 12. Caminhos de tipos e módulos aceitam quebra antes/depois de `::`; o padrão de escolha exige `Enum::Variante` sem quebra dentro do par.
 13. Quebras após vírgulas continuam listas quando a construção permite a continuação.
 14. Uma quebra imediatamente antes de `senao`, `sendo`, `erro` ou `sempre` mantém a cláusula associada à construção aberta. Ponto e vírgula não substitui essa regra.
-15. A indentação só abre níveis quando o Lexer está fora de delimitadores e não está processando continuação de expressão.
-16. O `DEDENT` deve encerrar o corpo antes do `fim` correspondente.
+15. A indentação organiza visualmente o conteúdo de Function Body e não cria limites sintáticos.
+16. O `fim` interno deve aparecer antes do `}` correspondente; o `fim` externo encerra a construção completa quando exigido.
 
 ## 9. Delimitadores
 
 - Parênteses, colchetes e chaves devem ser pareados e respeitar a ordem de aninhamento.
-- `fim` fecha somente uma construção de bloco indentado; não fecha parênteses, colchetes ou chaves.
-- Chaves de construção de estrutura fecham com `}`; não recebem `fim`.
+- `fim` encerra o conteúdo de um Function Body antes de `}`; em construções completas, outro `fim` encerra a construção após `}`.
+- Chaves de dados não recebem `fim` por si só.
 - Fechamento cruzado, extra ou fora do contexto é erro sintático.
 - O Parser diagnostica fechamento incompatível e tenta preservar os itens posteriores.
 - Abertura sem fechamento no fim do arquivo é diagnosticada pelo Lexer/Parser.
@@ -378,11 +370,11 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 
 O Parser rejeita, entre outros casos:
 
-- Bloco de instrução delimitado por chaves em vez de indentação e `fim`.
-- Bloco sem nova linha, sem `INDENT`, sem `DEDENT` ou sem `fim`.
+- Bloco de instrução sem abertura `: {`.
+- Bloco sem `fim` antes de `}` ou sem o `fim` externo exigido pela construção.
 - Indentação inicial no escopo do arquivo ou nível de indentação sem bloco correspondente.
 - Campo de estrutura sem dois-pontos ou tipo.
-- Estrutura ou enumeração usando chaves como corpo.
+- Estrutura ou enumeração sem Function Body e os dois encerramentos exigidos.
 - Enumeração sem variantes.
 - Campo, variante, parâmetro, parâmetro genérico ou vínculo duplicado.
 - Padrão de escolha inválido, variante repetida ou curinga duplicado.
@@ -539,11 +531,11 @@ A indentação adicional nesse exemplo é continuação da expressão, não um b
 
 Uma implementação conforme deve:
 
-1. Gerar tokens `INDENT` e `DEDENT` segundo a seção 2.
-2. Exigir indentação para todo bloco de instrução.
-3. Exigir `fim` para toda construção de bloco que o Parser modela como bloco completo.
-4. Rejeitar chaves como substitutas de blocos de instrução.
-5. Aceitar chaves em construções de dados e agrupamentos previstos.
+1. Preservar os tokens `:`, `{`, `fim` e `}` com suas localizações.
+2. Exigir `: {` para todo Function Body.
+3. Exigir `fim` antes de `}` e o encerramento externo quando aplicável.
+4. Rejeitar a sintaxe antiga baseada somente em indentação.
+5. Distinguir Function Body de chaves usadas em valores de dados.
 6. Preservar as regras de separação e continuação da seção 8.
-7. Produzir AST e diagnósticos sem depender da indentação como informação semântica depois que os limites do bloco foram reconhecidos.
+7. Produzir AST e diagnósticos com limites de bloco determinados pelos delimitadores e por `fim`, não apenas pela indentação.
 8. Manter esta gramática, `tokens.md`, exemplos e testes de conformidade sincronizados.
