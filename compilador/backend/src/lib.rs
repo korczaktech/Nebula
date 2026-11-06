@@ -637,6 +637,7 @@ impl Emissor {
                 let slot_fim = self.declarar_tipado("\0nebula_cada_fim", &tipo_elemento)?;
                 let slot_cursor = self.declarar_tipado("\0nebula_cada_cursor", &tipo_elemento)?;
                 let slot_descendente = self.declarar_tipado("\0nebula_cada_descendente", &Tipo::Logico)?;
+                let slot_quantidade = self.declarar_tipado("\0nebula_cada_quantidade", &Tipo::InteiroU64)?;
                 let slot_variavel = self.declarar_tipado(nome, &tipo_elemento)?;
 
                 self.expressao(iteravel)?;
@@ -688,6 +689,10 @@ impl Emissor {
                 self.aplicar_salto(verificar_descendente, inicio_verificacao_descendente);
                 self.aplicar_salto(saltar_corpo, inicio_corpo);
 
+                self.mov_rax(0);
+                self.armazenar_rax(slot_quantidade);
+                self.mov_rdx(0);
+                self.armazenar_rdx(slot_quantidade - 8);
                 self.carregar_rax(slot_cursor);
                 self.armazenar_rax(slot_variavel);
                 self.mov_rdx(0);
