@@ -7,7 +7,7 @@
 **Objetivo:** programação de sistemas, kernels, drivers, runtimes e controle de hardware  
 **Status:** proposta técnica formal para implementação; não implica que os recursos já existam no compilador.
 
-> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas, inclusive a obrigatoriedade de Function Body e de `fim` para todo corpo iniciado por chaves ou quebra de linha. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
+> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas, inclusive a obrigatoriedade de Function Body iniciado por `: {` e encerrado por `fim` antes de `}`; construções completas também exigem o `fim` externo. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
 
 ---
 
