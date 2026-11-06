@@ -1,4 +1,7 @@
-# Especificação da linguagem Nebula
+# Visão geral da linguagem Nebula
+
+**Estado:** resumo informativo. A única fonte normativa é `linguagem-e-tipos.md`; a gramática e os tokens são formalizados nos anexos técnicos `gramatica.md` e `tokens.md`. Este documento não cria regras independentes e deve ser atualizado como resumo.
+
 
 **Estado:** contrato de linguagem alinhado ao frontend sintático atual. Alterações incompatíveis exigem atualização de `gramatica.md`, `tokens.md`, exemplos e testes de conformidade.
 
