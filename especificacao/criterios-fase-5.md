@@ -29,13 +29,21 @@ A Fase 5 não pode apagar nem enfraquecer os contratos já aprovados nas Fases 1
 
 ## 1. Linguagem e sistema de tipos
 
-- [ ] Fechar uma especificação normativa única para sintaxe, semântica, avaliação, precedência, conversões, overflow, erros e comportamento entre plataformas.
-- [ ] Implementar e testar todos os tipos primitivos planejados: lógicos, inteiros com e sem sinal nas larguras suportadas, ponto flutuante, byte, caractere Unicode, texto e vazio.
-- [ ] Implementar tipos compostos e algébricos: listas/vetores, tuplas, estruturas, enumerações, opcionais, resultados e tipos definidos pelo usuário.
+- [x] Fechar uma especificação normativa única para sintaxe, semântica, avaliação, precedência, conversões, overflow, erros e comportamento entre plataformas.
+- [x] Implementar e testar todos os tipos primitivos planejados: lógicos, inteiros com e sem sinal nas larguras suportadas, ponto flutuante, byte, caractere Unicode, texto e vazio.
+- [x] Implementar tipos compostos e algébricos: listas/vetores, tuplas, estruturas, enumerações, opcionais, resultados e tipos definidos pelo usuário.
 - [ ] Implementar funções, tipos de função, genéricos e inferência com limites e regras determinísticas.
 - [ ] Definir layout, alinhamento, representação, igualdade, cópia/movimentação, conversões e ABI de cada tipo.
 - [ ] Garantir diagnósticos precisos para erros de tipo, inferência, conversão, padrão incompleto e uso inválido.
 - [ ] Manter gramática, tokens, AST, análise semântica, IR, exemplos e fixtures de conformidade sincronizados.
+
+### Evidências dos requisitos 1–3 do item 1
+
+1. **Contrato normativo único:** linguagem-e-tipos.md é a fonte canônica; gramatica.md e tokens.md são anexos técnicos subordinados, e os antigos resumos apontam para o contrato principal. A regra de inteiro foi fixada em 64 bits em todos os alvos, sem depender da máquina hospedeira. Precedência, associatividade, avaliação, promoção numérica, conversões, overflow, erros, Unicode e separação entre semântica e ABI estão descritos no contrato.
+2. **Tipos primitivos:** matriz-primitivos.nbx cobre todos os tipos, incluindo larguras inteiras até 128 bits, máximos de inteiros sem sinal, Unicode, byte e retorno vazio. Testes semânticos, de execução no interpretador e de normalização da IR cobrem limites, valores inválidos, decimal32, decimal64, decimal, NaN e infinito.
+3. **Tipos compostos e algébricos:** testes de sintaxe, semântica, IR e CLI cobrem listas, Vetor, Matriz, tuplas vazias/unitárias/heterogêneas, estruturas, enumerações com payloads, Opcional, Resultado e aliases definidos pelo usuário, inclusive alias aninhado em tipo genérico. Ciclos de aliases diretos e aninhados são rejeitados sem recursão infinita. O interpretador executa a combinação desses tipos.
+
+   **Limite por alvo:** o backend ELF implementa os formatos agregados descritos na seção de ABI e rejeita explicitamente layouts maiores e enumerações com payloads múltiplos que ainda não suporta. Essa limitação está documentada e não é apresentada como suporte nativo completo; a conclusão deste requisito se refere ao sistema de tipos, IR e interpretador, com rejeição explícita nos formatos nativos fora do contrato implementado.
 
 ## 2. Memória, propriedade e segurança
 
