@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+nebula-biblioteca = { path = "../../biblioteca" }
 nebula-ir = { path = "../ir" }
 nebula-semantica = { path = "../semantica" }
 
