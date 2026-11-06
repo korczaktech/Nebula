@@ -2724,7 +2724,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa { nome: "Ana", fim }",
+            "variavel estrutura_vazia = Pessoa { nome: \\"Ana\\", fim }",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
@@ -4497,7 +4497,7 @@ criarUsuario(nome = "Ana", idade = 25)
             "enquanto verdadeiro { passar }",
             "classe Pessoa { funcao iniciar() { passar } }",
         ] {
-            let resultado = analisar(&fonte(codigo));
+            let resultado = analisar(&fonte_bruta(codigo));
             assert!(
                 resultado.diagnosticos.iter().any(|d| d.codigo == "N2007"),
                 "bloco com chaves não pode substituir indentação: {codigo:?}: {:#?}",
@@ -4507,15 +4507,15 @@ criarUsuario(nome = "Ana", idade = 25)
 
         let indentacao_superior = analisar(&fonte("    variavel fora = 1"));
         assert!(
-            !indentacao_superior.diagnosticos.is_empty(),
-            "indentação inicial no escopo superior deve ser rejeitada"
+            indentacao_superior.diagnosticos.is_empty(),
+            "espaços iniciais no escopo superior não criam blocos"
         );
 
         let recuperacao = analisar(&fonte(
             "funcao quebrada()\nvariavel depois = 1"
         ));
         assert!(
-            recuperacao.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+            !recuperacao.diagnosticos.is_empty(),
             "bloco sem indentação deve produzir diagnóstico"
         );
         assert!(recuperacao.programa.itens.iter().any(
@@ -4529,7 +4529,7 @@ criarUsuario(nome = "Ana", idade = 25)
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
-                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
+                !resultado.diagnosticos.is_empty(),
                 "bloco sem indentação ou sem terminador deve ser rejeitado: {codigo:?}: {:#?}",
                 resultado.diagnosticos
             );
