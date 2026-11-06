@@ -3153,7 +3153,7 @@ impl Emissor {
     /// com código estável em vez de corromper memória.
     fn emitir_ler_texto(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
         const LIMITE_ENTRADA: i64 = 4096;
-        let buffer = self.reservar_agregado(LIMITE_ENTRADA as u64, 8)?;
+        let buffer = self.reservar_agregado((LIMITE_ENTRADA as u64) + 1, 8)?;
 
         if let Some(prompt) = argumentos.first() {
             self.expressao(prompt)?;
@@ -3165,6 +3165,7 @@ impl Emissor {
 
         self.emitir_endereco_rbp_rax(buffer);
         self.codigo.extend_from_slice(&[0x49, 0x89, 0xC1]); // r9 = início do buffer
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = cursor de leitura
         self.codigo.extend_from_slice(&[0x45, 0x31, 0xC0]); // r8 = comprimento
 
         let inicio_leitura = self.codigo.len();
@@ -3185,7 +3186,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x49, 0xFF, 0xC0]); // comprimento++
         self.codigo.extend_from_slice(&[0x49, 0x81, 0xF8]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
-        let limite = self.emitir_jcc(0x83); // jae: buffer cheio
+        let limite = self.emitir_jcc(0x87); // ja: buffer cheio
         self.encerrar_com_erro(1);
         let apos_limite = self.codigo.len();
         self.aplicar_salto(limite, apos_limite);
