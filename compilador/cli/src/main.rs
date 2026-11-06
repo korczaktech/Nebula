@@ -1759,17 +1759,25 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao inverter(par: Tupla<inteiro64,inteiro64>): Tupla<inteiro64,inteiro64>
+            r#"funcao inverter(par: Tupla<inteiro64,inteiro64>) -> Tupla<inteiro64,inteiro64>: {
     devolver (par[1], par[0])
+    fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel original = (40, 2)
     variavel resultado = inverter(original)
-    quando resultado[0] == 2 e resultado[1] == 40
+    quando resultado[0] == 2 e resultado[1] == 40: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
