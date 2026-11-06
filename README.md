@@ -47,7 +47,7 @@ Nebula deverá permitir o desenvolvimento de:
 
 ## 2. Identidade e regras da linguagem
 
-A gramática e as regras léxicas normativas estão em [especificacao/gramatica.md](especificacao/gramatica.md) e [especificacao/tokens.md](especificacao/tokens.md). Esses documentos são a referência do Lexer, Parser e AST do crate `nebula-sintaxe`.
+O contrato normativo único da linguagem e do sistema de tipos está em [especificacao/linguagem-e-tipos.md](especificacao/linguagem-e-tipos.md). A [gramática formal](especificacao/gramatica.md) e as [regras léxicas](especificacao/tokens.md) são anexos técnicos subordinados e servem de referência ao Lexer, Parser e AST do crate `nebula-sintaxe`.
 
 - Código-fonte UTF-8; identificadores Unicode comparados em NFC.
 - Palavras-chave e mensagens oficiais em português brasileiro.
