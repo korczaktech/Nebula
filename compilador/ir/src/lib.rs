@@ -8,7 +8,7 @@ mod implementacao {
 use nebula_semantica::{analisar_com_modulos, ModulosDisponiveis, Tipo};
 use nebula_fonte::IntervaloFonte;
 use nebula_biblioteca::dados::{analisar_json, serializar_json};
-use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoToken};
+use nebula_sintaxe::{CasoEscolha, Expressao, NoAst, Programa, TipoAst, TipoToken};
 use nebula_runtime::{
     LayoutRuntime,
     arquivo_existe, caractere_texto, comprimento_texto, copiar_arquivo, criar_diretorio,
@@ -294,6 +294,14 @@ impl Lowerer {
             "decimal32" => Tipo::Decimal32,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
+            _ if nome.starts_with('(') && nome.ends_with(')') => {
+                match TipoAst::analisar(nome) {
+                    TipoAst::Tupla(elementos) => Tipo::Tupla(
+                        elementos.iter().map(|tipo| self.tipo(&tipo.para_texto())).collect(),
+                    ),
+                    _ => Tipo::Desconhecido,
+                }
+            }
             _ if dividir_tipo_funcao(nome).is_some() => {
                 let (parametros, retorno) = dividir_tipo_funcao(nome)
                     .expect("tipo de função reconhecido");
