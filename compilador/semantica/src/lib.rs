@@ -3810,6 +3810,35 @@ fim
         );
     }
 
+    #[test]
+    fn infere_retorno_generico_a_partir_do_contexto() {
+        let r = analisar_codigo_fase5(
+            "funcao ausente<T>(): Opcional<T>\\n    devolver Opcional::Nenhum()\\nfim\\nvariavel numero: Opcional<inteiro> = ausente()",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(
+            r.tipos_globais.get("numero"),
+            Some(&Tipo::Opcional(Box::new(Tipo::Inteiro)))
+        );
+    }
+
+    #[test]
+    fn unifica_parametros_genericos_em_assinaturas_de_funcao() {
+        let r = analisar_codigo_fase5(
+            "funcao aplicar<T>(acao: funcao(T): T, valor: T): T\\n    devolver acao(valor)\\nfim\\nfuncao identidade(valor: inteiro): inteiro\\n    devolver valor\\nfim\\nvariavel resultado = aplicar(identidade, 42)",
+        );
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert_eq!(r.tipos_globais.get("resultado"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
+    fn rejeita_funcao_generica_sem_instancia_como_valor() {
+        let r = analisar_codigo_fase5(
+            "funcao identidade<T>(valor: T): T\\n    devolver valor\\nfim\\nvariavel referencia = identidade",
+        );
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3057"), "{:?}", r.diagnosticos);
+    }
+
 }
 
 }
