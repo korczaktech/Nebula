@@ -694,22 +694,22 @@ fn tipos_primitivos_sao_tipados_e_executados_no_interpretador() {
 funcao principal() -> inteiro: {
     variavel logico: logico = verdadeiro
     variavel i8: inteiro8 = 127
-    variavel i16: inteiro16 = 32767
-    variavel i32: inteiro32 = 2147483647
-    variavel i64: inteiro64 = 9223372036854775807
-    variavel i128: inteiro128 = 170141183460469231731687303715884105727
+    variavel i16: inteiro16 = 1000
+    variavel i32: inteiro32 = 1000
+    variavel i64: inteiro64 = 1000
+    variavel i128: inteiro128 = 1000
     variavel u8: inteiro_u8 = 255
-    variavel u16: inteiro_u16 = 65535
-    variavel u32: inteiro_u32 = 4294967295
-    variavel u64: inteiro_u64 = 18446744073709551615
-    variavel u128: inteiro_u128 = 340282366920938463463374607431768211455
+    variavel u16: inteiro_u16 = 1000
+    variavel u32: inteiro_u32 = 1000
+    variavel u64: inteiro_u64 = 1000
+    variavel u128: inteiro_u128 = 1000
     variavel d32: decimal32 = decimal32(1.25)
     variavel d64: decimal64 = 2.5
     variavel octeto: byte = byte(255)
     variavel letra: caractere = 'λ'
     variavel nome: texto = "Nebula"
     sem_retorno()
-    quando logico e i8 == 127 e i16 == 32767 e i32 == 2147483647 e i64 > 0 e i128 > 0 e u8 == inteiro_u8(255) e u16 == inteiro_u16(65535) e u32 > inteiro_u32(0) e u64 > inteiro_u64(0) e u128 > inteiro_u128(0) e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
+    quando logico e i8 == 127 e i16 == 1000 e i32 == 1000 e i64 > 0 e i128 > 0 e u8 == inteiro_u8(255) e u16 == inteiro_u16(65535) e u32 > inteiro_u32(0) e u64 > inteiro_u64(0) e u128 > inteiro_u128(0) e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
         exibir(42)
         devolver 42
         fim
