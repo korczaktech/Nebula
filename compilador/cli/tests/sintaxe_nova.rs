@@ -384,7 +384,7 @@ fn compara_prefixo_e_sufixo_de_texto_nativo() {
     let (origem, executavel) = caminhos("prefixo-sufixo-texto");
     let codigo = r#"funcao principal() -> inteiro: {
     variavel texto = "Olá Nebula"
-    quando comeca_com(texto, "Olá") e termina_com(texto, "Nebula"): {
+    quando comeca_com(texto, "Olá") e termina_com(texto, "Nebula") e comeca_com(texto, "") e termina_com(texto, "") e nao comeca_com(texto, "Olá Nebula!") e nao termina_com(texto, "Olá Nebula!"): {
         devolver 42
         fim
     } fim
@@ -423,7 +423,7 @@ fn busca_trecho_em_texto_nativo() {
     let (origem, executavel) = caminhos("contem-texto");
     let codigo = r#"funcao principal() -> inteiro: {
     variavel texto = "Olá Nebula"
-    quando contem(texto, "Neb") e nao contem(texto, "xyz"): {
+    quando contem(texto, "Neb") e nao contem(texto, "xyz") e contem(texto, "") e nao contem(texto, "Olá Nebula!"): {
         devolver 42
         fim
     } fim
