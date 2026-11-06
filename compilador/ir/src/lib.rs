@@ -3058,7 +3058,7 @@ mod testes {
     fn rejeita_inferencia_generica_com_tipo_aninhado_desconhecido() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel ausente = identidade(Opcional::Nenhum())",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel ausente = identidade(Opcional::Nenhum())",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3075,7 +3075,7 @@ mod testes {
     fn rejeita_unificacao_generica_inconsistente() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao par<T>(a: T, b: T): T\n    devolver a\nfim\n\nvariavel resultado = par([1], [verdadeiro])",
+            "funcao par<T>(a: T, b: T) -> T: {\n    devolver a\n    fim\n} fim\n\nvariavel resultado = par([1], [verdadeiro])",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3489,7 +3489,7 @@ mod testes {
     #[test]
     fn monomorfiza_funcao_generica_para_tipos_inferidos() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__texto"));
@@ -3511,7 +3511,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_chamada_generica_aninhada() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel numero = identidade(identidade(42))",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel numero = identidade(identidade(42))",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamadas genéricas aninhadas válidas");
@@ -3535,7 +3535,7 @@ mod testes {
     #[test]
     fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
         let ir = compilar(
-            "funcao extrair<T,U>(ponto: Tupla<T,U>): T\n    devolver ponto[0]\nfim\nfuncao identidade<T>(valor: T): T\n    devolver valor\nfim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
+            "funcao extrair<T,U>(ponto: Tupla<T,U>): T\n    devolver ponto[0]\nfim\nfuncao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
         );
         assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3546,7 +3546,7 @@ mod testes {
     #[test]
     fn infere_chamada_generica_em_variavel_local() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T): T\n    devolver valor\nfim\nfuncao repassar<T>(valor: T): T\n    variavel copia = identidade(valor)\n    devolver copia\nfim\n\nvariavel numero = repassar(42)",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\nfuncao repassar<T>(valor: T): T\n    variavel copia = identidade(valor)\n    devolver copia\nfim\n\nvariavel numero = repassar(42)",
         );
         assert!(ir.funcoes.contains_key("repassar__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3711,7 +3711,7 @@ mod testes {
 
     #[test]
     fn rejeita_layout_nominal_recursivo_ao_baixar_ir() {
-        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No:\n    proximo: No\nfim");
+        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No: {\n    proximo: No\n    fim\n}\nfim");
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
@@ -3923,7 +3923,7 @@ mod testes {
     fn preserva_localizacoes_em_blocos_e_lacos_aninhados() {
         let fonte = ArquivoFonte::novo(
             "aninhado.nbx",
-            "quando verdadeiro\n    variavel interno = 7\nfim\nenquanto falso\n    variavel repetido = 1\nfim",
+            "quando verdadeiro: {\n    variavel interno = 7\n    fim\n}\nfim\nenquanto falso: {\n    variavel repetido = 1\n    fim\n}\nfim",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3951,7 +3951,7 @@ mod testes {
         let InstrucaoIr::Localizada { intervalo: repetido, .. } = &corpo[0] else {
             panic!("corpo do laço precisa ter origem");
         };
-        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((5, 5)));
+        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((7, 5)));
     }
 
     #[test]
