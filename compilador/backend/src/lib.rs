@@ -1447,6 +1447,16 @@ impl Emissor {
                     self.emitir_comprimento_texto(argumento)?;
                     return Ok(());
                 }
+                if nome == "dormir" || nome == "aguardar" {
+                    let [argumento] = argumentos.as_slice() else {
+                        return Err(format!("'{nome}' exige exatamente um argumento no backend nativo."));
+                    };
+                    if self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Inteiro) {
+                        return Err(format!("O backend nativo exige inteiro não negativo em '{nome}'."));
+                    }
+                    self.emitir_dormir_milisegundos(argumento)?;
+                    return Ok(());
+                }
                 if nome == "ler_texto" || nome == "json_valido" || nome == "json_canonico" {
                     return Err(format!("A função '{nome}' pertence à biblioteca padrão/runtime, ainda não incluída nesta etapa."));
                 }
@@ -2652,6 +2662,32 @@ impl Emissor {
             self.pilha = self.pilha.checked_sub(1)
                 .ok_or("Contabilidade do alinhamento da pilha inválida.")?;
         }
+        Ok(())
+    }
+
+    fn emitir_dormir_milisegundos(&mut self, argumento: &ExpressaoIr) -> Result<(), String> {
+        let timespec = self.reservar_agregado(16, 8)?;
+        self.expressao(argumento)?;
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
+        let nao_negativo = self.emitir_jcc(0x89); // jns
+        self.encerrar_com_erro(2);
+        self.aplicar_salto(nao_negativo, self.codigo.len());
+
+        self.codigo.extend_from_slice(&[0x48, 0xB9, 0xE8, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]); // rcx = 1000
+        self.codigo.extend_from_slice(&[0x48, 0x31, 0xD2]); // xor rdx, rdx
+        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xF1]); // div rcx
+        self.armazenar_rax(timespec); // tv_sec
+        self.mov_rax(1_000_000);
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xAF, 0xD0]); // imul rdx, rax
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]); // rax = tv_nsec
+        self.armazenar_rax(timespec + 8);
+        self.emitir_endereco_rbp_rax(timespec);
+        self.mover_rax_registrador(7); // rdi = timespec
+        self.codigo.extend_from_slice(&[0x31, 0xF6]); // rsi = NULL
+        self.mov_rax(35); // SYS_nanosleep
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
+        self.mov_rax(0);
+        self.mov_rdx(0);
         Ok(())
     }
 
