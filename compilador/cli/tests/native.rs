@@ -685,7 +685,12 @@ fim"#,
         .stderr(Stdio::piped())
         .spawn()
         .expect("executa ELF com stdin");
-    processo.stdin.take().unwrap().write_all(b"Nebula\\r\\n").unwrap();
+    processo
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"Nebula\r\n")
+        .unwrap();
     let resultado = processo.wait_with_output().unwrap();
     assert_eq!(resultado.status.code(), Some(42));
     assert_eq!(resultado.stdout, b"Digite: ");
