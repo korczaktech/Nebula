@@ -186,3 +186,38 @@ fn compila_pulso_nativo_com_pare() {
     let _ = fs::remove_file(executavel);
     assert_eq!(execucao.status.code(), Some(3));
 }
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn compila_e_exibe_literal_texto_no_backend_nativo() {
+    let (origem, executavel) = caminhos("texto-nativo");
+    let codigo = r#"funcao principal() -> vazio: {
+    exibir("Olá, Nebula")
+    fim
+} fim
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI");
+
+    assert!(
+        compilacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    assert!(execucao.status.success());
+    assert_eq!(execucao.stdout, "Olá, Nebula\n".as_bytes());
+}
