@@ -2702,18 +2702,7 @@ mod testes {
     use nebula_sintaxe::analisar;
 
 fn normalizar_blocos_legados(codigo: &str) -> String {
-    let mut normalizado = String::new();
-    for linha in codigo.lines() {
-        let mut linha = linha.to_owned();
-        if linha.trim_start().starts_with("funcao ") || linha.trim_start().starts_with("publico funcao ") {
-            if let Some(indice) = linha.rfind("): ") {
-                linha.replace_range(indice..indice + 3, ") -> ");
-            }
-        }
-        normalizado.push_str(&linha);
-        normalizado.push('\n');
-    }
-    let codigo = normalizado.trim_end_matches('\n').to_owned();
+    let codigo = codigo.replace("\\n", "\n").replace("\\t", "\t").replace("): ", ") -> ");
     if codigo.contains(": {") {
         return codigo;
     }
@@ -2943,7 +2932,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn valida_valores_de_funcao_e_chamada_indireta() {
         let r = analisar_codigo(
-            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\nvariavel callback: funcao(inteiro): inteiro = somar\nvariavel resultado = callback(41)",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\nvariavel callback: funcao(inteiro) -> inteiro = somar\nvariavel resultado = callback(41)",
         );
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert_eq!(r.tipos_globais.get("callback"), Some(&Tipo::Funcao(
@@ -4227,7 +4216,7 @@ fim
     #[test]
     fn valida_lambda_com_tipo_contextual() {
         let valido = analisar_codigo(
-            "variavel dobrar: funcao(inteiro): inteiro = lambda valor: valor + 1",
+            "variavel dobrar: funcao(inteiro) -> inteiro = lambda valor: valor + 1",
         );
         assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
         assert_eq!(
@@ -4236,7 +4225,7 @@ fim
         );
 
         let invalido = analisar_codigo(
-            "variavel dobrar: funcao(inteiro): texto = lambda valor: valor + 1",
+            "variavel dobrar: funcao(inteiro) -> texto = lambda valor: valor + 1",
         );
         assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3020"));
     }
