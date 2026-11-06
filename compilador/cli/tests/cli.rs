@@ -819,7 +819,7 @@ fn executa_variantes_vazias_e_de_falha_dos_tipos_algebricos() {
     fim
 } fim
 funcao principal() -> inteiro: {
-    variavel opcional: Opcional<inteiro> = Opcional::Nenhum()
+    variavel opcional: Opcional<inteiro> = Opcional::Nenhum
     variavel resultado: Resultado<inteiro, texto> = Resultado::Falha("negado")
     variavel estado: Estado = Estado::Fechado
     escolha opcional: {
