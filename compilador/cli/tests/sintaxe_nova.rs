@@ -494,3 +494,30 @@ fn igualdade_de_texto_compara_conteudo_utf8() {
     let _ = fs::remove_file(executavel);
     assert_eq!(execucao.status.code(), Some(42));
 }
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn rejeita_concatenacao_textual_sem_alocador() {
+    let (origem, executavel) = caminhos("soma-texto");
+    let codigo = r#"funcao principal() -> vazio: {
+    variavel texto = "Olá" + " Nebula"
+    fim
+} fim
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI");
+
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    assert!(!compilacao.status.success());
+    assert!(
+        String::from_utf8_lossy(&compilacao.stderr).contains("alocador do runtime nativo")
+    );
+}
