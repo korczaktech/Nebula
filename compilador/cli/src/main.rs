@@ -1623,6 +1623,7 @@ fim"#,
         fim
     }
     fim
+    fim
 }
 fim
 funcao ler(valor: Resultado<inteiro64,inteiro64>) -> inteiro: {
@@ -1637,6 +1638,7 @@ funcao ler(valor: Resultado<inteiro64,inteiro64>) -> inteiro: {
         }
         fim
     }
+    fim
     fim
 }
 fim
@@ -1685,6 +1687,7 @@ fim"#,
     Falha(inteiro64)
     Vazio
     fim
+    fim
 }
 fim
 funcao transformar(resposta: Resposta) -> Resposta: {
@@ -1703,6 +1706,7 @@ funcao transformar(resposta: Resposta) -> Resposta: {
         }
         fim
     }
+    fim
     fim
 }
 fim
