@@ -719,7 +719,8 @@ funcao principal() -> inteiro: {
 } fim
 principal()
 "#,
-    ).expect("grava fonte");
+    )
+    .expect("grava fonte");
     let saida = executar(&["interpretar", caminho.to_str().expect("caminho UTF-8")]);
     let _ = std::fs::remove_file(caminho);
     assert!(
@@ -809,7 +810,6 @@ principal()
     );
     assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "42");
 }
-
 
 #[test]
 fn executa_variantes_vazias_e_de_falha_dos_tipos_algebricos() {
