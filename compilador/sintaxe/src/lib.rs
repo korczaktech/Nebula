@@ -2495,7 +2495,7 @@ mod testes {
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa {}",
+            "variavel estrutura_vazia = Pessoa { fim }",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
@@ -2550,10 +2550,10 @@ mod testes {
             "incluir(biblioteca: Biblioteca)",
             "incluir(modulo: Interna, biblioteca: Biblioteca) como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa {})\n    passar\nfim",
-            "escolha (Pessoa {})\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa {})\n    passar\nfim",
-            "cada item em (Pessoa {})\n    passar\nfim",
+            "quando (Pessoa { fim })\n    passar\nfim",
+            "escolha (Pessoa { fim })\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa { fim })\n    passar\nfim",
+            "cada item em (Pessoa { fim })\n    passar\nfim",
             "quando primeiro\n    passar\nsendo segundo\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2606,8 +2606,8 @@ mod testes {
             "(a, b,)",
             "[]",
             "[a, b]",
-            "Pessoa {}",
-            "Pessoa { nome: a, idade: b }",
+            "Pessoa { fim }",
+            "Pessoa { nome: a, idade: b, fim }",
             "42",
             "3.14",
             "\"texto\"",
@@ -2784,7 +2784,7 @@ mod testes {
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
-            "variavel pessoa = Pessoa {}",
+            "variavel pessoa = Pessoa { fim }",
             "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -3331,7 +3331,7 @@ mod testes {
 
     #[test]
     fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
-        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20 }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n    variavel depois = 99\nfim";
+        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20, fim }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    variavel depois = 99\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3349,7 +3349,7 @@ mod testes {
 
     #[test]
     fn recupera_delimitadores_aninhados_sem_perder_o_fechamento_externo() {
-        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n    variavel final = 7\nfim";
+        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4, fim }\n    variavel final = 7\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3487,7 +3487,7 @@ mod testes {
             "N2034", "Ativo", 1
         );
         verifica(
-            "variavel pessoa = Pessoa { nome: 1, nome: 2 }",
+            "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }",
             "N2037", "nome", 1
         );
         verifica(
@@ -3683,7 +3683,7 @@ mod testes {
             ("N2034", "enumeracao Estado:\n    Ativo\n    Ativo\nfim"),
             ("N2035", "enumeracao Estado:\n    Ativo Inativo\nfim"),
             ("N2036", "enumeracao Estado:\n    ,\nfim"),
-            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
+            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }"),
             ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
             ("N2040", "escolha valor caso _\n    passar\nfim"),
             ("N2041", "escolha valor\n    outro {}\nfim"),
