@@ -1287,7 +1287,8 @@ fn ajuda() {
     println!("A verificação sintática não realiza análise semântica nem gera executáveis.");
     println!("O backend gera diretamente executáveis ELF x86-64 em Rust, sem compilador externo.");
     println!("'interpretar' usa o runtime de referência; 'executar' usa o backend nativo.");
-    println!("O backend ELF nativo ainda não liga o runtime nem a biblioteca padrão.");
+    println!("O backend ELF implementa serviços nativos básicos, mas ainda não incorpora o runtime completo nem a biblioteca padrão.");
+    println!("Para recursos disponíveis apenas no runtime completo, use 'interpretar'; o backend nativo rejeita operações ainda não suportadas.");
 }
 
 fn mostrar_ir(caminho: &Path) {
