@@ -2366,10 +2366,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             fim
         }
         fim
-        fim
+    fim
     }
     fim
 fim
+}
 fim
 
 exportar funcao iniciar(): {
