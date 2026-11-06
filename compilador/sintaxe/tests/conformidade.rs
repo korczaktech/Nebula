@@ -48,8 +48,8 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "enumeracao com variantes",
             "enumeracao Estado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
         ),
-        ("inclusao com alias", "incluir Biblioteca::Texto como Texto"),
-        ("inclusao sem alias", "incluir Biblioteca::Interna"),
+        ("inclusao com alias", "incluir(modulo: Texto, biblioteca: Biblioteca) como Texto"),
+        ("inclusao sem alias", "incluir(modulo: Interna, biblioteca: Biblioteca)"),
         (
             "quando e senao",
             "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
@@ -360,7 +360,7 @@ enumeracao Estado:
     Pronto
     Falha(texto)
 fim
-incluir Biblioteca::Texto como Texto
+incluir(modulo: Texto, biblioteca: Biblioteca) como Texto
 quando verdadeiro
     passar
 senao
