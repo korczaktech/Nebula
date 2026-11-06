@@ -11,7 +11,7 @@
 5. Um programa que viole uma regra estática não pode ser executado pelo interpretador nem gerar executável.
 6. O interpretador e todos os backends devem observar a mesma semântica definida neste documento.
 7. O compilador não pode aceitar silenciosamente uma construção que o backend selecionado não consegue representar.
-8. A semântica observável da linguagem é independente do sistema operacional e da arquitetura hospedeira. Um alvo pode impor limites de representação documentados, mas deve rejeitar recursos fora desses limites em vez de alterar seu significado.
+8. A semântica observável da linguagem é independente do sistema operacional e da arquitetura hospedeira. Larguras inteiras, sinal, precisão decimal, codificação UTF-8 e regras de overflow são fixos pela linguagem. Um alvo pode impor limites de representação documentados, mas deve rejeitar recursos fora desses limites em vez de alterar seu significado. Endianness, offsets, padding, tamanho/alinhamento físicos e convenção de chamada pertencem à ABI versionada do alvo, nunca ao valor lógico de um tipo.
 
 ## 2. Tipos primitivos
 
@@ -48,7 +48,7 @@ A sintaxe de tipo de lista é `[T]`. Todos os elementos de uma lista possuem exa
 
 ### 3.2 Tuplas
 
-Uma tupla é heterogênea e posicional. A sintaxe de valor é `(a, b)`; tupla unitária exige vírgula (`(a,)`); `()` representa a tupla vazia. O tipo preserva ordem e tipo de cada posição. Um acesso por índice literal válido pode ser resolvido estaticamente; acesso dinâmico deve preservar verificação de limites em execução.
+Uma tupla é heterogênea e posicional. A sintaxe de valor é `(a, b)`; tupla unitária exige vírgula (`(a,)`); `()` representa a tupla vazia. A sintaxe de tipo correspondente é `(T1, T2)`, `(T,)` ou `()`. Parênteses em torno de um único tipo sem vírgula apenas agrupam esse tipo e não criam uma tupla. O tipo preserva ordem, quantidade e tipo de cada posição. Um acesso por índice literal válido pode ser resolvido estaticamente; acesso dinâmico deve preservar verificação de limites em execução.
 
 ### 3.3 Estruturas
 
@@ -112,7 +112,11 @@ Cada caso nomeia a enumeração e a variante. Os identificadores entre parêntes
 - A propagação antecipada de falha só pode ser introduzida por sintaxe documentada e deve preservar o tipo de erro declarado.
 - Não existe conversão implícita entre `Opcional<T>` e `Resultado<T,E>`.
 
-### 3.6 Intervalos
+### 3.6 Aliases de tipo
+
+A declaração `tipo Nome = Tipo` cria um alias transparente, não um novo tipo nominal. O alias pode ser usado em qualquer posição que aceite o tipo de destino, inclusive em tipos genéricos aninhados, campos, parâmetros e retornos. Aliases são resolvidos antes da análise dos corpos e preservam a identidade semântica do tipo de destino. Referências desconhecidas e ciclos diretos ou indiretos são erros estáticos. Um alias não pode alterar layout, alinhamento, representação, igualdade, capacidade de cópia ou ABI do tipo que nomeia.
+
+### 3.7 Intervalos
 
 O operador `inicio..fim` cria um intervalo numérico fechado, incluindo os dois limites. O tipo do intervalo é inferido a partir do tipo dos limites, que devem ser numericamente compatíveis e possuir o mesmo tipo após a verificação semântica. Texto, caracteres, valores lógicos, agregados e tipos de função não podem ser limites.
 
