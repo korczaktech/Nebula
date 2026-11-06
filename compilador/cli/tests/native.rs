@@ -766,7 +766,7 @@ fn ler_texto_aceita_fim_de_entrada_sem_dados() {
 #[test]
 fn ler_texto_aceita_exatamente_4096_bytes() {
     let mut entrada = vec![b'a'; 4096];
-    entrada.push(b'\\n');
+    entrada.push(b'\n');
     let resultado = compilar_e_executar_com_stdin(
         "ler-texto-limite-exato",
         "funcao principal(): inteiro\\n    variavel entrada = ler_texto()\\n    quando comprimento(entrada) == 4096\\n        devolver 42\\n    fim\\n    devolver 1\\nfim",
@@ -778,7 +778,7 @@ fn ler_texto_aceita_exatamente_4096_bytes() {
 #[test]
 fn ler_texto_rejeita_entrada_maior_que_4096_bytes() {
     let mut entrada = vec![b'a'; 4097];
-    entrada.push(b'\\n');
+    entrada.push(b'\n');
     let resultado = compilar_e_executar_com_stdin(
         "ler-texto-limite-excedido",
         "funcao principal(): vazio\\n    variavel entrada = ler_texto()\\nfim",
