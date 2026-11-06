@@ -348,6 +348,7 @@ fn tempo_nativo_retorna_milisegundos_unix() {
         devolver 42
         fim
     }
+    fim
     devolver 1
     fim
 } fim
