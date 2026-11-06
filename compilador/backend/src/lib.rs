@@ -2674,10 +2674,10 @@ impl Emissor {
 
     fn emitir_tempo_unix_milisegundos(&mut self) -> Result<(), String> {
         let timespec = self.reservar_agregado(16, 8)?;
-        self.mov_rax(228); // SYS_clock_gettime
         self.codigo.extend_from_slice(&[0x31, 0xFF]); // xor edi, edi: CLOCK_REALTIME
         self.emitir_endereco_rbp_rax(timespec);
         self.mover_rax_registrador(6); // rsi = timespec
+        self.mov_rax(228); // SYS_clock_gettime
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let sucesso = self.emitir_jcc(0x89); // jns
