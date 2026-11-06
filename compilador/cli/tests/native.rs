@@ -160,7 +160,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
 fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
     let (origem, executavel) = caminhos(rotulo);
-    let codigo_normalizado = normalizar_blocos_legados(codigo);\n    fs::write(&origem, codigo_normalizado).expect("grava fonte Nebula");
+    let codigo_normalizado = normalizar_blocos_legados(codigo);
+    fs::write(&origem, codigo_normalizado).expect("grava fonte Nebula");
     let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
         .arg(&origem)
@@ -193,7 +194,8 @@ fn gera_elf_executavel_com_codigo_de_saida() {
 #[test]
 fn compila_sem_compilador_externo_no_path() {
     let (origem, executavel) = caminhos("sem-toolchain-c");
-    fs::write(&origem, "funcao principal(): inteiro\n    devolver 42\nfim").unwrap();
+    let codigo = normalizar_blocos_legados("funcao principal(): inteiro\n    devolver 42\nfim");
+    fs::write(&origem, codigo).unwrap();
     let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .env("PATH", "")
         .arg("compilar")
