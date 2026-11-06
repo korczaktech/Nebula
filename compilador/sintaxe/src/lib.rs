@@ -325,14 +325,9 @@ impl Parser {
             }
         }
         self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros.");
+        // O retorno usa exclusivamente '->'. O ':' seguinte pertence ao Function Body.
         let retorno = if self.corresponde(TipoToken::Seta) {
             Some(self.caminho_tipo()?)
-        } else if self.corresponde(TipoToken::DoisPontos) {
-            if matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::Indent | TipoToken::AbreChave | TipoToken::Fim) {
-                None
-            } else {
-                Some(self.caminho_tipo()?)
-            }
         } else {
             None
         };
@@ -516,7 +511,7 @@ impl Parser {
             };
             if !self.corresponde(TipoToken::DoisPontos) {
                 self.erro_atual("N2032", "Esperado ':' após nome do campo da estrutura.");
-                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FimBloco]);
+                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave, TipoToken::FimBloco]);
                 if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                 break;
             }
@@ -546,7 +541,7 @@ impl Parser {
         let nome = self.consumir_nome("Esperado nome após 'enumeracao'.")?;
         self.abrir_declaracao_indentada("N2033", "Esperado ':' após o nome da enumeração.")?;
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
-        while !self.verifica(TipoToken::Dedent) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
             let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let variante = match self.consumir_nome("Esperado nome da variante.") {
                 Some(variante) => variante,
@@ -580,7 +575,7 @@ impl Parser {
             if variantes.iter().any(|(existente, _)| existente == &variante) {
                 self.erro_intervalo("N2034", "Variante declarada mais de uma vez na enumeração.", intervalo);
             } else { variantes.push((variante, payload)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::Dedent) || self.verifica(TipoToken::FimBloco)) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica(TipoToken::FimBloco)) {
                 self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
                 self.sincronizar();
             }
