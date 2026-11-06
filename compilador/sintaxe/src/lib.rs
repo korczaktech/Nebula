@@ -1752,12 +1752,7 @@ impl Parser {
             TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FimBloco
         )
     }
-    fn fechamento_incompativel_com_fim(&self) -> bool {
-        matches!(
-            self.tipo(),
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave
-        )
-    }
+
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while self.corresponde(TipoToken::NovaLinha) {} }
