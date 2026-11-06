@@ -306,7 +306,6 @@ fn comprimento_nativo_conta_caracteres_unicode() {
     assert_eq!(execucao.status.code(), Some(5));
 }
 
-
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn dormir_e_aguardar_usam_runtime_nativo() {
