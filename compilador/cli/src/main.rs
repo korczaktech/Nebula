@@ -1824,27 +1824,39 @@ fim"#,
         std::fs::write(
             &origem,
             r#"variavel valorGlobal: inteiro128 = 1208925819614629174706176
-funcao somar(a: inteiro128, b: inteiro128): inteiro128
+funcao somar(a: inteiro128, b: inteiro128) -> inteiro128: {
     devolver a + b
+    fim
+}
 fim
-funcao identidade(valor: inteiro128): inteiro128
+funcao identidade(valor: inteiro128) -> inteiro128: {
     devolver valor
+    fim
+}
 fim
-funcao identidade_sem_sinal(valor: inteiro_u128): inteiro_u128
+funcao identidade_sem_sinal(valor: inteiro_u128) -> inteiro_u128: {
     devolver valor
+    fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel soma = somar(valorGlobal, valorGlobal)
     variavel esperado: inteiro128 = 2417851639229258349412352
     variavel negativo: inteiro128 = -42
     variavel positivo: inteiro128 = 42
     variavel maximo: inteiro_u128 = 340282366920938463463374607431768211455
     variavel zero: inteiro_u128 = 0
-    quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero
+    quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
