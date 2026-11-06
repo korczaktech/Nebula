@@ -1,4 +1,5 @@
 name: Testes da análise semântica
+# Valida a análise semântica e sua integração com a CLI.
 
 on:
   push:
