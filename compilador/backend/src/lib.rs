@@ -2809,9 +2809,6 @@ impl Emissor {
         let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
             .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
             .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
-        let endereco_dados = 0x400000u64.checked_add(u64::try_from(deslocamento_dados)
-            .map_err(|_| "Deslocamento dos dados excedeu o limite ELF64.")?)
-            .ok_or("Endereço dos dados excedeu o limite ELF64.")?;
         for (posicao, deslocamento) in self.referencias_texto {
             let destino = endereco_dados.checked_add(u64::try_from(deslocamento)
                 .map_err(|_| "Deslocamento de texto excedeu o limite ELF64.")?)
