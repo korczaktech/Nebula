@@ -1548,22 +1548,32 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"estrutura Ponto:
+            r#"estrutura Ponto: {
     x: inteiro64
     y: inteiro64
+    fim
+}
 fim
-funcao deslocar(ponto: Ponto): Ponto
+funcao deslocar(ponto: Ponto) -> Ponto: {
     devolver Ponto { x: ponto.x + 1, y: ponto.y + 2, fim }
+    fim
+}
 fim
-funcao principal(): inteiro
+funcao principal() -> inteiro: {
     variavel original = Ponto { x: 39, y: 0, fim }
     original.x = 40
     variavel resultado = deslocar(original)
-    quando resultado.x == 41 e resultado.y == 2
+    quando resultado.x == 41 e resultado.y == 2: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
