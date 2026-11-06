@@ -7,7 +7,7 @@ enumeracao Estado:
     Ativo
     Falha(texto)
 fim
-variavel conta = Conta { nome: "Lia", idade: 20 }
+variavel conta = Conta { nome: "Lia", idade: 20, fim }
 variavel estado = Estado::Ativo
 variavel opcional = Opcional::Algum(42)
 variavel resultado = Resultado::Sucesso(42)
