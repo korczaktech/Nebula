@@ -3178,7 +3178,8 @@ impl Emissor {
         let leitura_valida = self.emitir_jcc(0x89); // jns
         // Diagnóstico temporário: retorna o errno Linux para identificar falhas de read.
         self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = errno
+        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC0, 100]); // rax = errno + 100
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = errno + 100
         self.mov_rax(60); // SYS_exit
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
         let apos_erro = self.codigo.len();
@@ -3191,7 +3192,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x49, 0x81, 0xF8]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
         let limite = self.emitir_jcc(0x87); // ja: buffer cheio
-        self.encerrar_com_erro(1);
+        self.encerrar_com_erro(88); // diagnóstico: limite excedido
         let apos_limite = self.codigo.len();
         self.aplicar_salto(limite, apos_limite);
         self.emitir_salto_para(inicio_leitura);
