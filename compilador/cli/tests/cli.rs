@@ -751,7 +751,7 @@ enumeracao Estado: {
 funcao principal() -> inteiro: {
     variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 10, fim }
     variavel par: (inteiro, texto) = (pessoa.idade, "Nebula")
-    variavel vazio: () = ()
+    variavel tupla_vazia: () = ()
     variavel unitario: (inteiro,) = (7,)
     variavel vetor: Vetor<inteiro> = [1, 2, 3]
     variavel idades: ListaIdades = [10, 20]
@@ -769,7 +769,7 @@ funcao principal() -> inteiro: {
                             fim
                         }
                         caso Estado::Falha(mensagem, codigo): {
-                            quando mensagem == "erro" e codigo == 7 e vazio == () e unitario[0] == 7 e idades[0] == 10: {
+                            quando mensagem == "erro" e codigo == 7 e tupla_vazia == () e unitario[0] == 7 e idades[0] == 10: {
                                 exibir(pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso)
                                 devolver pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso
                                 fim
