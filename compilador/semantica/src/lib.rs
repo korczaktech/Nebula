@@ -876,9 +876,6 @@ impl<'a> Analisador<'a> {
                         return Tipo::Lista(Box::new(tipo_valor));
                     }
                     if nome == "exibir" {
-                        if argumentos.len() != 1 {
-                            self.erro("N3015", "A função 'exibir' exige exatamente um argumento.");
-                        }
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Vazio;
                     }
