@@ -2744,8 +2744,9 @@ mod testes {
     }
 
     fn normalizar_blocos_legados(codigo: &str) -> String {
+        let codigo = codigo.replace("): ", ") -> ");
         if codigo.contains(": {") {
-            return codigo.to_owned();
+            return codigo;
         }
 
         #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2854,7 +2855,7 @@ mod testes {
                     format!("{conteudo}: {{")
                 };
                 (Some(TipoBloco::Completo), Some(assinatura))
-            } else if conteudo.starts_with("escolha ") {
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
                 (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
             } else if conteudo.starts_with("quando ")
                 || conteudo.starts_with("se ")
