@@ -520,7 +520,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "payload malformado",
             "N2035",
-            "enumeracao Estado:\n    Ativo(inteiro,)\nfim",
+            "enumeracao Estado: {\n Ativo(inteiro,)\nfim}",
         ),
         (
             "enumeracao vazia",

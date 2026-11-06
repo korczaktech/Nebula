@@ -1,0 +1,6 @@
+variavel mozi = "Rafaella"
+variavel x = "------------------\n"
+exibir(x)
+exibir("O AMOR DA MINHA VIDA É:")
+exibir(x)
+exibir(mozi)
