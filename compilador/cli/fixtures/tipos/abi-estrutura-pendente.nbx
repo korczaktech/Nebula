@@ -4,7 +4,7 @@ estrutura VetorGrande:
     c: inteiro64
 fim
 funcao construir(): VetorGrande
-    devolver VetorGrande { a: 1, b: 2, c: 3 }
+    devolver VetorGrande { a: 1, b: 2, c: 3, fim }
 fim
 funcao principal(): inteiro64
     construir()
