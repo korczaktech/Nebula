@@ -1,4 +1,7 @@
-# Tokens e regras léxicas
+## Anexo léxico da Nebula
+
+**Estado:** anexo técnico subordinado à fonte normativa canônica `linguagem-e-tipos.md`. Este arquivo detalha a tokenização e deve permanecer sincronizado com o contrato principal; não constitui uma segunda fonte normativa independente.
+
 
 **Estado:** especificação léxica normativa alinhada ao Lexer do crate `nebula-sintaxe`. Palavras reservadas futuras são identificadas separadamente e não fazem parte das construções aceitas pelo Parser.
 
