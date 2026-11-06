@@ -815,7 +815,16 @@ impl Lowerer {
                 let tipo_esquerda = self.inferir_tipo_ast(esquerda);
                 let tipo_direita = self.inferir_tipo_ast(direita);
                 let tipo_operacao = if tipo_numerico(&tipo_esquerda) && tipo_numerico(&tipo_direita) {
-                    Some(promover_tipo_numerico(&tipo_esquerda, &tipo_direita))
+                    let promovido = promover_tipo_numerico(&tipo_esquerda, &tipo_direita);
+                    if promovido == Tipo::Desconhecido {
+                        self.diagnosticos.push(format!(
+                            "Não existe tipo numérico comum sem perda de faixa entre '{}' e '{}'.",
+                            tipo_esquerda.nome(),
+                            tipo_direita.nome(),
+                        ));
+                        return None;
+                    }
+                    Some(promovido)
                 } else {
                     None
                 };
@@ -1003,13 +1012,33 @@ fn promover_tipo_numerico(a: &Tipo, b: &Tipo) -> Tipo {
             | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
     );
     let largura_maxima = largura(a).max(largura(b));
-    if sem_sinal(a) && sem_sinal(b) {
+    let a_sem_sinal = sem_sinal(a);
+    let b_sem_sinal = sem_sinal(b);
+    if a_sem_sinal && b_sem_sinal {
         return match largura_maxima {
             8 => Tipo::InteiroU8,
             16 => Tipo::InteiroU16,
             32 => Tipo::InteiroU32,
             64 => Tipo::InteiroU64,
             _ => Tipo::InteiroU128,
+        };
+    }
+    if a_sem_sinal != b_sem_sinal {
+        let largura_sem_sinal = if a_sem_sinal { largura(a) } else { largura(b) };
+        let largura_com_sinal = if a_sem_sinal { largura(b) } else { largura(a) };
+        // Um inteiro assinado de N bits só representa todo o domínio de um
+        // inteiro sem sinal de M bits quando N > M.
+        let necessaria = largura_com_sinal.max(largura_sem_sinal.saturating_add(1));
+        let largura_resultado = [8u16, 16, 32, 64, 128]
+            .into_iter()
+            .find(|largura| *largura >= necessaria);
+        return match largura_resultado {
+            Some(8) => Tipo::Inteiro8,
+            Some(16) => Tipo::Inteiro16,
+            Some(32) => Tipo::Inteiro32,
+            Some(64) => Tipo::Inteiro64,
+            Some(128) => Tipo::Inteiro128,
+            _ => Tipo::Desconhecido,
         };
     }
     match largura_maxima {
