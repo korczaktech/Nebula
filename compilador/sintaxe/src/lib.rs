@@ -2190,14 +2190,14 @@ mod testes {
 
     #[test]
     fn analisa_dicionario_com_fim_antes_da_chave() {
-        let r = analisar(&fonte("variavel dados: dicionario = {\\n    \\"nome\\": \\"Nebula\\",\\n    versao: 1\\n    fim\\n}"));
+        let r = analisar(&fonte("variavel dados: dicionario = {\n    \"nome\": \"Nebula\",\n    versao: 1\n    fim\n}"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } if nome == "dicionario" && campos.len() == 2));
     }
 
     #[test]
     fn rejeita_dicionario_sem_fim_antes_da_chave() {
-        let r = analisar(&fonte("variavel dados: dicionario = {\\n    \\"nome\\": \\"Nebula\\"\\n}"));
+        let r = analisar(&fonte("variavel dados: dicionario = {\n    \"nome\": \"Nebula\"\n}"));
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
     }
 
