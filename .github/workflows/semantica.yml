@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "compilador/semantica/**"
+      - "compilador/cli/**"
       - "compilador/sintaxe/**"
       - "compilador/fonte/**"
       - "compilador/diagnosticos/**"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - "compilador/semantica/**"
+      - "compilador/cli/**"
       - "compilador/sintaxe/**"
       - "compilador/fonte/**"
       - "compilador/diagnosticos/**"
@@ -38,7 +40,7 @@ jobs:
           components: clippy
 
       - name: Analisar código
-        run: cargo clippy --locked -p nebula-semantica --all-targets -- -D warnings
+        run: cargo clippy --locked -p nebula-semantica -p nebula-cli --all-targets -- -D warnings
 
       - name: Executar testes semânticos
-        run: cargo test --locked -p nebula-semantica --all-targets
+        run: cargo test --locked -p nebula-semantica -p nebula-cli --all-targets
