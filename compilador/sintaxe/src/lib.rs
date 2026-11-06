@@ -3778,7 +3778,7 @@ fim"#;
             "variavel pessoa = Pessoa { nome: \"Ana\"",
             "tipo Lista = [inteiro",
             "tipo Acao = funcao(inteiro",
-            "funcao principal() { exibir(1)",
+            "funcao principal(): { exibir(1)",
             "funcao principal()\n exibir(1)",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -3856,7 +3856,7 @@ fim"#;
 
     #[test]
     fn diagnostico_de_fechamento_ausente_aponta_para_o_fim_da_fonte() {
-        let codigo = "funcao principal() {";
+        let codigo = "funcao principal(): {";
         let resultado = analisar(&fonte(codigo));
         let fechamento = resultado.diagnosticos.iter()
             .find(|d| d.codigo == "N2009")
