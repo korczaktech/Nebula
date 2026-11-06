@@ -62,6 +62,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         let cabecalho_explicito = [
             "funcao ",
             "publico funcao ",
+            "privado funcao ",
+            "protegido estatico funcao ",
             "async funcao ",
             "exportar funcao ",
             "estrutura ",
