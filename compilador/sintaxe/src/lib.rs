@@ -2463,7 +2463,7 @@ mod testes {
             "variavel tupla = (1, 2,)",
             "variavel lista = [1, 2, 3]",
             "variavel chamada = sistema::somar(1, 2)[0].valor",
-            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20 }",
+            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20, fim }",
             "variavel potencia = -2 ** 3 ** 2",
             "variavel logica = (1 < 2) e (3 >= 2) ou falso",
             "funcao bloco_fim()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
@@ -2673,7 +2673,7 @@ mod testes {
             "para (; ; )\n    passar\nfim",
             "variavel encadeada = funcao_alvo(1, 2)[0].campo::interno",
             "variavel tupla_unitaria = (valor,)",
-            "variavel construcao_multilinha = Pessoa {\n nome: \"Ana\",\n idade: 20,\n}",
+            "variavel construcao_multilinha = Pessoa {\n nome: \"Ana\",\n idade: 20,\n fim\n}",
             "variavel expressao_multilinha = objeto\n .campo\n ::interno",
             "variavel atribuicao_direita = primeiro <- segundo = terceiro",
             "variavel potencia_direita = 2 ** 3 ** 4",
@@ -2696,9 +2696,9 @@ mod testes {
     #[test]
     fn aceita_separadores_no_inicio_e_fim_de_construcoes_de_estrutura() {
         let exemplos = [
-            "variavel pessoa = Pessoa {\n nome: \"Ana\"\n}",
-            "variavel pessoa = Pessoa {\n\n nome: \"Ana\",\n idade: 20;\n\n}",
-            "variavel pessoa = Pessoa { ; nome: \"Ana\"; }",
+            "variavel pessoa = Pessoa {\n nome: \"Ana\"\n fim\n}",
+            "variavel pessoa = Pessoa {\n\n nome: \"Ana\",\n idade: 20;\n fim\n\n}",
+            "variavel pessoa = Pessoa { ; nome: \"Ana\"; fim }",
         ];
 
         for codigo in exemplos {
@@ -3282,7 +3282,7 @@ mod testes {
             ")".repeat(48)
         );
         let codigo = format!(
-            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo }} "
+            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo, fim }} "
         );
         let resultado = analisar(&fonte(&codigo));
         assert!(resultado.diagnosticos.is_empty(),
@@ -3509,7 +3509,7 @@ mod testes {
     #[test]
     fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
         let valido = analisar(&fonte(
-            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n    variavel final = 9\nfim",
+            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\", fim })\n    variavel final = 9\nfim",
         ));
         assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
@@ -3684,7 +3684,7 @@ mod testes {
             ("N2035", "enumeracao Estado:\n    Ativo Inativo\nfim"),
             ("N2036", "enumeracao Estado:\n    ,\nfim"),
             ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }"),
-            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
+            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2, fim }"),
             ("N2040", "escolha valor caso _\n    passar\nfim"),
             ("N2041", "escolha valor\n    outro {}\nfim"),
             ("N2042", "escolha valor\n    caso Variante\n        passar\nfim"),
