@@ -99,15 +99,14 @@ declaracao_variavel     = ("variavel" | "definir" | "mutavel" | "mutável"),
 declaracao_constante    = "constante", IDENTIFICADOR,
                           [ ":", tipo ], "=", expressao ;
 
-declaracao_funcao       = [ "assinc" ], { modificador_funcao },
+declaracao_funcao       = [ "async" ], { modificador_funcao },
                           "funcao", nome_funcao,
                           [ "<", lista_genericos, ">" ],
                           "(", [ lista_parametros ], ")",
                           [ retorno_funcao ], bloco ;
 nome_funcao             = IDENTIFICADOR | "construtor" ;
 modificador_funcao      = "publico" | "privado" | "protegido" | "estatico" ;
-retorno_funcao          = "->", tipo
-                        | ":", tipo ;
+retorno_funcao          = "->", tipo ;
 lista_genericos         = IDENTIFICADOR, { ",", IDENTIFICADOR } ;
 lista_parametros        = parametro, { ",", parametro }, [ "," ] ;
 parametro               = IDENTIFICADOR, ":", tipo, [ "=", expressao ] ;
@@ -154,7 +153,7 @@ Observações normativas:
 - A forma `-> tipo` após os parâmetros declara o retorno; `: {` inicia o Function Body. O retorno omitido equivale a `vazio`.
 - `externa funcao ...` declara função externa sem corpo. `global nome` e `externa nome` declaram referências de escopo.
 - `exportar funcao ...` equivale a uma declaração de função pública.
-- Modificadores de função são aceitos antes de `funcao`; `assinc` marca a função como assíncrona.
+- Modificadores de função são aceitos antes de `funcao`; `async` marca a função como assíncrona.
 - `estrutura` exige `: {`, `fim` antes de `}` e outro `fim` após a chave. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
 - `enumeracao` exige `: {`, ao menos uma variante, `fim` antes de `}` e outro `fim` após a chave. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
 - Atributos podem ser repetidos antes de uma declaração e recebem argumentos posicionais.
