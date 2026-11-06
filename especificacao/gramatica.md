@@ -473,19 +473,27 @@ fim
 ### Tratamento de erro e contexto de recurso
 
 ~~~nebula
-funcao carregar() -> vazio
-    tente
+funcao carregar() -> vazio: {
+    tente: {
         variavel dados = lerArquivo("dados.bin")
-    erro ArquivoInvalido
+        fim
+    }
+    erro ArquivoInvalido: {
         exibir("Arquivo inválido")
-    sempre
+        fim
+    }
+    sempre: {
         exibir("Operação encerrada")
+        fim
+    }
     fim
 
-    com abrir("dados.bin", "leitura") como arquivo
+    com abrir("dados.bin", "leitura") como arquivo: {
         exibir(arquivo)
+        fim
+    } fim
     fim
-fim
+} fim
 ~~~
 
 ### Lambda e tipos compostos
@@ -493,17 +501,23 @@ fim
 ~~~nebula
 variavel dobrar = lambda valor: valor * 2
 variavel somar = (a, b) -> a + b
-variavel aplicar = valor -> 
-    quando valor > 0
+variavel aplicar = valor ->: {
+    quando valor > 0: {
         devolver valor
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
-fim
+    fim
+} fim
 
-funcao inverter(par: Tupla<inteiro64, inteiro64>) -> Tupla<inteiro64, inteiro64>
+funcao inverter(par: Tupla<inteiro64, inteiro64>) -> Tupla<inteiro64, inteiro64>: {
     devolver (par[1], par[0])
-fim
+    fim
+} fim
 ~~~
 
 ### Construção de estrutura (chaves de dados)
@@ -512,7 +526,8 @@ fim
 variavel cabecalho = Cabecalho{
     codigo: 10,
     tamanho: 20,
-    flags: 0
+    flags: 0,
+    fim
 }
 ~~~
 
@@ -521,20 +536,23 @@ variavel cabecalho = Cabecalho{
 ~~~nebula
 @representacao(C)
 @alinhamento(8)
-estrutura Registro:
+estrutura Registro: {
     codigo: u32
     tamanho: u16
-fim
+    fim
+} fim
 
 @convencao(C)
 externa funcao escreverByte(valor: u8) -> vazio
 
-funcao lerTeclado() -> vazio
+funcao lerTeclado() -> vazio: {
     variavel tecla = porta.ler8(0x60)
-    critico:
+    critico: {
         passar
+        fim
+    } fim
     fim
-fim
+} fim
 ~~~
 
 ### Expressão multilinha com continuação
