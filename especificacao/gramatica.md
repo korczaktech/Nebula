@@ -398,54 +398,75 @@ O Lexer reconhece tokens de texto interpolado, mas o tratamento semântico compl
 ### Função, condicional e laço
 
 ~~~nebula
-funcao principal() -> vazio
+funcao principal() -> vazio: {
     variavel ativo = verdadeiro
     variavel contador: inteiro = 0
-
-    enquanto ativo
-        quando contador < 3
+    enquanto ativo: {
+        quando contador < 3: {
             exibir(contador)
             contador += 1
-        sendo contador == 3
+            fim
+        }
+        sendo contador == 3: {
             exibir("Último ciclo")
             ativo = falso
-        senao
+            fim
+        }
+        senao: {
             passar
+            fim
+        }
         fim
+        fim
+    }
     fim
+}
 fim
 ~~~
 
 ### Estrutura e enumeração
 
 ~~~nebula
-estrutura Cabecalho:
+estrutura Cabecalho: {
     codigo: u32
     tamanho: u16
     flags: u16
-fim
+    fim
+} fim
 
-enumeracao Estado:
+enumeracao Estado: {
     Inicializando
     Pronto
     Falha(inteiro)
-fim
+    fim
+} fim
 ~~~
 
 ### Escolha com padrões
 
 ~~~nebula
-funcao tratar(estado: Estado) -> vazio
-    escolha estado:
-        caso Estado::Inicializando
+funcao tratar(estado: Estado) -> vazio: {
+    escolha estado: {
+        caso Estado::Inicializando: {
             exibir("Iniciando")
-        caso Estado::Pronto
+            fim
+        }
+        caso Estado::Pronto: {
             exibir("Pronto")
-        caso Estado::Falha(codigo)
+            fim
+        }
+        caso Estado::Falha(codigo): {
             exibir(codigo)
-        padrao
+            fim
+        }
+        padrao: {
             passar
+            fim
+        }
+        fim
+    }
     fim
+}
 fim
 ~~~
 
