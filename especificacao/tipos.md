@@ -1,74 +1,93 @@
 # Sistema de tipos — Nebula
 
-A especificação normativa está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este documento descreve o estado verificável da implementação. Os critérios completos de aceite estão em [criterios-fase-5.md](criterios-fase-5.md).
+A definição normativa única está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este documento resume o comportamento implementado e separa suporte do compilador de suporte de cada backend. A presença de um tipo na linguagem não significa que toda representação seja aceita por todos os alvos.
 
-## Modelo implementado
+## 1. Modelo de tipos
 
-- Tipagem estática por padrão, com inferência local e determinística.
-- Tipos explícitos nas interfaces de funções e variáveis anotadas.
-- Sem coerção implícita geral entre texto, caractere, lógico e números.
-- Tipos numéricos de larguras diferentes permanecem distintos em atribuições, parâmetros e retornos.
-- Literais numéricos recebem tipo contextual somente quando o valor cabe exatamente no destino.
-- Operações numéricas usam promoção determinística; mistura implícita de inteiros com e sem sinal é rejeitada.
-- Overflow inteiro é verificado na IR para larguras assinadas e não assinadas de 8 a 128 bits.
-- decimal32 é arredondado para IEEE-754 binary32 após cada operação na IR.
+- Tipagem estática: toda expressão recebe um tipo antes da execução.
+- Inferência local e determinística; o tipo de uma variável não muda depois da declaração.
+- Tipos de interfaces (parâmetros, retornos e variáveis anotadas) são verificados estaticamente.
+- Não há coerção implícita geral entre texto, caractere, lógico e números.
+- Tipos inteiros de larguras diferentes permanecem distintos em atribuições, parâmetros e retornos.
+- Literais numéricos recebem o tipo contextual somente quando o valor cabe exatamente no destino.
+- Inferência genérica usa unificação estrutural; conflitos ou parâmetros sem tipo concreto impedem a criação da instância.
+- Aliases são resolvidos antes da análise dos corpos; ciclos e destinos desconhecidos são rejeitados.
 
-## Tipos reconhecidos
+## 2. Tipos primitivos
 
-- vazio, logico, inteiro.
-- inteiro8, inteiro16, inteiro32, inteiro64, inteiro128.
-- inteiro_u8, inteiro_u16, inteiro_u32, inteiro_u64, inteiro_u128.
-- decimal, decimal32, decimal64.
-- byte, caractere, texto.
-- Listas homogêneas [T], também nomeadas por `vetor<T>`.
-- Matrizes como listas de listas homogêneas, por meio do alias `matriz<T>` (equivalente a `[[T]]`).
-- Tuplas heterogêneas Tupla<T1, T2, ...> e expressões tupla, incluindo () e (valor,).
-- Tipos nominais de estruturas e enumerações.
-- Opcional<T> e Resultado<T, E>.
-- Tipos de função funcao(T1, T2): Retorno, inclusive aninhados.
-- Parâmetros genéricos em funções, com unificação estrutural e monomorfização de instâncias concretas na IR.
+| Família | Grafias | Semântica |
+|---|---|---|
+| Sem valor | `vazio` | Retorno sem valor; não é tipo de variável comum |
+| Lógico | `logico` | `verdadeiro` ou `falso` |
+| Inteiros assinados | `inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128` | Complemento de dois, com faixa determinada pela largura |
+| Inteiro padrão | `inteiro` | Alias semântico de `inteiro64` |
+| Inteiros sem sinal | `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128` | Faixa de zero a 2^N−1 |
+| Ponto flutuante | `decimal32`, `decimal64` | IEEE-754 binary32 e binary64 |
+| Decimal padrão | `decimal` | Alias semântico de `decimal64` |
+| Byte | `byte` | Inteiro sem sinal de 8 bits, distinto dos demais inteiros para conversão |
+| Caractere | `caractere` | Um escalar Unicode válido |
+| Texto | `texto` | Sequência UTF-8 válida |
 
-Aliases são resolvidos antes da análise dos corpos. Ciclos e destinos desconhecidos são rejeitados. Tipos genéricos que dependam de informação ausente — por exemplo, Opcional::Nenhum() sem tipo contextual — não podem ser usados para fabricar uma instância genérica concreta.
+Inteiros usam operações verificadas: overflow, divisão por zero, resto por zero e divisão do menor valor assinado por −1 são erros definidos, não wraparound silencioso. Conversões explícitas verificam sinal e faixa. Inteiros sem sinal preservam todo o domínio até `inteiro_u128`.
 
-## Regras estáticas
+Operações `decimal32` são normalizadas para binary32 depois de cada operação. `decimal64` segue binary64. Conversões decimais para inteiros verificam finitude e faixa e truncam em direção a zero.
 
-- Condições de quando, enquanto, durante, repetir e para devem ser lógicas.
-- O laço `cada nome em coleção` percorre listas, textos (elementos caractere) e intervalos numéricos; a variável de iteração é imutável dentro do corpo.
-- `pulso(ms)` exige intervalo inteiro não negativo; o corpo é repetido até `parar`/`encerrar` ou retorno de função.
-- `gerar(valor, quantidade)` produz lista com o valor repetido; quantidade negativa ou maior que 1.000.000 é rejeitada pelo interpretador.
-- `em_paralelo(função1, função2, ...)` exige funções sem parâmetros e com tipo de retorno igual; executa com snapshots independentes da memória, devolvendo resultados na ordem dos argumentos. Não compartilha alterações entre as tarefas.
-- Aritmética exige operandos numéricos; texto + texto concatena.
-- Comparações relacionais exigem operandos numéricos.
-- Igualdade estrutural é verificada para listas, tuplas, estruturas, enumerações, opcionais e resultados quando seus componentes implementam igualdade.
-- Listas devem ser homogêneas; lista vazia exige tipo esperado explícito.
-- Índices de listas aceitam tipos inteiros suportados; tipos decimais são rejeitados.
-- Índices de tuplas precisam ser literais válidos e estar dentro dos limites conhecidos em compilação.
-- Chamadas diretas e indiretas validam aridade, tipos dos argumentos e retorno.
-- Funções com retorno não vazio devem devolver um valor em todos os caminhos condicionais reconhecidos pelo verificador.
-- Literais e conversões numéricas explícitas são verificados contra a faixa do tipo de destino.
+Texto é UTF-8; comprimento e indexação por caractere contam escalares Unicode, não bytes. Caractere rejeita valores fora do intervalo de escalares Unicode, inclusive substitutos. A concatenação de texto funciona no interpretador de referência. No backend ELF, literais e operações textuais implementadas são suportados, mas concatenação dinâmica permanece explicitamente rejeitada enquanto não houver alocador nativo integrado.
 
-## Tipos compostos e funções
+## 3. Tipos compostos e algébricos
 
-Estruturas e enumerações percorrem Lexer, Parser, AST, análise semântica, IR e interpretador. Construções de estruturas validam campos ausentes, duplicados, desconhecidos e incompatíveis. Enumerações validam variantes, payloads e correspondência exaustiva. Opcional<T> e Resultado<T,E> possuem construtores e correspondência de padrões executáveis no interpretador.
+- **Lista `[T]`:** sequência homogênea. `Vetor<T>` é alias de `[T]`; `Matriz<T>` é alias de `[[T]]`. Lista vazia exige tipo contextual.
+- **Tupla `(T1, T2, ...)`:** agregado posicional heterogêneo. `()` é a tupla vazia e `(valor,)` é tupla unitária. `Tupla<T1, T2, ...>` é a grafia de tipo equivalente.
+- **Estrutura:** tipo nominal com campos nomeados. Campos duplicados, ausentes, desconhecidos ou incompatíveis são rejeitados. A construção usa `Nome { campo: valor, fim }`.
+- **Enumeração:** união discriminada nominal, com variantes e payload posicional de zero ou mais valores. A correspondência é exaustiva; variantes inválidas, repetidas, payloads com aridade errada e escolhas incompletas são rejeitados.
+- **Opcional:** `Opcional<T>`, com `Opcional::Algum(valor)` e `Opcional::Nenhum`.
+- **Resultado:** `Resultado<T, E>`, com `Resultado::Sucesso(valor)` e `Resultado::Falha(erro)`.
+- **Intervalo:** `Intervalo<T>`, numérico e fechado; limites precisam pertencer ao mesmo tipo numérico após normalização.
+- **Tipo de função:** `funcao(T1, T2): Retorno`; valores de função sem captura podem ser armazenados e chamados indiretamente.
 
-A IR calcula e armazena layouts físicos de estruturas e enumerações, incluindo tamanho, alinhamento, padding, deslocamentos e discriminantes. O runtime também calcula layouts para os tipos suportados, detectando recursão por valor e tipos sem representação física.
+Estruturas, enumerações, opcionais, resultados, listas e tuplas percorrem a sintaxe, AST, análise semântica e IR. O interpretador de referência constrói e executa esses valores e suas operações suportadas, incluindo correspondência de padrões. A IR mantém tipos e layouts compostos; o runtime Rust também valida descrições de tipos e calcula tamanho, alinhamento, padding e tags.
 
-Valores de função sem captura de ambiente podem ser armazenados, retornados e chamados indiretamente pelo interpretador. O backend ELF x86-64 gera referências e chamadas indiretas para assinaturas escalares suportadas. Closures e captura de ambiente não estão implementadas.
+A capacidade de cópia de tuplas, estruturas, enumerações, opcionais, resultados e intervalos é derivada recursivamente dos componentes. Texto e listas são move-only. A análise semântica acompanha uso após movimentação e movimentação parcial de campos de estruturas, posições de tuplas e índices literais de listas, dentro dos limites descritos na especificação normativa.
 
-## Limites atuais e suporte por alvo
+## 4. Regras de expressões e operações
 
-O backend nativo implementado é Linux x86-64 / ELF64. Os laços `cada` e `pulso` e os builtins `gerar` e `em_paralelo` estão disponíveis no interpretador de referência, mas ainda não estão integrados ao backend ELF nativo; construções não suportadas são rejeitadas. Ele ainda não implementa ABI e geração nativa de agregados: estruturas, enumerações, tuplas, opcionais e resultados não podem ser passados ou retornados nativamente como agregados. A ABI nativa de inteiros de 128 bits também não está implementada.
+- Condições de `quando`, `enquanto`, `durante`, `repetir` e construções condicionais exigem `logico`.
+- Aritmética exige operandos numéricos compatíveis; `texto + texto` concatena no interpretador.
+- Comparações relacionais exigem operandos numéricos. Igualdade estrutural compara componentes quando todos implementam igualdade.
+- Listas devem ser homogêneas; índices são inteiros e têm limites verificados em execução.
+- Índices de tuplas devem ser literais inteiros válidos, conhecidos em compilação.
+- Chamadas diretas e indiretas verificam aridade, tipos dos argumentos e retorno.
+- Conversões numéricas são explícitas e verificam faixa.
+- Um recurso não implementado no backend selecionado deve produzir diagnóstico; não pode ser substituído por uma representação aproximada.
 
-O backend ELF x86-64 representa caracteres Unicode pelo ponto de código e valida o intervalo de escalares Unicode, excluindo a faixa de substitutos. Também possui operações SSE2 para decimal32 e decimal64 (aritmética básica, comparações e normalização binary32). Conversões explícitas entre inteiros de 8 a 64 bits e decimais são geradas nativamente: inteiro para decimal usa conversão SSE2, e decimal para inteiro verifica NaN e faixa antes de truncar em direção a zero. Conversões entre larguras inteiras também verificam sinal e faixa. A ABI de inteiros de 128 bits permanece indisponível no backend nativo. Recursos não suportados devem ser rejeitados pelo backend, nunca tratados como se estivessem implementados.
+## 5. Suporte por camada e alvo
 
-A inferência de retorno a partir do corpo da função e a inferência genérica qualificada por módulo permanecem indisponíveis. A política completa de cópia/movimentação, inicialização parcial e propriedade ainda pertence aos critérios de memória da Fase 5.
+### Frontend, semântica, IR e interpretador
 
-## Trabalho restante
+O Lexer/Parser/AST reconhece as declarações e expressões previstas na gramática normativa. A análise semântica valida nomes, tipos, campos, variantes, payloads, intervalos, igualdade, inferência genérica e regras de movimentação cobertas pelos testes. A IR normaliza tipos e operações e rejeita valores incompatíveis. O interpretador Rust é a referência executável para recursos ainda não disponíveis no backend nativo.
 
-- ABI e geração nativa de agregados, com passagem e retorno por função.
-- ABI nativa de inteiros de 128 bits.
-- Conversões explícitas entre inteiros e decimais com validação de faixa em cada alvo.
-- Inferência de retorno quando permitida e inferência genérica qualificada por módulo.
-- Regras completas de cópia, movimentação e inicialização parcial.
-- Fixtures normativas integrais cobrindo gramática, tipos, semântica e execução.
-- Backends adicionais e suas regras de layout/ABI.
+### Backend nativo atual
+
+O único backend nativo implementado é Linux x86-64 / ELF64, com geração direta em Rust e sem compilador C/C++, LLVM, assembler ou linker externo.
+
+- Inteiros assinados e sem sinal de 8 a 128 bits, inclusive ABI de parâmetros/retornos de 128 bits em dois registradores e aritmética verificada.
+- Decimais binary32/binary64, operações SSE2 e conversões explícitas com verificação de faixa.
+- Byte e caractere Unicode com validação do domínio.
+- Literais de texto, exibição e operações textuais nativas documentadas na especificação normativa; concatenação dinâmica continua rejeitada.
+- Estruturas e tuplas de até 16 bytes nos formatos de campo suportados.
+- Enumerações, opcionais e resultados com tag e no máximo um payload escalar.
+- Referências e chamadas indiretas de funções para assinaturas suportadas.
+
+O backend rejeita agregados maiores que 16 bytes, enumerações/opcionais/resultados com payloads múltiplos ou não escalares e outros formatos sem classificação ABI implementada. Listas, operações que dependem do runtime nativo e recursos da biblioteca padrão ainda não integrados ao executável nativo também são rejeitados. A ABI é própria da Nebula e não promete compatibilidade com ABI C.
+
+## 6. Fixtures e validação
+
+A cobertura automatizada inclui:
+
+- `compilador/cli/fixtures/tipos/matriz-primitivos.nbx`: tipos escalares, larguras, limites, Unicode, byte e retorno vazio.
+- `compilador/cli/fixtures/tipos/compostos.nbx`: estruturas, enumerações, opcionais, resultados, tuplas, vetores e matrizes.
+- `conversoes-validas.nbx` e `conversao-invalida.nbx`: conversões e limites.
+- `genericos-aninhados.nbx`, `genericos-funcao.nbx` e `genericos-invalidos.nbx`: inferência estrutural.
+- `abi-estrutura-pendente.nbx` e `abi-enum-payloads-multiplos.nbx`: casos que o backend deve rejeitar explicitamente.
+
+A CI do workspace Rust valida compilação, formatação, Clippy e testes nos runners configurados. Isso não transforma alvos sem backend em alvos executáveis nem substitui testes de execução no alvo nativo. O status atualizado e as limitações conhecidas estão em [criterios-fase-5.md](criterios-fase-5.md).
