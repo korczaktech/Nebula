@@ -2355,9 +2355,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         if conteudo.starts_with("caso ") || conteudo == "padrao" {
-            if blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
-            }) {
+            if blocos
+                .last()
+                .is_some_and(|bloco| bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel)
+            {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -2371,9 +2372,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         if conteudo == "fim" {
-            while blocos.last().is_some_and(|bloco| {
-                bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-            }) {
+            while blocos
+                .last()
+                .is_some_and(|bloco| bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel)
+            {
                 if let Some(bloco) = blocos.pop() {
                     fechar(&mut saida, bloco);
                 }
@@ -2389,40 +2391,40 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
-        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
-            || conteudo.starts_with("funcao ")
-        {
-            let assinatura = conteudo.replace("): ", ") -> ");
-            let assinatura = if assinatura.ends_with(':') {
-                format!("{assinatura} {{")
+        let (tipo, cabecalho) =
+            if conteudo.starts_with("publico funcao ") || conteudo.starts_with("funcao ") {
+                let assinatura = conteudo.replace("): ", ") -> ");
+                let assinatura = if assinatura.ends_with(':') {
+                    format!("{assinatura} {{")
+                } else {
+                    format!("{assinatura}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+                let assinatura = if conteudo.ends_with(':') {
+                    format!("{conteudo} {{")
+                } else {
+                    format!("{conteudo}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(assinatura))
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") {
+                (
+                    Some(TipoBloco::Condicional),
+                    Some(format!("{conteudo}: {{")),
+                )
+            } else if conteudo.starts_with("cada ")
+                || conteudo.starts_with("enquanto ")
+                || conteudo.starts_with("para ")
+                || conteudo.starts_with("pulso(")
+                || conteudo.starts_with("durante ")
+                || conteudo.starts_with("repetir ")
+            {
+                (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
             } else {
-                format!("{assinatura}: {{")
+                (None, None)
             };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
-            let assinatura = if conteudo.ends_with(':') {
-                format!("{conteudo} {{")
-            } else {
-                format!("{conteudo}: {{")
-            };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
-            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("quando ")
-            || conteudo.starts_with("se ")
-        {
-            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("cada ")
-            || conteudo.starts_with("enquanto ")
-            || conteudo.starts_with("para ")
-            || conteudo.starts_with("pulso(")
-            || conteudo.starts_with("durante ")
-            || conteudo.starts_with("repetir ")
-        {
-            (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
-        } else {
-            (None, None)
-        };
 
         if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
             saida.push(indentacao(&cabecalho, nivel));
