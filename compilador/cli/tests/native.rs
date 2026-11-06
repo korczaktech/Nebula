@@ -653,6 +653,42 @@ fim"#,
     assert_eq!(resultado.status.code(), Some(55));
 }
 
+fn compilar_e_executar_com_stdin(
+    nome: &str,
+    codigo_fonte: &str,
+    entrada: &[u8],
+) -> std::process::Output {
+    let (origem, executavel) = caminhos(nome);
+    let codigo = normalizar_blocos_legados(codigo_fonte);
+    fs::write(&origem, codigo).unwrap();
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .unwrap();
+    assert!(
+        compilacao.status.success(),
+        "falha de compilação: {}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let mut processo = Command::new(&executavel)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("executa ELF com stdin");
+    let mut entrada_padrao = processo.stdin.take().unwrap();
+    entrada_padrao.write_all(entrada).unwrap();
+    drop(entrada_padrao);
+    let resultado = processo.wait_with_output().unwrap();
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    resultado
+}
+
 #[test]
 fn ler_texto_le_stdin_e_remove_quebra_de_linha_e_crlf() {
     let (origem, executavel) = caminhos("ler-texto-stdin");
@@ -725,6 +761,30 @@ fn ler_texto_aceita_fim_de_entrada_sem_dados() {
     assert_eq!(execucao.status.code(), Some(0));
     let _ = fs::remove_file(origem);
     let _ = fs::remove_file(executavel);
+}
+
+#[test]
+fn ler_texto_aceita_exatamente_4096_bytes() {
+    let mut entrada = vec![b'a'; 4096];
+    entrada.push(b'\\n');
+    let resultado = compilar_e_executar_com_stdin(
+        "ler-texto-limite-exato",
+        "funcao principal(): inteiro\\n    variavel entrada = ler_texto()\\n    quando comprimento(entrada) == 4096\\n        devolver 42\\n    fim\\n    devolver 1\\nfim",
+        &entrada,
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn ler_texto_rejeita_entrada_maior_que_4096_bytes() {
+    let mut entrada = vec![b'a'; 4097];
+    entrada.push(b'\\n');
+    let resultado = compilar_e_executar_com_stdin(
+        "ler-texto-limite-excedido",
+        "funcao principal(): vazio\\n    variavel entrada = ler_texto()\\nfim",
+        &entrada,
+    );
+    assert_eq!(resultado.status.code(), Some(1));
 }
 
 #[test]
