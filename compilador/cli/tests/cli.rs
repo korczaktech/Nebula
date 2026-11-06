@@ -746,10 +746,10 @@ enumeracao Estado: {
     fim
 } fim
 funcao principal() -> inteiro: {
-    variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 20, fim }
+    variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 10, fim }
     variavel par: Tupla<inteiro, texto> = (pessoa.idade, "Nebula")
     variavel vetor: Vetor<inteiro> = [1, 2, 3]
-    variavel matriz: Matriz<inteiro> = [[4, 5], [6, 7]]
+    variavel matriz: Matriz<inteiro> = [[3, 4], [6, 7]]
     variavel opcional: Opcional<inteiro> = Opcional::Algum(8)
     variavel resultado: Resultado<inteiro, texto> = Resultado::Sucesso(9)
     variavel estado: Estado = Estado::Falha("erro")
