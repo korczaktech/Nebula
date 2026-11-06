@@ -280,7 +280,7 @@ variavel indexada = itens[0]
 variavel membro = pessoa.nome
 variavel lista = [1, 2]
 variavel tupla = (1, 2)
-variavel construcao = Pessoa { nome: "Ana" }
+variavel construcao = Pessoa { nome: "Ana", fim }
 "#;
     let resultado = analisar(&ArquivoFonte::novo("expressoes.nbx", codigo));
     assert!(
