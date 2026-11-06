@@ -1,4 +1,6 @@
-// Exemplo ilustrativo da sintaxe em definição.
-funcao principal(): vazio
+// Exemplo da sintaxe atual da Nebula.
+funcao principal() -> vazio: {
     exibir("Olá, Nebula!")
+    fim
+}
 fim
