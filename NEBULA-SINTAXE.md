@@ -73,8 +73,8 @@ funcao principal(): {
         fim
     }
     fim
-}
-fim
+    fim
+} fim
 
 principal()
 ```
