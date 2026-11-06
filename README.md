@@ -372,7 +372,7 @@ Lexer, Parser e AST estão reunidos em `nebula-sintaxe`; análise semântica, ti
 - `nebula-ir`: representação intermediária e interpretador de referência.
 
 **Criadas na Fase 4 e Fase 5:**
-- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura.
+- `nebula-backend`: geração direta de executáveis ELF64 Linux x86-64 em Rust, com instruções de máquina próprias, chamadas System V AMD64, variáveis locais e globais em segmentos ELF separados (código RX/dados RW), controle de fluxo, aritmética inteira e potência por quadratura. Literais de texto são armazenados no segmento de dados e `exibir(texto)` usa a chamada de sistema `write`; isso não representa a integração do runtime completo.
 - `nebula-runtime`: valores dinâmicos, memória por escopos, listas compartilhadas, operações numéricas verificadas, operações Unicode de texto, operações de arquivos e diretórios, tempo, tarefas, canais e inteiros atômicos concorrentes. Integrado ao interpretador de referência da IR.
 - `nebula-ir::otimizador`: níveis O0, O1, O2, O3 e Os, com passes conservadores e métricas de transformações.
 
