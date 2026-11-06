@@ -4044,17 +4044,24 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_builtins_json_sem_runtime_nativo() {
-        let mut programa = programa_com_retorno(0);
-        programa.funcoes.get_mut("principal").unwrap().corpo = vec![
+    fn compila_builtins_json_com_textos_literais() {
+        let mut valido = programa_com_retorno(0);
+        valido.funcoes.get_mut("principal").unwrap().corpo = vec![
             InstrucaoIr::Expressao(ExpressaoIr::Chamada {
                 nome: "json_valido".into(),
-                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{}".into()))],
+                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\\"x\\":1}".into()))],
             }),
         ];
-        let erro = gerar_executavel(&programa).unwrap_err();
-        assert!(erro.contains("biblioteca padrão/runtime"));
-        assert!(erro.contains("json_valido"));
+        assert!(gerar_executavel(&valido).is_ok());
+
+        let mut canonico = programa_com_retorno(0);
+        canonico.funcoes.get_mut("principal").unwrap().corpo = vec![
+            InstrucaoIr::Expressao(ExpressaoIr::Chamada {
+                nome: "json_canonico".into(),
+                argumentos: vec![ExpressaoIr::Constante(ValorIr::Texto("{\\"b\\":2,\\"a\\":1}".into()))],
+            }),
+        ];
+        assert!(gerar_executavel(&canonico).is_ok());
     }
 
     #[test]
