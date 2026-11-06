@@ -843,5 +843,5 @@ fn json_canonico_literal_funciona_no_backend_nativo() {
         r#"exibir(json_canonico("{\"b\":2,\"a\":1}"))"#,
     );
     assert!(resultado.status.success());
-    assert_eq!(resultado.stdout, br#"{"a":1,"b":2}"#);
+    assert_eq!(resultado.stdout, b"{\"a\":1,\"b\":2}\n");
 }
