@@ -662,25 +662,24 @@ impl Parser {
         self.avancar();
         let valor = self.expressao_antes_de_bloco()?;
         self.corresponde(TipoToken::DoisPontos);
-        if self.corresponde(TipoToken::AbreChave) {
-            self.erro_atual("N2040", "'escolha' exige indentação; chaves não substituem um bloco indentado.");
-            return None;
-        }
-        let houve_quebra = self.corresponde(TipoToken::NovaLinha);
-        if !houve_quebra && !self.verifica(TipoToken::Indent) {
-            self.erro_atual("N2040", "Esperada quebra de linha antes dos casos de escolha.");
-            return None;
-        }
-        if houve_quebra { self.separadores(); }
-        if !self.corresponde(TipoToken::Indent) {
-            self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
-            return None;
+        let corpo_com_chaves = self.corresponde(TipoToken::AbreChave);
+        if !corpo_com_chaves {
+            let houve_quebra = self.corresponde(TipoToken::NovaLinha);
+            if !houve_quebra && !self.verifica(TipoToken::Indent) {
+                self.erro_atual("N2040", "Esperada quebra de linha ou Function Body antes dos casos de escolha.");
+                return None;
+            }
+            if houve_quebra { self.separadores(); }
+            if !self.corresponde(TipoToken::Indent) {
+                self.erro_atual("N2040", "Esperada indentação antes dos casos de escolha.");
+                return None;
+            }
         }
         self.separadores();
         let mut casos = Vec::new();
         let mut possui_curinga = false;
         let mut padroes_vistos: Vec<(String, String)> = Vec::new();
-        while !self.verifica(TipoToken::Dedent)
+        while !(if corpo_com_chaves { self.verifica(TipoToken::FechaChave) } else { self.verifica(TipoToken::Dedent) })
             && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
             let padrao_padrao = self.corresponde(TipoToken::Padrao);
             if !padrao_padrao && !self.corresponde(TipoToken::Caso) {
@@ -807,10 +806,13 @@ impl Parser {
                     padroes_vistos.push(identidade);
                 }
             }
-            if !self.verifica(TipoToken::NovaLinha) {
+            if !self.verifica(TipoToken::NovaLinha)
+                && !self.verifica(TipoToken::DoisPontos)
+                && !self.verifica(TipoToken::AbreChave)
+            {
                 self.erro_atual(
                     "N2042",
-                    "Esperado bloco imediatamente após o padrão do caso; tokens extras não são permitidos.",
+                    "Esperado Function Body imediatamente após o padrão do caso; tokens extras não são permitidos.",
                 );
                 padrao_valido = false;
                 while !self.verifica(TipoToken::Fim)
@@ -850,9 +852,22 @@ impl Parser {
             }
             self.separadores();
         }
-        self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
-        if self.verifica(TipoToken::FimBloco) { self.avancar(); }
-        else { self.erro_atual("N2009", "Escolha precisa terminar com 'fim'."); }
+        if corpo_com_chaves {
+            if self.corresponde(TipoToken::FimBloco) {
+                self.separadores();
+            } else {
+                self.erro_atual("N2009", "Function Body de escolha precisa terminar com 'fim' antes de '}'.");
+            }
+            while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
+            self.esperar(TipoToken::FechaChave, "Function Body de escolha não foi fechado com '}'.");
+            self.separadores();
+            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
+            else { self.erro_atual("N2009", "Escolha precisa terminar com outro 'fim' após '}'."); }
+        } else {
+            self.esperar(TipoToken::Dedent, "Bloco de escolha não foi dedentado corretamente.");
+            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
+            else { self.erro_atual("N2009", "Escolha precisa terminar com 'fim'."); }
+        }
         if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
         Some(NoAst::Escolha { valor, casos })
     }
