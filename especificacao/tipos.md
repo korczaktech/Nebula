@@ -1,4 +1,7 @@
-# Sistema de tipos — Nebula
+## Referência do sistema de tipos — Nebula
+
+A única fonte normativa é `linguagem-e-tipos.md`. Este documento resume o comportamento implementado e separa suporte do compilador de suporte de cada backend. Em caso de divergência, prevalece o contrato normativo.
+
 
 A definição normativa única está em [linguagem-e-tipos.md](linguagem-e-tipos.md). Este documento resume o comportamento implementado e separa suporte do compilador de suporte de cada backend. A presença de um tipo na linguagem não significa que toda representação seja aceita por todos os alvos.
 
