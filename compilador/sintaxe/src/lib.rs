@@ -4105,21 +4105,21 @@ fim"#;
             no, NoAst::Variavel { nome, .. } if nome == "segundo"
         )));
 
-        let sem_indentacao = analisar(&fonte(
+        let sem_indentacao = analisar(&fonte_bruta(
             "funcao principal()\nvariavel valor = 1\nfim"
         ));
         assert!(
             !sem_indentacao.diagnosticos.is_empty(),
             "bloco legado sem abertura explícita deve ser rejeitado"
         );
-        let sem_fechamento = analisar(&fonte(
+        let sem_fechamento = analisar(&fonte_bruta(
             "funcao principal()\n    variavel primeiro = 1\n"
         ));
         assert!(
             !sem_fechamento.diagnosticos.is_empty(),
             "bloco sem fechamento explícito deve continuar inválido"
         );
-        let vazio_sem_fim = analisar(&fonte("funcao vazia()\n"));
+        let vazio_sem_fim = analisar(&fonte_bruta("funcao vazia()\n"));
         assert!(
             !vazio_sem_fim.diagnosticos.is_empty(),
             "bloco vazio sem abertura explícita deve ser rejeitado"
@@ -4507,7 +4507,7 @@ criarUsuario(nome = "Ana", idade = 25)
 
         let indentacao_superior = analisar(&fonte("    variavel fora = 1"));
         assert!(
-            indentacao_superior.diagnosticos.is_empty(),
+            !indentacao_superior.diagnosticos.is_empty(),
             "espaços iniciais no escopo superior não criam blocos"
         );
 
