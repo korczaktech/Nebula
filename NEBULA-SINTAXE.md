@@ -6,7 +6,7 @@
 **Paradigma:** Multiparadigma  
 **Tipagem:** Estática, forte e com inferência  
 **Memória:** Gerenciamento híbrido  
-**Blocos:** Indentação obrigatória e encerramento explícito  
+**Blocos:** Function Body `: { ... fim }` e encerramento explícito  
 **Codificação:** UTF-8
 
 > Documento temporário de referência para a definição da sintaxe Nebula. A presença de uma construção neste documento não significa que ela já esteja implementada no compilador.
@@ -205,9 +205,10 @@ Observações:
 Executa um bloco quando a condição é verdadeira.
 
 ```nbx
-se idade >= 18
+se idade >= 18: {
     exibir("Maior de idade")
-fim
+    fim
+} fim
 ```
 
 ## 4.2. `sendo`
@@ -215,14 +216,22 @@ fim
 Representa uma condição alternativa.
 
 ```nbx
-se nota >= 9
+se nota >= 9: {
     exibir("Excelente")
-sendo nota >= 7
+    fim
+}
+sendo nota >= 7: {
     exibir("Aprovado")
-sendo nota >= 5
+    fim
+}
+sendo nota >= 5: {
     exibir("Recuperacao")
-senao
+    fim
+}
+senao: {
     exibir("Reprovado")
+    fim
+}
 fim
 ```
 
@@ -231,10 +240,14 @@ fim
 Executa quando nenhuma condição anterior for satisfeita.
 
 ```nbx
-se ativo == sim
+se ativo == sim: {
     exibir("Ativo")
-senao
+    fim
+}
+senao: {
     exibir("Inativo")
+    fim
+}
 fim
 ```
 
@@ -243,16 +256,25 @@ fim
 Seleciona uma opção entre várias possibilidades.
 
 ```nbx
-escolha opcao
-    caso 1
+escolha opcao: {
+    caso 1: {
         exibir("Iniciar")
-    caso 2
+        fim
+    }
+    caso 2: {
         exibir("Configuracoes")
-    caso 3
+        fim
+    }
+    caso 3: {
         exibir("Sair")
-    padrao
+        fim
+    }
+    padrao: {
         exibir("Opcao invalida")
-fim
+        fim
+    }
+    fim
+} fim
 ```
 
 # 5. Repetições
@@ -262,9 +284,10 @@ fim
 Percorre uma sequência.
 
 ```nbx
-para numero dentro faixa(0, 10)
+para numero dentro faixa(0, 10): {
     exibir(numero)
-fim
+    fim
+} fim
 ```
 
 ## 5.2. `enquanto`
@@ -274,10 +297,11 @@ Repete enquanto uma condição for verdadeira.
 ```nbx
 variavel contador: inteiro = 0
 
-enquanto contador < 10
+enquanto contador < 10: {
     exibir(contador)
     contador =+ 1
-fim
+    fim
+} fim
 ```
 
 ## 5.3. `pare`
@@ -285,11 +309,13 @@ fim
 Interrompe completamente o laço atual.
 
 ```nbx
-para numero dentro faixa(0, 100)
-    se numero == 10
+para numero dentro faixa(0, 100): {
+    se numero == 10: {
         pare
+        fim
+    }
     fim
-fim
+} fim
 ```
 
 ## 5.4. `prossiga`
@@ -297,12 +323,15 @@ fim
 Pula a repetição atual.
 
 ```nbx
-para numero dentro faixa(0, 10)
-    se numero == 5
+para numero dentro faixa(0, 10): {
+    se numero == 5: {
         prossiga
+        fim
+    }
     fim
     exibir(numero)
-fim
+    fim
+} fim
 ```
 
 ## 5.5. `passar`
@@ -310,9 +339,10 @@ fim
 Não executa nenhuma operação. Serve como instrução vazia explícita.
 
 ```nbx
-funcao futura()
+funcao futura(): {
     passar
-fim
+    fim
+} fim
 ```
 
 # 6. Variáveis e constantes
@@ -455,9 +485,10 @@ variavel resultado = divres(10, 3)
 | `!` | Forma simbólica de negação |
 
 ```nbx
-se idade >= 18 e autorizado == sim
+se idade >= 18 e autorizado == sim: {
     exibir("Acesso permitido")
-fim
+    fim
+} fim
 ```
 
 # 11. Atribuições
@@ -482,26 +513,29 @@ Também são aceitos os aliases convencionais `+=`, `-=`, `*=`, `/=`, `\\=`, `%=
 ## 12.1. Declaração
 
 ```nbx
-funcao somar(a: inteiro, b: inteiro) -> inteiro
+funcao somar(a: inteiro, b: inteiro) -> inteiro: {
     retorne a + b
-fim
+    fim
+} fim
 ```
 
 ## 12.2. Parâmetros padrão
 
 ```nbx
-funcao saudar(nome: texto = "Visitante")
+funcao saudar(nome: texto = "Visitante"): {
     exibir("Ola, " + nome)
-fim
+    fim
+} fim
 ```
 
 ## 12.3. Parâmetros nomeados
 
 ```nbx
-funcao criarUsuario(nome: texto, idade: inteiro)
+funcao criarUsuario(nome: texto, idade: inteiro): {
     exibir(nome)
     exibir(idade)
-fim
+    fim
+} fim
 
 criarUsuario(nome = "Ana", idade = 25)
 ```
@@ -536,11 +570,13 @@ variavel calcular = (a, b) ->: {
 Produz valores incrementalmente, permitindo a construção de geradores.
 
 ```nbx
-funcao contar()
-    para numero dentro faixa(1, 6)
+funcao contar(): {
+    para numero dentro faixa(1, 6): {
         ceder numero
+        fim
+    }
     fim
-fim
+} fim
 ```
 
 # 13. Classes e objetos
@@ -548,16 +584,19 @@ fim
 ## 13.1. Declaração
 
 ```nbx
-classe Pessoa
-    funcao construtor(nome: texto, idade: inteiro)
+classe Pessoa: {
+    funcao construtor(nome: texto, idade: inteiro): {
         isto.nome = nome
         isto.idade = idade
-    fim
+        fim
+    } fim
 
-    funcao apresentar()
+    funcao apresentar(): {
         exibir(isto.nome)
+        fim
+    } fim
     fim
-fim
+} fim
 ```
 
 ## 13.2. Instanciação
@@ -570,17 +609,21 @@ pessoa.apresentar()
 ## 13.3. Herança
 
 ```nbx
-classe Animal
-    funcao emitirSom()
+classe Animal: {
+    funcao emitirSom(): {
         exibir("Som")
+        fim
+    } fim
     fim
-fim
+} fim
 
-classe Cachorro herda Animal
-    funcao latir()
+classe Cachorro herda Animal: {
+    funcao latir(): {
         exibir("Au au")
+        fim
+    } fim
     fim
-fim
+} fim
 ```
 
 ## 13.4. Visibilidade e membros
@@ -630,12 +673,18 @@ fim
 ## 15.1. Bloco de tratamento
 
 ```nbx
-tente
+tente: {
     variavel numero = inteiro("abc")
-erro ValorInvalido
+    fim
+}
+erro ValorInvalido: {
     exibir("Valor incorreto")
-sempre
+    fim
+}
+sempre: {
     exibir("Finalizado")
+    fim
+}
 fim
 ```
 
@@ -665,10 +714,11 @@ Exemplo:
 ```nbx
 variavel contador = 0
 
-funcao incrementar()
+funcao incrementar(): {
     global contador
     contador =+ 1
-fim
+    fim
+} fim
 ```
 
 # 17. Programação assíncrona
@@ -978,35 +1028,43 @@ Comparações relacionais encadeadas e operadores de intervalo encadeados são r
 ```nbx
 # Cadastro de usuarios
 
-classe Usuario
-    funcao construtor(nome: texto, idade: inteiro)
+classe Usuario: {
+    funcao construtor(nome: texto, idade: inteiro): {
         isto.nome = nome
         isto.idade = idade
-    fim
+        fim
+    } fim
 
-    funcao apresentar()
+    funcao apresentar(): {
         exibir(`Nome: ${isto.nome}`)
         exibir(`Idade: ${isto.idade}`)
+        fim
+    } fim
     fim
-fim
+} fim
 
-funcao verificarIdade(idade: inteiro) -> logico
+funcao verificarIdade(idade: inteiro) -> logico: {
     retorne idade >= 18
-fim
+    fim
+} fim
 
-funcao principal()
+funcao principal(): {
     variavel nome = lerTexto("Digite seu nome: ")
     variavel idade = inteiro(lerTexto("Digite sua idade: "))
 
     variavel usuario = novo Usuario(nome, idade)
     usuario.apresentar()
 
-    se verificarIdade(idade)
+    se verificarIdade(idade): {
         exibir("Cadastro autorizado")
-    senao
+        fim
+    }
+    senao: {
         exibir("Cadastro nao autorizado")
+        fim
+    }
     fim
-fim
+} fim
 
 principal()
 ```
