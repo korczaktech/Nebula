@@ -810,7 +810,6 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
     }
 }
 
-
 #[test]
 fn function_body_normativo_e_obrigatorio() {
     let codigo = r#"
