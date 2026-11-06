@@ -70,11 +70,12 @@ funcao principal() -> vazio: {
         fim
     }
     fim
+    fim
 }
 fim
 ~~~
 
-O primeiro `fim` fecha o corpo de `se`; o segundo fecha o corpo de `senao`; o `fim` após a chave do condicional encerra a construção condicional; o `fim` final encerra a função.
+O primeiro `fim` fecha o corpo de `se`; o segundo fecha o corpo de `senao`; o terceiro encerra a construção condicional; o quarto encerra o Function Body da função; o quinto encerra a declaração da função.
 
 ## 3. Arquivo e itens
 
