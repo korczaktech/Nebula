@@ -455,3 +455,42 @@ fn busca_trecho_em_texto_nativo() {
     let _ = fs::remove_file(executavel);
     assert_eq!(execucao.status.code(), Some(42));
 }
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn igualdade_de_texto_compara_conteudo_utf8() {
+    let (origem, executavel) = caminhos("igualdade-texto");
+    let codigo = r#"funcao principal() -> inteiro: {
+    variavel texto = "Olá 🌌"
+    quando texto == "Olá 🌌" e texto != "Olá": {
+        devolver 42
+        fim
+    } fim
+    devolver 1
+    fim
+} fim
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI");
+
+    assert!(
+        compilacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    assert_eq!(execucao.status.code(), Some(42));
+}
