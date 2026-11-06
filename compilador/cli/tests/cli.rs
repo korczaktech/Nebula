@@ -809,3 +809,77 @@ principal()
     );
     assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "42");
 }
+
+
+#[test]
+fn executa_variantes_vazias_e_de_falha_dos_tipos_algebricos() {
+    let caminho =
+        std::env::temp_dir().join(format!("nebula-algebricos-{}.nbx", std::process::id()));
+    std::fs::write(
+        &caminho,
+        r#"enumeracao Estado: {
+    Aberto
+    Fechado
+    Falha(texto, inteiro)
+    fim
+} fim
+funcao principal() -> inteiro: {
+    variavel opcional: Opcional<inteiro> = Opcional::Nenhum
+    variavel resultado: Resultado<inteiro, texto> = Resultado::Falha("negado")
+    variavel estado: Estado = Estado::Fechado
+    escolha opcional: {
+        caso Opcional::Algum(valor): {
+            devolver 1
+            fim
+        }
+        caso Opcional::Nenhum: {
+            escolha resultado: {
+                caso Resultado::Sucesso(valor): {
+                    devolver 2
+                    fim
+                }
+                caso Resultado::Falha(mensagem): {
+                    escolha estado: {
+                        caso Estado::Aberto: {
+                            devolver 3
+                            fim
+                        }
+                        caso Estado::Fechado: {
+                            quando mensagem == "negado": {
+                                exibir("algebricos")
+                                devolver 42
+                                fim
+                            } fim
+                            devolver 4
+                            fim
+                        }
+                        caso Estado::Falha(texto, codigo): {
+                            devolver 5
+                            fim
+                        }
+                        fim
+                    } fim
+                    fim
+                }
+                fim
+            } fim
+            fim
+        }
+        fim
+    } fim
+    devolver 6
+    fim
+} fim
+principal()
+"#,
+    )
+    .expect("grava fonte");
+    let saida = executar(&["interpretar", caminho.to_str().expect("caminho UTF-8")]);
+    let _ = std::fs::remove_file(caminho);
+    assert!(
+        saida.status.success(),
+        "{}",
+        String::from_utf8_lossy(&saida.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&saida.stdout).trim(), "algebricos");
+}
