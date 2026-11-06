@@ -1553,10 +1553,10 @@ mod testes {
     y: inteiro64
 fim
 funcao deslocar(ponto: Ponto): Ponto
-    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
+    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2, fim }
 fim
 funcao principal(): inteiro
-    variavel original = Ponto { x: 39, y: 0 }
+    variavel original = Ponto { x: 39, y: 0, fim }
     original.x = 40
     variavel resultado = deslocar(original)
     quando resultado.x == 41 e resultado.y == 2
@@ -2105,7 +2105,7 @@ funcao identidade(valor: Medidas): Medidas
     devolver valor
 fim
 funcao principal(): inteiro
-    variavel entrada = Medidas { curta: 1.25, longa: 42.5 }
+    variavel entrada = Medidas { curta: 1.25, longa: 42.5, fim }
     variavel retorno = identidade(entrada)
     variavel evento = Evento::Medida(42.5)
     escolha evento
