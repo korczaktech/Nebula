@@ -4191,6 +4191,114 @@ fim
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3057"), "{:?}", r.diagnosticos);
     }
 
+
+    #[test]
+    fn valida_lambda_com_tipo_contextual() {
+        let valido = analisar_codigo(
+            "variavel dobrar: funcao(inteiro): inteiro = lambda valor: valor + 1",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+        assert_eq!(
+            valido.tipos_globais.get("dobrar"),
+            Some(&Tipo::Funcao(vec![Tipo::Inteiro], Box::new(Tipo::Inteiro)))
+        );
+
+        let invalido = analisar_codigo(
+            "variavel dobrar: funcao(inteiro): texto = lambda valor: valor + 1",
+        );
+        assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3020"));
+    }
+
+    #[test]
+    fn rejeita_lambda_sem_tipo_contextual_para_parametros() {
+        let resultado = analisar_codigo("variavel dobrar = lambda valor: valor + 1");
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3088"));
+    }
+
+    #[test]
+    fn rejeita_ramos_incompativeis_em_expressao_condicional() {
+        let resultado = analisar_codigo(
+            "variavel resultado = verdadeiro ? 42 : \"Nebula\"",
+        );
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3067"), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn valida_argumentos_nomeados_e_parametros_padrao() {
+        let resultado = analisar_codigo(
+            "funcao saudar(nome: texto = \"Visitante\", vezes: inteiro = 1): vazio\n    passar\nfim\n\
+             variavel padrao = saudar()\n\
+             variavel nomeado = saudar(vezes: 2, nome: \"Lia\")",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(resultado.tipos_globais.get("padrao"), Some(&Tipo::Vazio));
+    }
+
+    #[test]
+    fn rejeita_argumentos_nomeados_invalidos_e_parametros_sem_padrao() {
+        let desconhecido = analisar_codigo(
+            "funcao saudar(nome: texto): vazio\n    passar\nfim\nsaudar(apelido: \"Lia\")",
+        );
+        assert!(desconhecido.diagnosticos.iter().any(|d| d.codigo == "N3083"), "{:?}", desconhecido.diagnosticos);
+
+        let duplicado = analisar_codigo(
+            "funcao saudar(nome: texto): vazio\n    passar\nfim\nsaudar(nome: \"A\", nome: \"B\")",
+        );
+        assert!(duplicado.diagnosticos.iter().any(|d| d.codigo == "N3084"), "{:?}", duplicado.diagnosticos);
+
+        let obrigatorio = analisar_codigo(
+            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\nvariavel resultado = somar(a: 1)",
+        );
+        assert!(obrigatorio.diagnosticos.iter().any(|d| d.codigo == "N3015"), "{:?}", obrigatorio.diagnosticos);
+    }
+
+    #[test]
+    fn valida_hierarquia_e_campos_herdados_de_classes() {
+        let valido = analisar_codigo(
+            "classe Animal\n    variavel idade: inteiro = 0\nfim\n\
+             classe Cachorro herda Animal\n    funcao atualizar(): vazio\n        isto.idade = 2\n    fim\nfim",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+
+        let base_ausente = analisar_codigo("classe Cachorro herda Animal\nfim");
+        assert!(base_ausente.diagnosticos.iter().any(|d| d.codigo == "N3069"), "{:?}", base_ausente.diagnosticos);
+
+        let ciclo = analisar_codigo(
+            "classe Animal herda Cachorro\nfim\nclasse Cachorro herda Animal\nfim",
+        );
+        assert!(ciclo.diagnosticos.iter().any(|d| d.codigo == "N3070"), "{:?}", ciclo.diagnosticos);
+    }
+
+    #[test]
+    fn valida_contextos_e_atributos_de_codigo_nativo() {
+        let valido = analisar_codigo(
+            "@alinhamento(8)\n@representacao(\"C\")\nestrutura Cabecalho\n    codigo: u32\nfim\n\
+             critico\n    passar\nfim\n\
+             privilegio sistema\n    passar\nfim\n\
+             montagem x86_64<u32>\n    passar\nfim",
+        );
+        assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+
+        let alinhamento = analisar_codigo(
+            "@alinhamento(3)\nestrutura Cabecalho\n    codigo: u32\nfim",
+        );
+        assert!(alinhamento.diagnosticos.iter().any(|d| d.codigo == "N3075"), "{:?}", alinhamento.diagnosticos);
+
+        let contexto = analisar_codigo("privilegio usuario\n    passar\nfim");
+        assert!(contexto.diagnosticos.iter().any(|d| d.codigo == "N3072"), "{:?}", contexto.diagnosticos);
+
+        let atributo = analisar_codigo("@nao_reconhecido\nestrutura Dados\n    valor: inteiro\nfim");
+        assert!(atributo.diagnosticos.iter().any(|d| d.codigo == "N3078"), "{:?}", atributo.diagnosticos);
+    }
+
+    #[test]
+    fn associa_diagnosticos_semanticos_a_intervalos_da_fonte() {
+        let resultado = analisar_codigo("variavel valor: inteiro = verdadeiro");
+        let diagnostico = resultado.diagnosticos.iter().find(|d| d.codigo == "N3020").expect("diagnóstico de tipo");
+        assert!(diagnostico.intervalo.is_some(), "diagnóstico precisa apontar para a origem: {diagnostico:?}");
+    }
+
+
 }
 
 }
