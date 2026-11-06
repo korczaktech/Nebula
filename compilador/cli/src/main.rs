@@ -1863,7 +1863,7 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro
+            r#"funcao principal() -> inteiro: {
     variavel origem: inteiro = 16777217
     variavel convertido: decimal32 = decimal32(origem)
     variavel um: decimal32 = 1.0
@@ -1872,11 +1872,17 @@ fim"#,
     variavel dois: decimal64 = 2.0
     variavel soma_mista = convertido + dois
     variavel esperado_misto: decimal64 = 16777218.0
-    quando soma == esperado e soma_mista == esperado_misto
+    quando soma == esperado e soma_mista == esperado_misto: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
@@ -1913,9 +1919,11 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro64
+            r#"funcao principal() -> inteiro64: {
     variavel decimal: decimal64 = 42.75
     devolver inteiro64(decimal)
+    fim
+}
 fim"#,
         )
         .unwrap();
@@ -2060,13 +2068,19 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro
+            r#"funcao principal() -> inteiro: {
     variavel letra: caractere = '🛰'
-    quando letra == '🛰'
+    quando letra == '🛰': {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
