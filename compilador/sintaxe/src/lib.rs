@@ -3009,7 +3009,7 @@ fim"#;
     #[test]
     fn reconhece_blocos_vazios_e_construcoes_vazias() {
         for codigo in [
-            "funcao vazia(): {    passar\nfim",
+            "funcao vazia(): {\n    passar\n    fim\n}\nfim",
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
@@ -4088,7 +4088,7 @@ fim"#;
 
     #[test]
     fn indentacao_define_niveis_e_fim_fecha_blocos() {
-        let codigo = "funcao principal(): {\n    variavel primeiro = 1    quando sim\n        variavel segundo = 2\n    fim\nfim";
+        let codigo = "funcao principal(): {\n    variavel primeiro = 1\n    quando sim: {\n        variavel segundo = 2\n        fim\n    }\n    fim\n}\nfim";
         let valido = analisar(&fonte(codigo));
         assert!(
             valido.diagnosticos.is_empty(),
