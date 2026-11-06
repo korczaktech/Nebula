@@ -4357,6 +4357,34 @@ fim
         assert!(atributo.diagnosticos.iter().any(|d| d.codigo == "N3078"), "{:?}", atributo.diagnosticos);
     }
 
+
+    #[test]
+    fn resolve_metodos_de_classes_e_metodos_herdados() {
+        let resultado = analisar_codigo(
+            "classe Animal\n    funcao falar(mensagem: texto = \"Oi\"): texto\n        devolver mensagem\n    fim\nfim\n\
+             classe Cachorro herda Animal\n    funcao testar(): texto\n        devolver isto.falar(mensagem: \"Olá\")\n    fim\nfim",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_sobrescrita_com_assinatura_incompativel() {
+        let resultado = analisar_codigo(
+            "classe Animal\n    funcao falar(mensagem: texto): texto\n        devolver mensagem\n    fim\nfim\n\
+             classe Cachorro herda Animal\n    funcao falar(mensagem: inteiro): texto\n        devolver \"Olá\"\n    fim\nfim",
+        );
+        assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3087"), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn valida_funcao_externa_com_convencao() {
+        let resultado = analisar_codigo(
+            "@convencao(\"C\")\nexterna funcao escreverByte(valor: u8): vazio\nescreverByte(255)",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+
     #[test]
     fn associa_diagnosticos_semanticos_a_intervalos_da_fonte() {
         let resultado = analisar_codigo("variavel valor: inteiro = verdadeiro");
