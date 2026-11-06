@@ -1,7 +1,7 @@
 # Gramática normativa da Nebula
 
 **Estado:** normativa e alinhada ao Lexer, Parser e AST atualmente implementados em `compilador/sintaxe`.
-**Regra central:** blocos de instrução usam indentação explícita e terminam com `fim`. Chaves NÃO substituem blocos indentados. Chaves continuam válidas para construções de dados, como valores de estruturas, e para delimitação de contextos que não sejam blocos de instrução.
+**Regra central:** todo bloco executável ou estrutural usa Function Body: `: { ... fim } fim`. Blocos de cláusulas encadeadas usam `: { ... fim }` e são encerrados pelo `fim` da construção externa. A sintaxe antiga baseada somente em indentação é rejeitada. Chaves de valores de dados, como dicionários em declarações comuns, não são Function Body.
 
 Esta gramática descreve a sintaxe reconhecida. Resolução de nomes, compatibilidade de tipos, mutabilidade, ABI, validade de operações e regras dependentes do contexto pertencem às fases semânticas.
 
@@ -117,17 +117,17 @@ declaracao_classe       = "classe", IDENTIFICADOR,
 declaracao_tipo         = "tipo", IDENTIFICADOR, "=", tipo ;
 
 declaracao_estrutura    = "estrutura", IDENTIFICADOR, ":",
-                          NOVA_LINHA, { separador }, INDENT,
-                          lista_campos_estrutura, DEDENT, "fim" ;
+                          "{", { separador }, lista_campos_estrutura,
+                          { separador }, "fim", "}", "fim" ;
 lista_campos_estrutura  = [ campo_estrutura,
                           { separador_membro, campo_estrutura },
                           [ separador_membro ] ] ;
 campo_estrutura         = IDENTIFICADOR, ":", tipo ;
 
 declaracao_enumeracao   = "enumeracao", IDENTIFICADOR, ":",
-                          NOVA_LINHA, { separador }, INDENT,
-                          variante, { separador_variante, variante },
-                          [ separador_variante ], DEDENT, "fim" ;
+                          "{", { separador }, variante,
+                          { separador_variante, variante },
+                          [ separador_variante ], "fim", "}", "fim" ;
 variante                = IDENTIFICADOR, [ "(", [ lista_tipos ], ")" ] ;
 lista_tipos             = tipo, { ",", tipo } ;
 
@@ -156,7 +156,7 @@ Observações normativas:
 - `exportar funcao ...` equivale a uma declaração de função pública.
 - Modificadores de função são aceitos antes de `funcao`; `assinc` marca a função como assíncrona.
 - `estrutura` exige `: {`, `fim` antes de `}` e outro `fim` após a chave. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
-- `enumeracao` exige ao menos uma variante. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
+- `enumeracao` exige `: {`, ao menos uma variante, `fim` antes de `}` e outro `fim` após a chave. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
 - Atributos podem ser repetidos antes de uma declaração e recebem argumentos posicionais.
 - `montagem` também pode aparecer como expressão de chamada nativa; a forma contextual acima representa o bloco contextual.
 - A forma de inclusão aceita caminhos qualificados e origem explícita, por exemplo `incluir raiz de matematica como mat`.
@@ -205,8 +205,8 @@ instrucao_quando        = ("quando" | "se"), expressao_antes_bloco,
                           "fim" ;
 
 instrucao_escolha       = ("escolha" | "avaliar"), expressao_antes_bloco,
-                          [ ":" ], NOVA_LINHA, { separador }, INDENT,
-                          lista_casos_escolha, DEDENT, "fim" ;
+                          ":", "{", { separador }, lista_casos_escolha,
+                          { separador }, "fim", "}", "fim" ;
 lista_casos_escolha     = caso_escolha, { separador, caso_escolha },
                           { separador } ;
 caso_escolha            = ("caso", padrao_escolha | "padrao"),
@@ -307,7 +307,7 @@ literal                 = INTEIRO | DECIMAL | TEXTO | TEXTO_INTERPOLADO
                         | CARACTERE | "sim" | "verdadeiro" | "falso" | "nulo" ;
 ~~~
 
-A AST de expressões inclui atribuições simples e compostas, operações binárias e unárias, chamadas posicionais e nomeadas, chamadas genéricas, acesso a membros, acesso opcional, indexação, listas, tuplas, construções de estruturas, lambdas, lambdas com bloco, expressões condicionais e propagação opcional.
+A AST de expressões inclui atribuições simples e compostas, operações binárias e unárias, chamadas posicionais e nomeadas, chamadas genéricas, acesso a membros, acesso opcional, indexação, listas, tuplas, construções de estruturas, lambdas, lambdas com Function Body, expressões condicionais e propagação opcional.
 
 O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... fim } fim`. A palavra `lambda` introduz a forma `lambda x: expressão`.
 
@@ -485,7 +485,7 @@ funcao inverter(par: Tupla<inteiro64, inteiro64>) -> Tupla<inteiro64, inteiro64>
 fim
 ~~~
 
-### Construção de estrutura (chaves são dados, não bloco)
+### Construção de estrutura (chaves de dados)
 
 ~~~nebula
 variavel cabecalho = Cabecalho{
