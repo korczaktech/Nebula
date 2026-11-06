@@ -3154,6 +3154,9 @@ impl Emissor {
     fn emitir_ler_texto(&mut self, argumentos: &[ExpressaoIr]) -> Result<(), String> {
         const LIMITE_ENTRADA: i64 = 4096;
         let buffer = self.reservar_agregado((LIMITE_ENTRADA as u64) + 1, 8)?;
+        let slot_cursor = self.reservar_agregado(8, 8)?;
+        let slot_comprimento = self.reservar_agregado(8, 8)?;
+        let slot_buffer = self.reservar_agregado(8, 8)?;
 
         if let Some(prompt) = argumentos.first() {
             self.expressao(prompt)?;
@@ -3172,16 +3175,24 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x31, 0xC0]); // eax = SYS_read
         self.codigo.extend_from_slice(&[0x31, 0xFF]); // stdin
         self.codigo.extend_from_slice(&[0xBA, 1, 0, 0, 0]); // um byte
+        // Preserva o estado da leitura em memória ao redor do syscall.
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xB5]);
+        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes()); // [rbp+slot_cursor] = rsi
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0x85]);
+        self.codigo.extend_from_slice(&slot_comprimento.to_le_bytes()); // [rbp+slot_comprimento] = r8
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0x8D]);
+        self.codigo.extend_from_slice(&slot_buffer.to_le_bytes()); // [rbp+slot_buffer] = r9
         self.codigo.extend_from_slice(&[0x0F, 0x05]); // syscall
+        self.codigo.extend_from_slice(&[0x48, 0x8B, 0xB5]);
+        self.codigo.extend_from_slice(&slot_cursor.to_le_bytes()); // rsi = cursor salvo
+        self.codigo.extend_from_slice(&[0x4C, 0x8B, 0x85]);
+        self.codigo.extend_from_slice(&slot_comprimento.to_le_bytes()); // r8 = comprimento salvo
+        self.codigo.extend_from_slice(&[0x4C, 0x8B, 0x8D]);
+        self.codigo.extend_from_slice(&slot_buffer.to_le_bytes()); // r9 = buffer salvo
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let fim_entrada = self.emitir_jcc(0x84); // EOF
         let leitura_valida = self.emitir_jcc(0x89); // jns
-        // Diagnóstico temporário: retorna o errno Linux para identificar falhas de read.
-        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
-        self.codigo.extend_from_slice(&[0x48, 0x83, 0xC0, 100]); // rax = errno + 100
-        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = errno + 100
-        self.mov_rax(60); // SYS_exit
-        self.codigo.extend_from_slice(&[0x0F, 0x05]);
+        self.encerrar_com_erro(1);
         let apos_erro = self.codigo.len();
         self.aplicar_salto(leitura_valida, apos_erro);
 
@@ -3192,7 +3203,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x49, 0x81, 0xF8]);
         self.codigo.extend_from_slice(&(LIMITE_ENTRADA as u32).to_le_bytes());
         let limite = self.emitir_jcc(0x87); // ja: buffer cheio
-        self.encerrar_com_erro(88); // diagnóstico: limite excedido
+        self.encerrar_com_erro(1);
         let apos_limite = self.codigo.len();
         self.aplicar_salto(limite, apos_limite);
         self.emitir_salto_para(inicio_leitura);
