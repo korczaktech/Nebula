@@ -173,7 +173,6 @@ impl<'a> Analisador<'a> {
                 self.campos_estruturas.insert(nome.clone(), descritores);
             }
         }
-        self.validar_hierarquia_classes();
         for item in &programa.itens {
             if let NoAst::Classe { nome, corpo, .. } = item {
                 for membro in corpo {
@@ -199,6 +198,7 @@ impl<'a> Analisador<'a> {
                 }
             }
         }
+        self.validar_hierarquia_classes();
         for item in &programa.itens {
             if let NoAst::Enumeracao { nome, variantes } = item {
                 let descritores = variantes.iter().map(|(variante, payload)| {
@@ -297,13 +297,15 @@ impl<'a> Analisador<'a> {
                 }
             }
         }
+        let metodos: Vec<(String, Funcao)> = self.funcoes.iter().map(|(nome, funcao)| (nome.clone(), funcao.clone())).collect();
         for (nome, base) in &classes {
             let Some(base) = base else { continue; };
-            for (chave, metodo) in &self.funcoes {
+            for (chave, metodo) in &metodos {
                 let Some(nome_metodo) = chave.strip_prefix(&format!("{nome}::")) else { continue; };
                 let mut ancestral = Some(base.as_str());
                 while let Some(nome_ancestral) = ancestral {
-                    if let Some(metodo_base) = self.funcoes.get(&format!("{nome_ancestral}::{nome_metodo}")) {
+                    let chave_base = format!("{nome_ancestral}::{nome_metodo}");
+                    if let Some(metodo_base) = self.funcoes.get(&chave_base).cloned() {
                         if metodo.parametros.len() != metodo_base.parametros.len()
                             || !metodo.parametros.iter().zip(&metodo_base.parametros).all(|(a, b)| Self::tipos_compativeis(a, b))
                             || !Self::tipos_compativeis(&metodo.retorno, &metodo_base.retorno)
@@ -1823,19 +1825,19 @@ impl<'a> Analisador<'a> {
             "vazio" => Tipo::Vazio,
             "logico" | "lógico" => Tipo::Logico,
             "inteiro" => Tipo::Inteiro,
-            "inteiro8" => Tipo::Inteiro8,
-            "inteiro16" => Tipo::Inteiro16,
-            "inteiro32" => Tipo::Inteiro32,
-            "inteiro64" => Tipo::Inteiro64,
-            "inteiro128" => Tipo::Inteiro128,
-            "inteiro_u8" => Tipo::InteiroU8,
-            "inteiro_u16" => Tipo::InteiroU16,
-            "inteiro_u32" => Tipo::InteiroU32,
-            "inteiro_u64" => Tipo::InteiroU64,
-            "inteiro_u128" => Tipo::InteiroU128,
+            "inteiro8" | "i8" => Tipo::Inteiro8,
+            "inteiro16" | "i16" => Tipo::Inteiro16,
+            "inteiro32" | "i32" => Tipo::Inteiro32,
+            "inteiro64" | "i64" => Tipo::Inteiro64,
+            "inteiro128" | "i128" => Tipo::Inteiro128,
+            "inteiro_u8" | "u8" => Tipo::InteiroU8,
+            "inteiro_u16" | "u16" => Tipo::InteiroU16,
+            "inteiro_u32" | "u32" => Tipo::InteiroU32,
+            "inteiro_u64" | "u64" => Tipo::InteiroU64,
+            "inteiro_u128" | "u128" => Tipo::InteiroU128,
             "decimal" => Tipo::Decimal64,
-            "decimal32" => Tipo::Decimal32,
-            "decimal64" => Tipo::Decimal64,
+            "decimal32" | "f32" => Tipo::Decimal32,
+            "decimal64" | "f64" => Tipo::Decimal64,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
@@ -2222,19 +2224,19 @@ impl<'a> Analisador<'a> {
 
     fn tipo_conversao_explicita(nome: &str) -> Option<Tipo> {
         Some(match nome {
-            "inteiro8" => Tipo::Inteiro8,
-            "inteiro16" => Tipo::Inteiro16,
-            "inteiro32" => Tipo::Inteiro32,
-            "inteiro64" => Tipo::Inteiro64,
-            "inteiro128" => Tipo::Inteiro128,
-            "inteiro_u8" => Tipo::InteiroU8,
-            "inteiro_u16" => Tipo::InteiroU16,
-            "inteiro_u32" => Tipo::InteiroU32,
-            "inteiro_u64" => Tipo::InteiroU64,
-            "inteiro_u128" => Tipo::InteiroU128,
+            "inteiro8" | "i8" => Tipo::Inteiro8,
+            "inteiro16" | "i16" => Tipo::Inteiro16,
+            "inteiro32" | "i32" => Tipo::Inteiro32,
+            "inteiro64" | "i64" => Tipo::Inteiro64,
+            "inteiro128" | "i128" => Tipo::Inteiro128,
+            "inteiro_u8" | "u8" => Tipo::InteiroU8,
+            "inteiro_u16" | "u16" => Tipo::InteiroU16,
+            "inteiro_u32" | "u32" => Tipo::InteiroU32,
+            "inteiro_u64" | "u64" => Tipo::InteiroU64,
+            "inteiro_u128" | "u128" => Tipo::InteiroU128,
             "byte" => Tipo::Byte,
-            "decimal32" => Tipo::Decimal32,
-            "decimal64" => Tipo::Decimal64,
+            "decimal32" | "f32" => Tipo::Decimal32,
+            "decimal64" | "f64" => Tipo::Decimal64,
             _ => return None,
         })
     }
