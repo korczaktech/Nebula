@@ -425,6 +425,7 @@ impl Parser {
         self.avancar();
         let corpo = self.bloco_sem_fim()?;
         let mut capturas = Vec::new();
+        self.pular_novas_linhas();
         while self.corresponde(TipoToken::Erro) {
             let tipo = if self.verifica(TipoToken::Identificador) {
                 Some(self.avancar().lexema)
@@ -2082,6 +2083,14 @@ mod testes {
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { corpo, .. } if matches!(corpo.first(), Some(NoAst::Quando { .. }))));
+    }
+
+    #[test]
+    fn analisa_tente_com_captura_e_sempre_em_function_body() {
+        let codigo = "tente: {\n    executar()\n    fim\n}\nerro Falha: {\n    recuperar()\n    fim\n}\nsempre: {\n    finalizar()\n    fim\n}\nfim";
+        let r = analisar(&fonte(codigo));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
+        assert!(matches!(&r.programa.itens[0], NoAst::Tente { capturas, sempre, .. } if capturas.len() == 1 && !sempre.is_empty()));
     }
 
     #[test]
