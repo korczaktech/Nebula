@@ -2875,7 +2875,7 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = comprimento esquerdo
         self.carregar_rax(temporario - 24);
         self.codigo.extend_from_slice(&[0x48, 0x01, 0xC8]); // rax = direito + esquerdo
-        let sem_overflow = self.emitir_jcc(0x81); // jno
+        let sem_overflow = self.emitir_jcc(0x83); // jnc
         self.encerrar_com_erro(2);
         self.aplicar_salto(sem_overflow, self.codigo.len());
         self.armazenar_rax(temporario - 32);
