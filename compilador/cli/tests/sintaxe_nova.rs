@@ -99,3 +99,46 @@ variavel dados: dicionario = {
         String::from_utf8_lossy(&resultado.stderr)
     );
 }
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn compila_cada_em_intervalos_crescentes_e_decrescentes() {
+    let (origem, executavel) = caminhos("cada");
+    let codigo = r#"funcao principal() -> inteiro: {
+    variavel total = 0
+    cada item dentro 1..3: {
+        total += item
+        fim
+    } fim
+    cada item dentro 3..1: {
+        total += item
+        fim
+    } fim
+    devolver total
+    fim
+} fim
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI");
+
+    assert!(
+        compilacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    assert_eq!(execucao.status.code(), Some(12));
+}
