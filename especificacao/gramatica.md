@@ -251,8 +251,9 @@ Regras específicas:
 ## 5. Tipos
 
 ~~~ebnf
-tipo                    = tipo_funcao | tipo_lista | tipo_tupla | tipo_generico ;
+tipo                    = tipo_funcao | tipo_lista | tipo_tupla | tipo_agrupado | tipo_generico ;
 tipo_tupla              = "(", ")" | "(", tipo, ",", [ lista_tipos ], ")" ;
+tipo_agrupado           = "(", tipo, ")" ;
 tipo_funcao             = "funcao", "(", [ lista_tipos ], ")",
                           [ ":", tipo ] ;
 tipo_lista              = "[", tipo, "]" ;
