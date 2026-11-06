@@ -126,7 +126,7 @@ impl TipoAst {
                     .join(", ");
                 let virgula = if tipos.len() == 1 { "," } else { "" };
                 format!("({elementos}{virgula})")
-            },
+            }
             Self::Funcao {
                 parametros,
                 retorno,
