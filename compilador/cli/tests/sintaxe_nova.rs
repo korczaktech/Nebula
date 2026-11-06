@@ -499,10 +499,16 @@ fn igualdade_de_texto_compara_conteudo_utf8() {
 #[test]
 fn rejeita_concatenacao_textual_sem_alocador() {
     let (origem, executavel) = caminhos("soma-texto");
-    let codigo = r#"funcao principal() -> vazio: {
-    variavel prefixo = "Olá"
-    variavel sufixo = " Nebula"
-    variavel texto = prefixo + sufixo
+    let codigo = r#"funcao prefixo() -> texto: {
+    devolver "Olá"
+    fim
+} fim
+funcao sufixo() -> texto: {
+    devolver " Nebula"
+    fim
+} fim
+funcao principal() -> vazio: {
+    variavel texto = prefixo() + sufixo()
     fim
 } fim
 "#;
