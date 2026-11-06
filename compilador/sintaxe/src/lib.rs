@@ -1880,7 +1880,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             "funcao ", "publico funcao ", "async funcao ", "exportar funcao ",
             "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
             "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
-            "para ", "pulso(", "durante ", "repetir ",
+            "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com ",
         ]
         .iter()
         .any(|prefixo| conteudo.starts_with(prefixo))
@@ -2022,8 +2022,21 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             || conteudo.starts_with("pulso(")
             || conteudo.starts_with("durante ")
             || conteudo.starts_with("repetir ")
+            || conteudo == "critico"
+            || conteudo.starts_with("critico:")
+            || conteudo.starts_with("privilegio ")
+            || conteudo.starts_with("montagem ")
+            || conteudo == "tente"
+            || conteudo.starts_with("erro ")
+            || conteudo == "sempre"
+            || conteudo.starts_with("com ")
         {
-            (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
+            let cabecalho = if conteudo.ends_with(':') {
+                format!("{conteudo} {{")
+            } else {
+                format!("{conteudo}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(cabecalho))
         } else {
             (None, None)
         };
