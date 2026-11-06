@@ -3176,7 +3176,11 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]); // test rax, rax
         let fim_entrada = self.emitir_jcc(0x84); // EOF
         let leitura_valida = self.emitir_jcc(0x89); // jns
-        self.encerrar_com_erro(1);
+        // Diagnóstico temporário: retorna o errno Linux para identificar falhas de read.
+        self.codigo.extend_from_slice(&[0x48, 0xF7, 0xD8]); // neg rax
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = errno
+        self.mov_rax(60); // SYS_exit
+        self.codigo.extend_from_slice(&[0x0F, 0x05]);
         let apos_erro = self.codigo.len();
         self.aplicar_salto(leitura_valida, apos_erro);
 
