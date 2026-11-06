@@ -1,6 +1,6 @@
 # Especificação normativa da linguagem e do sistema de tipos Nebula
 
-**Status:** especificação normativa da linguagem e do sistema de tipos. As regras abaixo definem o comportamento independente de plataforma; a representação física e a ABI são específicas de cada alvo. A conformidade de cada recurso é registrada separadamente em `criterios-fase-5.md` e deve ser demonstrada por testes em todas as camadas aplicáveis. Uma regra normativa não significa, por si só, que todo backend já a implemente.
+**Status:** fonte normativa canônica da Nebula. A gramática formal e as regras léxicas em `gramatica.md` e `tokens.md` são anexos técnicos subordinados a este contrato; `linguagem.md`, `tipos.md` e `operadores.md` são resumos de referência e não podem divergir dele. Em caso de conflito, este documento prevalece para a semântica e a ABI, e os anexos formalizam sua sintaxe. As regras observáveis são independentes de plataforma; a representação física e a ABI são específicas de cada alvo. A conformidade de cada recurso é registrada em `criterios-fase-5.md` e deve ser demonstrada por testes em todas as camadas aplicáveis. Uma regra normativa não significa, por si só, que todo backend já a implemente.
 
 ## 1. Princípios
 
@@ -19,10 +19,10 @@ Os tipos primitivos da linguagem são:
 
 | Família | Tipos | Regra |
 |---|---|---|
-| Ausência de valor | `vazio` | Só pode ser usado como retorno sem valor e em posições expressamente permitidas |
+| Ausência de valor | `vazio` | Tipo de retorno sem valor; não pode ser variável, campo, elemento de lista, payload ou parâmetro |
 | Lógico | `logico` | Valores `verdadeiro` e `falso` |
 | Inteiros com sinal | `inteiro8`, `inteiro16`, `inteiro32`, `inteiro64`, `inteiro128` | Complemento de dois; faixas determinadas pela largura |
-| Inteiro padrão | `inteiro` | Alias semântico de inteiro com sinal de 64 bits no alvo x86-64; não é dependente da largura da máquina hospedeira |
+| Inteiro padrão | `inteiro` | Tipo inteiro com sinal de exatamente 64 bits em todos os alvos; não depende da largura da máquina hospedeira |
 | Inteiros sem sinal | `inteiro_u8`, `inteiro_u16`, `inteiro_u32`, `inteiro_u64`, `inteiro_u128` | Faixa de zero a 2^N−1; não admite valor negativo |
 | Ponto flutuante | `decimal32`, `decimal64` | IEEE 754 binary32 e binary64, respectivamente |
 | Decimal padrão | `decimal` | Alias semântico de `decimal64` |
