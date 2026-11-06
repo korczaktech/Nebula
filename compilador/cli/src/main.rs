@@ -1433,7 +1433,7 @@ mod testes {
         let saida = std::env::temp_dir().join(&prefixo);
         std::fs::write(
             &origem,
-            "funcao principal(): inteiro\n    quando verdadeiro\n        devolver 7\n    senao\n        devolver 9\n    fim\nfim",
+            "funcao principal() -> inteiro: {\n    quando verdadeiro: {\n        devolver 7\n        fim\n    }\n    senao: {\n        devolver 9\n        fim\n    }\n    fim\n    fim\n}\nfim",
         )
         .unwrap();
         compilar_arquivo_com_nivel(&origem, &saida, NivelOtimizacao::O2)
@@ -1469,14 +1469,14 @@ mod testes {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor(): inteiro\n    devolver 40\nfim",
+            "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n}\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "incluir(biblioteca: Base)\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
+            "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n}\nfim",
         )
         .unwrap();
 
@@ -2166,7 +2166,7 @@ fim"#,
         let origem = diretorio.join("principal.nbx");
         std::fs::write(
             &modulo,
-            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\npublico funcao dobro(valor: inteiro): inteiro\n    devolver somar(valor, valor)\nfim",
+            "funcao somar(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n    fim\n}\nfim\npublico funcao dobro(valor: inteiro) -> inteiro: {\n    devolver somar(valor, valor)\n    fim\n}\nfim",
         )
         .unwrap();
         std::fs::write(
@@ -2192,7 +2192,7 @@ fim"#,
         .unwrap();
         std::fs::write(
             diretorio.join("Servico.nbx"),
-            "incluir(biblioteca: Base)\npublico funcao consultar(): inteiro\n    devolver Base::valor() + 2\nfim",
+            "incluir(biblioteca: Base)\npublico funcao consultar() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n}\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2210,12 +2210,12 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("A.nbx"),
-            "incluir(biblioteca: B)\npublico funcao a(): inteiro\n    devolver 1\nfim",
+            "incluir(biblioteca: B)\npublico funcao a() -> inteiro: {\n    devolver 1\n    fim\n}\nfim",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("B.nbx"),
-            "incluir(biblioteca: A)\npublico funcao b(): inteiro\n    devolver 2\nfim",
+            "incluir(biblioteca: A)\npublico funcao b() -> inteiro: {\n    devolver 2\n    fim\n}\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2241,7 +2241,7 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Interno.nbx"),
-            "funcao segredo(): inteiro\n    devolver 42\nfim\npublico funcao visivel(): inteiro\n    devolver segredo()\nfim",
+            "funcao segredo() -> inteiro: {\n    devolver 42\n    fim\n}\nfim\npublico funcao visivel(): inteiro\n    devolver segredo()\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
