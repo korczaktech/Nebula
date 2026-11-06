@@ -655,7 +655,7 @@ fim"#,
 #[test]
 fn rejeita_recurso_que_depende_do_runtime_adiado() {
     let (origem, executavel) = caminhos("runtime-adiado");
-    let codigo = normalizar_blocos_legados("funcao principal(): vazio\n    exibir(42)\nfim");
+    let codigo = normalizar_blocos_legados("funcao principal(): vazio\n    variavel entrada = ler_texto()\nfim");
     fs::write(&origem, codigo).unwrap();
     let resultado = Command::new(env!("CARGO_BIN_EXE_nebula"))
         .arg("compilar")
