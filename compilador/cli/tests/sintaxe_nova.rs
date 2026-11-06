@@ -462,7 +462,7 @@ fn igualdade_de_texto_compara_conteudo_utf8() {
     let (origem, executavel) = caminhos("igualdade-texto");
     let codigo = r#"funcao principal() -> inteiro: {
     variavel texto = "Olá 🌌"
-    quando texto == "Olá 🌌" e texto != "Olá": {
+    quando texto == "Olá 🌌" e texto != "Olá" e texto != "Olá 🌠": {
         devolver 42
         fim
     } fim
