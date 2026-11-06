@@ -2785,8 +2785,6 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
             AssinaturaFuncao { parametros: vec![Tipo::Inteiro, Tipo::Inteiro], retorno: Tipo::Inteiro },
         )]));
         let fonte = ArquivoFonte::novo("teste.nbx", "variavel total = Mat::somar(1, 2)\nincluir(biblioteca: Matematica) como Mat");
-        let codigo = normalizar_blocos_legados("incluir(biblioteca: Matematica) como calcular\\nfuncao calcular(): inteiro\\n    devolver 1\\nfim");
-        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
@@ -2956,10 +2954,8 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     fn rejeita_colisao_entre_funcao_e_alias_de_modulo() {
         let mut modulos = ModulosDisponiveis::new();
         modulos.insert("Matematica".into(), HashMap::new());
-        let fonte = ArquivoFonte::novo(
-            "teste.nbx",
-            "incluir(biblioteca: Matematica) como calcular\nfuncao calcular(): inteiro\n    devolver 1\nfim",
-        );
+        let codigo = normalizar_blocos_legados("incluir(biblioteca: Matematica) como calcular\\nfuncao calcular(): inteiro\\n    devolver 1\\nfim");
+        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let r = analisar_com_modulos(&sintaxe.programa, &modulos);
