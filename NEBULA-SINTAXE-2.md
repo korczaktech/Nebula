@@ -13,7 +13,7 @@
 
 ## Regra sintática herdada: Function Body
 
-Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer função, condicional, laço, classe, bloco de tratamento de erro, exportação ou outro corpo estrutural deve usar Function Body e terminar seu conteúdo com `fim` antes do fechamento `}`. Blocos aninhados exigem um `fim` próprio por nível. Uma quebra de linha que inicia corpo também exige encerramento explícito; indentação isolada não encerra bloco.
+Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer função, condicional, laço, classe, bloco de tratamento de erro, exportação ou outro corpo estrutural deve abrir com `: {`, terminar seu conteúdo com `fim` antes de `}`, e receber o `fim` externo quando a construção for completa. Blocos aninhados exigem encerramentos próprios. A sintaxe antiga baseada somente em indentação é rejeitada.
 
 A palavra reservada assíncrona é `async`; `assinc` não é mais válida.
 
@@ -48,10 +48,11 @@ A linguagem distingue quatro contextos. Eles não são palavras mágicas que con
 ## 2.1. Região crítica
 
 ```nbx
-critico:
+critico: {
     variavel valor = memoria.ler<u32>(endereco)
     memoria.escrever<u32>(endereco, valor + 1)
-fim
+    fim
+} fim
 ```
 
 A região crítica não desativa automaticamente todas as verificações. Ela autoriza somente operações que a especificação classificar como inseguras, e exige que os invariantes violados sejam responsabilidade do autor.
@@ -59,10 +60,11 @@ A região crítica não desativa automaticamente todas as verificações. Ela au
 ## 2.2. Código privilegiado
 
 ```nbx
-privilegio sistema:
+privilegio sistema: {
     cpu.interrupcoes.desabilitar()
     cpu.parar()
-fim
+    fim
+} fim
 ```
 
 O compilador deve rejeitar esse código em alvos sem suporte ou em programas sem perfil de privilégio compatível. A palavra `privilegio` nunca substitui permissões do processador, do firmware ou do sistema operacional.
@@ -128,11 +130,12 @@ Atributos propostos:
 ```nbx
 @alinhamento(8)
 @representacao(C)
-estrutura Cabecalho:
+estrutura Cabecalho: {
     codigo: u32
     tamanho: u16
     estado: u8
-fim
+    fim
+} fim
 ```
 
 O compilador deve disponibilizar intrínsecos de consulta:
@@ -268,9 +271,10 @@ estado = bits.definir(estado, 3)
 estado = bits.definir(estado, 5)
 estado = bits.inverter(estado, 3)
 
-se bits.ler(estado, 5)
+se bits.ler(estado, 5): {
     exibir("Bit 5 ativo")
-fim
+    fim
+} fim
 ```
 
 As funções que retornam um valor devem deixar claro se modificam a variável original ou produzem uma nova. A forma preferida é retornar o valor transformado e exigir atribuição explícita.
@@ -311,9 +315,10 @@ O nome de registrador deve ser um símbolo conhecido pelo backend, e não uma st
 Exemplo ilustrativo para x86-64:
 
 ```nbx
-se cpu.arquitetura() == "x86_64"
+se cpu.arquitetura() == "x86_64": {
     variavel valor = cpu.registro.ler(cpu.registro.rax)
-fim
+    fim
+} fim
 ```
 
 O compilador deve rejeitar registradores que não existam no alvo. Registradores de controle, estado e privilégio exigem contexto privilegiado e contrato de segurança específico.
@@ -347,10 +352,14 @@ Operações intrínsecas propostas:
 A biblioteca deve oferecer tipos vetoriais independentes de arquitetura, por exemplo `vetorSimd<u32, 4>`, e permitir que o backend selecione instruções disponíveis.
 
 ```nbx
-se cpu.simd.disponivel("vetorial_128")
+se cpu.simd.disponivel("vetorial_128"): {
     variavel resultado = simd.somar(vetorA, vetorB)
-senao
+    fim
+}
+senao: {
     variavel resultado = vetorA.somarElemento(vetorB)
+    fim
+}
 fim
 ```
 
@@ -432,10 +441,11 @@ Disponível somente em arquiteturas/ambientes que implementem espaço de I/O por
 | `porta.escrever32(endereco, valor)` | 32 bits |
 
 ```nbx
-privilegio sistema:
+privilegio sistema: {
     variavel codigo = porta.ler8(0x60)
     porta.escrever8(0x20, 0x01)
-fim
+    fim
+} fim
 ```
 
 O exemplo é ilustrativo e não configura um controlador real por si só. Em ARM64 e em muitos dispositivos RISC-V, o acesso a periféricos é feito por MMIO ou interfaces específicas, não por essas portas.
@@ -458,10 +468,11 @@ Operações propostas:
 Exemplo:
 
 ```nbx
-funcao tratarTeclado(evento: interrupcao.Evento):
+funcao tratarTeclado(evento: interrupcao.Evento): {
     variavel tecla = hardware.teclado.ler()
     teclado.processar(tecla)
-fim
+    fim
+} fim
 
 interrupcao.registrar(33, tratarTeclado)
 ```
@@ -684,9 +695,10 @@ Exemplo:
 
 ```nbx
 @secao(".nucleo")
-funcao iniciarKernel() -> vazio:
+funcao iniciarKernel() -> vazio: {
     exibir("Kernel iniciado")
-fim
+    fim
+} fim
 ```
 
 O nome de seção é uma solicitação ao linker; o formato final do executável e o script de ligação determinam o posicionamento efetivo. O compilador deve emitir erro se a seção não puder ser representada pelo alvo.
@@ -699,7 +711,7 @@ O exemplo abaixo ilustra o estilo desejado. Os nomes de tipos e funções precis
 constante ENDERECO_CONTROLADOR: enderecoFisico = 0xF0000000
 constante TAMANHO_CONTROLADOR: tamanho = 4096
 
-funcao iniciarControlador() -> resultado<hardware.Regiao, hardware.Erro>:
+funcao iniciarControlador() -> resultado<hardware.Regiao, hardware.Erro>: {
     variavel regiao = hardware.mapear(
         endereco: ENDERECO_CONTROLADOR,
         tamanho: TAMANHO_CONTROLADOR,
@@ -709,26 +721,30 @@ funcao iniciarControlador() -> resultado<hardware.Regiao, hardware.Erro>:
 
     hardware.escreverVolatil<u32>(regiao, 0, 1)?
     retorne sucesso(regiao)
-fim
+    fim
+} fim
 
-funcao consultarEstado(regiao: hardware.Regiao) -> resultado<u32, hardware.Erro>:
+funcao consultarEstado(regiao: hardware.Regiao) -> resultado<u32, hardware.Erro>: {
     retorne hardware.lerVolatil<u32>(regiao, 4)
-fim
+    fim
+} fim
 ```
 
 # 24. Exemplo integrado: interrupção
 
 ```nbx
-funcao tratarTeclado(evento: interrupcao.Evento) -> vazio:
+funcao tratarTeclado(evento: interrupcao.Evento) -> vazio: {
     variavel tecla = hardware.teclado.lerSemBloqueio()
     teclado.enfileirar(tecla)
     interrupcao.confirmar(evento)
-fim
+    fim
+} fim
 
-funcao iniciarTeclado() -> resultado<vazio, sistema.Erro>:
+funcao iniciarTeclado() -> resultado<vazio, sistema.Erro>: {
     interrupcao.registrar(33, tratarTeclado)?
     retorne sucesso()
-fim
+    fim
+} fim
 ```
 
 O manipulador deve executar apenas operações permitidas no contexto de interrupção. Processamento pesado deve ser delegado a uma thread ou fila apropriada.
@@ -736,7 +752,7 @@ O manipulador deve executar apenas operações permitidas no contexto de interru
 # 25. Exemplo integrado: DMA
 
 ```nbx
-funcao enviar(buffer: memoria.Regiao<u8>) -> resultado<vazio, dma.Erro>:
+funcao enviar(buffer: memoria.Regiao<u8>) -> resultado<vazio, dma.Erro>: {
     variavel envio = dma.criar(
         buffer: buffer,
         direcao: memoria_para_dispositivo
@@ -748,7 +764,8 @@ funcao enviar(buffer: memoria.Regiao<u8>) -> resultado<vazio, dma.Erro>:
     dma.liberar(envio)
 
     retorne sucesso()
-fim
+    fim
+} fim
 ```
 
 A região deve permanecer válida e inacessível para mutações incompatíveis durante a transferência, de acordo com o contrato do dispositivo.
