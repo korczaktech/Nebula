@@ -106,11 +106,11 @@ fn compila_cada_em_intervalos_crescentes_e_decrescentes() {
     let (origem, executavel) = caminhos("cada");
     let codigo = r#"funcao principal() -> inteiro: {
     variavel total = 0
-    cada item dentro 1..3: {
+    cada item em 1..3: {
         total += item
         fim
     } fim
-    cada item dentro 3..1: {
+    cada item em 3..1: {
         total += item
         fim
     } fim
