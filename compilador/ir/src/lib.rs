@@ -999,13 +999,15 @@ fn promover_tipo_numerico(a: &Tipo, b: &Tipo) -> Tipo {
     {
         return Tipo::Decimal64;
     }
-    let largura = |tipo: &Tipo| match tipo {
-        Tipo::Inteiro8 | Tipo::InteiroU8 | Tipo::Byte => 8,
-        Tipo::Inteiro16 | Tipo::InteiroU16 => 16,
-        Tipo::Inteiro32 | Tipo::InteiroU32 => 32,
-        Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro => 64,
-        Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
-        _ => 64,
+    let largura = |tipo: &Tipo| -> u16 {
+        match tipo {
+            Tipo::Inteiro8 | Tipo::InteiroU8 | Tipo::Byte => 8,
+            Tipo::Inteiro16 | Tipo::InteiroU16 => 16,
+            Tipo::Inteiro32 | Tipo::InteiroU32 => 32,
+            Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Inteiro => 64,
+            Tipo::Inteiro128 | Tipo::InteiroU128 => 128,
+            _ => 64,
+        }
     };
     if a == &Tipo::Decimal32 && b == &Tipo::Decimal32 {
         return Tipo::Decimal32;
