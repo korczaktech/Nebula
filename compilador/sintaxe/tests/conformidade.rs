@@ -525,7 +525,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "enumeracao vazia",
             "N2036",
-            "enumeracao Estado:\n    ,\nfim",
+            "enumeracao Estado: {\n    fim\n}\nfim",
         ),
         (
             "campo de construcao duplicado",
