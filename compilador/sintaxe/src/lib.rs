@@ -437,6 +437,7 @@ impl Parser {
         let sempre = if self.corresponde(TipoToken::Sempre) {
             self.bloco_sem_fim()?
         } else { Vec::new() };
+        self.pular_novas_linhas();
         if self.verifica(TipoToken::FimBloco) {
             self.avancar();
         } else {
@@ -645,6 +646,7 @@ impl Parser {
         } else {
             Vec::new()
         };
+        self.pular_novas_linhas();
         if self.verifica(TipoToken::FimBloco) {
             self.avancar();
         } else {
@@ -2358,7 +2360,7 @@ mod testes {
             "tipo Colecao = [Resultado<inteiro>]",
             "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim",
             "enumeracao Estado:\n    Ativo\n    Inativo(texto, inteiro)\nfim",
-            "incluir Biblioteca::Texto como Texto",
+            "incluir(modulo: Texto, biblioteca: Biblioteca) como Texto",
             "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
             "quando verdadeiro\n    exibir(1)\nsendo falso\n    exibir(2)\nfim",
             "escolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso _\n        exibir(0)\nfim",
@@ -2405,7 +2407,7 @@ mod testes {
             "tipo AliasComSeta <- Texto",
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
-            "incluir Modulo::Interno",
+            "incluir(modulo: Interno, biblioteca: Modulo)",
             "variavel estrutura_vazia = Pessoa {}",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
@@ -2458,8 +2460,8 @@ mod testes {
             "estrutura Membros:\n    a: inteiro\n    b: texto\n    c: logico\nfim",
             "enumeracao Estado:\n    Pronto\n    Falha()\n    Valor(inteiro)\nfim",
             "enumeracao Resultado:\n    Vazio\n    Erro(inteiro)\n    Texto(texto)\nfim",
-            "incluir Biblioteca",
-            "incluir Biblioteca::Interna como Interna",
+            "incluir(biblioteca: Biblioteca)",
+            "incluir(modulo: Interna, biblioteca: Biblioteca) como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
             "quando (Pessoa {})\n    passar\nfim",
             "escolha (Pessoa {})\n    caso _\n        passar\nfim",
@@ -3960,7 +3962,7 @@ mod testes {
     #[test]
     fn analisa_sintaxe_principal_atual_e_recursos_nativos() {
         let codigo = r#"
-incluir biblioteca matematica como mat
+incluir(biblioteca: matematica) como mat
 
 variavel ativo: logico = sim
 variavel dobrar = lambda x: x * 2
@@ -4104,7 +4106,7 @@ fim
     #[test]
     fn parser_cobre_membros_de_classe_importacao_por_origem_e_tipos_nativos() {
         let codigo = r#"
-incluir raiz de matematica como raiz
+incluir(modulo: raiz, biblioteca: matematica) como raiz
 
 classe Pessoa
     publico funcao construtor(nome: texto)
