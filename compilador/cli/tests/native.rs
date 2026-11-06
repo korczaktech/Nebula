@@ -687,7 +687,7 @@ fim"#,
         .spawn()
         .expect("executa ELF com stdin");
     let mut entrada_padrao = processo.stdin.take().unwrap();
-    entrada_padrao.write_all(b"Nebula\\r\\n").unwrap();
+    entrada_padrao.write_all(b"Nebula\r\n").unwrap();
     drop(entrada_padrao);
     let resultado = processo.wait_with_output().unwrap();
     assert_eq!(
