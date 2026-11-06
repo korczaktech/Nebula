@@ -702,7 +702,7 @@ mod tests {
 
     #[test]
     fn signature_help_returns_function_parameters_and_active_argument() {
-        let text = "funcao somar(a: inteiro, b: inteiro)\n    devolver a\nfim\n\\\nvariavel resultado = somar(1, ";
+        let text = "funcao somar(a: inteiro, b: inteiro): {\n    devolver a\n    fim\n} fim\n\\\nvariavel resultado = somar(1, ";
         let document = Document { text: text.to_owned(), version: 1 };
         let result = signature_help(&document, "file:///teste.nbx", 1, text.lines().last().unwrap().encode_utf16().count());
         let Json::Array(signatures) = result.get("signatures").expect("assinatura") else {
@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn function_parameters_are_indexed_as_definitions_and_completions() {
-        let text = "funcao somar(a: inteiro, b: inteiro)\n    devolver a\nfim";
+        let text = "funcao somar(a: inteiro, b: inteiro): {\n    devolver a\n    fim\n} fim";
         let file = ArquivoFonte::novo("file:///teste.nbx", text);
         let parsed = analisar(&file);
         let declarations = declaration_locations(&parsed.programa, text, "file:///teste.nbx");
