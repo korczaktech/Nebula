@@ -15,7 +15,7 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Igualdade | `==` | Não confundir com atribuição |
 | Separação | Nova linha ou `;` | Separador explícito opcional quando a quebra de linha já é clara |
 | Delimitadores de expressão/dados | `()`, `[]` e chaves em construções de dados | Delimitadores agrupam expressões e valores; chaves não substituem blocos de instrução |
-| Blocos | Indentação obrigatória e terminador `fim` | `INDENT`/`DEDENT` delimitam o corpo e `fim` encerra explicitamente a construção |
+| Blocos | Function Body `: { ... fim } fim` | Chaves e `fim` delimitam os blocos; indentação organiza visualmente e não substitui os delimitadores |
 | Codificação | UTF-8 e NFC para identificadores | Comparação de nomes consistente |
 | Memória | Modelo híbrido planejado | Caminho seguro e controle de baixo nível |
 | Backends | Nativo e WebAssembly como alvos planejados | IR independente de plataforma |
