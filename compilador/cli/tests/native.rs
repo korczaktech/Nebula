@@ -845,4 +845,3 @@ fn json_canonico_literal_funciona_no_backend_nativo() {
     assert!(resultado.status.success());
     assert_eq!(resultado.stdout, br#"{"a":1,"b":2}"#);
 }
-
