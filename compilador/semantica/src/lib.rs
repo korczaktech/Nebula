@@ -212,7 +212,7 @@ impl<'a> Analisador<'a> {
                                 self.erro("N3021", format!("Tipo '{tipo}' do parâmetro '{nome_parametro}' do método '{metodo}' não foi declarado."));
                             }
                         }
-                        if retorno.as_ref() == &Tipo::Desconhecido {
+                        if retorno == Tipo::Desconhecido {
                             self.erro("N3021", format!("Tipo de retorno do método '{metodo}' não foi declarado."));
                         }
                         let mut encontrou_padrao = false;
