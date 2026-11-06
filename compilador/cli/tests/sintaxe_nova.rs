@@ -43,6 +43,7 @@ fn compila_e_executa_function_body_aninhado_sem_normalizacao() {
         fim
     }
     fim
+    fim
 } fim
 "#;
     fs::write(&origem, codigo).unwrap();
