@@ -3808,6 +3808,51 @@ mod testes {
     }
 
     #[test]
+    fn promove_inteiros_mistos_sem_perder_a_faixa() {
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Inteiro8, &Tipo::InteiroU8),
+            Tipo::Inteiro16,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Inteiro16, &Tipo::InteiroU8),
+            Tipo::Inteiro16,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Inteiro8, &Tipo::InteiroU16),
+            Tipo::Inteiro32,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Inteiro64, &Tipo::InteiroU64),
+            Tipo::Inteiro128,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Inteiro128, &Tipo::InteiroU128),
+            Tipo::Desconhecido,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::InteiroU8, &Tipo::InteiroU64),
+            Tipo::InteiroU64,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Decimal32, &Tipo::Inteiro16),
+            Tipo::Decimal32,
+        );
+        assert_eq!(
+            promover_tipo_numerico(&Tipo::Decimal32, &Tipo::Inteiro32),
+            Tipo::Decimal64,
+        );
+    }
+
+    #[test]
+    fn normaliza_literal_assinado_positivo_como_inteiro_u128() {
+        assert_eq!(
+            normalizar_valor(&Tipo::InteiroU128, ValorIr::Inteiro(1000)).unwrap(),
+            ValorIr::InteiroSemSinal(1000),
+        );
+        assert!(normalizar_valor(&Tipo::InteiroU128, ValorIr::Inteiro(-1)).is_err());
+    }
+
+    #[test]
     fn normalizacao_numerica_promove_inteiros_para_decimais() {
         assert_eq!(
             normalizar_valor(&Tipo::Decimal64, ValorIr::Inteiro(2)).unwrap(),
