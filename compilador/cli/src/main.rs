@@ -1476,7 +1476,7 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "incluir Base\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
+            "incluir(biblioteca: Base)\nfuncao principal(): inteiro\n    devolver Base::valor() + 2\nfim",
         )
         .unwrap();
 
@@ -2171,7 +2171,7 @@ fim"#,
         .unwrap();
         std::fs::write(
             &origem,
-            "incluir Matematica como Mat\nexibir(Mat::dobro(21))",
+            "incluir(biblioteca: Matematica) como Mat\nexibir(Mat::dobro(21))",
         )
         .unwrap();
 
@@ -2192,11 +2192,11 @@ fim"#,
         .unwrap();
         std::fs::write(
             diretorio.join("Servico.nbx"),
-            "incluir Base\npublico funcao consultar(): inteiro\n    devolver Base::valor() + 2\nfim",
+            "incluir(biblioteca: Base)\npublico funcao consultar(): inteiro\n    devolver Base::valor() + 2\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
-        std::fs::write(&origem, "incluir Servico\nexibir(Servico::consultar())").unwrap();
+        std::fs::write(&origem, "incluir(biblioteca: Servico)\nexibir(Servico::consultar())").unwrap();
 
         let saida = interpretar_arquivo(&origem).expect("dependência aninhada válida");
         assert_eq!(saida, vec!["42"]);
@@ -2210,16 +2210,16 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("A.nbx"),
-            "incluir B\npublico funcao a(): inteiro\n    devolver 1\nfim",
+            "incluir(biblioteca: B)\npublico funcao a(): inteiro\n    devolver 1\nfim",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("B.nbx"),
-            "incluir A\npublico funcao b(): inteiro\n    devolver 2\nfim",
+            "incluir(biblioteca: A)\npublico funcao b(): inteiro\n    devolver 2\nfim",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
-        std::fs::write(&origem, "incluir A\nexibir(A::a())").unwrap();
+        std::fs::write(&origem, "incluir(biblioteca: A)\nexibir(A::a())").unwrap();
 
         let erro = interpretar_arquivo(&origem).unwrap_err();
         assert!(erro.contains("Ciclo de dependências"));
@@ -2245,7 +2245,7 @@ fim"#,
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
-        std::fs::write(&origem, "incluir Interno\nexibir(Interno::segredo())").unwrap();
+        std::fs::write(&origem, "incluir(biblioteca: Interno)\nexibir(Interno::segredo())").unwrap();
 
         let erro = interpretar_arquivo(&origem).unwrap_err();
         assert!(
@@ -2273,7 +2273,7 @@ fim"#,
         .unwrap();
         symlink(externo.join("Segredo.nbx"), raiz.join("Atalho.nbx")).unwrap();
         let origem = raiz.join("principal.nbx");
-        std::fs::write(&origem, "incluir Atalho\nexibir(Atalho::valor())").unwrap();
+        std::fs::write(&origem, "incluir(biblioteca: Atalho)\nexibir(Atalho::valor())").unwrap();
 
         let erro = interpretar_arquivo(&origem).unwrap_err();
         assert!(erro.contains("fora do diretório permitido"), "{erro}");
