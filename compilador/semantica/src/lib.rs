@@ -2702,7 +2702,18 @@ mod testes {
     use nebula_sintaxe::analisar;
 
 fn normalizar_blocos_legados(codigo: &str) -> String {
-    let codigo = codigo.replace("): ", ") -> ");
+    let mut normalizado = String::new();
+    for linha in codigo.lines() {
+        let mut linha = linha.to_owned();
+        if linha.trim_start().starts_with("funcao ") || linha.trim_start().starts_with("publico funcao ") {
+            if let Some(indice) = linha.rfind("): ") {
+                linha.replace_range(indice..indice + 3, ") -> ");
+            }
+        }
+        normalizado.push_str(&linha);
+        normalizado.push('\n');
+    }
+    let codigo = normalizado.trim_end_matches('\n').to_owned();
     if codigo.contains(": {") {
         return codigo;
     }
@@ -2807,13 +2818,22 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                     format!("{assinatura}: {{")
                 };
                 (Some(TipoBloco::Completo), Some(assinatura))
-            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") || conteudo.starts_with("classe ") {
                 let assinatura = if conteudo.ends_with(':') {
                     format!("{conteudo} {{")
                 } else {
                     format!("{conteudo}: {{")
                 };
                 (Some(TipoBloco::Completo), Some(assinatura))
+            } else if matches!(conteudo, "critico" | "seguro")
+                || conteudo.starts_with("privilegio ")
+                || conteudo.starts_with("montagem ")
+                || conteudo.starts_with("tente")
+                || conteudo.starts_with("com ")
+                || conteudo.starts_with("async ")
+                || conteudo.starts_with("exportar ")
+            {
+                (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
             } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
                 (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
             } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") {
@@ -4239,11 +4259,11 @@ fim
     fn valida_argumentos_nomeados_e_parametros_padrao() {
         let resultado = analisar_codigo(
             "funcao saudar(nome: texto = \"Visitante\", vezes: inteiro = 1): vazio\n    passar\nfim\n\
-             variavel padrao = saudar()\n\
+             variavel com_padrao = saudar()\n\
              variavel nomeado = saudar(vezes: 2, nome: \"Lia\")",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
-        assert_eq!(resultado.tipos_globais.get("padrao"), Some(&Tipo::Vazio));
+        assert_eq!(resultado.tipos_globais.get("com_padrao"), Some(&Tipo::Vazio));
     }
 
     #[test]
