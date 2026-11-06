@@ -435,7 +435,7 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
 
 #[test]
 fn recuperacao_aninhada_e_deterministica_e_nao_contamina_analise_seguinte() {
-    let codigo = "funcao principal()\n    variavel quebrada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n    quando verdadeiro\n        variavel preservada = 7\n    fim\nfim\nvariavel posterior = 9";
+    let codigo = "funcao principal()\n    variavel quebrada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    quando verdadeiro\n        variavel preservada = 7\n    fim\nfim\nvariavel posterior = 9";
     let fonte = ArquivoFonte::novo("determinismo.nbx", codigo);
     let primeira = analisar(&fonte);
     let segunda = analisar(&fonte);
