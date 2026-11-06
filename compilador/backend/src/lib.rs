@@ -1447,6 +1447,21 @@ impl Emissor {
                     self.emitir_comprimento_texto(argumento)?;
                     return Ok(());
                 }
+                if nome == "comeca_com" || nome == "termina_com" {
+                    if argumentos.len() != 2
+                        || argumentos.iter().any(|argumento| {
+                            self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto)
+                        })
+                    {
+                        return Err(format!("O backend nativo exige dois textos em '{nome}'."));
+                    }
+                    self.emitir_comparacao_prefixo_sufixo_texto(
+                        &argumentos[0],
+                        &argumentos[1],
+                        nome == "termina_com",
+                    )?;
+                    return Ok(());
+                }
                 if nome == "dormir" || nome == "aguardar" {
                     let [argumento] = argumentos.as_slice() else {
                         return Err(format!("'{nome}' exige exatamente um argumento no backend nativo."));
@@ -2720,6 +2735,62 @@ impl Emissor {
         self.mov_rax(35); // SYS_nanosleep
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
         self.mov_rax(0);
+        self.mov_rdx(0);
+        Ok(())
+    }
+
+    fn emitir_comparacao_prefixo_sufixo_texto(
+        &mut self,
+        texto: &ExpressaoIr,
+        trecho: &ExpressaoIr,
+        sufixo: bool,
+    ) -> Result<(), String> {
+        let temporario = self.reservar_agregado(32, 8)?;
+        self.expressao(texto)?;
+        self.armazenar_rax(temporario);
+        self.armazenar_rdx(temporario - 8);
+        self.expressao(trecho)?;
+        self.armazenar_rax(temporario - 16);
+        self.armazenar_rdx(temporario - 24);
+
+        self.carregar_rax(temporario - 8); // rax = bytes do texto
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC0]); // r8 = bytes do texto
+        self.carregar_rax(temporario - 24); // rax = bytes do trecho
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = bytes do trecho
+        self.codigo.extend_from_slice(&[0x4C, 0x89, 0xC0]); // rax = bytes do texto
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+        let trecho_maior = self.emitir_jcc(0x82); // jb
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
+        let trecho_vazio = self.emitir_jcc(0x84); // je
+
+        if sufixo {
+            self.codigo.extend_from_slice(&[0x48, 0x29, 0xC8]); // rax = bytes texto - bytes trecho
+            self.codigo.extend_from_slice(&[0x49, 0x89, 0xC0]); // r8 = deslocamento
+        }
+        self.carregar_rax(temporario);
+        if sufixo {
+            self.codigo.extend_from_slice(&[0x4C, 0x01, 0xC0]); // rax += deslocamento
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = texto
+        self.carregar_rax(temporario - 16);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = trecho
+        self.carregar_rax(temporario - 24);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = bytes do trecho
+        self.codigo.extend_from_slice(&[0xFC, 0xF3, 0xA6]); // cld; repe cmpsb
+        self.codigo.extend_from_slice(&[0x0F, 0x94, 0xC0]); // sete al
+        self.codigo.extend_from_slice(&[0x0F, 0xB6, 0xC0]); // movzx eax, al
+        let apos_comparacao = self.emitir_jmp();
+
+        let falso = self.codigo.len();
+        self.mov_rax(0);
+        let apos_falso = self.emitir_jmp();
+        let verdadeiro = self.codigo.len();
+        self.mov_rax(1);
+        let fim = self.codigo.len();
+        self.aplicar_salto(trecho_maior, falso);
+        self.aplicar_salto(trecho_vazio, verdadeiro);
+        self.aplicar_salto(apos_comparacao, fim);
+        self.aplicar_salto(apos_falso, fim);
         self.mov_rdx(0);
         Ok(())
     }
