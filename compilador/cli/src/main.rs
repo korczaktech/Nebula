@@ -1760,17 +1760,23 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro
+            r#"funcao principal() -> inteiro: {
     variavel negativo: inteiro128 = -42
     variavel estreito: inteiro64 = inteiro64(negativo)
     variavel ampliado: inteiro128 = inteiro128(estreito)
     variavel sem_sinal: inteiro_u128 = inteiro_u128(42)
     variavel de_volta: inteiro_u64 = inteiro_u64(sem_sinal)
-    quando estreito == -42 e ampliado == negativo e de_volta == 42
+    quando estreito == -42 e ampliado == negativo e de_volta == 42: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
@@ -1958,16 +1964,22 @@ fim"#,
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            r#"funcao principal(): inteiro
+            r#"funcao principal() -> inteiro: {
     variavel valor: decimal64 = 9223372036854775808.0
     variavel convertido: inteiro_u64 = inteiro_u64(valor)
     variavel esperado: inteiro_u64 = 9223372036854775808
     variavel decimal: decimal64 = decimal64(esperado)
-    quando convertido == esperado e decimal == valor
+    quando convertido == esperado e decimal == valor: {
         devolver 42
-    senao
+        fim
+    }
+    senao: {
         devolver 0
+        fim
+    }
     fim
+    fim
+}
 fim"#,
         )
         .unwrap();
@@ -1992,33 +2004,47 @@ fim"#,
     #[test]
     fn rejeita_nan_faixas_e_conversoes_128_invalidas() {
         let programas = [
-            r#"funcao principal(): inteiro64
+            r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 1e100
     devolver inteiro64(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro64
+            r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 0.0 / 0.0
     devolver inteiro64(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro_u64
+            r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = -1.0
     devolver inteiro_u64(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro_u64
+            r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = 18446744073709551616.0
     devolver inteiro_u64(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro64
+            r#"funcao principal() -> inteiro64: {
     variavel valor: inteiro128 = 9223372036854775808
     devolver inteiro64(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro128
+            r#"funcao principal() -> inteiro128: {
     variavel valor: inteiro_u128 = 170141183460469231731687303715884105728
     devolver inteiro128(valor)
+    fim
+}
 fim"#,
-            r#"funcao principal(): inteiro_u128
+            r#"funcao principal() -> inteiro_u128: {
     variavel valor: inteiro128 = -1
     devolver inteiro_u128(valor)
+    fim
+}
 fim"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
