@@ -1152,6 +1152,16 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Binaria { esquerda, operador, direita } => {
+                if self.tipo_expressao_atual(esquerda).as_ref() == Some(&Tipo::Texto)
+                    && matches!(operador, OperadorIr::Igual | OperadorIr::Diferente)
+                {
+                    self.emitir_igualdade_texto(
+                        esquerda,
+                        direita,
+                        *operador == OperadorIr::Diferente,
+                    )?;
+                    return Ok(());
+                }
                 if inteiro_128_expressao(esquerda) {
                     self.expressao(esquerda)?;
                     self.codigo.push(0x52); // push rdx = lhs high
@@ -2746,6 +2756,59 @@ impl Emissor {
         self.mov_rax(35); // SYS_nanosleep
         self.codigo.extend_from_slice(&[0x0F, 0x05]);
         self.mov_rax(0);
+        self.mov_rdx(0);
+        Ok(())
+    }
+
+    fn emitir_igualdade_texto(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+        diferente: bool,
+    ) -> Result<(), String> {
+        if self.tipo_expressao_atual(direita).as_ref() != Some(&Tipo::Texto) {
+            return Err("Comparação de texto exige dois operandos textuais.".into());
+        }
+        let temporario = self.reservar_agregado(32, 8)?;
+        self.expressao(esquerda)?;
+        self.armazenar_rax(temporario);
+        self.armazenar_rdx(temporario - 8);
+        self.expressao(direita)?;
+        self.armazenar_rax(temporario - 16);
+        self.armazenar_rdx(temporario - 24);
+
+        self.carregar_rax(temporario - 8);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = bytes esquerda
+        self.carregar_rax(temporario - 24);
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp bytes direita, esquerda
+        let tamanhos_diferentes = self.emitir_jcc(0x85); // jne
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
+        let vazio = self.emitir_jcc(0x84); // je
+
+        self.carregar_rax(temporario);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = esquerda
+        self.carregar_rax(temporario - 16);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = direita
+        self.carregar_rax(temporario - 24);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = bytes
+        self.codigo.extend_from_slice(&[0xFC, 0xF3, 0xA6]); // cld; repe cmpsb
+        self.codigo.extend_from_slice(&[0x0F, 0x94, 0xC0]); // sete al
+        self.codigo.extend_from_slice(&[0x0F, 0xB6, 0xC0]); // movzx eax, al
+        let apos_comparacao = self.emitir_jmp();
+
+        let falso = self.codigo.len();
+        self.mov_rax(0);
+        let apos_falso = self.emitir_jmp();
+        let verdadeiro = self.codigo.len();
+        self.mov_rax(1);
+        let fim = self.codigo.len();
+        self.aplicar_salto(tamanhos_diferentes, falso);
+        self.aplicar_salto(vazio, verdadeiro);
+        self.aplicar_salto(apos_comparacao, fim);
+        self.aplicar_salto(apos_falso, fim);
+        if diferente {
+            self.codigo.extend_from_slice(&[0x83, 0xF0, 0x01]); // xor eax, 1
+        }
         self.mov_rdx(0);
         Ok(())
     }
