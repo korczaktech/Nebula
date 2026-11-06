@@ -119,9 +119,9 @@ fim
 
 Neste exemplo, cada estrutura possui seu próprio encerramento. O `fim` mais interno encerra o bloco do segundo `se`; o seguinte encerra o primeiro `se`; o seguinte encerra o corpo da função; e o último encerra a declaração da função.
 
-Uma quebra de linha que inicia um corpo também exige `fim`, mesmo quando a forma não utiliza chaves. Portanto, nenhuma construção pode depender apenas da indentação para determinar onde termina seu corpo. A indentação continua obrigatória para legibilidade e validação estrutural, mas não substitui o encerramento explícito.
+Todo corpo usa a abertura `: {`; a quebra de linha após essa abertura apenas inicia o conteúdo. O conteúdo termina com `fim` antes de `}`, e a construção completa recebe outro `fim` depois da chave quando a gramática assim exigir. A indentação continua obrigatória para legibilidade e validação estrutural, mas não determina o fechamento.
 
-Os delimitadores de objetos e dicionários também seguem a regra: quando suas chaves representam um bloco/estrutura multilinha, o conteúdo deve terminar em `fim` antes do `}`. Declarações comuns de variável não passam a exigir Function Body apenas por serem declarações.
+Corpos estruturais de objetos, classes e blocos de variáveis usam Function Body e terminam com `fim` antes de `}`. Um dicionário usado como valor em uma declaração comum de variável é uma expressão de dados: suas chaves não exigem `fim`. Uma declaração comum de variável não passa a exigir Function Body apenas por ser uma declaração.
 
 ## 2.6. Proibição de formas antigas
 
@@ -521,13 +521,14 @@ variavel somar = (a, b) -> a + b
 variavel quadrado = x -> x ** 2
 ```
 
-Para funções com bloco, a seta é seguida por um bloco indentado, encerrado com `fim`:
+Para funções de seta com bloco, a seta é seguida por Function Body; o `fim` interno antecede `}`, e o `fim` externo encerra a lambda:
 
 ```nbx
-variavel calcular = (a, b) ->
+variavel calcular = (a, b) ->: {
     variavel resultado = a + b
     retorne resultado
-fim
+    fim
+} fim
 ```
 
 ## 12.6. `ceder`
@@ -1107,7 +1108,8 @@ importacao     = "incluir",
                  identificador,
                  ["como", identificador] ;
 
-bloco          = INDENT, { instrucao | declaracao }, DEDENT ;
+bloco          = ":", "{", { instrucao | declaracao }, "fim", "}", "fim" ;
+bloco_clausula = ":", "{", { instrucao | declaracao }, "fim", "}" ;
 ```
 
 # 30. Compilação e execução
