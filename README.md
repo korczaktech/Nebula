@@ -68,15 +68,15 @@ funcao principal() -> vazio: {
 
     quando idade >= 18: {
         exibir("Ola, " + nome)
-        fim
+
     }
     senao: {
         exibir("Bem-vindo")
-        fim
+
     }
-    fim
-    fim
-} fim
+
+
+}
 ```
 
 O exemplo demonstra a organização sintática. A disponibilidade de cada função depende da biblioteca, do runtime e do alvo utilizado.
