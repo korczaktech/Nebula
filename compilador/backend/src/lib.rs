@@ -4373,6 +4373,15 @@ mod testes {
     }
 
     #[test]
+    fn layout_nativo_de_caractere_usa_quatro_bytes() {
+        let emissor = Emissor::novo(HashMap::new());
+        assert_eq!(
+            emissor.tamanho_alinhamento_tipo(&Tipo::Caractere),
+            Some((4, 4))
+        );
+    }
+
+    #[test]
     fn valida_limites_de_layout_dos_agregados_na_abi() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.layouts_tipos.insert(
