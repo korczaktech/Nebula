@@ -4560,6 +4560,23 @@ mod testes {
     }
 
     #[test]
+    fn intervalo_de_inteiro_128_usa_representacao_indireta() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro128));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((32, 16)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
+    fn intervalo_decimal_usa_dois_registradores_de_endpoints() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Decimal64));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+    }
+
+    #[test]
     fn passa_e_retorna_intervalo_com_dois_endpoints() {
         let mut emissor = Emissor::novo(HashMap::new());
         let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
