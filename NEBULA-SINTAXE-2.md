@@ -7,13 +7,13 @@
 **Objetivo:** programação de sistemas, kernels, drivers, runtimes e controle de hardware  
 **Status:** proposta técnica formal para implementação; não implica que os recursos já existam no compilador.
 
-> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas, inclusive a obrigatoriedade de Function Body iniciado por `: {` e encerrado por `fim` antes de `}`; construções completas também exigem o `fim` externo. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
+> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas: Function Body iniciado por `: {` e encerrado por `}`. A palavra `fim` não é palavra reservada nem terminador de bloco. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
 
 ---
 
 ## Regra sintática herdada: Function Body
 
-Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer função, condicional, laço, classe, bloco de tratamento de erro, exportação ou outro corpo estrutural deve abrir com `: {`, terminar seu conteúdo com `fim` antes de `}`, e receber o `fim` externo quando a construção for completa. Blocos aninhados exigem encerramentos próprios. A sintaxe antiga baseada somente em indentação é rejeitada.
+Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer corpo estrutural deve abrir com `: {` e terminar com `}`. Blocos aninhados fecham suas próprias chaves; `fim` não possui função sintática.
 
 A palavra reservada assíncrona é `async`; `assinc` não é mais válida.
 
@@ -51,8 +51,8 @@ A linguagem distingue quatro contextos. Eles não são palavras mágicas que con
 critico: {
     variavel valor = memoria.ler<u32>(endereco)
     memoria.escrever<u32>(endereco, valor + 1)
-    fim
-} fim
+
+}
 ```
 
 A região crítica não desativa automaticamente todas as verificações. Ela autoriza somente operações que a especificação classificar como inseguras, e exige que os invariantes violados sejam responsabilidade do autor.
@@ -63,8 +63,8 @@ A região crítica não desativa automaticamente todas as verificações. Ela au
 privilegio sistema: {
     cpu.interrupcoes.desabilitar()
     cpu.parar()
-    fim
-} fim
+
+}
 ```
 
 O compilador deve rejeitar esse código em alvos sem suporte ou em programas sem perfil de privilégio compatível. A palavra `privilegio` nunca substitui permissões do processador, do firmware ou do sistema operacional.
@@ -134,8 +134,8 @@ estrutura Cabecalho: {
     codigo: u32
     tamanho: u16
     estado: u8
-    fim
-} fim
+
+}
 ```
 
 O compilador deve disponibilizar intrínsecos de consulta:
@@ -273,8 +273,8 @@ estado = bits.inverter(estado, 3)
 
 se bits.ler(estado, 5): {
     exibir("Bit 5 ativo")
-    fim
-} fim
+
+}
 ```
 
 As funções que retornam um valor devem deixar claro se modificam a variável original ou produzem uma nova. A forma preferida é retornar o valor transformado e exigir atribuição explícita.
@@ -317,8 +317,8 @@ Exemplo ilustrativo para x86-64:
 ```nbx
 se cpu.arquitetura() == "x86_64": {
     variavel valor = cpu.registro.ler(cpu.registro.rax)
-    fim
-} fim
+
+}
 ```
 
 O compilador deve rejeitar registradores que não existam no alvo. Registradores de controle, estado e privilégio exigem contexto privilegiado e contrato de segurança específico.
@@ -354,13 +354,13 @@ A biblioteca deve oferecer tipos vetoriais independentes de arquitetura, por exe
 ```nbx
 se cpu.simd.disponivel("vetorial_128"): {
     variavel resultado = simd.somar(vetorA, vetorB)
-    fim
+
 }
 senao: {
     variavel resultado = vetorA.somarElemento(vetorB)
-    fim
+
 }
-fim
+
 ```
 
 O nome de recurso acima é conceitual. A especificação final deve definir nomes canônicos para conjuntos de instruções, largura e alinhamento.
@@ -444,8 +444,8 @@ Disponível somente em arquiteturas/ambientes que implementem espaço de I/O por
 privilegio sistema: {
     variavel codigo = porta.ler8(0x60)
     porta.escrever8(0x20, 0x01)
-    fim
-} fim
+
+}
 ```
 
 O exemplo é ilustrativo e não configura um controlador real por si só. Em ARM64 e em muitos dispositivos RISC-V, o acesso a periféricos é feito por MMIO ou interfaces específicas, não por essas portas.
@@ -471,8 +471,8 @@ Exemplo:
 funcao tratarTeclado(evento: interrupcao.Evento): {
     variavel tecla = hardware.teclado.ler()
     teclado.processar(tecla)
-    fim
-} fim
+
+}
 
 interrupcao.registrar(33, tratarTeclado)
 ```
@@ -697,8 +697,8 @@ Exemplo:
 @secao(".nucleo")
 funcao iniciarKernel() -> vazio: {
     exibir("Kernel iniciado")
-    fim
-} fim
+
+}
 ```
 
 O nome de seção é uma solicitação ao linker; o formato final do executável e o script de ligação determinam o posicionamento efetivo. O compilador deve emitir erro se a seção não puder ser representada pelo alvo.
@@ -721,13 +721,13 @@ funcao iniciarControlador() -> resultado<hardware.Regiao, hardware.Erro>: {
 
     hardware.escreverVolatil<u32>(regiao, 0, 1)?
     retorne sucesso(regiao)
-    fim
-} fim
+
+}
 
 funcao consultarEstado(regiao: hardware.Regiao) -> resultado<u32, hardware.Erro>: {
     retorne hardware.lerVolatil<u32>(regiao, 4)
-    fim
-} fim
+
+}
 ```
 
 # 24. Exemplo integrado: interrupção
@@ -737,14 +737,14 @@ funcao tratarTeclado(evento: interrupcao.Evento) -> vazio: {
     variavel tecla = hardware.teclado.lerSemBloqueio()
     teclado.enfileirar(tecla)
     interrupcao.confirmar(evento)
-    fim
-} fim
+
+}
 
 funcao iniciarTeclado() -> resultado<vazio, sistema.Erro>: {
     interrupcao.registrar(33, tratarTeclado)?
     retorne sucesso()
-    fim
-} fim
+
+}
 ```
 
 O manipulador deve executar apenas operações permitidas no contexto de interrupção. Processamento pesado deve ser delegado a uma thread ou fila apropriada.
@@ -764,8 +764,8 @@ funcao enviar(buffer: memoria.Regiao<u8>) -> resultado<vazio, dma.Erro>: {
     dma.liberar(envio)
 
     retorne sucesso()
-    fim
-} fim
+
+}
 ```
 
 A região deve permanecer válida e inacessível para mutações incompatíveis durante a transferência, de acordo com o contrato do dispositivo.
@@ -859,11 +859,11 @@ Cada diagnóstico deve indicar causa, localização, requisito e uma possível c
 As produções abaixo descrevem apenas a forma sintática reconhecida. Os nomes de tipos, atributos, módulos e operações de hardware não se tornam implementados apenas por serem aceitos pelo Parser.
 
 ```ebnf
-bloco_critico       = "critico", ":", bloco, "fim" ;
+bloco_critico       = "critico", ":", bloco ;
 bloco_privilegiado  = "privilegio", identificador,
                       [ "<", lista_tipos, ">" ],
                       [ "(", argumentos, ")" ],
-                      [ ":" ], bloco, "fim" ;
+                      [ ":" ], bloco ;
 
 tipo_primitivo      = identificador ;
 tipo_ponteiro       = identificador, "<", tipo, ">" ;
@@ -880,7 +880,7 @@ expressao_montagem  = "montagem", identificador,
 bloco_montagem      = "montagem", identificador,
                       [ "<", lista_tipos, ">" ],
                       [ "(", argumentos, ")" ],
-                      [ ":" ], bloco, "fim" ;
+                      [ ":" ], bloco ;
 ```
 
 Observações de conformidade:
@@ -889,7 +889,7 @@ Observações de conformidade:
 2. Tipos como `ponteiro<T>`, `ponteiroBruto<T>`, `ponteiroVolatil<T>`, `vetor<T, N>` e `bloco<T, N>` usam a sintaxe genérica geral; isso não implementa suas operações.
 3. Atributos são armazenados na AST, mas seus argumentos e efeitos precisam de validação semântica específica.
 4. `expressao_montagem` é a expressão `montagem arquitetura<T>(argumentos)`.
-5. `bloco_montagem` é um bloco contextual iniciado por `montagem arquitetura` e encerrado por `fim`; não confundir as duas formas.
+5. `bloco_montagem` é um bloco contextual iniciado por `montagem arquitetura` e encerrado por `}`; não confundir as duas formas.
 6. A dereferência prefixa `*referencia` permanece proposta e não é reconhecida como operador unário pelo Parser atual.
 7. A gramática normativa geral continua sendo `especificacao/gramatica.md`.
 
@@ -994,4 +994,4 @@ Este documento descreve contratos e APIs-alvo. A sintaxe de blocos contextuais, 
 
 A matriz completa de cada construção e dos exemplos deste documento está em [`docs/AUDITORIA-SINTAXE.md`](docs/AUDITORIA-SINTAXE.md). Consulte-a antes de usar qualquer exemplo como teste de funcionalidade real.
 
-A EBNF da seção 30 é complementar e preliminar. A produção de `montagem` deve ser lida conforme as duas formas distintas atualmente reconhecidas: expressão de montagem com arquitetura, tipos opcionais e argumentos; ou bloco contextual `montagem arquitetura:` encerrado por `fim`. A palavra `fim` não é uma alternativa solta da expressão de montagem.
+A EBNF da seção 30 é complementar e preliminar. A produção de `montagem` deve ser lida conforme as duas formas distintas: expressão de montagem com arquitetura, tipos opcionais e argumentos; ou bloco contextual `montagem arquitetura:` encerrado por `}`.

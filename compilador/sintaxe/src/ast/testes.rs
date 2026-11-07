@@ -29,14 +29,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
-            TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
+            TipoBloco::Caso | TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
                 saida.push(indentacao("}", bloco.indentacao));
-            }
-            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
-                saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
             }
         }
     }
@@ -556,7 +550,7 @@ variavel indexada = itens[0]
 variavel membro = pessoa.nome
 variavel lista = [1, 2]
 variavel tupla = (1, 2)
-variavel construcao = Pessoa { nome: "Ana", fim }
+variavel construcao = Pessoa { nome: "Ana" }
 "#;
     let resultado = analisar(&ArquivoFonte::novo(
         "expressoes.nbx",

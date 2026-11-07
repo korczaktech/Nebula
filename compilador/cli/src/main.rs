@@ -361,7 +361,7 @@ fn criar_projeto(diretorio: &Path, nome: Option<&str>) -> Result<(), String> {
         .map_err(|erro| format!("não foi possível criar '{}': {erro}", diretorio.display()))?;
 
     let manifesto = format!("[pacote]\nnome = \"{nome_projeto}\"\nversao = \"0.1.0\"\n");
-    let fonte = "funcao principal(): {\n    passar\n    fim\n}\nfim\n";
+    let fonte = "funcao principal(): {\n    passar\n}\n";
     let resultado = (|| {
         escrever_novo(
             diretorio.join("nebula.toml").as_path(),
@@ -1641,7 +1641,7 @@ mod testes {
         let saida = std::env::temp_dir().join(&prefixo);
         std::fs::write(
             &origem,
-            "funcao principal() -> inteiro: {\n    quando verdadeiro: {\n        devolver 7\n        fim\n    }\n    senao: {\n        devolver 9\n        fim\n    }\n    fim\n    fim\n}\nfim",
+            "funcao principal() -> inteiro: {\n    quando verdadeiro: {\n        devolver 7\n    }\n    senao: {\n        devolver 9\n    }}",
         )
         .unwrap();
         compilar_arquivo_com_nivel(&origem, &saida, NivelOtimizacao::O2)
@@ -1677,14 +1677,14 @@ mod testes {
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n}\nfim",
+            "publico funcao valor() -> inteiro: {\n    devolver 40\n}",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n}\nfim",
+            "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n}",
         )
         .unwrap();
 
@@ -1720,7 +1720,7 @@ mod testes {
         let saida = diretorio.join("programa");
         std::fs::write(
             &origem,
-            "funcao somar(valor: inteiro) -> inteiro: {\n    devolver valor + 2\n    fim\n}\nfim\nfuncao consultar() -> funcao(inteiro) -> inteiro: {\n    devolver somar\n    fim\n}\nfim\nfuncao principal() -> inteiro: {\n    devolver consultar()(40)\n    fim\n}\nfim",
+            "funcao somar(valor: inteiro) -> inteiro: {\n    devolver valor + 2\n}\nfuncao consultar() -> funcao(inteiro) -> inteiro: {\n    devolver somar\n}\nfuncao principal() -> inteiro: {\n    devolver consultar()(40)\n}",
         )
         .unwrap();
 
@@ -1759,30 +1759,29 @@ mod testes {
             r#"estrutura Ponto: {
     x: inteiro64
     y: inteiro64
-    fim
+
 }
-fim
+
 funcao deslocar(ponto: Ponto) -> Ponto: {
-    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2, fim }
-    fim
+    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
+
 }
-fim
+
 funcao principal() -> inteiro: {
-    variavel original = Ponto { x: 39, y: 0, fim }
+    variavel original = Ponto { x: 39, y: 0 }
     original.x = 40
     variavel resultado = deslocar(original)
     quando resultado.x == 41 e resultado.y == 2: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -1822,41 +1821,40 @@ fim"#,
     escolha valor: {
         caso Opcional::Algum(conteudo): {
             devolver conteudo
-            fim
+
         }
         caso Opcional::Nenhum: {
             devolver 0
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao ler(valor: Resultado<inteiro64,inteiro64>) -> inteiro: {
     escolha valor: {
         caso Resultado::Sucesso(conteudo): {
             devolver conteudo
-            fim
+
         }
         caso Resultado::Falha(falha): {
             devolver falha
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel opcional: Opcional<inteiro64> = Opcional::Algum(40)
     variavel resultado: Resultado<inteiro64,inteiro64> = Resultado::Sucesso(2)
     devolver extrair(opcional) + ler(resultado)
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -1894,50 +1892,49 @@ fim"#,
     Sucesso(inteiro64)
     Falha(inteiro64)
     Vazio
-    fim
+
 }
-fim
+
 funcao transformar(resposta: Resposta) -> Resposta: {
     escolha resposta: {
         caso Resposta::Sucesso(valor): {
             devolver Resposta::Falha(valor + 1)
-            fim
+
         }
         caso Resposta::Falha(falha): {
             devolver Resposta::Sucesso(falha + 1)
-            fim
+
         }
         caso Resposta::Vazio: {
             devolver Resposta::Vazio
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel resultado = transformar(Resposta::Sucesso(41))
     escolha resultado: {
         caso Resposta::Sucesso(valor): {
             devolver 0
-            fim
+
         }
         caso Resposta::Falha(falha): {
             devolver falha
-            fim
+
         }
         caso Resposta::Vazio: {
             devolver 1
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -1973,24 +1970,23 @@ fim"#,
             &origem,
             r#"funcao inverter(par: Tupla<inteiro64,inteiro64>) -> Tupla<inteiro64,inteiro64>: {
     devolver (par[1], par[0])
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel original = (40, 2)
     variavel resultado = inverter(original)
     quando resultado[0] == 2 e resultado[1] == 40: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2034,16 +2030,15 @@ fim"#,
     variavel de_volta: inteiro_u64 = inteiro_u64(sem_sinal)
     quando estreito == -42 e ampliado == negativo e de_volta == 42: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2082,19 +2077,19 @@ fim"#,
             r#"variavel valorGlobal: inteiro128 = 1208925819614629174706176
 funcao somar(a: inteiro128, b: inteiro128) -> inteiro128: {
     devolver a + b
-    fim
+
 }
-fim
+
 funcao identidade(valor: inteiro128) -> inteiro128: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao identidade_sem_sinal(valor: inteiro_u128) -> inteiro_u128: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel soma = somar(valorGlobal, valorGlobal)
     variavel esperado: inteiro128 = 2417851639229258349412352
@@ -2104,16 +2099,15 @@ funcao principal() -> inteiro: {
     variavel zero: inteiro_u128 = 0
     quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2158,16 +2152,15 @@ fim"#,
     variavel esperado_misto: decimal64 = 16777218.0
     quando soma == esperado e soma_mista == esperado_misto: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2206,9 +2199,8 @@ fim"#,
             r#"funcao principal() -> inteiro64: {
     variavel decimal: decimal64 = 42.75
     devolver inteiro64(decimal)
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -2249,16 +2241,15 @@ fim"#,
     variavel decimal: decimal64 = decimal64(esperado)
     quando convertido == esperado e decimal == valor: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2285,45 +2276,38 @@ fim"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 1e100
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 0.0 / 0.0
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = -1.0
     devolver inteiro_u64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = 18446744073709551616.0
     devolver inteiro_u64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: inteiro128 = 9223372036854775808
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro128: {
     variavel valor: inteiro_u128 = 170141183460469231731687303715884105728
     devolver inteiro128(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u128: {
     variavel valor: inteiro128 = -1
     devolver inteiro_u128(valor)
-    fim
-}
-fim"#,
+
+}"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
             let sufixo = std::time::SystemTime::now()
@@ -2376,16 +2360,15 @@ fim"#,
     variavel letra: caractere = '🛰'
     quando letra == '🛰': {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2414,44 +2397,43 @@ fim"#,
             r#"estrutura Medidas: {
     curta: decimal32
     longa: decimal64
-    fim
+
 }
-fim
+
 enumeracao Evento: {
     Vazio
     Medida(decimal64)
-    fim
+
 }
-fim
+
 funcao identidade(valor: Medidas) -> Medidas: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
-    variavel entrada = Medidas { curta: 1.25, longa: 42.5, fim }
+    variavel entrada = Medidas { curta: 1.25, longa: 42.5 }
     variavel retorno = identidade(entrada)
     variavel evento = Evento::Medida(42.5)
     escolha evento: {
         caso Evento::Medida(valor): {
             quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5): {
                 devolver 42
-                fim
+
             }
-            fim
-            fim
+
+
         }
         caso Evento::Vazio: {
             passar
-            fim
+
         }
-        fim
+
     }
-    fim
+
     devolver 0
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -2501,7 +2483,7 @@ fim"#,
         let origem = diretorio.join("principal.nbx");
         std::fs::write(
             &modulo,
-            "publico funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n}\nfim",
+            "publico funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n}",
         )
         .unwrap();
         let codigo =
@@ -2537,7 +2519,7 @@ fim"#,
         let origem = diretorio.join("principal.nbx");
         std::fs::write(
             &modulo,
-            "funcao somar(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n    fim\n}\nfim\npublico funcao dobro(valor: inteiro) -> inteiro: {\n    devolver somar(valor, valor)\n    fim\n}\nfim",
+            "funcao somar(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n}\npublico funcao dobro(valor: inteiro) -> inteiro: {\n    devolver somar(valor, valor)\n}",
         )
         .unwrap();
         std::fs::write(
@@ -2558,12 +2540,12 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Base.nbx"),
-            "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n}\nfim",
+            "publico funcao valor() -> inteiro: {\n    devolver 40\n}",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("Servico.nbx"),
-            "incluir(biblioteca: Base)\npublico funcao consultar() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n}\nfim",
+            "incluir(biblioteca: Base)\npublico funcao consultar() -> inteiro: {\n    devolver Base::valor() + 2\n}",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2581,12 +2563,12 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("A.nbx"),
-            "incluir(biblioteca: B)\npublico funcao a() -> inteiro: {\n    devolver 1\n    fim\n}\nfim",
+            "incluir(biblioteca: B)\npublico funcao a() -> inteiro: {\n    devolver 1\n}",
         )
         .unwrap();
         std::fs::write(
             diretorio.join("B.nbx"),
-            "incluir(biblioteca: A)\npublico funcao b() -> inteiro: {\n    devolver 2\n    fim\n}\nfim",
+            "incluir(biblioteca: A)\npublico funcao b() -> inteiro: {\n    devolver 2\n}",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");
@@ -2612,7 +2594,7 @@ fim"#,
         std::fs::create_dir_all(&diretorio).unwrap();
         std::fs::write(
             diretorio.join("Interno.nbx"),
-            "funcao segredo() -> inteiro: {\n    devolver 42\n    fim\n}\nfim\npublico funcao visivel() -> inteiro: {\n    devolver segredo()\n    fim\n}\nfim",
+            "funcao segredo() -> inteiro: {\n    devolver 42\n}\npublico funcao visivel() -> inteiro: {\n    devolver segredo()\n}",
         )
         .unwrap();
         let origem = diretorio.join("principal.nbx");

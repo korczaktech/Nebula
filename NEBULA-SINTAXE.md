@@ -6,7 +6,7 @@
 **Paradigma:** Multiparadigma  
 **Tipagem:** Estática, forte e com inferência  
 **Memória:** Gerenciamento híbrido  
-**Blocos:** Function Body `: { ... fim }` e encerramento explícito  
+**Blocos:** Function Body `: { ... }`, delimitado por chaves  
 **Codificação:** UTF-8
 
 > Documento temporário de referência para a definição da sintaxe Nebula. A presença de uma construção neste documento não significa que ela já esteja implementada no compilador.
@@ -54,9 +54,9 @@ Os delimitadores `()`, `[]`, `<>` e `{}` são obrigatórios nos contextos em que
 
 A indentação é obrigatória em todos os blocos e deve ser consistente. O padrão recomendado é de quatro espaços por nível. Ela organiza a leitura e permite validar a apresentação, mas não substitui os delimitadores sintáticos do Function Body.
 
-## 2.3. Encerramento obrigatório
+## 2.3. Delimitação dos blocos
 
-Todo corpo executável ou estrutural deve abrir com `: {`. O conteúdo termina com `fim` antes de `}`. Depois da chave, a construção completa recebe outro `fim`. Cada bloco aninhado possui seus próprios encerramentos.
+Todo corpo executável ou estrutural abre com `: {` e termina com `}`. As chaves são os únicos delimitadores de abertura e fechamento do corpo. Não existe palavra-chave de encerramento de bloco.
 
 ## 2.4. Estrutura geral
 
@@ -66,39 +66,22 @@ variavel nome: texto = "Nebula"
 funcao principal(): {
     se nome == "Nebula": {
         exibir("Bem-vindo")
-        fim
     }
     senao: {
         exibir("Desconhecido")
-        fim
     }
-    fim
-    fim
-} fim
+}
 
 principal()
 ```
 
 ## 2.5. Function Body obrigatório
 
-Toda construção que introduz um corpo executável ou estrutural deve utilizar obrigatoriamente um **Function Body**. Não é permitido escrever o corpo dessas construções como uma sequência livre de linhas sem delimitador de abertura.
+Toda construção que introduz um corpo executável ou estrutural deve utilizar obrigatoriamente um **Function Body** iniciado por `: {` e encerrado por `}`.
 
-A regra aplica-se obrigatoriamente a:
+A regra aplica-se obrigatoriamente a funções, condicionais, laços, seleção, tratamento de erros, classes, exportações com corpo, corpos estruturais de objetos e dicionários, blocos de variáveis e funções assíncronas.
 
-- funções (`funcao`);
-- tratamento e captura de erros (`tente`, `erro));
-- condicionais (`se`, `sendo`, `senao));
-- laços (`sempre`, `para`, `enquanto`);
-- seleção (`escolha`, `caso`);
-- exportações com corpo (`exportar`);
-- classes (`classe));
-- corpos de objetos e dicionários;
-- blocos de variáveis (não se aplica a declarações comuns de variável);
-- funções assíncronas (`async)).
-
-A abertura do corpo é escrita com `:` seguida de `{`. O encerramento é escrito com `fim` na última linha do conteúdo do bloco e, em seguida, `}` para fechar o delimitador visual. Cada bloco aninhado precisa encerrar o próprio conteúdo com seu próprio `fim` antes de fechar seu `}`.
-
-O `fim` deve ficar na coluna correspondente ao conteúdo final do bloco: imediatamente depois do último comando, argumento ou símbolo pertencente àquele corpo. Ele significa **“bloco fechado aqui”**. Não substitui o `}`, e o `}` não substitui o `fim`.
+Blocos aninhados são delimitados individualmente por suas próprias chaves. A indentação continua obrigatória e deve corresponder ao aninhamento das chaves; ela também é validada pelo Lexer e pelo Parser, mas não substitui os delimitadores.
 
 Exemplo normativo:
 
@@ -108,20 +91,12 @@ funcao teste(): {
         exibir(x)
         se aquilo == aquilo: {
             exibir(y)
-            fim
         }
-        fim
     }
-    fim
 }
-fim
 ```
 
-Neste exemplo, cada estrutura possui seu próprio encerramento. O `fim` mais interno encerra o bloco do segundo `se`; o seguinte encerra o primeiro `se`; o seguinte encerra o corpo da função; e o último encerra a declaração da função.
-
-Todo corpo usa a abertura `: {`; a quebra de linha após essa abertura apenas inicia o conteúdo. O conteúdo termina com `fim` antes de `}`, e a construção completa recebe outro `fim` depois da chave quando a gramática assim exigir. A indentação continua obrigatória para legibilidade e validação estrutural, mas não determina o fechamento.
-
-Corpos estruturais de objetos, classes e blocos de variáveis usam Function Body e terminam com `fim` antes de `}`. Um dicionário usado como valor em uma declaração comum de variável é uma expressão de dados: suas chaves não exigem `fim`. Uma declaração comum de variável não passa a exigir Function Body apenas por ser uma declaração.
+Objetos usados como valores continuam sendo expressões de dados. Suas chaves fecham a expressão e não exigem terminadores adicionais.
 
 ## 2.6. Proibição de formas antigas
 
@@ -193,7 +168,7 @@ Formas sem Function Body, como `funcao teste()` seguida diretamente por linhas i
 
 Observações:
 - `nao` representa negação lógica e o valor lógico falso, conforme o contexto.
-- `pare` interrompe o laço atual; `fim` encerra um bloco.
+- `pare` interrompe o laço atual; `}` encerra o corpo do bloco.
 - `prossiga` pula para a próxima repetição.
 - `isto` referencia a instância atual de uma classe.
 - `sendo` é reservado para condições alternativas.
@@ -207,8 +182,8 @@ Executa um bloco quando a condição é verdadeira.
 ```nbx
 se idade >= 18: {
     exibir("Maior de idade")
-    fim
-} fim
+
+}
 ```
 
 ## 4.2. `sendo`
@@ -218,21 +193,21 @@ Representa uma condição alternativa.
 ```nbx
 se nota >= 9: {
     exibir("Excelente")
-    fim
+
 }
 sendo nota >= 7: {
     exibir("Aprovado")
-    fim
+
 }
 sendo nota >= 5: {
     exibir("Recuperacao")
-    fim
+
 }
 senao: {
     exibir("Reprovado")
-    fim
+
 }
-fim
+
 ```
 
 ## 4.3. `senao`
@@ -242,13 +217,13 @@ Executa quando nenhuma condição anterior for satisfeita.
 ```nbx
 se ativo == sim: {
     exibir("Ativo")
-    fim
+
 }
 senao: {
     exibir("Inativo")
-    fim
+
 }
-fim
+
 ```
 
 ## 4.4. `escolha`
@@ -259,22 +234,22 @@ Seleciona uma opção entre várias possibilidades.
 escolha opcao: {
     caso 1: {
         exibir("Iniciar")
-        fim
+
     }
     caso 2: {
         exibir("Configuracoes")
-        fim
+
     }
     caso 3: {
         exibir("Sair")
-        fim
+
     }
     padrao: {
         exibir("Opcao invalida")
-        fim
+
     }
-    fim
-} fim
+
+}
 ```
 
 # 5. Repetições
@@ -286,8 +261,8 @@ Percorre uma sequência.
 ```nbx
 para numero dentro faixa(0, 10): {
     exibir(numero)
-    fim
-} fim
+
+}
 ```
 
 ## 5.2. `enquanto`
@@ -300,8 +275,8 @@ variavel contador: inteiro = 0
 enquanto contador < 10: {
     exibir(contador)
     contador =+ 1
-    fim
-} fim
+
+}
 ```
 
 ## 5.3. `pare`
@@ -312,10 +287,10 @@ Interrompe completamente o laço atual.
 para numero dentro faixa(0, 100): {
     se numero == 10: {
         pare
-        fim
+
     }
-    fim
-} fim
+
+}
 ```
 
 ## 5.4. `prossiga`
@@ -326,12 +301,12 @@ Pula a repetição atual.
 para numero dentro faixa(0, 10): {
     se numero == 5: {
         prossiga
-        fim
+
     }
-    fim
+
     exibir(numero)
-    fim
-} fim
+
+}
 ```
 
 ## 5.5. `passar`
@@ -341,8 +316,8 @@ Não executa nenhuma operação. Serve como instrução vazia explícita.
 ```nbx
 funcao futura(): {
     passar
-    fim
-} fim
+
+}
 ```
 
 # 6. Variáveis e constantes
@@ -487,8 +462,8 @@ variavel resultado = divres(10, 3)
 ```nbx
 se idade >= 18 e autorizado == sim: {
     exibir("Acesso permitido")
-    fim
-} fim
+
+}
 ```
 
 # 11. Atribuições
@@ -515,8 +490,8 @@ Também são aceitos os aliases convencionais `+=`, `-=`, `*=`, `/=`, `\\=`, `%=
 ```nbx
 funcao somar(a: inteiro, b: inteiro) -> inteiro: {
     retorne a + b
-    fim
-} fim
+
+}
 ```
 
 ## 12.2. Parâmetros padrão
@@ -524,8 +499,8 @@ funcao somar(a: inteiro, b: inteiro) -> inteiro: {
 ```nbx
 funcao saudar(nome: texto = "Visitante"): {
     exibir("Ola, " + nome)
-    fim
-} fim
+
+}
 ```
 
 ## 12.3. Parâmetros nomeados
@@ -534,8 +509,8 @@ funcao saudar(nome: texto = "Visitante"): {
 funcao criarUsuario(nome: texto, idade: inteiro): {
     exibir(nome)
     exibir(idade)
-    fim
-} fim
+
+}
 
 criarUsuario(nome = "Ana", idade = 25)
 ```
@@ -555,14 +530,14 @@ variavel somar = (a, b) -> a + b
 variavel quadrado = x -> x ** 2
 ```
 
-Para funções de seta com bloco, a seta é seguida por Function Body; o `fim` interno antecede `}`, e o `fim` externo encerra a lambda:
+Para funções de seta com bloco, a seta é seguida por Function Body delimitado por `: {` e `}`:
 
 ```nbx
 variavel calcular = (a, b) ->: {
     variavel resultado = a + b
     retorne resultado
-    fim
-} fim
+
+}
 ```
 
 ## 12.6. `ceder`
@@ -573,10 +548,10 @@ Produz valores incrementalmente, permitindo a construção de geradores.
 funcao contar(): {
     para numero dentro faixa(1, 6): {
         ceder numero
-        fim
+
     }
-    fim
-} fim
+
+}
 ```
 
 # 13. Classes e objetos
@@ -588,15 +563,15 @@ classe Pessoa: {
     funcao construtor(nome: texto, idade: inteiro): {
         isto.nome = nome
         isto.idade = idade
-        fim
-    } fim
+
+    }
 
     funcao apresentar(): {
         exibir(isto.nome)
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 ```
 
 ## 13.2. Instanciação
@@ -612,18 +587,18 @@ pessoa.apresentar()
 classe Animal: {
     funcao emitirSom(): {
         exibir("Som")
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 
 classe Cachorro herda Animal: {
     funcao latir(): {
         exibir("Au au")
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 ```
 
 ## 13.4. Visibilidade e membros
@@ -663,9 +638,9 @@ exibir(mat.raiz(25))
 ```nbx
 exportar funcao somar(a, b): {
     retorne a + b
-    fim
+
 }
-fim
+
 ```
 
 # 15. Tratamento de erros
@@ -675,17 +650,17 @@ fim
 ```nbx
 tente: {
     variavel numero = inteiro("abc")
-    fim
+
 }
 erro ValorInvalido: {
     exibir("Valor incorreto")
-    fim
+
 }
 sempre: {
     exibir("Finalizado")
-    fim
+
 }
-fim
+
 ```
 
 ## 15.2. Lançar erros
@@ -717,8 +692,8 @@ variavel contador = 0
 funcao incrementar(): {
     global contador
     contador =+ 1
-    fim
-} fim
+
+}
 ```
 
 # 17. Programação assíncrona
@@ -730,9 +705,9 @@ Declara uma função assíncrona. A palavra reservada obrigatória é `async`.
 ```nbx
 async funcao buscarDados(): {
     exibir("Buscando...")
-    fim
+
 }
-fim
+
 ```
 
 ## 17.2. `aguarda`
@@ -743,9 +718,9 @@ Aguarda a conclusão de uma operação assíncrona.
 async funcao principal(): {
     variavel resultado = aguarda buscarDados()
     exibir(resultado)
-    fim
+
 }
-fim
+
 ```
 
 # 18. Entrada, saída e arquivos
@@ -793,7 +768,7 @@ Modos previstos:
 com abrir("dados.txt", "leitura") como arquivo
     variavel conteudo = ler(arquivo)
     exibir(conteudo)
-fim
+
 ```
 
 # 19. Métodos de texto
@@ -1032,21 +1007,21 @@ classe Usuario: {
     funcao construtor(nome: texto, idade: inteiro): {
         isto.nome = nome
         isto.idade = idade
-        fim
-    } fim
+
+    }
 
     funcao apresentar(): {
         exibir(`Nome: ${isto.nome}`)
         exibir(`Idade: ${isto.idade}`)
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 
 funcao verificarIdade(idade: inteiro) -> logico: {
     retorne idade >= 18
-    fim
-} fim
+
+}
 
 funcao principal(): {
     variavel nome = lerTexto("Digite seu nome: ")
@@ -1057,14 +1032,14 @@ funcao principal(): {
 
     se verificarIdade(idade): {
         exibir("Cadastro autorizado")
-        fim
+
     }
     senao: {
         exibir("Cadastro nao autorizado")
-        fim
+
     }
-    fim
-} fim
+
+}
 
 principal()
 ```
@@ -1138,18 +1113,15 @@ classe         = "classe", identificador,
                  ["herda", identificador],
                  bloco ;
 
-condicional    = "se", expressao, bloco_clausula,
-                 {"sendo", expressao, bloco_clausula},
-                 ["senao", bloco_clausula],
-                 "fim" ;
+condicional    = "se", expressao, bloco,
+                  {"sendo", expressao, bloco},
+                  ["senao", bloco] ;
 
 repeticao      = ("para", identificador, "dentro", expressao
                  | "enquanto", expressao),
                  bloco ;
 
-selecao        = "escolha", expressao, ":", "{",
-                 { ("caso", expressao | "padrao"), bloco_clausula },
-                 "fim", "}", "fim" ;
+selecao        = "escolha", expressao, bloco ;
 
 retorno        = "retorne", [expressao] ;
 
@@ -1162,8 +1134,8 @@ importacao     = "incluir", "(",
                  "biblioteca", ":", caminho, ")",
                  ["como", identificador] ;
 
-bloco          = ":", "{", { instrucao | declaracao }, "fim", "}", "fim" ;
-bloco_clausula = ":", "{", { instrucao | declaracao }, "fim", "}" ;
+bloco          = ":", "{", { instrucao | declaracao }, "}" ;
+bloco_clausula = bloco ;
 ```
 
 # 30. Compilação e execução
@@ -1197,7 +1169,7 @@ nebula interpretar programa.nbx
 3. Nomes curtos e intuitivos.
 4. CamelCase para nomes compostos.
 5. Indentação obrigatória.
-6. `fim` obrigatório para encerramento de blocos.
+6. Corpos delimitados exclusivamente por `{` e `}`.
 7. `()`, `[]`, `<>` e `{}` obrigatórios nos respectivos contextos gramaticais.
 8. Tipagem estática e forte.
 9. Inferência de tipos.

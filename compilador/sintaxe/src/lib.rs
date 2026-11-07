@@ -63,7 +63,7 @@ impl Parser {
                 self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
                 self.avancar();
             } else if !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FechaChave)
-                && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Senao)
+                 && !self.verifica(TipoToken::Senao)
                 && !self.separador_atual() && !bloco_recuperado {
                 self.erro_atual("N2001", "Esperado quebra de linha ou ';' entre instruções.");
                 self.sincronizar_item();
@@ -102,7 +102,7 @@ impl Parser {
     }
     fn item_interno(&mut self) -> Option<NoAst> {
         match self.tipo() {
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco => {
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave  => {
                 self.erro_atual("N2051", "Delimitador de fechamento sem abertura correspondente ou fora do bloco esperado.");
                 None
             }
@@ -413,30 +413,37 @@ impl Parser {
 
     fn tente(&mut self) -> Option<NoAst> {
         self.avancar();
-        let corpo = self.bloco_sem_fim()?;
+        let corpo = self.bloco()?;
         let mut capturas = Vec::new();
-        self.pular_novas_linhas();
-        while self.corresponde(TipoToken::Erro) {
+        while self.proximo_tipo_significativo() == TipoToken::Erro {
+            self.pular_novas_linhas();
+            self.avancar();
             let tipo = if self.verifica(TipoToken::Identificador) {
                 Some(self.avancar().lexema)
-            } else { None };
-            let corpo_captura = self.bloco_sem_fim()?;
-            capturas.push(CapturaAst { tipo, corpo: corpo_captura });
+            } else {
+                None
+            };
+            let corpo_captura = self.bloco()?;
+            capturas.push(CapturaAst {
+                tipo,
+                corpo: corpo_captura,
+            });
+        }
+        let sempre = if self.proximo_tipo_significativo() == TipoToken::Sempre {
             self.pular_novas_linhas();
-        }
-        let sempre = if self.corresponde(TipoToken::Sempre) {
-            self.bloco_sem_fim()?
-        } else { Vec::new() };
-        self.pular_novas_linhas();
-        if self.verifica(TipoToken::FimBloco) {
             self.avancar();
+            self.bloco()?
         } else {
-            self.erro_atual("N2009", "Bloco 'tente' precisa terminar com 'fim'.");
-        }
+            Vec::new()
+        };
         if capturas.is_empty() && sempre.is_empty() {
             self.erro_atual("N2007", "'tente' precisa de ao menos uma cláusula 'erro' ou 'sempre'.");
         }
-        Some(NoAst::Tente { corpo, capturas, sempre })
+        Some(NoAst::Tente {
+            corpo,
+            capturas,
+            sempre,
+        })
     }
 
     fn com(&mut self) -> Option<NoAst> {
@@ -478,42 +485,35 @@ impl Parser {
         self.separadores();
         Some(())
     }
-    fn fechar_declaracao_indentada(&mut self, mensagem: &str) {
-        if self.corresponde(TipoToken::FimBloco) {
-            self.separadores();
-        } else {
-            self.erro_atual("N2009", mensagem);
-        }
+    fn fechar_declaracao_indentada(&mut self, _mensagem: &str) {
         while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
         self.esperar(TipoToken::FechaChave, "Declaração estrutural não foi fechada com '}'.");
-        self.separadores();
-        self.esperar(TipoToken::FimBloco, "Declaração estrutural precisa terminar com outro 'fim' após '}'.");
     }
     fn estrutura(&mut self) -> Option<NoAst> {
         self.avancar();
         let nome = self.consumir_nome("Esperado nome após 'estrutura'.")?;
         self.abrir_declaracao_indentada("N2030", "Esperado ':' após o nome da estrutura.")?;
         let mut campos = Vec::new();
-        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim)  {
             let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let campo = match self.consumir_nome("Esperado nome do campo da estrutura.") {
                 Some(campo) => campo,
                 None => {
-                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave, TipoToken::FimBloco]);
+                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave]);
                     if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                     break;
                 }
             };
             if !self.corresponde(TipoToken::DoisPontos) {
                 self.erro_atual("N2032", "Esperado ':' após nome do campo da estrutura.");
-                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave, TipoToken::FimBloco]);
+                self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FechaChave]);
                 if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                 break;
             }
             let tipo = match self.caminho_tipo() {
                 Some(tipo) => tipo,
                 None => {
-                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FimBloco]);
+                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent]);
                     if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                     break;
                 }
@@ -521,7 +521,7 @@ impl Parser {
             if campos.iter().any(|(existente, _)| existente == &campo) {
                 self.erro_intervalo("N2031", "Campo declarado mais de uma vez na estrutura.", intervalo);
             } else { campos.push((campo, tipo)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica(TipoToken::FimBloco)) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave)) {
                 self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
                 self.sincronizar();
             }
@@ -536,12 +536,12 @@ impl Parser {
         let nome = self.consumir_nome("Esperado nome após 'enumeracao'.")?;
         self.abrir_declaracao_indentada("N2033", "Esperado ':' após o nome da enumeração.")?;
         let mut variantes: Vec<(String, Vec<String>)> = Vec::new();
-        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+        while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::Fim)  {
             let intervalo = self.tokens.get(self.atual).map(|token| token.intervalo);
             let variante = match self.consumir_nome("Esperado nome da variante.") {
                 Some(variante) => variante,
                 None => {
-                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent, TipoToken::FimBloco]);
+                    self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::Dedent]);
                     if self.corresponde(TipoToken::Virgula) || self.separador_atual() { self.separadores(); continue; }
                     break;
                 }
@@ -570,7 +570,7 @@ impl Parser {
             if variantes.iter().any(|(existente, _)| existente == &variante) {
                 self.erro_intervalo("N2034", "Variante declarada mais de uma vez na enumeração.", intervalo);
             } else { variantes.push((variante, payload)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica(TipoToken::FimBloco)) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave)) {
                 self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
                 self.sincronizar();
             }
@@ -617,13 +617,13 @@ impl Parser {
     fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar();
         let condicao = self.expressao_antes_de_bloco()?;
-        let entao = self.bloco_sem_fim()?;
+        let entao = self.bloco()?;
         let mut alternativas = Vec::new();
         while self.proximo_tipo_significativo() == TipoToken::Sendo {
             self.pular_novas_linhas();
             self.avancar();
             let condicao_alternativa = self.expressao_antes_de_bloco()?;
-            let corpo_alternativo = self.bloco_sem_fim()?;
+            let corpo_alternativo = self.bloco()?;
             alternativas.push((condicao_alternativa, corpo_alternativo));
         }
         let mut senao = if self.proximo_tipo_significativo() == TipoToken::Senao {
@@ -633,17 +633,11 @@ impl Parser {
                 self.pular_novas_linhas();
                 vec![self.quando()?]
             } else {
-                self.bloco_sem_fim()?
+                self.bloco()?
             }
         } else {
             Vec::new()
         };
-        self.pular_novas_linhas();
-        if self.verifica(TipoToken::FimBloco) {
-            self.avancar();
-        } else {
-            self.erro_atual("N2009", "Condicional precisa terminar com 'fim'.");
-        }
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
                 condicao: condicao_alternativa,
@@ -671,7 +665,7 @@ impl Parser {
         let mut possui_curinga = false;
         let mut padroes_vistos: Vec<(String, String)> = Vec::new();
         while !(if corpo_com_chaves { self.verifica(TipoToken::FechaChave) } else { self.verifica(TipoToken::Dedent) })
-            && !self.verifica(TipoToken::Fim) && !self.verifica(TipoToken::FimBloco) {
+            && !self.verifica(TipoToken::Fim)  {
             let padrao_padrao = self.corresponde(TipoToken::Padrao);
             if !padrao_padrao && !self.corresponde(TipoToken::Caso) {
                 self.erro_atual("N2041", "Esperado 'caso' ou 'padrao' dentro de escolha.");
@@ -815,7 +809,7 @@ impl Parser {
                     self.avancar();
                 }
             }
-            let corpo = match self.bloco_sem_fim() {
+            let corpo = match self.bloco() {
                 Some(corpo) => corpo,
                 None => {
                     if !self.separador_atual()
@@ -844,16 +838,10 @@ impl Parser {
             self.separadores();
         }
         if corpo_com_chaves {
-            if self.corresponde(TipoToken::FimBloco) {
-                self.separadores();
-            } else {
-                self.erro_atual("N2009", "Function Body de escolha precisa terminar com 'fim' antes de '}'.");
-            }
+            
             while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
             self.esperar(TipoToken::FechaChave, "Function Body de escolha não foi fechado com '}'.");
-            self.separadores();
-            if self.verifica(TipoToken::FimBloco) { self.avancar(); }
-            else { self.erro_atual("N2009", "Escolha precisa terminar com outro 'fim' após '}'."); }
+            
         }
         if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
         Some(NoAst::Escolha { valor, casos })
@@ -906,12 +894,9 @@ impl Parser {
         Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
     }
     fn bloco(&mut self) -> Option<Vec<NoAst>> {
-        self.com_profundidade(|parser| parser.bloco_interno(true))
+        self.com_profundidade(|parser| parser.bloco_interno())
     }
-    fn bloco_sem_fim(&mut self) -> Option<Vec<NoAst>> {
-        self.com_profundidade(|parser| parser.bloco_interno(false))
-    }
-    fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
+    fn bloco_interno(&mut self) -> Option<Vec<NoAst>> {
         if !self.corresponde(TipoToken::DoisPontos) {
             self.erro_atual("N2007", "Function Body exige ':' seguido de '{'. A forma antiga com indentação foi removida.");
             return None;
@@ -924,15 +909,13 @@ impl Parser {
 
         self.separadores();
         let mut itens = Vec::new();
-        while !self.verifica(TipoToken::FimBloco)
-            && !self.verifica(TipoToken::FechaChave)
+        while  !self.verifica(TipoToken::FechaChave)
             && !self.verifica(TipoToken::Fim)
         {
             let antes = self.atual;
             let diagnosticos_antes = self.diagnosticos.len();
             while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
-            if self.verifica(TipoToken::FimBloco)
-                || self.verifica(TipoToken::FechaChave)
+            if self.verifica(TipoToken::FechaChave)
                 || self.verifica(TipoToken::Fim) {
                 break;
             }
@@ -945,8 +928,7 @@ impl Parser {
             if self.fechamento_incompativel_com_chaves() {
                 self.erro_atual("N2051", "Delimitador de fechamento incompatível com o Function Body.");
                 self.avancar();
-            } else if !self.verifica(TipoToken::FimBloco)
-                && !self.verifica(TipoToken::FechaChave)
+            } else if  !self.verifica(TipoToken::FechaChave)
                 && !self.separador_atual()
                 && !bloco_recuperado
             {
@@ -956,22 +938,10 @@ impl Parser {
             self.separadores();
         }
 
-        if self.corresponde(TipoToken::FimBloco) {
-            self.separadores();
-        } else {
-            self.erro_atual("N2009", "Function Body precisa terminar com 'fim' antes de '}'.");
-        }
+        
         while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
         self.esperar(TipoToken::FechaChave, "Function Body aberto com '{' não foi fechado com '}'.");
 
-        if consumir_fim {
-            self.separadores();
-            if self.verifica(TipoToken::FimBloco) {
-                self.avancar();
-            } else {
-                self.erro_atual("N2009", "A construção precisa terminar com outro 'fim' após '}'.");
-            }
-        }
         Some(itens)
     }
     fn caminho_tipo(&mut self) -> Option<String> {
@@ -1118,7 +1088,7 @@ impl Parser {
                 };
                 Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
             }
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave  | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
                 let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
@@ -1185,7 +1155,7 @@ impl Parser {
                 if parece_construcao && self.corresponde(TipoToken::AbreChave) {
                     let mut campos = Vec::new();
                     self.separadores();
-                    while !self.verifica(TipoToken::FechaChave) && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::Fim) {
+                    while !self.verifica(TipoToken::FechaChave)  && !self.verifica(TipoToken::Fim) {
                         let intervalo_campo = self.tokens.get(self.atual).map(|token| token.intervalo);
                         let campo = match self.consumir_nome("Esperado nome do campo na construção da estrutura.") {
                             Some(campo) => campo,
@@ -1245,11 +1215,7 @@ impl Parser {
                         }
                         self.separadores();
                     }
-                    if self.corresponde(TipoToken::FimBloco) {
-                        self.separadores();
-                    } else {
-                        self.erro_atual("N2009", "Construção de objeto precisa terminar com 'fim' antes de '}'.");
-                    }
+                    
                     self.esperar(TipoToken::FechaChave, "Construção de estrutura não foi fechada com '}'.");
                     Expressao::ConstrucaoEstrutura { nome, campos }
                 } else {
@@ -1257,7 +1223,7 @@ impl Parser {
                 }
             },
             TipoToken::Inteiro | TipoToken::Decimal | TipoToken::Texto | TipoToken::Caractere | TipoToken::Sim | TipoToken::Verdadeiro | TipoToken::Falso | TipoToken::Nulo => Expressao::Literal(self.avancar().lexema),
-            TipoToken::Nao if !self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco | TipoToken::Dedent | TipoToken::Fim)) => Expressao::Literal(self.avancar().lexema),
+            TipoToken::Nao if !self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave  | TipoToken::Dedent | TipoToken::Fim)) => Expressao::Literal(self.avancar().lexema),
             TipoToken::AbrePar => {
                 self.avancar();
                 if self.corresponde(TipoToken::FechaPar) {
@@ -1308,7 +1274,7 @@ impl Parser {
                         TipoToken::Texto | TipoToken::Identificador => self.avancar().lexema,
                         _ => {
                             self.erro_atual("N2038", "Esperada chave textual ou identificador no dicionário.");
-                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave]);
                             if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
                                 self.separadores();
                                 continue;
@@ -1318,7 +1284,7 @@ impl Parser {
                     };
                     if !self.corresponde(TipoToken::DoisPontos) {
                         self.erro_atual("N2038", "Esperado ':' após chave do dicionário.");
-                        self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                        self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave]);
                         if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
                             self.separadores();
                             continue;
@@ -1328,7 +1294,7 @@ impl Parser {
                     let valor = match self.expressao(0) {
                         Some(valor) => valor,
                         None => {
-                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave, TipoToken::FimBloco]);
+                            self.sincronizar_ate(&[TipoToken::Virgula, TipoToken::NovaLinha, TipoToken::FechaChave]);
                             if self.corresponde(TipoToken::Virgula) || self.separador_atual() {
                                 self.separadores();
                                 continue;
@@ -1342,7 +1308,7 @@ impl Parser {
                         campos.push((chave, valor));
                     }
                     if !self.corresponde(TipoToken::Virgula) && !self.separador_atual()
-                        && !self.verifica(TipoToken::FimBloco) && !self.verifica(TipoToken::FechaChave) {
+                         && !self.verifica(TipoToken::FechaChave) {
                         self.erro_atual("N2038", "Esperado ',' ou quebra de linha entre entradas do dicionário.");
                         self.sincronizar();
                     }
@@ -1424,7 +1390,7 @@ impl Parser {
                 if matches!(self.tipo(),
                     TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::Virgula
                         | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave
-                        | TipoToken::Dedent | TipoToken::FimBloco | TipoToken::Fim
+                        | TipoToken::Dedent  | TipoToken::Fim
                         | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne
                         | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar
                         | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar
@@ -1697,11 +1663,11 @@ impl Parser {
         }
         let esperado_fechamento = matches!(
             t,
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave 
         );
         let atual_fechamento = matches!(
             self.tipo(),
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave 
         );
         if esperado_fechamento && atual_fechamento && !self.verifica(TipoToken::Fim) {
             self.erro_atual(
@@ -1756,34 +1722,32 @@ impl Parser {
     fn fechamento_sem_contexto(&self) -> bool {
         matches!(
             self.tipo(),
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave | TipoToken::FimBloco
+            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave 
         )
     }
     fn fechamento_incompativel_com_chaves(&self) -> bool {
         matches!(
             self.tipo(),
-            TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FimBloco
+            TipoToken::FechaPar | TipoToken::FechaColchete 
         )
     }
 
     fn separador_atual(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::Indent | TipoToken::Dedent) }
     fn separadores(&mut self) { while self.separador_atual() { self.avancar(); } }
     fn pular_novas_linhas(&mut self) { while matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::Indent | TipoToken::Dedent) { self.avancar(); } }
-    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim | TipoToken::FimBloco | TipoToken::Senao | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre | TipoToken::Dedent) }
+    fn fim_item(&self) -> bool { matches!(self.tipo(), TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaChave | TipoToken::Fim  | TipoToken::Senao | TipoToken::Sendo | TipoToken::Erro | TipoToken::Sempre | TipoToken::Dedent) }
     fn sincronizar(&mut self) {
         self.sincronizar_ate(&[
             TipoToken::NovaLinha,
             TipoToken::PontoVirgula,
             TipoToken::FechaChave,
-            TipoToken::FimBloco,
             TipoToken::Senao,
         ]);
     }
     /// Recupera no limite de um item sem consumir o início de uma declaração válida.
     fn sincronizar_item(&mut self) {
         self.sincronizar_ate(&[
-            TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::FechaChave,
-            TipoToken::FimBloco, TipoToken::Senao, TipoToken::Variavel, TipoToken::Definir,
+            TipoToken::NovaLinha, TipoToken::PontoVirgula, TipoToken::FechaChave, TipoToken::Senao, TipoToken::Variavel, TipoToken::Definir,
             TipoToken::Mutavel, TipoToken::Constante, TipoToken::Alterar, TipoToken::Funcao,
             TipoToken::Publico, TipoToken::Privado, TipoToken::Tipo, TipoToken::Estrutura,
             TipoToken::Enumeracao, TipoToken::ReservadaFutura, TipoToken::Incluir,
@@ -1807,7 +1771,7 @@ impl Parser {
                         TipoToken::FechaPar
                             | TipoToken::FechaColchete
                             | TipoToken::FechaChave
-                            | TipoToken::FimBloco
+                            
                     ))
             {
                 break;
@@ -1832,10 +1796,7 @@ impl Parser {
                         break;
                     }
                 }
-                TipoToken::FimBloco => {
-                    delimitadores.clear();
-                    break;
-                }
+                
                 _ => {}
             }
             self.avancar();
@@ -1847,6 +1808,16 @@ impl Parser {
 mod testes {
     use super::*;
 fn normalizar_blocos_legados(codigo: &str) -> String {
+    let codigo = codigo.replace(", fim }", " }");
+    let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
+    let possui_cabecalho_legado = codigo.lines().any(|linha| {
+        let conteudo = linha.trim();
+        let prefixos = ["funcao ", "publico funcao ", "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ", "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com "];
+        prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
+    });
+    if possui_abertura_explicita && !possui_cabecalho_legado {
+        return codigo.lines().filter(|linha| linha.trim() != "fim").collect::<Vec<_>>().join("\n").replace("} fim", "}");
+    }
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
         Completo,
@@ -1860,7 +1831,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         indentacao: usize,
         tipo: TipoBloco,
         explicito: bool,
-        etapa: u8,
     }
 
     fn indentacao(texto: &str, nivel: usize) -> String {
@@ -1870,14 +1840,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
             TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
             }
             TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
-            }
+                }
         }
     }
 
@@ -1905,7 +1872,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Completo,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -1940,22 +1906,13 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: true,
-                etapa: 0,
             });
             continue;
         }
 
         if conteudo == "fim" {
-            if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel {
-                    if bloco.etapa == 0 {
-                        bloco.etapa = 1;
-                    } else if bloco.etapa == 2 {
-                        blocos.pop();
-                    }
-                    saida.push(linha.to_owned());
-                    continue;
-                }
+            if blocos.is_empty() || blocos.last().is_some_and(|bloco| bloco.explicito) {
+                continue;
             }
 
             while blocos.last().is_some_and(|bloco| {
@@ -1978,12 +1935,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel && bloco.etapa == 1 {
-                    if bloco.tipo == TipoBloco::Caso {
-                        blocos.pop();
-                    } else {
-                        bloco.etapa = 2;
-                    }
+                if bloco.explicito && bloco.indentacao == nivel {
+                    blocos.pop();
                     saida.push(linha.to_owned());
                     continue;
                 }
@@ -1994,7 +1947,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             if let Some(bloco) = blocos.last() {
                 if !bloco.explicito && bloco.indentacao == nivel {
                     let tipo = bloco.tipo;
-                    saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
                     blocos.pop();
@@ -2002,7 +1954,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                         indentacao: nivel,
                         tipo,
                         explicito: false,
-                        etapa: 0,
                     });
                     continue;
                 }
@@ -2022,7 +1973,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Caso,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -2089,7 +2039,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: false,
-                etapa: 0,
             });
         } else {
             saida.push(linha.to_owned());
@@ -2371,17 +2320,15 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
 
     #[test]
-    fn rejeita_function_body_sem_fim_antes_da_chave() {
-        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}\nfim"));
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    fn aceita_function_body_sem_terminador_textual() {
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
-    fn rejeita_function_body_sem_fim_apos_a_chave_externa() {
-        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n    fim\n}"));
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    fn fim_permanece_identificador_apos_function_body() {
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}\nvariavel fim = 1"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
     fn analisa_escolha_com_function_body_delimitado() {
         let codigo = "escolha opcao: {\n    caso 1: {\n        exibir(1)\n        fim\n    }\n    caso 2: {\n        exibir(2)\n        fim\n    }\n    fim\n}\nfim";
@@ -2409,15 +2356,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
 
     #[test]
-    fn rejeita_fim_como_terminador_de_dicionario() {
-        let codigo = r#"variavel dados: dicionario = {
-    "nome": "Nebula"
-    fim
-}"#;
-        let r = analisar(&fonte(codigo));
-        assert!(!r.diagnosticos.is_empty(), "dicionário deve fechar diretamente com chave de fechamento");
+    fn aceita_fim_como_identificador_comum() {
+        let r = analisar(&fonte("variavel fim = 42"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
     fn analisa_async_exportacao_classe_e_lacos_com_function_body() {
         let codigo = r#"async funcao processar(): {
@@ -2734,7 +2676,7 @@ fim"#;
             "variavel tupla = (1, 2,)",
             "variavel lista = [1, 2, 3]",
             "variavel chamada = sistema::somar(1, 2)[0].valor",
-            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20, fim }",
+            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20 }",
             "variavel potencia = -2 ** 3 ** 2",
             "variavel logica = (1 < 2) e (3 >= 2) ou falso",
             "funcao bloco_fim()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
@@ -2766,7 +2708,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa { nome: \"Ana\", fim }",
+            "variavel estrutura_vazia = Pessoa { nome: \"Ana\" }",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
@@ -2821,10 +2763,10 @@ fim"#;
             "incluir(biblioteca: Biblioteca)",
             "incluir(modulo: Interna, biblioteca: Biblioteca) como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa { nome: 1, fim })\n    passar\nfim",
-            "escolha (Pessoa { nome: 1, fim })\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa { nome: 1, fim })\n    passar\nfim",
-            "cada item em (Pessoa { nome: 1, fim })\n    passar\nfim",
+            "quando (Pessoa { nome: 1 })\n    passar\nfim",
+            "escolha (Pessoa { nome: 1 })\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa { nome: 1 })\n    passar\nfim",
+            "cada item em (Pessoa { nome: 1 })\n    passar\nfim",
             "quando primeiro\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2877,8 +2819,8 @@ fim"#;
             "(a, b,)",
             "[]",
             "[a, b]",
-            "Pessoa { nome: 1, fim }",
-            "Pessoa { nome: a, idade: b, fim }",
+            "Pessoa { nome: 1 }",
+            "Pessoa { nome: a, idade: b }",
             "42",
             "3.14",
             "\"texto\"",
@@ -2969,7 +2911,7 @@ fim"#;
         let exemplos = [
             "variavel pessoa = Pessoa {\n nome: \"Ana\"\n fim\n}",
             "variavel pessoa = Pessoa {\n\n nome: \"Ana\",\n idade: 20;\n fim\n\n}",
-            "variavel pessoa = Pessoa { ; nome: \"Ana\"; fim }",
+            "variavel pessoa = Pessoa { ; nome: \"Ana\"; }",
         ];
 
         for codigo in exemplos {
@@ -3055,7 +2997,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
-            "variavel pessoa = Pessoa { nome: \"Ana\", fim }",
+            "variavel pessoa = Pessoa { nome: \"Ana\" }",
             "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -3553,7 +3495,7 @@ fim"#;
             ")".repeat(48)
         );
         let codigo = format!(
-            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo, fim }} "
+            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo }} "
         );
         let resultado = analisar(&fonte(&codigo));
         assert!(resultado.diagnosticos.is_empty(),
@@ -3602,7 +3544,7 @@ fim"#;
 
     #[test]
     fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
-        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20, fim }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    variavel depois = 99\nfim";
+        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20 }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n    variavel depois = 99\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3620,7 +3562,7 @@ fim"#;
 
     #[test]
     fn recupera_delimitadores_aninhados_sem_perder_o_fechamento_externo() {
-        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4, fim }\n    variavel final = 7\nfim";
+        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n    variavel final = 7\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3759,7 +3701,7 @@ fim"#;
             "N2034", "Ativo", 1
         );
         verifica(
-            "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }",
+            "variavel pessoa = Pessoa { nome: 1, nome: 2 }",
             "N2037", "nome", 1
         );
         verifica(
@@ -3781,7 +3723,7 @@ fim"#;
     #[test]
     fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
         let valido = analisar(&fonte(
-            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\", fim })\n    variavel final = 9\nfim",
+            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n    variavel final = 9\nfim",
         ));
         assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
@@ -3815,8 +3757,8 @@ fim"#;
             "variavel lista = [1, 2)",
             "estrutura Pessoa { nome: inteiro)",
             "enumeracao Estado { Ativo(inteiro]",
-            "funcao principal() { exibir(1) fim",
-            "funcao principal()\n exibir(1)\n}",
+            "funcao principal(): { exibir(1) } ]",
+            "funcao principal(): { exibir(1) } }",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
@@ -3956,8 +3898,8 @@ fim"#;
             ("N2034", "enumeracao Estado:\n    Ativo\n    Ativo\nfim"),
             ("N2035", "enumeracao Estado:\n    Ativo Inativo\nfim"),
             ("N2036", "enumeracao Estado:\n    ,\nfim"),
-            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }"),
-            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2, fim }"),
+            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
+            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
             ("N2040", "escolha valor caso _\n    passar\nfim"),
             ("N2041", "escolha valor\n    outro {}\nfim"),
             ("N2042", "escolha valor\n    caso Variante\n        passar\nfim"),
@@ -4238,10 +4180,8 @@ fim"#;
     fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
         let codigo = r#"variavel pessoa = Pessoa {
  nome: "Ana",
- endereco: Endereco { cidade: "Sao Paulo", numero: 10, fim },
- ativo: verdadeiro,
- fim
-}"#;
+ endereco: Endereco { cidade: "Sao Paulo", numero: 10 },
+ ativo: verdadeiro }"#;
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } =
@@ -4728,6 +4668,30 @@ fim
         assert!(
             resultado_acima.diagnosticos.iter().any(|d| d.codigo == "N2049"),
             "260 níveis devem produzir N2049"
+        );
+    }
+
+    #[test]
+    fn function_body_fecha_com_chave_sem_terminador_textual() {
+        let resultado = analisar(&fonte_bruta(
+            "funcao principal(): {\n    exibir(\"ok\")\n}",
+        ));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "{:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn palavra_fim_e_identificador_dentro_de_um_bloco() {
+        let resultado = analisar(&fonte_bruta(
+            "funcao principal(): {\n    fim\n}",
+        ));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "{:?}",
+            resultado.diagnosticos
         );
     }
 

@@ -2791,30 +2791,13 @@ mod testes {
 
     fn normalizar_blocos_legados(codigo: &str) -> String {
         let codigo = codigo.replace("): ", ") -> ");
-        if codigo.lines().any(|linha| {
-            let conteudo = linha.trim();
-            [
-                "funcao ",
-                "publico funcao ",
-                "estrutura ",
-                "enumeracao ",
-                "quando ",
-                "senao",
-                "escolha ",
-                "avaliar ",
-                "caso ",
-                "cada ",
-                "enquanto ",
-                "para ",
-                "pulso(",
-                "durante ",
-                "repetir ",
-            ]
-            .iter()
-            .any(|prefixo| conteudo.starts_with(prefixo))
-                && conteudo.ends_with(": {")
-        }) {
-            return codigo;
+        if codigo.lines().any(|linha| linha.trim().ends_with(": {")) {
+            return codigo
+                .lines()
+                .filter(|linha| linha.trim() != "fim")
+                .collect::<Vec<_>>()
+                .join("\n")
+                .replace("} fim", "}");
         }
 
         #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2837,14 +2820,11 @@ mod testes {
         fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
             match bloco.tipo {
                 TipoBloco::Caso => {
-                    saida.push(indentacao("fim", bloco.indentacao));
                     saida.push(indentacao("}", bloco.indentacao));
                 }
                 TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                    saida.push(indentacao("fim", bloco.indentacao));
                     saida.push(indentacao("}", bloco.indentacao));
-                    saida.push(indentacao("fim", bloco.indentacao));
-                }
+                    }
             }
         }
 
@@ -2863,7 +2843,6 @@ mod testes {
             if conteudo.starts_with("senao") {
                 if let Some(bloco) = blocos.last() {
                     if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
-                        saida.push(indentacao("fim", nivel));
                         saida.push(indentacao("}", nivel));
                         saida.push(indentacao("senao: {", nivel));
                         continue;
@@ -2900,8 +2879,6 @@ mod testes {
                     if let Some(bloco) = blocos.pop() {
                         fechar(&mut saida, bloco);
                     }
-                } else {
-                    saida.push(linha.to_owned());
                 }
                 continue;
             }
@@ -3105,7 +3082,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21, fim }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
@@ -3117,7 +3094,7 @@ mod testes {
     #[test]
     fn executa_copia_explicita_de_estrutura_derivada() {
         let ir = compilar(
-            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7, fim }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         let resultado = executar(&ir, 100).expect("cópia explícita de estrutura");
         assert_eq!(resultado.saida, vec!["7", "7"]);
@@ -3127,7 +3104,7 @@ mod testes {
     fn rejeita_inferencia_generica_com_tipo_aninhado_desconhecido() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel ausente = identidade(Opcional::Nenhum())",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n}\n\nvariavel ausente = identidade(Opcional::Nenhum())",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3144,7 +3121,7 @@ mod testes {
     fn rejeita_unificacao_generica_inconsistente() {
         let fonte = ArquivoFonte::novo(
             "teste.nbx",
-            "funcao par<T>(a: T, b: T) -> T: {\n    devolver a\n    fim\n} fim\n\nvariavel resultado = par([1], [verdadeiro])",
+            "funcao par<T>(a: T, b: T) -> T: {\n    devolver a\n}\n\nvariavel resultado = par([1], [verdadeiro])",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -3160,7 +3137,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar, fim }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3320,7 +3297,7 @@ mod testes {
     #[test]
     fn construi_estrutura_e_le_campos_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28, fim }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura executável");
         assert_eq!(resultado.saida, vec!["Lia", "28"]);
@@ -3329,7 +3306,7 @@ mod testes {
     #[test]
     fn estrutura_aninhada_le_campo_da_estrutura_interna() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\", fim }, fim }\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura aninhada executável");
         assert_eq!(resultado.saida, vec!["Recife"]);
@@ -3338,7 +3315,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28, fim }\npessoa.idade = 29\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição de campo válida");
         assert_eq!(resultado.saida, vec!["29"]);
@@ -3347,7 +3324,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_aninhada_no_runtime() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\", fim }, fim }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição aninhada válida");
         assert_eq!(resultado.saida, vec!["Olinda"]);
@@ -3780,7 +3757,7 @@ mod testes {
 
     #[test]
     fn rejeita_layout_nominal_recursivo_ao_baixar_ir() {
-        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No: {\n    proximo: No\n    fim\n}\nfim");
+        let fonte = ArquivoFonte::novo("recursao.nbx", "estrutura No: {\n    proximo: No\n}");
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
@@ -4119,7 +4096,7 @@ mod testes {
     fn preserva_localizacoes_em_blocos_e_lacos_aninhados() {
         let fonte = ArquivoFonte::novo(
             "aninhado.nbx",
-            "quando verdadeiro: {\n    variavel interno = 7\n    fim\n}\nfim\nenquanto falso: {\n    variavel repetido = 1\n    fim\n}\nfim",
+            "quando verdadeiro: {\n    variavel interno = 7\n}\nenquanto falso: {\n    variavel repetido = 1\n}",
         );
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
@@ -4147,7 +4124,7 @@ mod testes {
         let InstrucaoIr::Localizada { intervalo: repetido, .. } = &corpo[0] else {
             panic!("corpo do laço precisa ter origem");
         };
-        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((7, 5)));
+        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((5, 5)));
     }
 
     #[test]
