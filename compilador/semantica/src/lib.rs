@@ -2383,7 +2383,7 @@ impl<'a> Analisador<'a> {
                 ativos.remove(&chave);
                 valido
             }
-            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Parametro(_) | Tipo::Desconhecido => false,
+            Tipo::Referencia { .. } | Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Parametro(_) | Tipo::Desconhecido => false,
         }
     }
 
