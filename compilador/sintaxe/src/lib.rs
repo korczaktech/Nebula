@@ -511,7 +511,7 @@ impl Parser {
             if campos.iter().any(|(existente, _)| existente == &campo) {
                 self.erro_intervalo("N2031", "Campo declarado mais de uma vez na estrutura.", intervalo);
             } else { campos.push((campo, tipo)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica()) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave)) {
                 self.erro_atual("N2032", "Esperado ',' ou quebra de linha entre campos.");
                 self.sincronizar();
             }
@@ -560,7 +560,7 @@ impl Parser {
             if variantes.iter().any(|(existente, _)| existente == &variante) {
                 self.erro_intervalo("N2034", "Variante declarada mais de uma vez na enumeração.", intervalo);
             } else { variantes.push((variante, payload)); }
-            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave) || self.verifica()) {
+            if !(self.corresponde(TipoToken::Virgula) || self.separador_atual() || self.verifica(TipoToken::FechaChave)) {
                 self.erro_atual("N2035", "Esperado ',' ou quebra de linha entre variantes.");
                 self.sincronizar();
             }
