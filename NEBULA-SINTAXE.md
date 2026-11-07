@@ -9,6 +9,8 @@
 **Blocos:** Function Body `: { ... }`, delimitado por chaves  
 **Codificação:** UTF-8
 
+**Contrato normativo atual:** `especificacao/linguagem-e-tipos.md`. A gramática formal e as regras léxicas estão em `especificacao/gramatica.md` e `especificacao/tokens.md`. Este arquivo é um resumo de referência e deve permanecer sincronizado com esses documentos; em caso de divergência, prevalece o contrato normativo e seus anexos.
+
 > Documento temporário de referência para a definição da sintaxe Nebula. A presença de uma construção neste documento não significa que ela já esteja implementada no compilador.
 
 ---
