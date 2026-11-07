@@ -90,7 +90,7 @@ struct Analisador<'a> {
     propriedade: AnalisadorPropriedade,
     proximo_emprestimo: u64,
     contextos_inseguros: Vec<String>,
-    parametros_funcao: Vec<HashSet<String>>,
+    parametros_funcao: Vec<HashMap<String, Tipo>>,
 }
 
 impl<'a> Analisador<'a> {
@@ -454,7 +454,13 @@ impl<'a> Analisador<'a> {
                 let genericos_anteriores = self.parametros_genericos.clone();
                 self.parametros_genericos.extend(genericos.iter().cloned());
                 self.abrir_escopo();
-                self.parametros_funcao.push(parametros.iter().map(|(nome, _)| nome.clone()).collect());
+                self.parametros_funcao.push(
+                    parametros
+                        .iter()
+                        .zip(&funcao.parametros)
+                        .map(|((nome, _), tipo)| (nome.clone(), tipo.clone()))
+                        .collect(),
+                );
                 for (indice, ((nome_parametro, _), tipo)) in parametros.iter().zip(&funcao.parametros).enumerate() {
                     if let Some(Some(padrao)) = parametros_padrao.get(indice) {
                         let tipo_obtido = self.expressao_com_tipo_esperado(padrao, tipo);
@@ -2732,20 +2738,14 @@ impl<'a> Analisador<'a> {
         let Some(parametros) = self.parametros_funcao.last() else {
             return false;
         };
-        let origem = match expressao {
-            Expressao::Unaria {
-                operador: TipoToken::EBit | TipoToken::Mutavel,
-                valor,
-            } => match valor.as_ref() {
-                Expressao::Nome(nome) => Some(nome.clone()),
-                Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
-                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz),
-                _ => None,
-            },
-            Expressao::Nome(nome) => Some(nome.clone()),
-            _ => None,
+        let Expressao::Nome(nome) = expressao else {
+            // Emprestar o próprio parâmetro cria uma referência ao slot local
+            // do parâmetro, não uma referência cuja vida útil pertença ao chamador.
+            return false;
         };
-        origem.as_deref().is_some_and(|nome| parametros.contains(nome))
+        parametros
+            .get(nome)
+            .is_some_and(|tipo| matches!(tipo, Tipo::Referencia { .. }))
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
@@ -4865,6 +4865,18 @@ funcao sem_retorno(): vazio
             "funcao identidade(valor: &inteiro): &inteiro\n    devolver valor",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_retorno_de_referencia_criada_a_partir_de_parametro_proprio() {
+        let resultado = analisar_codigo(
+            "funcao criar(valor: inteiro): &inteiro\n    devolver &valor",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
+            "Não pode escapar uma referência ao slot local de um parâmetro: {:?}",
+            resultado.diagnosticos
+        );
     }
 
     #[test]
