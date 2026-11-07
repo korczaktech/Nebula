@@ -232,7 +232,7 @@ impl<'a> Analisador<'a> {
                                 self.erro("N3107", format!("O parâmetro '{nome_parametro}' do método '{metodo}' não pode conter referências dentro de agregados."));
                             }
                         }
-                        if !matches!(retorno, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&retorno) {
+                        if !matches!(&retorno, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&retorno) {
                             self.erro("N3107", format!("O retorno do método '{metodo}' não pode conter referências dentro de agregados."));
                         }
                         for (nome_parametro, tipo) in parametros {
@@ -301,7 +301,7 @@ impl<'a> Analisador<'a> {
                     if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo '{nome_tipo}' do parâmetro '{parametro}' não foi declarado."));
                     }
-                    if !matches!(tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
+                    if !matches!(&tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
                         self.erro("N3107", format!("O parâmetro '{parametro}' da função '{nome}' não pode conter referências dentro de agregados."));
                     }
                     tipo
@@ -311,7 +311,7 @@ impl<'a> Analisador<'a> {
                     if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo de retorno '{nome_tipo}' da função '{nome}' não foi declarado."));
                     }
-                    if !matches!(tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
+                    if !matches!(&tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
                         self.erro("N3107", format!("O retorno da função '{nome}' não pode conter referências dentro de agregados."));
                     }
                     tipo
@@ -467,7 +467,7 @@ impl<'a> Analisador<'a> {
                     }
                     inferido
                 };
-                if !matches!(final_tipo, Tipo::Referencia { .. })
+                if !matches!(&final_tipo, Tipo::Referencia { .. })
                     && Self::tipo_contem_referencia(&final_tipo)
                 {
                     self.erro(
@@ -2863,7 +2863,7 @@ impl<'a> Analisador<'a> {
         };
         parametros
             .get(nome)
-            .is_some_and(|tipo| matches!(tipo, Tipo::Referencia { .. }))
+            .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }))
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
