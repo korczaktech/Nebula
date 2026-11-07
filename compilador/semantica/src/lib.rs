@@ -225,6 +225,16 @@ impl<'a> Analisador<'a> {
                         self.parametros_genericos.extend(genericos.iter().cloned());
                         let tipos: Vec<Tipo> = parametros.iter().map(|(_, tipo)| self.resolver_tipo(tipo)).collect();
                         let retorno = retorno.as_deref().map_or(Tipo::Vazio, |tipo| self.resolver_tipo(tipo));
+                        for ((nome_parametro, _), tipo_resolvido) in parametros.iter().zip(&tipos) {
+                            if !matches!(tipo_resolvido, Tipo::Referencia { .. })
+                                && Self::tipo_contem_referencia(tipo_resolvido)
+                            {
+                                self.erro("N3107", format!("O parâmetro '{nome_parametro}' do método '{metodo}' não pode conter referências dentro de agregados."));
+                            }
+                        }
+                        if !matches!(retorno, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&retorno) {
+                            self.erro("N3107", format!("O retorno do método '{metodo}' não pode conter referências dentro de agregados."));
+                        }
                         for (nome_parametro, tipo) in parametros {
                             if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
                                 self.erro("N3021", format!("Tipo '{tipo}' do parâmetro '{nome_parametro}' do método '{metodo}' não foi declarado."));
@@ -291,12 +301,18 @@ impl<'a> Analisador<'a> {
                     if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo '{nome_tipo}' do parâmetro '{parametro}' não foi declarado."));
                     }
+                    if !matches!(tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
+                        self.erro("N3107", format!("O parâmetro '{parametro}' da função '{nome}' não pode conter referências dentro de agregados."));
+                    }
                     tipo
                 }).collect();
                 let retorno = retorno.as_deref().map_or(Tipo::Vazio, |nome_tipo| {
                     let tipo = self.resolver_tipo(nome_tipo);
                     if Self::tipo_contem_desconhecido(&tipo) {
                         self.erro("N3021", format!("Tipo de retorno '{nome_tipo}' da função '{nome}' não foi declarado."));
+                    }
+                    if !matches!(tipo, Tipo::Referencia { .. }) && Self::tipo_contem_referencia(&tipo) {
+                        self.erro("N3107", format!("O retorno da função '{nome}' não pode conter referências dentro de agregados."));
                     }
                     tipo
                 });
