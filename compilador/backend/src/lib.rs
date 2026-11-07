@@ -4527,6 +4527,29 @@ mod testes {
     }
 
     #[test]
+    fn passa_e_retorna_lista_com_ponteiro_e_comprimento() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_lista".into(),
+            parametros: vec![("itens".into(), Tipo::Lista(Box::new(Tipo::Inteiro)))],
+            retorno: Tipo::Lista(Box::new(Tipo::Inteiro)),
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("itens".into())))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn passa_e_retorna_intervalo_com_dois_endpoints() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_intervalo".into(),
+            parametros: vec![("faixa".into(), tipo.clone())],
+            retorno: tipo,
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("faixa".into())))],
+        }).unwrap();
+    }
+
+    #[test]
     fn intervalo_inteiro_usa_dois_registradores_de_endpoints() {
         let emissor = Emissor::novo(HashMap::new());
         let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
