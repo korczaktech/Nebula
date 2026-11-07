@@ -3269,6 +3269,7 @@ mod testes {
     }
     
     fn compilar(codigo: &str) -> ProgramaIr {
+        use std::io::Write as _;
         let depurar_referencia = codigo.contains("*referencia");
         if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: antes normalizar\\n"); }
         let codigo = normalizar_blocos_indentados(codigo);
