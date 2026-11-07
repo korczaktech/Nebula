@@ -1974,7 +1974,7 @@ impl Maquina<'_, '_> {
     }
 
     fn bloco(&mut self, itens: &[InstrucaoIr]) -> Result<Fluxo, String> {
-        self.memoria_mutavel()?.abrir_escopo();
+        self.contexto.abrir_escopo().map_err(formatar_erro_runtime)?;
         let resultado = (|| {
             let mut fluxo = Fluxo::Normal;
             for item in itens {
@@ -1985,7 +1985,7 @@ impl Maquina<'_, '_> {
             }
             Ok(fluxo)
         })();
-        let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
+        let fechamento = self.contexto.fechar_escopo().map_err(formatar_erro_runtime);
         match (resultado, fechamento) {
             (Err(erro), _) => Err(erro),
             (Ok(_), Err(erro)) => Err(erro),
@@ -2113,14 +2113,14 @@ impl Maquina<'_, '_> {
                     _ => return Err("O laço 'cada' exige lista, texto ou intervalo.".into()),
                 };
                 for valor in valores {
-                    self.memoria_mutavel()?.abrir_escopo();
+                    self.contexto.abrir_escopo().map_err(formatar_erro_runtime)?;
                     let resultado = (|| {
                         self.memoria_mutavel()?
                             .declarar(nome.clone(), converter_para_runtime(valor), false)
                             .map_err(formatar_erro_runtime)?;
                         self.bloco(corpo)
                     })();
-                    let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
+                    let fechamento = self.contexto.fechar_escopo().map_err(formatar_erro_runtime);
                     let fluxo = match (resultado, fechamento) {
                         (Err(erro), _) => return Err(erro),
                         (Ok(_), Err(erro)) => return Err(erro),
@@ -2159,7 +2159,7 @@ impl Maquina<'_, '_> {
             }
             InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => {
                 let localizacao_laco = (self.caminho_fonte.clone(), self.intervalo_fonte);
-                self.memoria_mutavel()?.abrir_escopo();
+                self.contexto.abrir_escopo().map_err(formatar_erro_runtime)?;
                 let resultado = (|| {
                     if let Some(inicial) = inicial { let _ = self.instrucao(inicial)?; }
                     let mut fluxo_final = Fluxo::Normal;
@@ -2183,7 +2183,7 @@ impl Maquina<'_, '_> {
                     }
                     Ok(fluxo_final)
                 })();
-                let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
+                let fechamento = self.contexto.fechar_escopo().map_err(formatar_erro_runtime);
                 match (resultado, fechamento) {
                     (Err(erro), _) => Err(erro),
                     (Ok(_), Err(erro)) => Err(erro),
@@ -2680,7 +2680,7 @@ impl Maquina<'_, '_> {
         let limite_escopos = self.contexto.memoria().escopos().len();
         self.limites_escopos.push(limite_escopos);
         self.locais_chamada.push(localizacao_chamada.clone());
-        self.memoria_mutavel()?.abrir_escopo();
+        self.contexto.abrir_escopo().map_err(formatar_erro_runtime)?;
         self.pilha_chamadas.push(nome.to_owned());
         let fluxo = (|| {
             for ((parametro, tipo), valor) in funcao.parametros.iter().zip(valores) {
@@ -2691,7 +2691,7 @@ impl Maquina<'_, '_> {
             }
             self.bloco(&funcao.corpo)
         })();
-        let fechamento = self.memoria_mutavel()?.fechar_escopo().map_err(formatar_erro_runtime);
+        let fechamento = self.contexto.fechar_escopo().map_err(formatar_erro_runtime);
         self.profundidade_chamada -= 1;
         self.pilha_chamadas.pop();
         self.limites_escopos.pop();
