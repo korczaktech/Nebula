@@ -2250,6 +2250,24 @@ impl Maquina<'_, '_> {
         }
     }
 
+    /// Avalia elementos sequencialmente e descarta os já inicializados em LIFO
+    /// quando um elemento posterior falha.
+    fn avaliar_valores_lifo(&mut self, expressoes: &[ExpressaoIr]) -> Result<Vec<ValorIr>, String> {
+        let mut valores = Vec::with_capacity(expressoes.len());
+        for expressao in expressoes {
+            match self.expressao(expressao) {
+                Ok(valor) => valores.push(valor),
+                Err(erro) => {
+                    while let Some(valor) = valores.pop() {
+                        drop(valor);
+                    }
+                    return Err(erro);
+                }
+            }
+        }
+        Ok(valores)
+    }
+
     fn expressao(&mut self, e: &ExpressaoIr) -> Result<ValorIr, String> {
         match e {
             ExpressaoIr::Constante(v) => Ok(v.clone()),
@@ -2296,15 +2314,29 @@ impl Maquina<'_, '_> {
                 ).map_err(formatar_erro_runtime)?;
                 Ok(valor)
             }
-            ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
-            ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
-                nome: nome.clone(),
-                campos: campos.iter().map(|(campo, valor)| Ok((campo.clone(), self.expressao(valor)?))).collect::<Result<_, String>>()?,
-            }),
+            ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => {
+                Ok(ValorIr::Lista(self.avaliar_valores_lifo(valores)?))
+            }
+            ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
+                let mut campos_avaliados = Vec::with_capacity(campos.len());
+                for (campo, expressao) in campos {
+                    match self.expressao(expressao) {
+                        Ok(valor) => campos_avaliados.push((campo.clone(), valor)),
+                        Err(erro) => {
+                            while let Some((_, valor)) = campos_avaliados.pop() {
+                                drop(valor);
+                            }
+                            return Err(erro);
+                        }
+                    }
+                }
+                Ok(ValorIr::Estrutura { nome: nome.clone(), campos: campos_avaliados })
+            }
             ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
-                let campos = valores.iter().enumerate()
-                    .map(|(indice, valor)| Ok((indice.to_string(), self.expressao(valor)?)))
-                    .collect::<Result<Vec<_>, String>>()?;
+                let valores = self.avaliar_valores_lifo(valores)?;
+                let campos = valores.into_iter().enumerate()
+                    .map(|(indice, valor)| (indice.to_string(), valor))
+                    .collect();
                 Ok(ValorIr::Estrutura { nome: format!("{nome}::{variante}"), campos })
             },
             ExpressaoIr::Membro { alvo, campo } => {
