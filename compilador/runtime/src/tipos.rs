@@ -175,10 +175,11 @@ fn validar_tipo_interno(tipo: &TipoRuntime, profundidade: usize) -> Result<(), S
         TipoRuntime::Decimal { bits } if !matches!(bits, 32 | 64) => {
             Err(format!("Largura decimal inválida: {bits}."))
         }
-        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento)
-        | TipoRuntime::Referencia { interno: elemento, .. } => {
-            validar_tipo_interno(elemento, proxima)
-        }
+        TipoRuntime::Lista(elemento)
+        | TipoRuntime::Opcional(elemento)
+        | TipoRuntime::Referencia {
+            interno: elemento, ..
+        } => validar_tipo_interno(elemento, proxima),
         TipoRuntime::Tupla(tipos) => {
             for tipo in tipos {
                 validar_tipo_interno(tipo, proxima)?;
