@@ -3692,6 +3692,51 @@ mod testes {
     }
 
     #[test]
+    fn limita_deterministicamente_instancias_genericas_distintas() {
+        let mut lowerer = Lowerer {
+            diagnosticos: Vec::new(),
+            aliases: HashMap::new(),
+            tipos_agregados: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
+            assinaturas_funcoes: HashMap::new(),
+            modulos_importados: HashMap::new(),
+            genericas: HashMap::from([(
+                "identidade".to_owned(),
+                FuncaoGenericaAst {
+                    genericos: vec!["T".to_owned()],
+                    parametros: vec![("valor".to_owned(), "T".to_owned())],
+                    retorno: Some("T".to_owned()),
+                    corpo: Vec::new(),
+                },
+            )]),
+            instancias: HashMap::new(),
+            fila_instancias: Vec::new(),
+            escopos_tipos: vec![HashMap::from([("valor".to_owned(), Tipo::Inteiro)])],
+            substituicoes: HashMap::new(),
+            localizacoes: HashMap::new(),
+            caminho_fonte: PathBuf::new(),
+        };
+
+        for profundidade in 0..=LIMITE_INSTANCIAS_GENERICAS {
+            let mut argumento = Expressao::Nome("valor".to_owned());
+            for _ in 0..profundidade {
+                argumento = Expressao::Lista(vec![argumento]);
+            }
+            let instancia = lowerer.registrar_instancia_generica("identidade", &[argumento]);
+            if profundidade < LIMITE_INSTANCIAS_GENERICAS {
+                assert!(instancia.is_some(), "instância {profundidade} deveria ser aceita");
+            } else {
+                assert!(instancia.is_none(), "a instância além do limite deve ser rejeitada");
+            }
+        }
+
+        assert_eq!(lowerer.instancias.len(), LIMITE_INSTANCIAS_GENERICAS);
+        assert_eq!(lowerer.diagnosticos.len(), 1);
+        assert!(lowerer.diagnosticos[0].contains("limite de 256 instâncias genéricas"));
+    }
+
+    #[test]
     fn monomorfiza_generico_com_tupla() {
         let ir = compilar(
             "funcao primeiro<T>(ponto: Tupla<T,T>): T\n    devolver ponto[0]\n\nvariavel numero = primeiro((7, 8))",
