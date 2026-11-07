@@ -434,6 +434,24 @@ fn abi_transporta_enum_composto_em_argumento_e_retorno() {
 }
 
 #[test]
+fn abi_transporta_opcional_com_payload_textual_por_endereco() {
+    let resultado = compilar_e_executar(
+        "opcional-texto-abi-indireta",
+        "funcao criar(): Opcional<texto>\n    retorne Opcional::Algum(\"Nebula\")\nfuncao medir(valor: Opcional<texto>): inteiro\n    escolha valor\n        caso Opcional::Algum(texto)\n            retorne comprimento(texto)\n        caso Opcional::Nenhum\n            retorne 0\nfuncao principal(): inteiro\n    retorne medir(criar())",
+    );
+    assert_eq!(resultado.status.code(), Some(6));
+}
+
+#[test]
+fn abi_transporta_resultado_com_payload_textual_por_endereco() {
+    let resultado = compilar_e_executar(
+        "resultado-texto-abi-indireta",
+        "funcao criar(): Resultado<texto, texto>\n    retorne Resultado::Sucesso(\"Nebula\")\nfuncao medir(valor: Resultado<texto, texto>): inteiro\n    escolha valor\n        caso Resultado::Sucesso(texto)\n            retorne comprimento(texto)\n        caso Resultado::Falha(erro)\n            retorne 0\nfuncao principal(): inteiro\n    retorne medir(criar())",
+    );
+    assert_eq!(resultado.status.code(), Some(6));
+}
+
+#[test]
 fn abi_transporta_estrutura_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-estrutura-grande-argumento-retorno",
