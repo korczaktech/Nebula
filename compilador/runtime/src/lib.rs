@@ -527,6 +527,20 @@ impl Memoria {
         Ok(())
     }
 
+    /// Destrói todos os valores restantes em ordem LIFO, inclusive os globais.
+    fn limpar(&mut self) {
+        while self.escopos.len() > 1 {
+            let _ = self.fechar_escopo();
+        }
+        if let (Some(global), Some(ordem)) = (self.escopos.first_mut(), self.ordem_variaveis.first_mut()) {
+            for nome in ordem.drain(..).rev() {
+                if let Some(celula) = global.remove(&nome) {
+                    drop(celula);
+                }
+            }
+        }
+    }
+
     /// Declara uma variável no escopo atual.
     pub fn declarar(
         &mut self,
@@ -1507,6 +1521,7 @@ mod ciclo_vida {
                     }
                 }
             }
+            self.memoria.limpar();
             self.alocador.limpar();
             primeiro_erro.map_or(Ok(()), Err)
         }
@@ -1544,6 +1559,19 @@ mod ciclo_vida {
         fn nao_permite_fechar_escopo_global() {
             let mut contexto = ContextoRuntime::novo();
             assert_eq!(contexto.fechar_escopo(), Err(ErroRuntime::EscopoGlobal));
+        }
+
+        #[test]
+        fn finalizar_destroi_variaveis_de_todos_os_escopos() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("global", ValorRuntime::Inteiro(1), true).unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("local", ValorRuntime::Inteiro(2), true).unwrap();
+            contexto.finalizar().unwrap();
+            assert!(contexto.memoria().globais().is_empty());
+            assert_eq!(contexto.memoria().quantidade_escopos(), 1);
         }
 
         #[test]
