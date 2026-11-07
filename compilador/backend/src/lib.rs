@@ -317,7 +317,8 @@ impl Emissor {
             Tipo::Inteiro16 | Tipo::InteiroU16 => Some((2, 2)),
             Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
             Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
-            | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            | Tipo::Funcao(_, _) => Some((8, 8)),
+            Tipo::Caractere => Some((4, 4)),
             Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
