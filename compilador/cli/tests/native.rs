@@ -428,7 +428,7 @@ fn compila_payload_decimal_em_enumeracoes() {
 fn abi_transporta_enum_composto_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "enum-multiplos-payloads-abi",
-        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao criar(): Evento\n    retorne Evento::Dados(20, 22)\nfuncao somar(evento: Evento): inteiro\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1\nfuncao principal(): inteiro\n    variavel evento = criar()\n    retorne somar(evento)",
+        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao criar(): Evento\n    retorne Evento::Dados(20, 22)\nfuncao somar(evento: Evento): inteiro\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1\nfuncao principal(): inteiro\n    variavel evento = criar()\n    variavel esperado = criar()\n    se evento == esperado\n        retorne somar(evento)\n    retorne 0",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -455,7 +455,16 @@ fn abi_transporta_resultado_com_payload_textual_por_endereco() {
 fn abi_transporta_estrutura_compacta_com_caracteres_por_endereco() {
     let resultado = compilar_e_executar(
         "estrutura-caracteres-abi-indireta",
-        "estrutura ParCaractere: {\n    primeiro: caractere\n    segundo: caractere\n}\n\nfuncao eco(valor: ParCaractere) -> ParCaractere: {\n    retorne valor\n}\n\nfuncao principal() -> inteiro: {\n    variavel par = eco(ParCaractere { primeiro: 'A', segundo: 'B' })\n    se par.segundo == 'B': {\n        retorne 42\n    }\n    retorne 0\n}",
+        "estrutura ParCaractere: {\n    primeiro: caractere\n    segundo: caractere\n}\n\nfuncao eco(valor: ParCaractere) -> ParCaractere: {\n    retorne valor\n}\n\nfuncao principal() -> inteiro: {\n    variavel par = eco(ParCaractere { primeiro: 'A', segundo: 'B' })\n    variavel esperado = ParCaractere { primeiro: 'A', segundo: 'B' }\n    se par == esperado: {\n        retorne 42\n    }\n    retorne 0\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn igualdade_de_tupla_em_registradores_compara_os_dois_campos() {
+    let resultado = compilar_e_executar(
+        "igualdade-tupla-registradores",
+        "funcao principal(): inteiro\n    variavel primeiro = (20, 22)\n    variavel segundo = (20, 22)\n    se primeiro == segundo\n        retorne 42\n    retorne 0",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
