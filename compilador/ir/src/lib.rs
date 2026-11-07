@@ -3281,7 +3281,9 @@ mod testes {
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
         if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois lowerer\\n"); }
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: diagnosticos ok\\n"); }
         let mut programa = resultado.programa.expect("IR válida");
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: programa obtido\\n"); }
         fn deslocalizar(instrucao: InstrucaoIr) -> InstrucaoIr {
             match instrucao {
                 InstrucaoIr::Localizada { instrucao, .. } => deslocalizar(*instrucao),
@@ -3296,9 +3298,11 @@ mod testes {
             }
         }
         programa.instrucoes = programa.instrucoes.into_iter().map(deslocalizar).collect();
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: instrucoes deslocalizadas\\n"); }
         for funcao in programa.funcoes.values_mut() {
             funcao.corpo = std::mem::take(&mut funcao.corpo).into_iter().map(deslocalizar).collect();
         }
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: funcoes deslocalizadas\\n"); }
         programa
     }
 
