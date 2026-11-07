@@ -1,5 +1,5 @@
 funcao par<T>(primeiro: T, segundo: T) -> T: {
     devolver primeiro
-    fim
-} fim
+
+}
 variavel resultado = par([1], [verdadeiro])
