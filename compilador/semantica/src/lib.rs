@@ -1234,7 +1234,10 @@ impl<'a> Analisador<'a> {
                         tipo_destino
                     }
                     _ => {
-                        self.erro("N3010", "O destino da atribuição precisa ser uma variável ou campo modificável.");
+                        self.erro(
+                            "N3010",
+                            format!("O destino da atribuição precisa ser uma variável, campo modificável ou desreferência exclusiva; destino recebido: {destino:?}."),
+                        );
                         Tipo::Desconhecido
                     }
                 }
