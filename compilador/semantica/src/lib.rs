@@ -1013,6 +1013,11 @@ impl<'a> Analisador<'a> {
         if let Some((_, intervalo)) = self.intervalos_expressoes.iter().find(|(origem, _)| origem == expressao) { self.intervalo_atual = Some(*intervalo); }
         match expressao {
             Expressao::Nome(nome) => {
+                if let Some(lugar) = self.lugar_de_expressao(expressao) {
+                    if let Err(erro) = self.propriedade.ler(&lugar) {
+                        self.erro("N3099", format!("Leitura inválida: {erro:?}."));
+                    }
+                }
                 if let Some(simbolo) = self.buscar(nome).cloned() {
                     if simbolo.movido || !simbolo.campos_movidos.is_empty() {
                         self.erro("N3030", format!("O valor '{nome}' ou parte de seus campos foi movido e não pode ser utilizado integralmente."));
@@ -1150,6 +1155,11 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Atribuicao { destino, valor } => {
                 let tipo_valor = self.expressao(valor);
+                if let Some(lugar) = self.lugar_de_expressao(destino) {
+                    if let Err(erro) = self.propriedade.atribuir(&lugar) {
+                        self.erro("N3100", format!("Atribuição conflita com empréstimo ativo: {erro:?}."));
+                    }
+                }
                 match destino.as_ref() {
                     Expressao::Nome(nome) => {
                         if let Some(simbolo) = self.buscar(nome).cloned() {
