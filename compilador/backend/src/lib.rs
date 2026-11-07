@@ -55,6 +55,7 @@ struct LayoutAgregado {
     tamanho: u64,
     alinhamento: u64,
     campos: HashMap<String, (u64, u64)>,
+    tamanho_tag: u64,
 }
 
 struct Emissor {
@@ -73,6 +74,7 @@ struct Emissor {
     retornos_funcoes: HashMap<String, Tipo>,
     retorno_oculto_atual: Option<(i32, u64)>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
+    variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
     referencias_globais: Vec<(usize, String, i32)>,
     dados_estaticos: Vec<u8>,
     referencias_texto: Vec<(usize, usize)>,
@@ -145,6 +147,7 @@ impl Emissor {
             retornos_funcoes: HashMap::new(),
             retorno_oculto_atual: None,
             layouts_tipos: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
             referencias_globais: Vec::new(),
             dados_estaticos: Vec::new(),
             referencias_texto: Vec::new(),
@@ -168,8 +171,14 @@ impl Emissor {
             let campos = layout.campos.iter().map(|campo| {
                 (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
             }).collect();
-            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, alinhamento: layout.alinhamento, campos })
+            (nome.clone(), LayoutAgregado {
+                tamanho: layout.tamanho,
+                alinhamento: layout.alinhamento,
+                campos,
+                tamanho_tag: layout.tamanho_tag,
+            })
         }).collect();
+        self.variantes_enumeracoes = programa.variantes_enumeracoes.clone();
     }
 
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
