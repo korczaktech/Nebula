@@ -1378,7 +1378,7 @@ impl Parser {
                     Some(TipoToken::Atribui | TipoToken::Ou | TipoToken::E | TipoToken::Igual
                     | TipoToken::Diferente | TipoToken::Menor | TipoToken::MenorIgual
                     | TipoToken::Maior | TipoToken::MaiorIgual | TipoToken::Intervalo
-                    | TipoToken::Mais | TipoToken::Menos | TipoToken::Vezes
+                    | TipoToken::Mais | TipoToken::Menos
                     | TipoToken::Divide | TipoToken::Resto | TipoToken::Potencia
                     | TipoToken::Ponto | TipoToken::Escopo | TipoToken::AbrePar | TipoToken::AbreColchete)) {
                     self.pular_novas_linhas();
