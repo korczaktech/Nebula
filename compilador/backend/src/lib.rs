@@ -76,6 +76,7 @@ struct Emissor {
     retornos_funcoes: HashMap<String, Tipo>,
     retorno_oculto_atual: Option<(i32, u64)>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
+    campos_estruturas: HashMap<String, Vec<(String, Tipo)>>,
     variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
     referencias_globais: Vec<(usize, String, i32)>,
     dados_estaticos: Vec<u8>,
@@ -180,6 +181,7 @@ impl Emissor {
                 campos,
             })
         }).collect();
+        self.campos_estruturas = programa.campos_estruturas.clone();
         self.variantes_enumeracoes = programa.variantes_enumeracoes.clone();
     }
 
@@ -4080,6 +4082,7 @@ mod testes {
             })]),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         }
     }
