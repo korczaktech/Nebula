@@ -4527,6 +4527,15 @@ mod testes {
     }
 
     #[test]
+    fn intervalo_inteiro_usa_dois_registradores_de_endpoints() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+    }
+
+    #[test]
     fn tupla_com_campos_de_quatro_bytes_usa_passagem_indireta() {
         let emissor = Emissor::novo(HashMap::new());
         let tipo = Tipo::Tupla(vec![Tipo::Caractere, Tipo::Caractere]);
