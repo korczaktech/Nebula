@@ -338,9 +338,15 @@ impl Lowerer {
     fn item(&mut self, item: &NoAst) -> Option<InstrucaoIr> {
         let instrucao = match item {
             NoAst::Variavel { nome, tipo, valor, constante } => {
-                let tipo_inferido = if tipo.is_none() { self.inferir_tipo_ast(valor) } else { Tipo::Desconhecido };
-                let mut valor = self.expressao(valor)?;
-                let tipo = tipo.as_deref().map_or(tipo_inferido, |t| self.tipo(t));
+                let tipo_declarado = tipo.as_deref().map(|tipo| self.tipo(tipo));
+                let tipo = tipo_declarado
+                    .clone()
+                    .unwrap_or_else(|| self.inferir_tipo_ast(valor));
+                let mut valor = if let Some(esperado) = tipo_declarado.as_ref() {
+                    self.expressao_com_tipo_esperado(valor, esperado)?
+                } else {
+                    self.expressao(valor)?
+                };
                 if matches!(tipo,
                     Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::Estrutura(_) | Tipo::Tupla(_)
                     | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)
@@ -450,6 +456,7 @@ impl Lowerer {
         &mut self,
         nome: &str,
         argumentos: &[Expressao],
+        retorno_esperado: Option<&Tipo>,
     ) -> Option<String> {
         let modelo = self.genericas.get(nome)?.clone();
         if argumentos.len() != modelo.parametros.len() {
@@ -474,6 +481,21 @@ impl Lowerer {
                 self.diagnosticos.push(format!(
                     "Tipos genéricos conflitantes na chamada de '{nome}': esperado '{tipo_esperado}', recebido '{}'.",
                     nome_tipo(&obtido)
+                ));
+                return None;
+            }
+        }
+
+        if let (Some(retorno), Some(esperado)) = (modelo.retorno.as_deref(), retorno_esperado) {
+            if !self.inferir_substituicao(
+                retorno,
+                esperado,
+                &modelo.genericos,
+                &mut substituicoes,
+            ) {
+                self.diagnosticos.push(format!(
+                    "O tipo de retorno esperado '{}' não é compatível com a função genérica '{nome}'.",
+                    nome_tipo(esperado),
                 ));
                 return None;
             }
@@ -513,6 +535,33 @@ impl Lowerer {
             self.fila_instancias.push((nome_instancia.clone(), nome.to_owned(), substituicoes));
         }
         Some(nome_instancia)
+    }
+
+    fn expressao_com_tipo_esperado(
+        &mut self,
+        expressao: &Expressao,
+        esperado: &Tipo,
+    ) -> Option<ExpressaoIr> {
+        if let Expressao::Chamada { alvo, argumentos, .. } = expressao {
+            if let Expressao::Nome(nome) = alvo.as_ref() {
+                if self.genericas.contains_key(nome) {
+                    let especializado = self.registrar_instancia_generica(
+                        nome,
+                        argumentos,
+                        Some(esperado),
+                    )?;
+                    let argumentos_ir = argumentos
+                        .iter()
+                        .map(|argumento| self.expressao(argumento))
+                        .collect::<Option<Vec<_>>>()?;
+                    return Some(ExpressaoIr::Chamada {
+                        nome: especializado,
+                        argumentos: argumentos_ir,
+                    });
+                }
+            }
+        }
+        self.expressao(expressao)
     }
 
     fn inferir_tipo_ast(&mut self, expressao: &Expressao) -> Tipo {
@@ -906,7 +955,7 @@ impl Lowerer {
                                 valor: Box::new(args.into_iter().next()?),
                             })
                         } else if self.genericas.contains_key(nome) {
-                            let especializado = self.registrar_instancia_generica(nome, argumentos)?;
+                            let especializado = self.registrar_instancia_generica(nome, argumentos, None)?;
                             Some(ExpressaoIr::Chamada { nome: especializado, argumentos: args })
                         } else {
                             Some(ExpressaoIr::Chamada { nome: nome.clone(), argumentos: args })
@@ -3686,6 +3735,16 @@ mod testes {
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("genérico com tupla válido");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
+    }
+
+    #[test]
+    fn infere_parametro_generico_a_partir_do_tipo_de_retorno_esperado() {
+        let ir = compilar(
+            "funcao ausente<T>(): Opcional<T>: {\n    devolver Opcional::Nenhum()\n}\n\nvariavel valor: Opcional<inteiro> = ausente()",
+        );
+        assert!(ir.funcoes.contains_key("ausente__inteiro"));
+        let resultado = executar(&ir, 100).expect("inferência contextual do retorno genérico");
+        assert_eq!(resultado.globais.get("valor"), Some(&ValorIr::Nulo));
     }
 
     #[test]
