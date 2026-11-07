@@ -961,7 +961,7 @@ impl Emissor {
                 campos.iter().any(|(_, tipo)| self.tipo_contem_valor_dinamico(tipo))
             }),
             Tipo::Enumeracao(nome) => self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
-                variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_contem_lista(tipo)))
+                variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_contem_valor_dinamico(tipo)))
             }),
             _ => false,
         }
