@@ -415,23 +415,35 @@ impl Parser {
         self.avancar();
         let corpo = self.bloco()?;
         let mut capturas = Vec::new();
-        self.pular_novas_linhas();
-        while self.corresponde(TipoToken::Erro) {
+        while self.proximo_tipo_significativo() == TipoToken::Erro {
+            self.pular_novas_linhas();
+            self.avancar();
             let tipo = if self.verifica(TipoToken::Identificador) {
                 Some(self.avancar().lexema)
-            } else { None };
+            } else {
+                None
+            };
             let corpo_captura = self.bloco()?;
-            capturas.push(CapturaAst { tipo, corpo: corpo_captura });
-            self.pular_novas_linhas();
+            capturas.push(CapturaAst {
+                tipo,
+                corpo: corpo_captura,
+            });
         }
-        let sempre = if self.corresponde(TipoToken::Sempre) {
+        let sempre = if self.proximo_tipo_significativo() == TipoToken::Sempre {
+            self.pular_novas_linhas();
+            self.avancar();
             self.bloco()?
-        } else { Vec::new() };
-        
+        } else {
+            Vec::new()
+        };
         if capturas.is_empty() && sempre.is_empty() {
             self.erro_atual("N2007", "'tente' precisa de ao menos uma cláusula 'erro' ou 'sempre'.");
         }
-        Some(NoAst::Tente { corpo, capturas, sempre })
+        Some(NoAst::Tente {
+            corpo,
+            capturas,
+            sempre,
+        })
     }
 
     fn com(&mut self) -> Option<NoAst> {
@@ -626,8 +638,6 @@ impl Parser {
         } else {
             Vec::new()
         };
-        self.pular_novas_linhas();
-        
         for (condicao_alternativa, corpo_alternativo) in alternativas.into_iter().rev() {
             senao = vec![NoAst::Quando {
                 condicao: condicao_alternativa,
