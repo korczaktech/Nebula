@@ -2850,7 +2850,7 @@ mod fixtures_conformidade_tipos {
     }
 
     fn rejeita_abi_nativa_pendente(codigo: &str, nome: &str) -> Result<(), String> {
-        let fonte = ArquivoFonte::novo(nome, &codigo);
+        let fonte = ArquivoFonte::novo(nome, codigo);
         let sintaxe = analisar(&fonte);
         if !sintaxe.diagnosticos.is_empty() {
             return Err(format!("erros sintáticos: {:?}", sintaxe.diagnosticos));
