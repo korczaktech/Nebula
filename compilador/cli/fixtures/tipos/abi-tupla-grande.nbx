@@ -1,0 +1,16 @@
+funcao construir(base: inteiro64) -> Tupla<inteiro64, inteiro64, inteiro64>: {
+    devolver (base, base + 1, base + 2)
+}
+
+funcao somar(valores: Tupla<inteiro64, inteiro64, inteiro64>) -> inteiro64: {
+    devolver valores[0] + valores[1] + valores[2]
+}
+
+funcao principal() -> inteiro: {
+    variavel registro = construir(13)
+    variavel total = somar(registro)
+    quando total == 42: {
+        devolver 42
+    }
+    devolver 1
+}
