@@ -15,7 +15,7 @@ use nebula_fonte::IntervaloFonte;
 pub enum Tipo {
     Vazio, Logico, Inteiro, Inteiro8, Inteiro16, Inteiro32, Inteiro64, Inteiro128, InteiroU8, InteiroU16, InteiroU32, InteiroU64, InteiroU128,
     Decimal, Decimal32, Decimal64, Texto, Caractere, Byte,
-    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Estrutura(String), Enumeracao(String), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
+    Lista(Box<Tipo>), Intervalo(Box<Tipo>), Opcional(Box<Tipo>), Referencia { interno: Box<Tipo>, mutavel: bool }, Resultado(Box<Tipo>, Box<Tipo>), Tupla(Vec<Tipo>), Estrutura(String), Enumeracao(String), Funcao(Vec<Tipo>, Box<Tipo>), Parametro(String), Desconhecido,
 }
 
 /// Assinatura pública de função disponibilizada por um módulo importado.
@@ -1998,6 +1998,14 @@ impl<'a> Analisador<'a> {
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
+            _ if nome.starts_with("&mutavel<") && nome.ends_with('>') => Tipo::Referencia {
+                interno: Box::new(self.resolver_tipo_interno(&nome[9..nome.len() - 1], aliases_visitados)),
+                mutavel: true,
+            },
+            _ if nome.starts_with("&<") && nome.ends_with('>') => Tipo::Referencia {
+                interno: Box::new(self.resolver_tipo_interno(&nome[2..nome.len() - 1], aliases_visitados)),
+                mutavel: false,
+            },
             _ if nome.starts_with('(') && nome.ends_with(')') => {
                 match TipoAst::analisar(nome) {
                     TipoAst::Tupla(elementos) => {
@@ -2091,8 +2099,8 @@ impl<'a> Analisador<'a> {
     fn tipo_contem_desconhecido(tipo: &Tipo) -> bool {
         match tipo {
             Tipo::Desconhecido => true,
-            Tipo::Lista(interno) | Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
-                Self::tipo_contem_desconhecido(interno),
+            Tipo::Lista(interno) | Tipo::Intervalo(interno) | Tipo::Opcional(interno)
+            | Tipo::Referencia { interno, .. } => Self::tipo_contem_desconhecido(interno),
             Tipo::Resultado(sucesso, falha) =>
                 Self::tipo_contem_desconhecido(sucesso) || Self::tipo_contem_desconhecido(falha),
             Tipo::Tupla(tipos) => tipos.iter().any(Self::tipo_contem_desconhecido),
@@ -2461,7 +2469,7 @@ impl<'a> Analisador<'a> {
         ativos: &mut std::collections::HashSet<String>,
     ) -> bool {
         match tipo {
-            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Logico | Tipo::Inteiro
+            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Referencia { mutavel: false, .. } | Tipo::Logico | Tipo::Inteiro
             | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32 | Tipo::Inteiro64
             | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
             | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Decimal | Tipo::Decimal32
@@ -2681,6 +2689,8 @@ impl<'a> Analisador<'a> {
             (Tipo::Parametro(a), Tipo::Parametro(b)) => a == b,
             (Tipo::Lista(a), Tipo::Lista(b)) | (Tipo::Intervalo(a), Tipo::Intervalo(b))
             | (Tipo::Opcional(a), Tipo::Opcional(b)) => Self::tipos_compativeis(a, b),
+            (Tipo::Referencia { interno: a, mutavel: ma }, Tipo::Referencia { interno: b, mutavel: mb }) =>
+                ma == mb && Self::tipos_compativeis(a, b),
             (Tipo::Resultado(a1, a2), Tipo::Resultado(b1, b2)) =>
                 Self::tipos_compativeis(a1, b1) && Self::tipos_compativeis(a2, b2),
             (Tipo::Tupla(a), Tipo::Tupla(b)) => a.len() == b.len()
@@ -2813,6 +2823,8 @@ impl Tipo {
             Self::Byte => "byte".into(), Self::Lista(t) => format!("[{}]", t.nome()),
             Self::Intervalo(t) => format!("intervalo<{}>", t.nome()),
             Self::Opcional(t) => format!("Opcional<{}>", t.nome()),
+            Self::Referencia { interno, mutavel: true } => format!("&mutavel {}", interno.nome()),
+            Self::Referencia { interno, mutavel: false } => format!("&{}", interno.nome()),
             Self::Resultado(sucesso, falha) => format!("Resultado<{},{}>", sucesso.nome(), falha.nome()),
             Self::Tupla(itens) => format!("Tupla<{}>", itens.iter().map(Tipo::nome).collect::<Vec<_>>().join(",")),
             Self::Estrutura(nome) => nome.clone(), Self::Enumeracao(nome) => nome.clone(),
