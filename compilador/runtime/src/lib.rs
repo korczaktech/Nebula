@@ -1613,6 +1613,32 @@ mod ciclo_vida {
         }
 
         #[test]
+        fn emprestimo_exclusivo_bloqueia_leitura_direta_do_proprietario() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", true).unwrap();
+            assert_eq!(
+                contexto.validar_leitura_referenciada(escopo, "valor"),
+                Err(ErroRuntime::EmprestimoConflitante)
+            );
+        }
+
+        #[test]
+        fn emprestimo_compartilhado_bloqueia_escrita_direta_do_proprietario() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", false).unwrap();
+            assert_eq!(
+                contexto.validar_escrita_referenciada(escopo, "valor"),
+                Err(ErroRuntime::EmprestimoConflitante)
+            );
+        }
+
+        #[test]
         fn emprestimo_exclusivo_bloqueia_emprestimo_compartilhado() {
             let mut contexto = ContextoRuntime::novo();
             contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
