@@ -5,11 +5,7 @@ funcao principal() -> inteiro: {
     enquanto indice < 50000000: {
         total = total + indice
         indice = indice + 1
-        fim
     }
-    fim
 
     devolver 0
-    fim
 }
-fim
