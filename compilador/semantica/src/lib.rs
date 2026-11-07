@@ -4766,6 +4766,53 @@ funcao sem_retorno(): vazio
 
 
     #[test]
+    fn aceita_referencia_compartilhada_tipagem_e_dereferencia() {
+        let resultado = analisar_codigo(
+            "variavel valor: inteiro = 7\nvariavel referencia: &inteiro = &valor\nvariavel copia: &inteiro = referencia\nvariavel obtido = *referencia",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(
+            resultado.tipos_globais.get("referencia"),
+            Some(&Tipo::Referencia { interno: Box::new(Tipo::Inteiro), mutavel: false })
+        );
+        assert_eq!(resultado.tipos_globais.get("obtido"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
+    fn rejeita_aliasing_compartilhado_e_exclusivo() {
+        let resultado = analisar_codigo(
+            "variavel valor: inteiro = 7\nvariavel compartilhada: &inteiro = &valor\nvariavel exclusiva: &mutavel inteiro = &mutavel valor",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3092"),
+            "O empréstimo exclusivo deve conflitar com o compartilhado: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_escrita_enquanto_referencia_compartilhada_esta_viva() {
+        let resultado = analisar_codigo(
+            "variavel valor: inteiro = 7\nvariavel referencia: &inteiro = &valor\nvalor = 9",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3100"),
+            "A escrita não pode invalidar um empréstimo compartilhado ativo: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_desreferencia_de_valor_que_nao_e_referencia() {
+        let resultado = analisar_codigo("variavel valor: inteiro = 7\nvariavel obtido = *valor");
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3093"),
+            "Desreferência de inteiro precisa ser rejeitada: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
     fn associa_diagnosticos_semanticos_a_intervalos_da_fonte() {
         let resultado = analisar_codigo("variavel valor: inteiro = verdadeiro");
         let diagnostico = resultado.diagnosticos.iter().find(|d| d.codigo == "N3020").expect("diagnóstico de tipo");
