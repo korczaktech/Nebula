@@ -324,7 +324,7 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 13. Quebras após vírgulas continuam listas quando a construção permite a continuação.
 14. Uma quebra imediatamente antes de `senao`, `sendo`, `erro` ou `sempre` mantém a cláusula associada à construção aberta. Ponto e vírgula não substitui essa regra.
 15. A indentação organiza visualmente o conteúdo de Function Body e não cria limites sintáticos.
-16. O cada corpo é encerrado exclusivamente pela chave `}` correspondente.
+16. Cada corpo é encerrado exclusivamente pela chave `}` correspondente.
 
 ## 9. Delimitadores
 
@@ -343,7 +343,7 @@ O Parser rejeita, entre outros casos:
 - Bloco sem a chave `}` correspondente.
 - Indentação inicial no escopo do arquivo ou nível de indentação sem bloco correspondente.
 - Campo de estrutura sem dois-pontos ou tipo.
-- Estrutura ou enumeração sem Function Body e os dois encerramentos exigidos.
+- Estrutura ou enumeração sem Function Body ou sem a chave de fechamento correspondente.
 - Enumeração sem variantes.
 - Campo, variante, parâmetro, parâmetro genérico ou vínculo duplicado.
 - Padrão de escolha inválido, variante repetida ou curinga duplicado.
@@ -545,5 +545,5 @@ Uma implementação conforme deve:
 4. Rejeitar a sintaxe antiga baseada somente em indentação.
 5. Distinguir Function Body de chaves usadas em valores de dados.
 6. Preservar as regras de separação e continuação da seção 8.
-7. Produzir AST e diagnósticos com limites de bloco determinados pelos delimitadores, não apenas pela indentação/.
+7. Produzir AST e diagnósticos com limites de bloco determinados pelos delimitadores, não apenas pela indentação.
 8. Manter esta gramática, `tokens.md`, exemplos e testes de conformidade sincronizados.
