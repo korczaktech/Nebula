@@ -323,6 +323,13 @@ impl Emissor {
                 Ok(())
             }
             Tipo::Opcional(tipo) | Tipo::Lista(tipo) => self.validar_tipo_abi(tipo),
+            Tipo::Intervalo(tipo) => {
+                self.validar_tipo_abi(tipo)?;
+                if tipo_decimal(tipo) || tipo_inteiro_128(tipo) {
+                    return Err("Intervalo nativo aceita somente endpoints inteiros de até 64 bits.".into());
+                }
+                Ok(())
+            }
             Tipo::Resultado(sucesso, falha) => {
                 self.validar_tipo_abi(sucesso)?;
                 self.validar_tipo_abi(falha)
@@ -349,6 +356,16 @@ impl Emissor {
             Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
             Tipo::Lista(_) => Some((16, 8)),
+            Tipo::Intervalo(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(interno)?;
+                let campos = [tamanho, tamanho];
+                let mut deslocamento = 0u64;
+                for campo in campos {
+                    deslocamento = Self::alinhar_layout(deslocamento, alinhamento)?;
+                    deslocamento = deslocamento.checked_add(campo)?;
+                }
+                Some((Self::alinhar_layout(deslocamento, alinhamento)?, alinhamento))
+            }
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
             Tipo::Opcional(interno) => {
@@ -430,7 +447,7 @@ impl Emissor {
                 1
             });
         }
-        if matches!(tipo, Tipo::Lista(_)) {
+        if matches!(tipo, Tipo::Lista(_) | Tipo::Intervalo(_)) {
             return Ok(2);
         }
         if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
