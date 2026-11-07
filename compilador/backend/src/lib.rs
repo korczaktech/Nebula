@@ -997,15 +997,30 @@ impl Emissor {
                 };
                 let posicao = indice_literal_ir(indice)
                     .ok_or("A indexação nativa de tupla exige índice literal.")?;
-                let (_, campos) = self.layout_tupla(tipos)
+                let (tamanho_tupla, campos) = self.layout_tupla(tipos)
                     .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
                 let (deslocamento, _) = campos.get(posicao)
                     .ok_or("Índice de tupla fora dos limites.")?;
-                self.expressao(alvo)?;
-                match deslocamento {
-                    0 => {}
-                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
-                    _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                let tipo_elemento = tipos.get(posicao)
+                    .ok_or("Tipo do elemento de tupla não encontrado.")?;
+                if tamanho_tupla > 16 {
+                    self.expressao(alvo)?;
+                    let deslocamento = i32::try_from(*deslocamento)
+                        .map_err(|_| "Deslocamento do elemento da tupla excede o ABI x86-64.")?;
+                    if deslocamento != 0 {
+                        self.codigo.extend_from_slice(&[0x48, 0x05]); // add rax, deslocamento
+                        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+                    }
+                    let (tamanho_elemento, _) = self.tamanho_alinhamento_tipo(tipo_elemento)
+                        .ok_or("Layout do elemento da tupla não suportado.")?;
+                    self.carregar_valor_abi_de_endereco(tipo_elemento, tamanho_elemento)?;
+                } else {
+                    self.expressao(alvo)?;
+                    match deslocamento {
+                        0 => {}
+                        8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                        _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                    }
                 }
             }
             ExpressaoIr::Membro { alvo, campo } => {
@@ -2069,6 +2084,54 @@ impl Emissor {
             return false;
         };
         self.layouts_tipos.get(nome).is_some_and(|layout| layout.tamanho > 16)
+    }
+
+    /// Carrega um elemento armazenado em memória para a representação de retorno da ABI.
+    /// Para agregados grandes, preserva o endereço em RAX para acesso indireto posterior.
+    fn carregar_valor_abi_de_endereco(
+        &mut self,
+        tipo: &Tipo,
+        tamanho: u64,
+    ) -> Result<(), String> {
+        if tamanho == 0 {
+            return Err("Elemento de agregado possui tamanho zero.".into());
+        }
+        if tamanho > 16 {
+            self.mov_rdx(0);
+            return Ok(());
+        }
+
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço
+        match tamanho {
+            16 => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]); // rax = [r11]
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x53, 0x08]); // rdx = [r11 + 8]
+            }
+            9..=15 => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]);
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x53, 0x08]);
+                let bytes_superiores = tamanho - 8;
+                let mascara = (1u64 << (bytes_superiores * 8)) - 1;
+                self.codigo.extend_from_slice(&[0x48, 0xB9]); // rcx = máscara
+                self.codigo.extend_from_slice(&mascara.to_le_bytes());
+                self.codigo.extend_from_slice(&[0x48, 0x21, 0xCA]); // rdx &= rcx
+            }
+            8 => self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]),
+            4 => match tipo_inteiro_abi(tipo) {
+                Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x03]),
+                _ => self.codigo.extend_from_slice(&[0x41, 0x8B, 0x03]),
+            },
+            2 => match tipo_inteiro_abi(tipo) {
+                Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x03]),
+                _ => self.codigo.extend_from_slice(&[0x41, 0x0F, 0xB7, 0x03]),
+            },
+            1 => match tipo_inteiro_abi(tipo) {
+                Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x03]),
+                _ => self.codigo.extend_from_slice(&[0x41, 0x0F, 0xB6, 0x03]),
+            },
+            _ => return Err(format!("Elemento de {} bytes não possui representação ABI suportada.", tamanho)),
+        }
+        Ok(())
     }
 
     fn carregar_membro_agregado(
