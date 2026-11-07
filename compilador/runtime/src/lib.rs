@@ -1496,6 +1496,24 @@ mod ciclo_vida {
             })
         }
 
+        /// Impede leitura direta do proprietário enquanto houver empréstimo exclusivo.
+        pub fn validar_leitura_referenciada(&self, escopo: u64, nome: &str) -> Resultado<()> {
+            let Some(recurso) = self.recursos_emprestimo.get(&(escopo, nome.to_owned())) else {
+                return Ok(());
+            };
+            self.emprestimos.validar_leitura(*recurso)
+                .map_err(|_| ErroRuntime::EmprestimoConflitante)
+        }
+
+        /// Impede escrita direta do proprietário enquanto qualquer empréstimo estiver ativo.
+        pub fn validar_escrita_referenciada(&self, escopo: u64, nome: &str) -> Resultado<()> {
+            let Some(recurso) = self.recursos_emprestimo.get(&(escopo, nome.to_owned())) else {
+                return Ok(());
+            };
+            self.emprestimos.validar_escrita(*recurso)
+                .map_err(|_| ErroRuntime::EmprestimoConflitante)
+        }
+
         /// Registra uma ação de encerramento, executada em ordem inversa.
         pub fn registrar_finalizador<F>(&mut self, acao: F) -> Resultado<()>
         where
