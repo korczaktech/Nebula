@@ -2786,6 +2786,7 @@ mod testes {
     }
 
         fn normalizar_blocos_indentados(codigo: &str) -> String {
+    let codigo = codigo.replace("\\n", "\n").replace("\\t", "\t");
         let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
         let possui_cabecalho_legado = codigo.lines().any(|linha| {
             let conteudo = linha.trim();
