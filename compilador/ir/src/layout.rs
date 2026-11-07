@@ -87,6 +87,10 @@ fn converter_tipo_interno(
                 .collect::<Result<_, _>>()?,
         ),
         Tipo::Opcional(elemento) => TipoRuntime::Opcional(Box::new(converter(elemento, ativos)?)),
+        Tipo::Referencia { interno, mutavel } => TipoRuntime::Referencia {
+            mutavel: *mutavel,
+            interno: Box::new(converter(interno, ativos)?),
+        },
         Tipo::Resultado(sucesso, falha) => TipoRuntime::Resultado(
             Box::new(converter(sucesso, ativos)?),
             Box::new(converter(falha, ativos)?),
