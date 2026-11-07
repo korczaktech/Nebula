@@ -2022,6 +2022,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
     }
 
+    while let Some(bloco) = blocos.pop() {
+        if !bloco.explicito {
+            fechar(&mut saida, bloco);
+        }
+    }
     saida.join("\n")
 }
 
@@ -4405,7 +4410,7 @@ criarUsuario(nome = "Ana", idade = 25)
 
 
     #[test]
-    fn blocos_de_instrucao_exigem_indentacao_e_fim() {
+    fn blocos_de_instrucao_exigem_delimitadores_explicitos() {
         let valido = analisar(&fonte(
             "funcao principal()\n    quando verdadeiro\n        passar\n\n"
         ));
