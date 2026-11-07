@@ -2289,7 +2289,13 @@ impl Maquina<'_, '_> {
             }
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
             ExpressaoIr::Conversao { tipo, valor, .. } => converter_valor_explicito(tipo, self.expressao(valor)?),
-            ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
+            ExpressaoIr::Variavel(nome) => {
+                let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
+                    .ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))?;
+                self.contexto.validar_leitura_referenciada(escopo, nome)
+                    .map_err(formatar_erro_runtime)?;
+                self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))
+            },
             ExpressaoIr::Referencia { nome, mutavel, .. } => {
                 let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
                     .ok_or_else(|| format!("Variável '{nome}' não encontrada para criação de referência."))?;
@@ -2368,6 +2374,10 @@ impl Maquina<'_, '_> {
                 binaria(a, *operador, b)
             }
             ExpressaoIr::Atribuicao { nome, valor, tipo } => {
+                let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
+                    .ok_or_else(|| format!("Variável '{nome}' não encontrada para atribuição."))?;
+                self.contexto.validar_escrita_referenciada(escopo, nome)
+                    .map_err(formatar_erro_runtime)?;
                 let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
                     .atribuir(nome, converter_para_runtime(valor.clone()))
@@ -2375,6 +2385,10 @@ impl Maquina<'_, '_> {
                 Ok(valor)
             }
             ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo } => {
+                let escopo = self.contexto.memoria().identificador_escopo_da_variavel(raiz)
+                    .ok_or_else(|| format!("Variável '{raiz}' não encontrada para atribuição de campo."))?;
+                self.contexto.validar_escrita_referenciada(escopo, raiz)
+                    .map_err(formatar_erro_runtime)?;
                 let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
                 self.memoria_mutavel()?
                     .definir_campo_estrutura(raiz, caminho, converter_para_runtime(valor.clone()))
