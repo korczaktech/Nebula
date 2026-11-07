@@ -335,12 +335,11 @@ impl AnalisadorPropriedade {
     /// Valida apenas a presença de algum contexto inseguro.
     /// Para operações concretas, prefira validar_operacao_especifica.
     pub fn validar_operacao_insegura(&self) -> Result<(), ErroPropriedade> {
-        if self.contextos_inseguros.last() == Some(&ContextoInseguro::Seguro) {
-            Err(ErroPropriedade::OperacaoInseguraForaDeBloco)
-        } else if self.contextos_inseguros.is_empty() {
-            Err(ErroPropriedade::OperacaoInseguraForaDeBloco)
-        } else {
-            Ok(())
+        match self.contextos_inseguros.last() {
+            Some(ContextoInseguro::Seguro) | None => {
+                Err(ErroPropriedade::OperacaoInseguraForaDeBloco)
+            }
+            Some(_) => Ok(()),
         }
     }
 
