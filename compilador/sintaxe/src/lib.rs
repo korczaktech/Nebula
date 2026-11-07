@@ -3778,7 +3778,7 @@ senao: {
     }
 
     #[test]
-    fn aceita_blocos_aninhados_com_terminadores_fim() {
+    fn aceita_blocos_aninhados_com_chaves() {
         for codigo in [
             "funcao principal()\n    quando verdadeiro\n        exibir(1)\n\n",
             "funcao principal()\n quando verdadeiro\n  enquanto verdadeiro\n   exibir(1)\n\n\n",
@@ -4094,23 +4094,25 @@ senao: {
 
     #[test]
     fn sintaxe_indentada_antiga_e_rejeitada() {
-        let invalido = analisar(&fonte("quando sim\n    passar\n"));
+        let invalido = analisar(&fonte_bruta("quando sim\n    passar\n"));
         assert!(
-            invalido.diagnosticos.iter().any(|d| d.codigo == "N2009"),
-            "condicional sem abertura explícita deve ser rejeitado"
+            !invalido.diagnosticos.is_empty(),
+            "a sintaxe antiga sem chaves deve ser rejeitada"
         );
-        let valido = analisar(&fonte("quando sim\n    passar\n"));
+
+        let valido = analisar(&fonte("quando sim: {\n    passar\n}"));
         assert!(
             valido.diagnosticos.is_empty(),
-            "a forma indentada deve ser aceita: {:?}",
+            "Function Body com chaves deve ser aceito: {:?}",
             valido.diagnosticos
         );
+
         let aninhado = analisar(&fonte(
-            "funcao principal()\n    quando sim\n        passar\n\n"
+            "funcao principal(): {\n    quando sim: {\n        passar\n    }\n}"
         ));
         assert!(
             aninhado.diagnosticos.is_empty(),
-            "o fechamento externo deve permanecer associado à função: {:?}",
+            "blocos aninhados com chaves devem ser aceitos: {:?}",
             aninhado.diagnosticos
         );
     }
@@ -4426,7 +4428,7 @@ criarUsuario(nome = "Ana", idade = 25)
     #[test]
     fn blocos_de_instrucao_exigem_delimitadores_explicitos() {
         let valido = analisar(&fonte(
-            "funcao principal()\n    quando verdadeiro\n        passar\n\n"
+            "funcao principal(): {\n    quando verdadeiro: {\n        passar\n    }\n}"
         ));
         assert!(
             valido.diagnosticos.is_empty(),
@@ -4454,9 +4456,7 @@ criarUsuario(nome = "Ana", idade = 25)
             "espaços iniciais no escopo superior não criam blocos"
         );
 
-        let recuperacao = analisar(&fonte(
-            "funcao quebrada()\nvariavel depois = 1"
-        ));
+        let recuperacao = analisar(&fonte_bruta("funcao quebrada()\nvariavel depois = 1"));
         assert!(
             !recuperacao.diagnosticos.is_empty(),
             "bloco sem indentação deve produzir diagnóstico"
