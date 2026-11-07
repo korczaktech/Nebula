@@ -999,7 +999,12 @@ fn qualificar_expressao_modulo(
                 qualificar_expressao_modulo(item, caminho, funcoes, caminhos_canonicos);
             }
         }
-        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. } => {
+        ExpressaoIr::Normalizar { valor, .. } | ExpressaoIr::Conversao { valor, .. } | ExpressaoIr::Unaria { valor, .. }
+        | ExpressaoIr::Desreferencia(valor) => {
+            qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
+        }
+        ExpressaoIr::AtribuicaoReferencia { referencia, valor, .. } => {
+            qualificar_expressao_modulo(referencia, caminho, funcoes, caminhos_canonicos);
             qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos);
         }
         ExpressaoIr::ChamadaIndireta { alvo, argumentos } => {
@@ -1059,7 +1064,8 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::Referencia { .. }
+        | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
     if let Some(nome) = chamada_local {
         let ExpressaoIr::Chamada { argumentos, .. } = expressao else {
