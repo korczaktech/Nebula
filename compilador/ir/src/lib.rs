@@ -202,15 +202,18 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
                 let tipos_parametros: Vec<_> = parametros.iter()
                     .map(|(n, t)| (n.clone(), lowerer.tipo(t)))
                     .collect();
-                lowerer.escopos_tipos.push(tipos_parametros.iter()
+                let retorno_tipo = retorno.as_deref().map_or(Tipo::Vazio, |t| lowerer.tipo(t));
+                let mut escopo_funcao: HashMap<String, Tipo> = tipos_parametros.iter()
                     .map(|(nome, tipo)| (nome.clone(), tipo.clone()))
-                    .collect());
+                    .collect();
+                escopo_funcao.insert("\0nebula_retorno".into(), retorno_tipo.clone());
+                lowerer.escopos_tipos.push(escopo_funcao);
                 let corpo = lowerer.bloco(corpo);
                 lowerer.escopos_tipos.pop();
                 let funcao = FuncaoIr {
                     nome: nome.clone(),
                     parametros: tipos_parametros,
-                    retorno: retorno.as_deref().map_or(Tipo::Vazio, |t| lowerer.tipo(t)),
+                    retorno: retorno_tipo,
                     corpo,
                 };
                 ir.funcoes.insert(nome.clone(), funcao);
@@ -225,12 +228,14 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
         let parametros: Vec<_> = modelo.parametros.iter()
             .map(|(nome, tipo)| (nome.clone(), lowerer.tipo(tipo)))
             .collect();
-        lowerer.escopos_tipos.push(parametros.iter()
+        let retorno = modelo.retorno.as_deref().map_or(Tipo::Vazio, |tipo| lowerer.tipo(tipo));
+        let mut escopo_funcao: HashMap<String, Tipo> = parametros.iter()
             .map(|(nome, tipo)| (nome.clone(), tipo.clone()))
-            .collect());
+            .collect();
+        escopo_funcao.insert("\0nebula_retorno".into(), retorno.clone());
+        lowerer.escopos_tipos.push(escopo_funcao);
         let corpo = lowerer.bloco(&modelo.corpo);
         lowerer.escopos_tipos.pop();
-        let retorno = modelo.retorno.as_deref().map_or(Tipo::Vazio, |tipo| lowerer.tipo(tipo));
         lowerer.substituicoes = substituicoes_anteriores;
         if let Some(funcao) = lowerer.instancias.get_mut(&nome_instancia) {
             funcao.parametros = parametros;
@@ -435,7 +440,21 @@ impl Lowerer {
                 atualizacao: atualizacao.as_ref().and_then(|e| self.expressao(e)),
                 corpo: self.bloco(corpo),
             }),
-            NoAst::Devolver(e) => Some(InstrucaoIr::Devolver(e.as_ref().and_then(|v| self.expressao(v)))),
+            NoAst::Devolver(e) => {
+                let valor = if let Some(valor) = e {
+                    let esperado = self.escopos_tipos.iter().rev()
+                        .find_map(|escopo| escopo.get("\0nebula_retorno"))
+                        .cloned();
+                    Some(if let Some(esperado) = esperado {
+                        self.expressao_com_tipo_esperado(valor, &esperado)?
+                    } else {
+                        self.expressao(valor)?
+                    })
+                } else {
+                    None
+                };
+                Some(InstrucaoIr::Devolver(valor))
+            },
             NoAst::Parar => Some(InstrucaoIr::Parar),
             NoAst::Seguir => Some(InstrucaoIr::Seguir),
             NoAst::Passar | NoAst::Ceder(_) | NoAst::BlocoContextual { .. }
@@ -3735,6 +3754,19 @@ mod testes {
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("genérico com tupla válido");
         assert_eq!(resultado.globais.get("numero"), Some(&ValorIr::Inteiro(7)));
+    }
+
+    #[test]
+    fn infere_generico_pelo_retorno_da_funcao_envolvente() {
+        let ir = compilar(
+            "funcao ausente<T>(marcador: inteiro) -> Opcional<T>: {\n    devolver Opcional::Nenhum()\n}\n\nfuncao criar() -> Opcional<inteiro>: {\n    devolver ausente(0)\n}\n\nvariavel valor = criar()",
+        );
+        assert!(ir.funcoes.contains_key("ausente__inteiro"));
+        let resultado = executar(&ir, 100).expect("inferência contextual em retorno de função");
+        assert!(matches!(
+            resultado.globais.get("valor"),
+            Some(ValorIr::Estrutura { nome, .. }) if nome == "Opcional::Nenhum"
+        ));
     }
 
     #[test]
