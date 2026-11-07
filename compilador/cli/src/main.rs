@@ -1197,10 +1197,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
 
         if conteudo == "fim" {
-            if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel {
-                    continue;
-                }
+            if blocos.is_empty() || blocos.last().is_some_and(|bloco| bloco.explicito) {
+                continue;
             }
 
             while blocos.last().is_some_and(|bloco| {
