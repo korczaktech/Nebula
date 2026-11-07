@@ -949,6 +949,74 @@ impl Emissor {
         Ok(())
     }
 
+    fn tipo_contem_lista(&self, tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Lista(_) => true,
+            Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
+                self.tipo_contem_lista(interno),
+            Tipo::Resultado(sucesso, falha) =>
+                self.tipo_contem_lista(sucesso) || self.tipo_contem_lista(falha),
+            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_contem_lista(tipo)),
+            Tipo::Estrutura(nome) => self.campos_estruturas.get(nome).is_some_and(|campos| {
+                campos.iter().any(|(_, tipo)| self.tipo_contem_lista(tipo))
+            }),
+            Tipo::Enumeracao(nome) => self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
+                variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_contem_lista(tipo)))
+            }),
+            _ => false,
+        }
+    }
+
+    fn comparar_agregado(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+        tipo: &Tipo,
+        operador: &OperadorIr,
+    ) -> Result<(), String> {
+        if self.tipo_contem_lista(tipo) {
+            return Err("Igualdade de agregados que contêm listas ainda não está implementada no backend ELF.".into());
+        }
+        if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
+            self.expressao(esquerda)?;
+            self.push_rax(); // preserva o endereço esquerdo
+            self.expressao(direita)?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = endereço direito
+            self.pop_rax();
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = endereço esquerdo
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA6]); // repe cmpsb
+        } else {
+            let largura = self.largura_abi_tipo(tipo)?;
+            self.expressao(esquerda)?;
+            self.push_rax();
+            if largura == 2 {
+                self.codigo.push(0x52); // push rdx
+                self.pilha += 1;
+            }
+            self.expressao(direita)?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = rhs low
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xD6]); // rsi = rhs high
+            if largura == 2 {
+                self.codigo.push(0x5A); // pop rdx = lhs high
+                self.pilha = self.pilha.saturating_sub(1);
+            }
+            self.pop_rax(); // rax = lhs low
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8, 0x0F, 0x95, 0xC0]); // low mismatch
+            if largura == 2 {
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2, 0x0F, 0x95, 0xC2, 0x08, 0xD0]); // high mismatch OR low
+            }
+        }
+        self.codigo.extend_from_slice(if *operador == OperadorIr::Igual {
+            &[0x0F, 0x94, 0xC0]
+        } else {
+            &[0x0F, 0x95, 0xC0]
+        });
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+        Ok(())
+    }
+
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
@@ -1288,6 +1356,23 @@ impl Emissor {
                         *operador == OperadorIr::Diferente,
                     )?;
                     return Ok(());
+                }
+                if matches!(operador, OperadorIr::Igual | OperadorIr::Diferente) {
+                    if let Some(tipo) = self.tipo_expressao_atual(esquerda) {
+                        if matches!(
+                            tipo,
+                            Tipo::Lista(_)
+                                | Tipo::Intervalo(_)
+                                | Tipo::Tupla(_)
+                                | Tipo::Estrutura(_)
+                                | Tipo::Enumeracao(_)
+                                | Tipo::Opcional(_)
+                                | Tipo::Resultado(_, _)
+                        ) {
+                            self.comparar_agregado(esquerda, direita, &tipo, operador)?;
+                            return Ok(());
+                        }
+                    }
                 }
                 if inteiro_128_expressao(esquerda) {
                     self.expressao(esquerda)?;
