@@ -2791,30 +2791,13 @@ mod testes {
 
     fn normalizar_blocos_legados(codigo: &str) -> String {
         let codigo = codigo.replace("): ", ") -> ");
-        if codigo.lines().any(|linha| {
-            let conteudo = linha.trim();
-            [
-                "funcao ",
-                "publico funcao ",
-                "estrutura ",
-                "enumeracao ",
-                "quando ",
-                "senao",
-                "escolha ",
-                "avaliar ",
-                "caso ",
-                "cada ",
-                "enquanto ",
-                "para ",
-                "pulso(",
-                "durante ",
-                "repetir ",
-            ]
-            .iter()
-            .any(|prefixo| conteudo.starts_with(prefixo))
-                && conteudo.ends_with(": {")
-        }) {
-            return codigo;
+        if codigo.lines().any(|linha| linha.trim().ends_with(": {")) {
+            return codigo
+                .lines()
+                .filter(|linha| linha.trim() != "fim")
+                .collect::<Vec<_>>()
+                .join("\n")
+                .replace("} fim", "}");
         }
 
         #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2837,14 +2820,11 @@ mod testes {
         fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
             match bloco.tipo {
                 TipoBloco::Caso => {
-                    saida.push(indentacao("fim", bloco.indentacao));
                     saida.push(indentacao("}", bloco.indentacao));
                 }
                 TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                    saida.push(indentacao("fim", bloco.indentacao));
                     saida.push(indentacao("}", bloco.indentacao));
-                    saida.push(indentacao("fim", bloco.indentacao));
-                }
+                    }
             }
         }
 
@@ -2863,7 +2843,6 @@ mod testes {
             if conteudo.starts_with("senao") {
                 if let Some(bloco) = blocos.last() {
                     if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
-                        saida.push(indentacao("fim", nivel));
                         saida.push(indentacao("}", nivel));
                         saida.push(indentacao("senao: {", nivel));
                         continue;
