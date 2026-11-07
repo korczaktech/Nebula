@@ -75,6 +75,41 @@ pub enum TipoEmprestimo {
     Exclusivo,
 }
 
+/// Contextos que autorizam operações inseguras específicas.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContextoInseguro {
+    Critico,
+    Privilegio,
+    Montagem,
+}
+
+/// Operações que não podem ser executadas implicitamente em código seguro.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OperacaoInsegura {
+    DesreferenciarPonteiroBruto,
+    CriarReferenciaDeEndereco,
+    AcessarMemoria,
+    ReinterpretarRepresentacao,
+    ChamarExternoNaoVerificado,
+    Montagem,
+    OperacaoPrivilegiada,
+    LiberarAlocacao,
+    AcessarMemoriaMapeada,
+}
+
+/// Provas exigidas pelo verificador antes de autorizar uma operação insegura.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ProvasInseguras {
+    pub endereco_valido: bool,
+    pub alinhamento_valido: bool,
+    pub inicializacao_comprovada: bool,
+    pub aliasing_controlado: bool,
+    pub limites_comprovados: bool,
+    pub abi_validada: bool,
+    pub alvo_compativel: bool,
+    pub autorizacao_sistema: bool,
+}
+
 /// Erros produzidos pelo verificador de propriedade.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ErroPropriedade {
@@ -90,6 +125,8 @@ pub enum ErroPropriedade {
     EscopoGlobal,
     OperacaoInseguraForaDeBloco,
     BlocoInseguroNaoAberto,
+    ContextoInseguroIncompativel { operacao: OperacaoInsegura, contexto: Option<ContextoInseguro> },
+    ObrigacaoInseguraNaoComprovada { operacao: OperacaoInsegura, obrigacao: &'static str },
 }
 
 #[derive(Clone, Debug)]
@@ -119,7 +156,7 @@ pub struct AnalisadorPropriedade {
     proximo_ordem: u64,
     variaveis: HashMap<String, VariavelPropriedade>,
     emprestimos: HashMap<u64, EmprestimoAtivo>,
-    profundidade_insegura: usize,
+    contextos_inseguros: Vec<ContextoInseguro>,
 }
 
 impl Default for AnalisadorPropriedade {
@@ -135,7 +172,7 @@ impl AnalisadorPropriedade {
             proximo_ordem: 0,
             variaveis: HashMap::new(),
             emprestimos: HashMap::new(),
-            profundidade_insegura: 0,
+            contextos_inseguros: Vec::new(),
         }
     }
 
@@ -260,24 +297,98 @@ impl AnalisadorPropriedade {
     }
 
     /// Entra em um bloco inseguro explícito.
-    pub fn entrar_inseguro(&mut self) { self.profundidade_insegura += 1; }
+    pub fn entrar_inseguro(&mut self) {
+        self.entrar_contexto_inseguro(ContextoInseguro::Critico);
+    }
+
+    /// Entra em um contexto inseguro com permissões delimitadas.
+    pub fn entrar_contexto_inseguro(&mut self, contexto: ContextoInseguro) {
+        self.contextos_inseguros.push(contexto);
+    }
 
     /// Sai do bloco inseguro atual.
     pub fn sair_inseguro(&mut self) -> Result<(), ErroPropriedade> {
-        if self.profundidade_insegura == 0 {
-            return Err(ErroPropriedade::BlocoInseguroNaoAberto);
-        }
-        self.profundidade_insegura -= 1;
-        Ok(())
+        self.contextos_inseguros.pop()
+            .map(|_| ())
+            .ok_or(ErroPropriedade::BlocoInseguroNaoAberto)
     }
 
-    /// Valida uma operação que exige contexto inseguro.
+    /// Valida apenas a presença de algum contexto inseguro.
+    /// Para operações concretas, prefira validar_operacao_especifica.
     pub fn validar_operacao_insegura(&self) -> Result<(), ErroPropriedade> {
-        if self.profundidade_insegura == 0 {
+        if self.contextos_inseguros.is_empty() {
             Err(ErroPropriedade::OperacaoInseguraForaDeBloco)
         } else {
             Ok(())
         }
+    }
+
+    /// Confere o contexto autorizado e as provas obrigatórias da operação.
+    pub fn validar_operacao_especifica(
+        &self,
+        operacao: OperacaoInsegura,
+        provas: ProvasInseguras,
+    ) -> Result<(), ErroPropriedade> {
+        let contexto = self.contextos_inseguros.last().copied();
+        let contexto_aceito = match operacao {
+            OperacaoInsegura::Montagem => contexto == Some(ContextoInseguro::Montagem),
+            OperacaoInsegura::OperacaoPrivilegiada => contexto == Some(ContextoInseguro::Privilegio),
+            OperacaoInsegura::DesreferenciarPonteiroBruto
+            | OperacaoInsegura::CriarReferenciaDeEndereco
+            | OperacaoInsegura::AcessarMemoria
+            | OperacaoInsegura::ReinterpretarRepresentacao
+            | OperacaoInsegura::ChamarExternoNaoVerificado
+            | OperacaoInsegura::LiberarAlocacao
+            | OperacaoInsegura::AcessarMemoriaMapeada => contexto == Some(ContextoInseguro::Critico),
+        };
+        if !contexto_aceito {
+            return Err(ErroPropriedade::ContextoInseguroIncompativel { operacao, contexto });
+        }
+        let obrigacoes: &[(&str, bool)] = match operacao {
+            OperacaoInsegura::DesreferenciarPonteiroBruto
+            | OperacaoInsegura::CriarReferenciaDeEndereco => &[
+                ("endereço válido", provas.endereco_valido),
+                ("alinhamento válido", provas.alinhamento_valido),
+                ("inicialização comprovada", provas.inicializacao_comprovada),
+                ("aliasing controlado", provas.aliasing_controlado),
+            ],
+            OperacaoInsegura::AcessarMemoria | OperacaoInsegura::AcessarMemoriaMapeada => &[
+                ("endereço válido", provas.endereco_valido),
+                ("alinhamento válido", provas.alinhamento_valido),
+                ("limites comprovados", provas.limites_comprovados),
+                ("inicialização comprovada", provas.inicializacao_comprovada),
+                ("aliasing controlado", provas.aliasing_controlado),
+            ],
+            OperacaoInsegura::ReinterpretarRepresentacao => &[
+                ("alinhamento válido", provas.alinhamento_valido),
+                ("inicialização comprovada", provas.inicializacao_comprovada),
+                ("ABI validada", provas.abi_validada),
+            ],
+            OperacaoInsegura::ChamarExternoNaoVerificado => &[
+                ("ABI validada", provas.abi_validada),
+                ("alvo compatível", provas.alvo_compativel),
+            ],
+            OperacaoInsegura::Montagem => &[
+                ("alvo compatível", provas.alvo_compativel),
+                ("ABI validada", provas.abi_validada),
+            ],
+            OperacaoInsegura::OperacaoPrivilegiada => &[
+                ("autorização do sistema", provas.autorizacao_sistema),
+                ("alvo compatível", provas.alvo_compativel),
+            ],
+            OperacaoInsegura::LiberarAlocacao => &[
+                ("endereço válido", provas.endereco_valido),
+                ("limites comprovados", provas.limites_comprovados),
+                ("aliasing controlado", provas.aliasing_controlado),
+            ],
+        };
+        if let Some((obrigacao, _)) = obrigacoes.iter().find(|(_, comprovada)| !comprovada) {
+            return Err(ErroPropriedade::ObrigacaoInseguraNaoComprovada {
+                operacao,
+                obrigacao,
+            });
+        }
+        Ok(())
     }
 
     /// Une estados alternativos de fluxo de controle de forma conservadora.
@@ -396,5 +507,27 @@ mod testes {
         assert!(fluxo.validar_operacao_insegura().is_ok());
         fluxo.sair_inseguro().unwrap();
         assert!(fluxo.validar_operacao_insegura().is_err());
+    }
+
+    #[test]
+    fn operacao_insegura_exige_contexto_especifico_e_provas() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.entrar_contexto_inseguro(ContextoInseguro::Critico);
+        assert!(matches!(
+            fluxo.validar_operacao_especifica(OperacaoInsegura::Montagem, ProvasInseguras::default()),
+            Err(ErroPropriedade::ContextoInseguroIncompativel { .. })
+        ));
+        assert!(matches!(
+            fluxo.validar_operacao_especifica(OperacaoInsegura::DesreferenciarPonteiroBruto, ProvasInseguras::default()),
+            Err(ErroPropriedade::ObrigacaoInseguraNaoComprovada { .. })
+        ));
+        let provas = ProvasInseguras {
+            endereco_valido: true,
+            alinhamento_valido: true,
+            inicializacao_comprovada: true,
+            aliasing_controlado: true,
+            ..ProvasInseguras::default()
+        };
+        assert!(fluxo.validar_operacao_especifica(OperacaoInsegura::DesreferenciarPonteiroBruto, provas).is_ok());
     }
 }
