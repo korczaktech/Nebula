@@ -51,6 +51,9 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     gerar_elf(&codigo, &dados)
 }
 
+type VariantesAlgebricas = Vec<(String, Vec<Tipo>)>;
+type MetadadosAlgebricosIndiretos = (String, VariantesAlgebricas, u64, u64, u64);
+
 struct LayoutAgregado {
     tamanho: u64,
     alinhamento: u64,
@@ -2552,7 +2555,7 @@ impl Emissor {
     fn metadados_algebricos_indiretos(
         &self,
         tipo: &Tipo,
-    ) -> Option<(String, Vec<(String, Vec<Tipo>)>, u64, u64, u64)> {
+    ) -> Option<MetadadosAlgebricosIndiretos> {
         match tipo {
             Tipo::Enumeracao(nome) => {
                 let variantes = self.variantes_enumeracoes.get(nome)?.clone();
