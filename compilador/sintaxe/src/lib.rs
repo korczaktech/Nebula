@@ -2681,7 +2681,7 @@ fim"#;
             "variavel tupla = (1, 2,)",
             "variavel lista = [1, 2, 3]",
             "variavel chamada = sistema::somar(1, 2)[0].valor",
-            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20, fim }",
+            "variavel construcao = Pessoa { nome: \"Ana\", idade: 20 }",
             "variavel potencia = -2 ** 3 ** 2",
             "variavel logica = (1 < 2) e (3 >= 2) ou falso",
             "funcao bloco_fim()\n variavel ativo = verdadeiro\n enquanto ativo\n  ativo = falso\n fim\nfim",
@@ -2713,7 +2713,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "enumeracao Resultado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
             "incluir(modulo: Interno, biblioteca: Modulo)",
-            "variavel estrutura_vazia = Pessoa { nome: \"Ana\", fim }",
+            "variavel estrutura_vazia = Pessoa { nome: \"Ana\" }",
             "variavel chamada_vazia = executar()",
             "variavel acesso_indice = valores[0]",
             "variavel acesso_campo = pessoa.nome",
@@ -2768,10 +2768,10 @@ fim"#;
             "incluir(biblioteca: Biblioteca)",
             "incluir(modulo: Interna, biblioteca: Biblioteca) como Interna",
             "quando condicao\n    passar\nsenao\n    passar\nfim",
-            "quando (Pessoa { nome: 1, fim })\n    passar\nfim",
-            "escolha (Pessoa { nome: 1, fim })\n    caso _\n        passar\nfim",
-            "enquanto (Pessoa { nome: 1, fim })\n    passar\nfim",
-            "cada item em (Pessoa { nome: 1, fim })\n    passar\nfim",
+            "quando (Pessoa { nome: 1 })\n    passar\nfim",
+            "escolha (Pessoa { nome: 1 })\n    caso _\n        passar\nfim",
+            "enquanto (Pessoa { nome: 1 })\n    passar\nfim",
+            "cada item em (Pessoa { nome: 1 })\n    passar\nfim",
             "quando primeiro\n    passar\nsenao\n    passar\nfim",
             "escolha valor\n    caso Estado::Pronto\n        passar\n    caso Estado::Falha()\n        passar\n    caso Estado::Valor(codigo)\n        passar\n    caso _\n        passar\nfim",
             "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
@@ -2824,8 +2824,8 @@ fim"#;
             "(a, b,)",
             "[]",
             "[a, b]",
-            "Pessoa { nome: 1, fim }",
-            "Pessoa { nome: a, idade: b, fim }",
+            "Pessoa { nome: 1 }",
+            "Pessoa { nome: a, idade: b }",
             "42",
             "3.14",
             "\"texto\"",
@@ -3002,7 +3002,7 @@ fim"#;
             "estrutura Vazia:\n    marcador: inteiro\nfim",
             "variavel tupla_vazia = ()",
             "variavel lista_vazia = []",
-            "variavel pessoa = Pessoa { nome: \"Ana\", fim }",
+            "variavel pessoa = Pessoa { nome: \"Ana\" }",
             "escolha valor\n    caso _\n        passar\nfim",
         ] {
             let resultado = analisar(&fonte(codigo));
@@ -3500,7 +3500,7 @@ fim"#;
             ")".repeat(48)
         );
         let codigo = format!(
-            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo, fim }} "
+            "{profunda}\nvariavel composta = Pessoa {{ dados: ([1, 2], (3,)), resultado: fabrica([4])[0].campo }} "
         );
         let resultado = analisar(&fonte(&codigo));
         assert!(resultado.diagnosticos.is_empty(),
@@ -3549,7 +3549,7 @@ fim"#;
 
     #[test]
     fn recupera_erros_em_campos_listas_e_argumentos_aninhados() {
-        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20, fim }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    variavel depois = 99\nfim";
+        let codigo = "funcao principal()\n    variavel pessoa = Pessoa { nome: , idade: 20 }\n    variavel valores = [1, , 3]\n    variavel chamada = calcular(1, , 3)\n    variavel aninhada = Pessoa { dados: calcular([1, , 2], 3), outro: 4 }\n    variavel depois = 99\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3567,7 +3567,7 @@ fim"#;
 
     #[test]
     fn recupera_delimitadores_aninhados_sem_perder_o_fechamento_externo() {
-        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4, fim }\n    variavel final = 7\nfim";
+        let codigo = "funcao principal()\n    variavel quebrada = Pessoa { campo: chamar([1, , 2], 3), outro: 4 }\n    variavel final = 7\nfim";
         let resultado = analisar(&fonte(codigo));
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N2008"),
@@ -3706,7 +3706,7 @@ fim"#;
             "N2034", "Ativo", 1
         );
         verifica(
-            "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }",
+            "variavel pessoa = Pessoa { nome: 1, nome: 2 }",
             "N2037", "nome", 1
         );
         verifica(
@@ -3728,7 +3728,7 @@ fim"#;
     #[test]
     fn valida_pares_de_delimitadores_e_recupera_apos_fechamento_cruzado() {
         let valido = analisar(&fonte(
-            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\", fim })\n    variavel final = 9\nfim",
+            "funcao principal()\n    variavel valor = montar([1, (2, 3)], Pessoa { nome: \"Ana\" })\n    variavel final = 9\nfim",
         ));
         assert!(valido.diagnosticos.is_empty(), "delimitadores válidos foram rejeitados: {:?}", valido.diagnosticos);
         let Some(NoAst::Funcao { corpo, .. }) = valido.programa.itens.first() else {
@@ -3903,8 +3903,8 @@ fim"#;
             ("N2034", "enumeracao Estado:\n    Ativo\n    Ativo\nfim"),
             ("N2035", "enumeracao Estado:\n    Ativo Inativo\nfim"),
             ("N2036", "enumeracao Estado:\n    ,\nfim"),
-            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2, fim }"),
-            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2, fim }"),
+            ("N2037", "variavel pessoa = Pessoa { nome: 1, nome: 2 }"),
+            ("N2038", "variavel pessoa = Pessoa { nome: 1 idade: 2 }"),
             ("N2040", "escolha valor caso _\n    passar\nfim"),
             ("N2041", "escolha valor\n    outro {}\nfim"),
             ("N2042", "escolha valor\n    caso Variante\n        passar\nfim"),
@@ -4185,10 +4185,8 @@ fim"#;
     fn analisa_construcoes_de_estrutura_aninhadas_e_preserva_campos() {
         let codigo = r#"variavel pessoa = Pessoa {
  nome: "Ana",
- endereco: Endereco { cidade: "Sao Paulo", numero: 10, fim },
- ativo: verdadeiro,
- fim
-}"#;
+ endereco: Endereco { cidade: "Sao Paulo", numero: 10 },
+ ativo: verdadeiro }"#;
         let resultado = analisar(&fonte(codigo));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let NoAst::Variavel { valor: Expressao::ConstrucaoEstrutura { nome, campos }, .. } =
