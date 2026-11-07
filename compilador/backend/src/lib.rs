@@ -990,7 +990,10 @@ impl Emissor {
             ExpressaoIr::Desreferencia(referencia) => {
                 let tipo = tipo_referenciado_ir(referencia)
                     .cloned()
-                    .or_else(|| self.tipo_expressao_atual(referencia))
+                    .or_else(|| match self.tipo_expressao_atual(referencia)? {
+                        Tipo::Referencia { interno, .. } => Some(*interno),
+                        _ => None,
+                    })
                     .ok_or("Não foi possível determinar o tipo da referência no backend.")?;
                 let (tamanho, _) = self.tamanho_alinhamento_tipo(&tipo)
                     .ok_or_else(|| format!("Tipo '{}' não possui representação de referência nativa.", tipo.nome()))?;
