@@ -3146,8 +3146,8 @@ mod fixtures_conformidade_tipos {
         );
         assert!(estrutura.is_ok(), "ABI de agregado grande com retorno oculto falhou: {estrutura:?}");
 
-        let inteiro128 = include_str!("../fixtures/tipos/abi-inteiro128.nbx");
-        let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", inteiro128);
+        let inteiro128 = normalizar_blocos_legados(include_str!("../fixtures/tipos/abi-inteiro128.nbx"));
+        let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", &inteiro128);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
