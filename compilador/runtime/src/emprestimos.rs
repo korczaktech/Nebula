@@ -129,6 +129,31 @@ impl TabelaEmprestimos {
         })
     }
 
+    /// Valida leitura direta: empréstimos compartilhados permitem ler,
+    /// mas um empréstimo exclusivo impede acesso pelo proprietário.
+    pub fn validar_leitura(&self, recurso: u64) -> Result<(), ErroEmprestimo> {
+        let estado = self.estado.lock().map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
+        if estado.recursos.get(&recurso).is_some_and(|item| item.exclusivo.is_some()) {
+            return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
+        }
+        Ok(())
+    }
+
+    /// Valida escrita direta: qualquer empréstimo ativo impede escrita
+    /// pelo proprietário, inclusive quando há apenas leitores.
+    pub fn validar_escrita(&self, recurso: u64) -> Result<(), ErroEmprestimo> {
+        let estado = self.estado.lock().map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
+        if let Some(item) = estado.recursos.get(&recurso) {
+            if item.exclusivo.is_some() {
+                return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
+            }
+            if !item.compartilhados.is_empty() {
+                return Err(ErroEmprestimo::CompartilhadoAtivo(recurso));
+            }
+        }
+        Ok(())
+    }
+
     /// Retorna o total de guards ativos para a chave informada.
     pub fn quantidade_ativos(&self, recurso: u64) -> Result<usize, ErroEmprestimo> {
         let estado = self
