@@ -3740,7 +3740,7 @@ mod testes {
     #[test]
     fn infere_parametro_generico_a_partir_do_tipo_de_retorno_esperado() {
         let ir = compilar(
-            "funcao ausente<T>(): Opcional<T>: {\n    devolver Opcional::Nenhum()\n}\n\nvariavel valor: Opcional<inteiro> = ausente()",
+            "funcao ausente<T>(marcador: inteiro) -> Opcional<T>: {\n    devolver Opcional::Nenhum()\n}\n\nvariavel valor: Opcional<inteiro> = ausente(0)",
         );
         assert!(ir.funcoes.contains_key("ausente__inteiro"));
         let resultado = executar(&ir, 100).expect("inferência contextual do retorno genérico");
