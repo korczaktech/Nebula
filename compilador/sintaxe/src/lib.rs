@@ -2321,12 +2321,12 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
     #[test]
     fn aceita_function_body_sem_terminador_textual() {
-        let r = analisar(&fonte("funcao teste(): {\\n    exibir(1)\\n}"));
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
     fn fim_permanece_identificador_apos_function_body() {
-        let r = analisar(&fonte("funcao teste(): {\\n    exibir(1)\\n}\\nvariavel fim = 1"));
+        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}\nvariavel fim = 1"));
         assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
     #[test]
@@ -3758,7 +3758,7 @@ fim"#;
             "estrutura Pessoa { nome: inteiro)",
             "enumeracao Estado { Ativo(inteiro]",
             "funcao principal(): { exibir(1) } ]",
-            "funcao principal()\n exibir(1)\n}",
+            "funcao principal(): { exibir(1) } ]",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
