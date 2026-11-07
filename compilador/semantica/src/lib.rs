@@ -3591,7 +3591,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
 
     #[test]
     fn rejeita_variavel_com_nome_de_funcao() {
-        let r = analisar_codigo("funcao calcular() -> inteiro: {\n    devolver 1\n} fim\n\nvariavel calcular = 2");
+        let r = analisar_codigo("funcao calcular() -> inteiro: {\n    devolver 1\n}\n\nvariavel calcular = 2");
         assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3019"));
     }
 
