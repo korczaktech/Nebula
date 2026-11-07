@@ -138,7 +138,7 @@ fn fim_nao_e_palavra_reservada() {
 }
 
 #[test]
-fn emite_quebra_e_indent_apos_fechamento_de_tipo_generico() {
+fn emite_quebra_apos_abertura_de_bloco_com_tipo_generico() {
     let resultado = analisar(
         "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>: {\n    devolver valor\n}",
     );
@@ -152,8 +152,9 @@ fn emite_quebra_e_indent_apos_fechamento_de_tipo_generico() {
         .iter()
         .rposition(|token| token.tipo == TipoToken::Maior)
         .expect("fechamento do tipo genérico");
-    assert_eq!(resultado.tokens[fechamento + 1].tipo, TipoToken::NovaLinha);
-    assert_eq!(resultado.tokens[fechamento + 2].tipo, TipoToken::Indent);
+    assert_eq!(resultado.tokens[fechamento + 1].tipo, TipoToken::DoisPontos);
+    assert_eq!(resultado.tokens[fechamento + 2].tipo, TipoToken::AbreChave);
+    assert_eq!(resultado.tokens[fechamento + 3].tipo, TipoToken::NovaLinha);
 }
 
 #[test]
