@@ -246,6 +246,11 @@ impl Emissor {
                 (tamanho > 16 || campos_incompativeis || campo_indireto)
                     .then_some((tamanho, alinhamento))
             }
+            Tipo::Intervalo(interno)
+                if self.tamanho_alinhamento_tipo(interno).is_some_and(|(tamanho, _)| tamanho > 8) =>
+            {
+                self.tamanho_alinhamento_tipo(tipo)
+            }
             Tipo::Enumeracao(nome) if self.enumeracao_exige_indirecao(nome) => {
                 let layout = self.layouts_tipos.get(nome)?;
                 Some((layout.tamanho, layout.alinhamento))
@@ -323,13 +328,7 @@ impl Emissor {
                 Ok(())
             }
             Tipo::Opcional(tipo) | Tipo::Lista(tipo) => self.validar_tipo_abi(tipo),
-            Tipo::Intervalo(tipo) => {
-                self.validar_tipo_abi(tipo)?;
-                if tipo_decimal(tipo) || tipo_inteiro_128(tipo) {
-                    return Err("Intervalo nativo aceita somente endpoints inteiros de até 64 bits.".into());
-                }
-                Ok(())
-            }
+            Tipo::Intervalo(tipo) => self.validar_tipo_abi(tipo),
             Tipo::Resultado(sucesso, falha) => {
                 self.validar_tipo_abi(sucesso)?;
                 self.validar_tipo_abi(falha)
@@ -447,8 +446,11 @@ impl Emissor {
                 1
             });
         }
-        if matches!(tipo, Tipo::Lista(_) | Tipo::Intervalo(_)) {
+        if matches!(tipo, Tipo::Lista(_)) {
             return Ok(2);
+        }
+        if matches!(tipo, Tipo::Intervalo(_)) {
+            return Ok(if self.layout_agregado_grande(tipo).is_some() { 1 } else { 2 });
         }
         if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
             return Ok(if self.tipo_algebrico_exige_indirecao(tipo) { 1 } else { 2 });
@@ -1333,18 +1335,38 @@ impl Emissor {
                     return Ok(());
                 }
                 if *operador == OperadorIr::Intervalo {
-                    if inteiro_128_expressao(esquerda)
-                        || inteiro_128_expressao(direita)
-                        || tipo_decimal_expressao(esquerda).is_some()
-                    {
-                        return Err("O backend ELF nativo aceita intervalos inteiros de até 64 bits.".into());
+                    let tipo_elemento = self.tipo_expressao_atual(esquerda)
+                        .ok_or("Tipo dos endpoints do intervalo não foi resolvido.")?;
+                    let (tamanho_elemento, alinhamento) = self.tamanho_alinhamento_tipo(&tipo_elemento)
+                        .ok_or("Tipo dos endpoints do intervalo não possui layout ABI.")?;
+                    if tamanho_elemento > 8 {
+                        let tipos = vec![tipo_elemento.clone(), tipo_elemento.clone()];
+                        let (tamanho, campos) = self.layout_tupla(&tipos)
+                            .ok_or("Layout de intervalo com endpoints grandes inválido.")?;
+                        let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+                        self.emitir_endereco_rbp_rax(armazenamento);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]);
+                        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
+                        self.expressao(esquerda)?;
+                        self.armazenar_valor_tipo_agregado(
+                            armazenamento, campos[0].0, campos[0].1, &tipo_elemento
+                        )?;
+                        self.expressao(direita)?;
+                        self.armazenar_valor_tipo_agregado(
+                            armazenamento, campos[1].0, campos[1].1, &tipo_elemento
+                        )?;
+                        self.emitir_endereco_rbp_rax(armazenamento);
+                        self.mov_rdx(0);
+                    } else {
+                        self.expressao(esquerda)?;
+                        self.push_rax();
+                        self.expressao(direita)?;
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = limite final
+                        self.pop_rax(); // rax = limite inicial
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xCA]); // rdx = limite final
                     }
-                    self.expressao(esquerda)?;
-                    self.push_rax();
-                    self.expressao(direita)?;
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = limite final
-                    self.pop_rax(); // rax = limite inicial
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xCA]); // rdx = limite final
                     return Ok(());
                 }
                 let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
