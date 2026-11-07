@@ -1015,8 +1015,14 @@ impl Emissor {
             self.encerrar_com_erro(2);
             self.aplicar_salto(sem_overflow, self.codigo.len());
         }
+        self.codigo.extend_from_slice(&[0x48, 0x85, 0xC9]); // test rcx, rcx
+        let possui_elementos = self.emitir_jcc(0x85); // JNZ
+        self.mov_rax(1); // listas vazias com comprimentos iguais são iguais
+        let lista_vazia = self.emitir_jmp();
+        self.aplicar_salto(possui_elementos, self.codigo.len());
         self.codigo.extend_from_slice(&[0xF3, 0xA6, 0x0F, 0x94, 0xC0]); // repe cmpsb; sete al
         self.aplicar_salto(fim, self.codigo.len());
+        self.aplicar_salto(lista_vazia, self.codigo.len());
         if *operador == OperadorIr::Diferente {
             self.codigo.extend_from_slice(&[0x34, 0x01]); // xor al, 1
         }
