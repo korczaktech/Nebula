@@ -20,7 +20,7 @@
 - A quebra de linha é preservada como token `NOVA_LINHA`, exceto quando suprimida pelas regras de agrupamento.
 - Dentro de parênteses `()` e colchetes `[]`, a quebra física funciona como espaço e não separa instruções.
 - Dentro de chaves, quebras de linha continuam disponíveis como separadores; a indentação não cria blocos sintáticos.
-- `INDENT` e `DEDENT` não delimitam Function Body. A abertura e o fechamento sintáticos são `: {`, `fim` e `}`.
+- `INDENT` e `DEDENT` não delimitam Function Body. A abertura e o fechamento sintáticos são `: {` e `}`.
 - Linhas vazias e linhas contendo apenas comentários não alteram o estado de indentação.
 - Uma dedentação fora de delimitadores deve corresponder a uma coluna previamente aberta; caso contrário, o Lexer emite `N1013`.
 - No fim do arquivo, níveis lexicais restantes são encerrados antes de `EOF`.
@@ -38,7 +38,7 @@ Identificador:
 
 ### Palavras reconhecidas pelo Lexer e usadas na gramática
 
-variavel, definir, mutavel, constante, funcao, classe, herda, se, quando, sendo, senao, para, dentro, enquanto, escolha, caso, padrao, pare, prossiga, passar, retorne, devolver, lambda, ceder, incluir, biblioteca, modulo, de, como, tente, erro, sempre, lancar, verifique, com, async, aguarda, global, externa, isto, novo, apagar, identico, nao, fora, e, ou, sim, verdadeiro, falso, nulo, iguais, tipoDe, instanciaDe, obter, vazio, exportar, construtor, estatico, privado, publico, protegido, seguro, critico, privilegio, montagem, tipo, estrutura, enumeracao, avaliar, cada, em, pulso, durante, repetir, alterar, fim, parar, encerrar, seguir.
+variavel, definir, mutavel, constante, funcao, classe, herda, se, quando, sendo, senao, para, dentro, enquanto, escolha, caso, padrao, pare, prossiga, passar, retorne, devolver, lambda, ceder, incluir, biblioteca, modulo, de, como, tente, erro, sempre, lancar, verifique, com, async, aguarda, global, externa, isto, novo, apagar, identico, nao, fora, e, ou, sim, verdadeiro, falso, nulo, iguais, tipoDe, instanciaDe, obter, vazio, exportar, construtor, estatico, privado, publico, protegido, seguro, critico, privilegio, montagem, tipo, estrutura, enumeracao, avaliar, cada, em, pulso, durante, repetir, alterar, parar, encerrar, seguir.
 
 ### Palavras reservadas futuras
 
@@ -82,13 +82,13 @@ Nomes de tipos como `inteiro`, `logico`, `texto`, `caractere`, `byte`, `u8`, `u1
 
 ## 7. Pontuação e delimitadores
 
-`(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT`, `FIM_BLOCO` e `EOF`.
+`(`, `)`, `{`, `}`, `[`, `]`, vírgula, ponto e vírgula, dois-pontos, ponto, arroba e os tokens estruturais `NOVA_LINHA`, `INDENT`, `DEDENT` e `EOF`.
 
 ## 8. Function Body e importações
 
 O Lexer reconhece a palavra reservada `async` como token próprio; `assinc` não é palavra reservada e é classificada como identificador. A estrutura `incluir(modulo: ..., biblioteca: ...)` é formada lexicalmente pelos tokens `INCLUIR`, `ABRE_PAR`, `MODULO`, `DOIS_PONTOS`, identificadores, `VIRGULA`, `BIBLIOTECA`, `DOIS_PONTOS` e `FECHA_PAR`.
 
-A abertura `: {` e o fechamento `}` de Function Body são preservados como tokens distintos; a palavra `fim` é emitida como `FIM_BLOCO`. O Lexer preserva esses elementos e suas localizações. O Parser exige `fim` antes de `}` e o `fim` externo quando a construção completa assim determinar.
+A abertura `: {` e o fechamento `}` de Function Body são preservados como tokens distintos. A sequência `fim` é classificada como identificador comum. O Parser encerra cada corpo exclusivamente ao consumir a chave `}` correspondente.
 
 ## 9. Operadores
 
