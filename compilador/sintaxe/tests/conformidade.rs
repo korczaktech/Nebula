@@ -355,10 +355,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "tipos compostos",
             "tipo Lista = [[Resultado<inteiro>]]\ntipo Funcao = funcao(inteiro, texto): Resultado<[texto]>",
         ),
-        (
-            "estrutura vazia",
-            "estrutura Vazia:\n    marcador: inteiro",
-        ),
+        ("estrutura vazia", "estrutura Vazia:\n    marcador: inteiro"),
         (
             "estrutura com campos e separadores",
             "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\n    ativo: logico",
@@ -395,10 +392,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "lacos enquanto",
             "enquanto verdadeiro\n    parar\ndurante falso\n    seguir\nrepetir verdadeiro\n    encerrar",
         ),
-        (
-            "iteracao cada",
-            "cada item em [1, 2, 3]\n    exibir(item)",
-        ),
+        ("iteracao cada", "cada item em [1, 2, 3]\n    exibir(item)"),
         ("pulso", "pulso(100)\n    exibir(1)"),
         (
             "para com declaracao",
@@ -542,11 +536,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2035",
             "enumeracao Estado: {\n Ativo(inteiro,)}",
         ),
-        (
-            "enumeracao vazia",
-            "N2036",
-            "enumeracao Estado: {\n}",
-        ),
+        ("enumeracao vazia", "N2036", "enumeracao Estado: {\n}"),
         (
             "campo de construcao duplicado",
             "N2037",
@@ -562,11 +552,7 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
             "N2040",
             "escolha valor caso _ {}",
         ),
-        (
-            "caso ausente",
-            "N2041",
-            "escolha valor: {\n    outro\n}",
-        ),
+        ("caso ausente", "N2041", "escolha valor: {\n    outro\n}"),
         (
             "padrao invalido",
             "N2042",
