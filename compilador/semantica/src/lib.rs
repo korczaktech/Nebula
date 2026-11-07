@@ -495,9 +495,9 @@ impl<'a> Analisador<'a> {
                     inferido
                 };
                 let campo_de_classe = self.classe_atual.is_some() && self.escopos.len() == 2;
-                if (campo_de_classe && Self::tipo_contem_referencia(&final_tipo))
-                    || (!matches!(&final_tipo, Tipo::Referencia { .. })
-                        && Self::tipo_contem_referencia(&final_tipo))
+                let contem_referencia = Self::tipo_contem_referencia(&final_tipo);
+                if contem_referencia
+                    && (campo_de_classe || !matches!(&final_tipo, Tipo::Referencia { .. }))
                 {
                     self.erro(
                         "N3107",
