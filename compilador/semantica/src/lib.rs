@@ -570,7 +570,16 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 self.abrir_escopo();
+                let contexto_inseguro = matches!(contexto.as_str(), "critico" | "privilegio" | "montagem");
+                if contexto_inseguro {
+                    self.propriedade.entrar_inseguro();
+                }
                 for instrucao in corpo { self.item(instrucao); }
+                if contexto_inseguro {
+                    if let Err(erro) = self.propriedade.sair_inseguro() {
+                        self.erro("N3097", format!("Falha ao encerrar contexto inseguro: {erro:?}."));
+                    }
+                }
                 self.fechar_escopo();
             }
             NoAst::Classe { nome, herda: _, corpo } => {
@@ -2566,9 +2575,20 @@ impl<'a> Analisador<'a> {
     }
 
     fn mover_valor(&mut self, expressao: &Expressao) {
-        if let Some(lugar) = self.lugar_de_expressao(expressao) {
-            if let Err(erro) = self.propriedade.mover(&lugar) {
-                self.erro("N3096", format!("Movimento inválido: {erro:?}."));
+        let lugar = self.lugar_de_expressao(expressao);
+        let tipo_lugar = match expressao {
+            Expressao::Nome(nome) => self.buscar(nome).map(|simbolo| simbolo.tipo.clone()),
+            Expressao::Membro { .. } | Expressao::Indexacao { .. } => {
+                Self::decompor_caminho_campo(expressao)
+                    .and_then(|(raiz, caminho)| self.resolver_tipo_caminho_puro(&raiz, &caminho))
+            }
+            _ => None,
+        };
+        if let (Some(lugar), Some(tipo)) = (lugar, tipo_lugar) {
+            if !self.tipo_copiavel(&tipo) {
+                if let Err(erro) = self.propriedade.mover(&lugar) {
+                    self.erro("N3096", format!("Movimento inválido: {erro:?}."));
+                }
             }
         }
         match expressao {
