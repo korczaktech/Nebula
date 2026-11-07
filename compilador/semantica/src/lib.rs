@@ -89,6 +89,7 @@ struct Analisador<'a> {
     classe_atual: Option<String>,
     propriedade: AnalisadorPropriedade,
     proximo_emprestimo: u64,
+    contextos_inseguros: Vec<String>,
 }
 
 impl<'a> Analisador<'a> {
@@ -115,6 +116,7 @@ impl<'a> Analisador<'a> {
             classe_atual: None,
             propriedade: AnalisadorPropriedade::novo(),
             proximo_emprestimo: 1,
+            contextos_inseguros: Vec::new(),
         }
     }
 
@@ -573,9 +575,11 @@ impl<'a> Analisador<'a> {
                 let contexto_inseguro = matches!(contexto.as_str(), "critico" | "privilegio" | "montagem");
                 if contexto_inseguro {
                     self.propriedade.entrar_inseguro();
+                    self.contextos_inseguros.push(contexto.clone());
                 }
                 for instrucao in corpo { self.item(instrucao); }
                 if contexto_inseguro {
+                    self.contextos_inseguros.pop();
                     if let Err(erro) = self.propriedade.sair_inseguro() {
                         self.erro("N3097", format!("Falha ao encerrar contexto inseguro: {erro:?}."));
                     }
@@ -1190,6 +1194,13 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
+                if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome.starts_with("montagem::")) {
+                    if self.contextos_inseguros.last().map(String::as_str) != Some("montagem")
+                        || self.propriedade.validar_operacao_insegura().is_err()
+                    {
+                        self.erro("N3098", "Instrução de montagem exige um bloco contextual 'montagem' ativo.");
+                    }
+                }
                 if let Expressao::Membro { alvo: objeto, operador: TipoToken::Ponto, nome: metodo } = alvo.as_ref() {
                     let tipo_objeto = self.expressao(objeto);
                     if let Tipo::Estrutura(classe) = tipo_objeto {
