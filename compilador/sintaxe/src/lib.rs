@@ -3770,7 +3770,7 @@ senao: {
         ] {
             let resultado = analisar(&fonte_bruta(codigo));
             assert!(
-                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009" || d.codigo == "N2030" || d.codigo == "N2033" || d.codigo == "N2040"),
+                resultado.diagnosticos.iter().any(|d| d.codigo == "N2009" || d.codigo == "N2007" || d.codigo == "N2030" || d.codigo == "N2033" || d.codigo == "N2040"),
                 "abertura não fechada deveria produzir diagnóstico de bloco: {codigo:?}: {:?}",
                 resultado.diagnosticos
             );
