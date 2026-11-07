@@ -1814,7 +1814,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         indentacao: usize,
         tipo: TipoBloco,
         explicito: bool,
-        etapa: u8,
     }
 
     fn indentacao(texto: &str, nivel: usize) -> String {
@@ -1856,7 +1855,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Completo,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -1942,7 +1940,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                         indentacao: nivel,
                         tipo,
                         explicito: false,
-                        etapa: 0,
                     });
                     continue;
                 }
