@@ -645,12 +645,18 @@ impl<'a> Analisador<'a> {
                 // Cada ramo parte do mesmo estado. Após a junção, um valor é
                 // considerado movido se qualquer caminho possível o moveu.
                 let antes = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
                 self.bloco(entao);
                 let depois_entao = self.snapshot_movidos();
+                let propriedade_entao = self.propriedade.clone();
                 self.restaurar_movidos(&antes);
+                self.propriedade = propriedade_antes.clone();
                 self.bloco(senao);
                 let depois_senao = self.snapshot_movidos();
+                let propriedade_senao = self.propriedade.clone();
                 self.mesclar_movidos(&depois_entao, &depois_senao);
+                self.propriedade = propriedade_antes;
+                self.propriedade.mesclar_caminhos(&[propriedade_entao, propriedade_senao]);
             }
             NoAst::Escolha { valor, casos } => {
                 let tipo_valor = self.expressao(valor);
@@ -741,13 +747,17 @@ impl<'a> Analisador<'a> {
                 let tipo = self.expressao(condicao);
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'enquanto'");
                 let antes_corpo = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
                 let depois_corpo = self.snapshot_movidos();
+                let propriedade_depois = self.propriedade.clone();
                 // O laço pode executar zero vezes; preserva qualquer move
-                // que possa ocorrer em uma iteração.
+                // ou empréstimo que possa ocorrer em uma iteração.
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
+                self.propriedade = propriedade_antes.clone();
+                self.propriedade.mesclar_caminhos(&[propriedade_depois]);
             }
             NoAst::Cada { nome, iteravel, corpo } => {
                 let tipo_iteravel = self.expressao(iteravel);
@@ -2556,6 +2566,11 @@ impl<'a> Analisador<'a> {
     }
 
     fn mover_valor(&mut self, expressao: &Expressao) {
+        if let Some(lugar) = self.lugar_de_expressao(expressao) {
+            if let Err(erro) = self.propriedade.mover(&lugar) {
+                self.erro("N3096", format!("Movimento inválido: {erro:?}."));
+            }
+        }
         match expressao {
             Expressao::Nome(nome) => {
                 let tipo = self.buscar_mutavel(nome).map(|simbolo| simbolo.tipo.clone());
