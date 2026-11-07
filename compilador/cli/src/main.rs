@@ -469,8 +469,6 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
             erro.utf8_error().valid_up_to()
         )
     })?;
-    #[cfg(test)]
-    let conteudo = normalizar_blocos_legados(&conteudo);
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
@@ -2852,7 +2850,6 @@ mod fixtures_conformidade_tipos {
     }
 
     fn rejeita_abi_nativa_pendente(codigo: &str, nome: &str) -> Result<(), String> {
-        let codigo = normalizar_blocos_legados(codigo);
         let fonte = ArquivoFonte::novo(nome, &codigo);
         let sintaxe = analisar(&fonte);
         if !sintaxe.diagnosticos.is_empty() {
