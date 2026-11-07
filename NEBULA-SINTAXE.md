@@ -1113,18 +1113,15 @@ classe         = "classe", identificador,
                  ["herda", identificador],
                  bloco ;
 
-condicional    = "se", expressao, bloco_clausula,
-                 {"sendo", expressao, bloco_clausula},
-                 ["senao", bloco_clausula],
-                 "fim" ;
+condicional    = "se", expressao, bloco,
+                  {"sendo", expressao, bloco},
+                  ["senao", bloco] ;
 
 repeticao      = ("para", identificador, "dentro", expressao
                  | "enquanto", expressao),
                  bloco ;
 
-selecao        = "escolha", expressao, ":", "{",
-                 { ("caso", expressao | "padrao"), bloco_clausula },
-                 "fim", "}", "fim" ;
+selecao        = "escolha", expressao, bloco ;
 
 retorno        = "retorne", [expressao] ;
 
