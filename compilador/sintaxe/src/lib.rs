@@ -4666,14 +4666,6 @@ fim
         );
     }
 
-}
-
-}
-
-pub use ast::{
-    AliasTipoAst, AtributoAst, CampoAst, CapturaAst, CasoEscolha, CasoEscolhaLocalizado, Expressao,
-    ExpressaoLocalizada, NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa,
-    ResultadoSintatico, TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
     #[test]
     fn function_body_fecha_com_chave_sem_terminador_textual() {
         let resultado = analisar(&fonte_bruta(
@@ -4698,6 +4690,14 @@ pub use ast::{
         );
     }
 
+}
+
+}
+
+pub use ast::{
+    AliasTipoAst, AtributoAst, CampoAst, CapturaAst, CasoEscolha, CasoEscolhaLocalizado, Expressao,
+    ExpressaoLocalizada, NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa,
+    ResultadoSintatico, TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
 };
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
