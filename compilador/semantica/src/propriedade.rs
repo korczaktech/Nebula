@@ -147,7 +147,10 @@ struct EmprestimoAtivo {
 /// Ação de destruição determinística emitida ao sair de um escopo.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AcaoDestruicao {
+    /// Lugar que ainda pertence ao escopo e deve ser destruído.
     pub lugar: Lugar,
+    /// Projeções já movidas que não podem ser destruídas novamente.
+    pub partes_movidas: Vec<Lugar>,
 }
 
 /// Estado do verificador para um fluxo de controle.
@@ -289,7 +292,20 @@ impl AnalisadorPropriedade {
         self.emprestimos.retain(|_, emprestimo| emprestimo.escopo != nivel);
         let mut destruicoes: Vec<_> = self.variaveis.iter()
             .filter(|(_, variavel)| variavel.escopo == nivel)
-            .map(|(nome, variavel)| (variavel.ordem, AcaoDestruicao { lugar: Lugar::novo(nome) }))
+            .filter_map(|(nome, variavel)| {
+                // Um valor integralmente movido não pertence mais a este escopo.
+                if variavel.movidos.iter().any(|movido| {
+                    movido.raiz == *nome && movido.projecoes.is_empty()
+                }) {
+                    return None;
+                }
+                let mut partes_movidas: Vec<_> = variavel.movidos.iter().cloned().collect();
+                partes_movidas.sort();
+                Some((variavel.ordem, AcaoDestruicao {
+                    lugar: Lugar::novo(nome),
+                    partes_movidas,
+                }))
+            })
             .collect();
         destruicoes.sort_by_key(|(ordem, _)| std::cmp::Reverse(*ordem));
         self.variaveis.retain(|_, variavel| variavel.escopo != nivel);
@@ -570,6 +586,28 @@ mod testes {
 
         base.mesclar_caminhos(&[ramo_a, ramo_b]).unwrap();
         assert_eq!(base.quantidade_emprestimos(), 1);
+    }
+
+    #[test]
+    fn destruicao_omite_valor_integralmente_movido() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.entrar_escopo();
+        fluxo.declarar("recurso").unwrap();
+        fluxo.mover(&Lugar::novo("recurso")).unwrap();
+        assert!(fluxo.sair_escopo().unwrap().is_empty());
+    }
+
+    #[test]
+    fn destruicao_parcial_registra_projecoes_que_nao_devem_ser_destruidas() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.entrar_escopo();
+        fluxo.declarar("pessoa").unwrap();
+        let campo = Lugar::novo("pessoa").campo("nome");
+        fluxo.mover(&campo).unwrap();
+        let destruicoes = fluxo.sair_escopo().unwrap();
+        assert_eq!(destruicoes.len(), 1);
+        assert_eq!(destruicoes[0].lugar, Lugar::novo("pessoa"));
+        assert_eq!(destruicoes[0].partes_movidas, vec![campo]);
     }
 
     #[test]
