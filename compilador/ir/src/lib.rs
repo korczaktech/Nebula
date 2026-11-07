@@ -1894,6 +1894,8 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Texto(v) => ValorRuntime::Texto(v),
         ValorIr::Caractere(v) => ValorRuntime::Caractere(v),
         ValorIr::Funcao(v) => ValorRuntime::Funcao(v),
+        ValorIr::Referencia { nome, escopo, mutavel } =>
+            ValorRuntime::Referencia { nome, escopo, mutavel },
         ValorIr::Lista(itens) => ValorRuntime::Lista(Arc::new(RwLock::new(
             itens.into_iter().map(converter_para_runtime).collect(),
         ))),
@@ -1917,6 +1919,8 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
         ValorRuntime::Texto(v) => Ok(ValorIr::Texto(v)),
         ValorRuntime::Caractere(v) => Ok(ValorIr::Caractere(v)),
         ValorRuntime::Funcao(v) => Ok(ValorIr::Funcao(v)),
+        ValorRuntime::Referencia { nome, escopo, mutavel } =>
+            Ok(ValorIr::Referencia { nome, escopo, mutavel }),
         ValorRuntime::Estrutura { nome, campos } => {
             let campos = campos.read().map_err(|_| "Estrutura do runtime corrompida.")?;
             Ok(ValorIr::Estrutura { nome: nome.clone(), campos: campos.iter().map(|(nome, valor)| Ok((nome.clone(), converter_para_ir(valor.clone())?))).collect::<Result<_, String>>()? })
@@ -2244,6 +2248,33 @@ impl Maquina<'_, '_> {
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
             ExpressaoIr::Conversao { tipo, valor, .. } => converter_valor_explicito(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
+            ExpressaoIr::Referencia { nome, mutavel } => {
+                let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
+                    .ok_or_else(|| format!("Variável '{nome}' não encontrada para criação de referência."))?;
+                Ok(ValorIr::Referencia { nome: nome.clone(), escopo, mutavel: *mutavel })
+            }
+            ExpressaoIr::Desreferencia(referencia) => {
+                let referencia = self.expressao(referencia)?;
+                let ValorIr::Referencia { nome, escopo, .. } = referencia else {
+                    return Err("Desreferência exige um valor de referência.".into());
+                };
+                let valor = self.contexto.memoria().obter_referenciado(escopo, &nome)
+                    .map_err(formatar_erro_runtime)?;
+                converter_para_ir(valor)
+            }
+            ExpressaoIr::AtribuicaoReferencia { referencia, valor, tipo } => {
+                let referencia = self.expressao(referencia)?;
+                let ValorIr::Referencia { nome, escopo, mutavel: true } = referencia else {
+                    return Err("Atribuição por referência exige referência exclusiva e mutável.".into());
+                };
+                let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
+                self.memoria_mutavel()?.atribuir_referenciado(
+                    escopo,
+                    &nome,
+                    converter_para_runtime(valor.clone()),
+                ).map_err(formatar_erro_runtime)?;
+                Ok(valor)
+            }
             ExpressaoIr::Lista(valores) | ExpressaoIr::Tupla(valores) => Ok(ValorIr::Lista(valores.iter().map(|v| self.expressao(v)).collect::<Result<_,_>>()?)),
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => Ok(ValorIr::Estrutura {
                 nome: nome.clone(),
