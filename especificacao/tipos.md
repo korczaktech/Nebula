@@ -78,11 +78,12 @@ O único backend nativo implementado é Linux x86-64 / ELF64, com geração dire
 - Decimais binary32/binary64, operações SSE2 e conversões explícitas com verificação de faixa.
 - Byte e caractere Unicode com validação do domínio.
 - Literais de texto, exibição e operações textuais nativas documentadas na especificação normativa; concatenação dinâmica continua rejeitada.
-- Estruturas e tuplas de até 16 bytes nos formatos de campo suportados.
-- Enumerações, opcionais e resultados com tag e no máximo um payload escalar.
+- Estruturas e tuplas de até 16 bytes nos formatos de campo suportados por um ou dois registradores.
+- Estruturas e tuplas maiores que 16 bytes em armazenamento local, parâmetros e retornos indiretos por endereço/destino oculto; fixtures ELF executam estruturas e tuplas de 24 bytes ponta a ponta.
+- Enumerações, opcionais e resultados com tag e no máximo um payload escalar de até um registrador.
 - Referências e chamadas indiretas de funções para assinaturas suportadas.
 
-O backend rejeita agregados maiores que 16 bytes, enumerações/opcionais/resultados com payloads múltiplos ou não escalares e outros formatos sem classificação ABI implementada. Listas, operações que dependem do runtime nativo e recursos da biblioteca padrão ainda não integrados ao executável nativo também são rejeitados. A ABI é própria da Nebula e não promete compatibilidade com ABI C.
+O backend rejeita agregados grandes em variáveis globais e como retorno da função de entrada, enumerações maiores que 16 bytes, payloads múltiplos ou payloads algébricos maiores que um registrador, além de outros formatos sem classificação ABI implementada. Listas, operações que dependem do runtime nativo e recursos da biblioteca padrão ainda não integrados ao executável nativo também são rejeitados. A ABI é própria da Nebula e não promete compatibilidade com ABI C.
 
 ## 6. Fixtures e validação
 
@@ -92,6 +93,7 @@ A cobertura automatizada inclui:
 - `compilador/cli/fixtures/tipos/compostos.nbx`: estruturas, enumerações, opcionais, resultados, tuplas, vetores e matrizes.
 - `conversoes-validas.nbx` e `conversao-invalida.nbx`: conversões e limites.
 - `genericos-aninhados.nbx`, `genericos-funcao.nbx` e `genericos-invalidos.nbx`: inferência estrutural.
-- `abi-estrutura-pendente.nbx` e `abi-enum-payloads-multiplos.nbx`: casos que o backend deve rejeitar explicitamente.
+- `abi-estrutura-grande.nbx` e `abi-tupla-grande.nbx`: passagem e retorno indiretos de agregados de 24 bytes, executados no backend ELF.
+- `abi-enum-payloads-multiplos.nbx`: caso que o backend deve rejeitar explicitamente.
 
 A CI do workspace Rust valida compilação, formatação, Clippy e testes nos runners configurados. Isso não transforma alvos sem backend em alvos executáveis nem substitui testes de execução no alvo nativo. O status atualizado e as limitações conhecidas estão em [criterios-fase-5.md](criterios-fase-5.md).
