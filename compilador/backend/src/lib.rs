@@ -179,6 +179,21 @@ impl Emissor {
         self.variantes_enumeracoes = programa.variantes_enumeracoes.clone();
     }
 
+    fn enumeracao_exige_indirecao(&self, nome: &str) -> bool {
+        let Some(variantes) = self.variantes_enumeracoes.get(nome) else {
+            return false;
+        };
+        let Some(layout) = self.layouts_tipos.get(nome) else {
+            return false;
+        };
+        layout.tamanho > 16 || variantes.iter().any(|(_, payload)| {
+            payload.len() > 1 || payload.iter().any(|tipo| {
+                self.tamanho_alinhamento_tipo(tipo)
+                    .is_some_and(|(tamanho, _)| tamanho > 8)
+            })
+        })
+    }
+
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
         match tipo {
             Tipo::Estrutura(nome) => {
@@ -194,6 +209,10 @@ impl Emissor {
                     .max()
                     .unwrap_or(1);
                 (tamanho > 16).then_some((tamanho, alinhamento))
+            }
+            Tipo::Enumeracao(nome) if self.enumeracao_exige_indirecao(nome) => {
+                let layout = self.layouts_tipos.get(nome)?;
+                Some((layout.tamanho, layout.alinhamento))
             }
             _ => None,
         }
@@ -257,11 +276,15 @@ impl Emissor {
             Tipo::Enumeracao(nome) => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da enumeração '{nome}' não foi fornecido à ABI nativa."))?;
-                if layout.tamanho == 0 || layout.tamanho > 16 {
-                    return Err(format!("A enumeração '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                if layout.tamanho == 0 {
+                    return Err(format!("A enumeração '{nome}' possui layout vazio na ABI nativa."));
                 }
-                if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 8) {
-                    return Err(format!("Payload da enumeração '{nome}' excede um registrador da ABI inicial."));
+                let variantes = self.variantes_enumeracoes.get(nome)
+                    .ok_or_else(|| format!("Variantes da enumeração '{nome}' não foram fornecidas à ABI nativa."))?;
+                for (_, payload) in variantes {
+                    for tipo_payload in payload {
+                        self.validar_tipo_abi(tipo_payload)?;
+                    }
                 }
                 Ok(())
             }
@@ -358,7 +381,13 @@ impl Emissor {
         if let Tipo::Enumeracao(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
                 .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente."))?;
-            return Ok(if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) { 2 } else { 1 });
+            return Ok(if self.enumeracao_exige_indirecao(nome) {
+                1
+            } else if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) {
+                2
+            } else {
+                1
+            });
         }
         if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
             return Ok(2);
