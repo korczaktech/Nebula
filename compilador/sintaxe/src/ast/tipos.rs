@@ -33,6 +33,13 @@ impl TipoAst {
             return Self::Constante(texto.to_owned());
         }
 
+        if let Some(conteudo) = texto.strip_prefix("&mutavel<").and_then(|s| s.strip_suffix('>')) {
+            return Self::Nome(format!("&mutavel<{}>", Self::analisar(conteudo).para_texto()));
+        }
+        if let Some(conteudo) = texto.strip_prefix("&<").and_then(|s| s.strip_suffix('>')) {
+            return Self::Nome(format!("&<{}>", Self::analisar(conteudo).para_texto()));
+        }
+
         if let Some(conteudo) = texto.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
             return Self::Lista(Box::new(Self::analisar(conteudo)));
         }
