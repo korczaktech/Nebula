@@ -4577,6 +4577,18 @@ mod testes {
     }
 
     #[test]
+    fn passa_e_retorna_intervalo_128_por_endereco() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro128));
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_intervalo_128".into(),
+            parametros: vec![("faixa".into(), tipo.clone())],
+            retorno: tipo,
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("faixa".into())))],
+        }).unwrap();
+    }
+
+    #[test]
     fn passa_e_retorna_intervalo_com_dois_endpoints() {
         let mut emissor = Emissor::novo(HashMap::new());
         let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
