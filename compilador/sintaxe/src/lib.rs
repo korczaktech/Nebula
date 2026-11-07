@@ -4657,7 +4657,7 @@ funcao inverter(par: Tupla<inteiro64, inteiro64>): Tupla<inteiro64, inteiro64>
     #[test]
     fn nova_linha_iniciada_por_dereferencia_separa_instrucoes() {
         let resultado = analisar(&fonte_bruta(
-            "variavel origem: inteiro = 4\\nvariavel referencia: &mutavel inteiro = &mutavel origem\\n*referencia = 9",
+            "variavel origem: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel origem\n*referencia = 9",
         ));
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let NoAst::Expressao(Expressao::Atribuicao { destino, .. }) = &resultado.programa.itens[2] else {
