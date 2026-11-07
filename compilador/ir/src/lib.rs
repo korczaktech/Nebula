@@ -3269,11 +3269,16 @@ mod testes {
     }
     
     fn compilar(codigo: &str) -> ProgramaIr {
+        let depurar_referencia = codigo.contains("*referencia");
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: antes normalizar\\n"); }
         let codigo = normalizar_blocos_indentados(codigo);
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois normalizar\\n"); }
         let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois parser\\n"); }
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois lowerer\\n"); }
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let mut programa = resultado.programa.expect("IR válida");
         fn deslocalizar(instrucao: InstrucaoIr) -> InstrucaoIr {
