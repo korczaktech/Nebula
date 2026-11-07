@@ -851,7 +851,7 @@ impl<'a> Analisador<'a> {
                     Tipo::Vazio
                 };
                 if matches!(esperado, Some(Tipo::Referencia { .. }))
-                    && valor.is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
+                    && valor.as_ref().is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
                 {
                     self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa ser um parâmetro válido da função.");
                 }
