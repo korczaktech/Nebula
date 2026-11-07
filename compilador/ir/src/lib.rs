@@ -628,7 +628,18 @@ impl Lowerer {
                 Tipo::Desconhecido
             }
             Expressao::Membro { .. } => Tipo::Desconhecido,
-            Expressao::Unaria { valor, .. } => self.inferir_tipo_ast(valor),
+            Expressao::Unaria { operador, valor } => {
+                let interno = self.inferir_tipo_ast(valor);
+                match operador {
+                    TipoToken::EBit => Tipo::Referencia { interno: Box::new(interno), mutavel: false },
+                    TipoToken::Mutavel => Tipo::Referencia { interno: Box::new(interno), mutavel: true },
+                    TipoToken::Vezes => match interno {
+                        Tipo::Referencia { interno, .. } => *interno,
+                        _ => Tipo::Desconhecido,
+                    },
+                    _ => interno,
+                }
+            },
             Expressao::Binaria { esquerda, operador, direita } => {
                 let a = self.inferir_tipo_ast(esquerda);
                 let b = self.inferir_tipo_ast(direita);
