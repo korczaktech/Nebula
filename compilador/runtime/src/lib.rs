@@ -560,7 +560,11 @@ impl Memoria {
         identificador: u64,
         nome: &str,
         valor: Valor,
+        mutavel: bool,
     ) -> Resultado<()> {
+        if !mutavel {
+            return Err(ErroRuntime::TipoIncompativel("escrita por referência compartilhada"));
+        }
         let indice = self.identificadores_escopos.iter().position(|id| *id == identificador)
             .ok_or(ErroRuntime::ReferenciaInvalida)?;
         let celula = self.escopos[indice].get_mut(nome)
@@ -1611,6 +1615,32 @@ mod ciclo_vida {
                 contexto.alocador_mutavel(),
                 Err(ErroRuntime::RuntimeFinalizado)
             ));
+        }
+
+        #[test]
+        fn referencias_identificam_celulas_sem_serem_afetadas_por_sombreamento() {
+            let mut memoria = Memoria::nova();
+            memoria.declarar("valor", Valor::Inteiro(10), true).unwrap();
+            let global = memoria.identificador_escopo_da_variavel("valor").unwrap();
+
+            memoria.abrir_escopo();
+            memoria.declarar("valor", Valor::Inteiro(20), true).unwrap();
+            let local = memoria.identificador_escopo_da_variavel("valor").unwrap();
+            assert_ne!(global, local);
+            assert_eq!(memoria.obter_referenciado(global, "valor"), Ok(Valor::Inteiro(10)));
+            memoria.atribuir_referenciado(global, "valor", Valor::Inteiro(11), true).unwrap();
+            assert_eq!(memoria.obter("valor"), Ok(Valor::Inteiro(20)));
+
+            memoria.fechar_escopo().unwrap();
+            assert_eq!(
+                memoria.obter_referenciado(local, "valor"),
+                Err(ErroRuntime::ReferenciaInvalida)
+            );
+            assert_eq!(memoria.obter_referenciado(global, "valor"), Ok(Valor::Inteiro(11)));
+            assert_eq!(
+                memoria.atribuir_referenciado(global, "valor", Valor::Inteiro(12), false),
+                Err(ErroRuntime::TipoIncompativel("escrita por referência compartilhada"))
+            );
         }
 
         #[test]
