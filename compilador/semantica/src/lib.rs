@@ -71,6 +71,7 @@ struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
     funcoes: HashMap<String, Funcao>,
     funcoes_externas: HashSet<String>,
+    funcoes_externas_abi_validada: HashSet<String>,
     aliases: HashMap<String, String>,
     estruturas: HashSet<String>,
     campos_estruturas: HashMap<String, HashMap<String, Tipo>>,
@@ -100,6 +101,7 @@ impl<'a> Analisador<'a> {
             escopos: vec![HashMap::new()],
             funcoes: HashMap::new(),
             funcoes_externas: HashSet::new(),
+            funcoes_externas_abi_validada: HashSet::new(),
             aliases: HashMap::new(),
             estruturas: HashSet::new(),
             campos_estruturas: HashMap::new(),
@@ -146,6 +148,9 @@ impl<'a> Analisador<'a> {
             if let NoAst::Funcao { nome, corpo, .. } = item {
                 if corpo.is_empty() {
                     self.funcoes_externas.insert(nome.clone());
+                    if Self::possui_convencao_c(item) {
+                        self.funcoes_externas_abi_validada.insert(nome.clone());
+                    }
                 }
             }
             if let NoAst::Incluir { caminho, apelido } = item {
@@ -447,6 +452,21 @@ impl<'a> Analisador<'a> {
         match declaracao {
             NoAst::Atributada { declaracao, .. } => Self::alvo_atributo(declaracao),
             outro => outro,
+        }
+    }
+
+    fn possui_convencao_c(declaracao: &NoAst) -> bool {
+        match declaracao {
+            NoAst::Atributada { atributos, declaracao } => {
+                atributos.iter().any(|atributo| {
+                    atributo.nome == "convencao"
+                        && matches!(
+                            atributo.argumentos.as_slice(),
+                            [Expressao::Literal(valor)] if valor.trim_matches('"') == "C"
+                        )
+                }) || Self::possui_convencao_c(declaracao)
+            }
+            _ => false,
         }
     }
 
@@ -1318,11 +1338,12 @@ impl<'a> Analisador<'a> {
             Expressao::Chamada { alvo, argumentos, .. } => {
                 if let Expressao::Nome(nome_externo) = alvo.as_ref() {
                     if self.funcoes_externas.contains(nome_externo) {
+                        let abi_validada = self.funcoes_externas_abi_validada.contains(nome_externo);
                         let provas = ProvasInseguras {
-                            // A assinatura foi resolvida e validada pelo sistema
-                            // de tipos antes da análise do corpo da chamada.
-                            abi_validada: true,
-                            alvo_compativel: true,
+                            // A convenção C declarada é a ABI externa atualmente
+                            // validada pelo contrato do backend x86-64.
+                            abi_validada,
+                            alvo_compativel: abi_validada,
                             ..ProvasInseguras::default()
                         };
                         if let Err(erro) = self.propriedade.validar_operacao_especifica(
@@ -4937,6 +4958,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3106"),
             "Bloco seguro aninhado deve revogar permissões inseguras externas: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_chamada_externa_sem_abi_declarada_mesmo_em_contexto_critico() {
+        let resultado = analisar_codigo(
+            "externa funcao escreverByte(valor: u8): vazio\ncritico\n    escreverByte(255)",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3106"),
+            "A chamada externa exige convenção ABI validada: {:?}",
             resultado.diagnosticos
         );
     }
