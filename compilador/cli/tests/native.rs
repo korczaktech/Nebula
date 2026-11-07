@@ -425,6 +425,24 @@ fn compila_payload_decimal_em_enumeracoes() {
 }
 
 #[test]
+fn abi_transporta_estrutura_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-estrutura-grande-argumento-retorno",
+        "estrutura RegistroGrande: {\n    primeiro: inteiro\n    segundo: inteiro\n    terceiro: inteiro\n}\n\nfuncao criar() -> RegistroGrande: {\n    retorne RegistroGrande { primeiro: 10, segundo: 20, terceiro: 12 }\n}\n\nfuncao somar(registro: RegistroGrande) -> inteiro: {\n    retorne registro.primeiro + registro.segundo + registro.terceiro\n}\n\nfuncao principal() -> inteiro: {\n    variavel registro = criar()\n    retorne somar(registro)\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_tupla_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-tupla-grande-argumento-retorno",
+        "funcao transportar(valor: (inteiro, inteiro, inteiro)) -> (inteiro, inteiro, inteiro): {\n    retorne valor\n}\n\nfuncao somar(valor: (inteiro, inteiro, inteiro)) -> inteiro: {\n    retorne valor[0] + valor[1] + valor[2]\n}\n\nfuncao principal() -> inteiro: {\n    variavel valor = transportar((10, 20, 12))\n    retorne somar(valor)\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_funcoes_parametros_e_chamadas() {
     let resultado = compilar_e_executar(
         "funcao",
