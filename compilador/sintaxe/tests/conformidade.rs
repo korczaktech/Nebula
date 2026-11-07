@@ -93,6 +93,19 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
+        let continuacao = conteudo.starts_with("senao")
+            || conteudo.starts_with("sempre")
+            || conteudo.starts_with("erro ")
+            || conteudo.starts_with("caso ")
+            || conteudo == "padrao";
+        while blocos.last().is_some_and(|bloco| {
+            !bloco.explicito && nivel <= bloco.indentacao && !continuacao
+        }) {
+            if let Some(bloco) = blocos.pop() {
+                fechar(&mut saida, bloco);
+            }
+        }
+
         if conteudo.ends_with("->:") {
             saida.push(indentacao(&format!("{conteudo} {{"), nivel));
             blocos.push(Bloco {
@@ -161,31 +174,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
-        if conteudo == "fim" {
-            if blocos.is_empty() || blocos.last().is_some_and(|bloco| bloco.explicito) {
-                continue;
-            }
-
-            while blocos.last().is_some_and(|bloco| {
-                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-            }) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            }
-
-            if blocos
-                .last()
-                .is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel)
-            {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            } else {
-                saida.push(linha.to_owned());
-            }
-            continue;
-        }
 
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
@@ -313,6 +301,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         }
     }
 
+    while let Some(bloco) = blocos.pop() {
+        if !bloco.explicito {
+            fechar(&mut saida, bloco);
+        }
+    }
     saida.join("\n")
 }
 
