@@ -1805,11 +1805,9 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Estrutura { nome, campos } => ValorRuntime::Estrutura { nome, campos: Arc::new(RwLock::new(
             campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
         )) },
-        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio },
-        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio },
-        ValorIr::IntervaloDecimal(inicio, fim) => {
-            ValorRuntime::IntervaloDecimal { inicio }
-        }
+        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
+        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio, fim },
+        ValorIr::IntervaloDecimal(inicio, fim) => ValorRuntime::IntervaloDecimal { inicio, fim },
         ValorIr::Nulo => ValorRuntime::Nulo,
         ValorIr::Vazio => ValorRuntime::Vazio,
     }
@@ -1832,11 +1830,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
             let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
         }
-        ValorRuntime::Intervalo { inicio } => Ok(ValorIr::Intervalo(inicio, fim)),
-        ValorRuntime::IntervaloSemSinal { inicio } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
-        ValorRuntime::IntervaloDecimal { inicio } => {
-            Ok(ValorIr::IntervaloDecimal(inicio, fim))
-        }
+        ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::IntervaloSemSinal { inicio, fim } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
+        ValorRuntime::IntervaloDecimal { inicio, fim } => Ok(ValorIr::IntervaloDecimal(inicio, fim)),
         ValorRuntime::Nulo => Ok(ValorIr::Nulo),
         ValorRuntime::Vazio => Ok(ValorIr::Vazio),
     }
