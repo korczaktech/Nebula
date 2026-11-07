@@ -1185,6 +1185,21 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Atribuicao { destino, valor } => {
                 let tipo_valor = self.expressao(valor);
+                // Uma referência armazenada em variável de escopo externo não
+                // pode receber um empréstimo criado em um escopo interno:
+                // o empréstimo seria encerrado antes da referência armazenada.
+                if matches!(tipo_valor, Tipo::Referencia { .. }) {
+                    if let Expressao::Nome(nome_destino) = destino.as_ref() {
+                        if let Some(indice_destino) = self.indice_escopo_nome(nome_destino) {
+                            if indice_destino < self.escopos.len().saturating_sub(1) {
+                                self.erro(
+                                    "N3105",
+                                    "Uma referência criada ou copiada em um escopo interno não pode escapar para uma variável de escopo externo.",
+                                );
+                            }
+                        }
+                    }
+                }
                 if let Some(lugar) = self.lugar_de_expressao(destino) {
                     if let Err(erro) = self.propriedade.atribuir(&lugar) {
                         self.erro("N3100", format!("Atribuição conflita com empréstimo ativo: {erro:?}."));
@@ -2780,6 +2795,10 @@ impl<'a> Analisador<'a> {
             lugar = lugar.campo(projecao);
         }
         Some(lugar)
+    }
+
+    fn indice_escopo_nome(&self, nome: &str) -> Option<usize> {
+        self.escopos.iter().rposition(|escopo| escopo.contains_key(nome))
     }
 
     fn buscar(&self, nome: &str) -> Option<&Simbolo> {
@@ -4893,6 +4912,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
             "Não pode escapar uma referência ao slot local de um parâmetro: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_referencia_que_escapa_para_variavel_de_escopo_externo() {
+        let resultado = analisar_codigo(
+            "variavel origem: inteiro = 1\nvariavel referencia: &inteiro = &origem\nquando verdadeiro\n    variavel local: inteiro = 2\n    referencia = &local",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3105"),
+            "Uma referência de escopo interno não pode ser armazenada em variável externa: {:?}",
             resultado.diagnosticos
         );
     }
