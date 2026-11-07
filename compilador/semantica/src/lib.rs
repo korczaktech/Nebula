@@ -2855,14 +2855,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
             TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
             }
             TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
-            }
+                }
         }
     }
 
@@ -2881,7 +2878,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         if conteudo.starts_with("senao") {
             if let Some(bloco) = blocos.last() {
                 if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
-                    saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao("senao: {", nivel));
                     continue;
