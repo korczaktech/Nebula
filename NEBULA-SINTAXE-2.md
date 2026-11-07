@@ -51,8 +51,8 @@ A linguagem distingue quatro contextos. Eles não são palavras mágicas que con
 critico: {
     variavel valor = memoria.ler<u32>(endereco)
     memoria.escrever<u32>(endereco, valor + 1)
-    fim
-} fim
+
+}
 ```
 
 A região crítica não desativa automaticamente todas as verificações. Ela autoriza somente operações que a especificação classificar como inseguras, e exige que os invariantes violados sejam responsabilidade do autor.
@@ -63,8 +63,8 @@ A região crítica não desativa automaticamente todas as verificações. Ela au
 privilegio sistema: {
     cpu.interrupcoes.desabilitar()
     cpu.parar()
-    fim
-} fim
+
+}
 ```
 
 O compilador deve rejeitar esse código em alvos sem suporte ou em programas sem perfil de privilégio compatível. A palavra `privilegio` nunca substitui permissões do processador, do firmware ou do sistema operacional.
@@ -134,8 +134,8 @@ estrutura Cabecalho: {
     codigo: u32
     tamanho: u16
     estado: u8
-    fim
-} fim
+
+}
 ```
 
 O compilador deve disponibilizar intrínsecos de consulta:
@@ -273,8 +273,8 @@ estado = bits.inverter(estado, 3)
 
 se bits.ler(estado, 5): {
     exibir("Bit 5 ativo")
-    fim
-} fim
+
+}
 ```
 
 As funções que retornam um valor devem deixar claro se modificam a variável original ou produzem uma nova. A forma preferida é retornar o valor transformado e exigir atribuição explícita.
@@ -317,8 +317,8 @@ Exemplo ilustrativo para x86-64:
 ```nbx
 se cpu.arquitetura() == "x86_64": {
     variavel valor = cpu.registro.ler(cpu.registro.rax)
-    fim
-} fim
+
+}
 ```
 
 O compilador deve rejeitar registradores que não existam no alvo. Registradores de controle, estado e privilégio exigem contexto privilegiado e contrato de segurança específico.
@@ -354,13 +354,13 @@ A biblioteca deve oferecer tipos vetoriais independentes de arquitetura, por exe
 ```nbx
 se cpu.simd.disponivel("vetorial_128"): {
     variavel resultado = simd.somar(vetorA, vetorB)
-    fim
+
 }
 senao: {
     variavel resultado = vetorA.somarElemento(vetorB)
-    fim
+
 }
-fim
+
 ```
 
 O nome de recurso acima é conceitual. A especificação final deve definir nomes canônicos para conjuntos de instruções, largura e alinhamento.
@@ -444,8 +444,8 @@ Disponível somente em arquiteturas/ambientes que implementem espaço de I/O por
 privilegio sistema: {
     variavel codigo = porta.ler8(0x60)
     porta.escrever8(0x20, 0x01)
-    fim
-} fim
+
+}
 ```
 
 O exemplo é ilustrativo e não configura um controlador real por si só. Em ARM64 e em muitos dispositivos RISC-V, o acesso a periféricos é feito por MMIO ou interfaces específicas, não por essas portas.
@@ -471,8 +471,8 @@ Exemplo:
 funcao tratarTeclado(evento: interrupcao.Evento): {
     variavel tecla = hardware.teclado.ler()
     teclado.processar(tecla)
-    fim
-} fim
+
+}
 
 interrupcao.registrar(33, tratarTeclado)
 ```
@@ -697,8 +697,8 @@ Exemplo:
 @secao(".nucleo")
 funcao iniciarKernel() -> vazio: {
     exibir("Kernel iniciado")
-    fim
-} fim
+
+}
 ```
 
 O nome de seção é uma solicitação ao linker; o formato final do executável e o script de ligação determinam o posicionamento efetivo. O compilador deve emitir erro se a seção não puder ser representada pelo alvo.
@@ -721,13 +721,13 @@ funcao iniciarControlador() -> resultado<hardware.Regiao, hardware.Erro>: {
 
     hardware.escreverVolatil<u32>(regiao, 0, 1)?
     retorne sucesso(regiao)
-    fim
-} fim
+
+}
 
 funcao consultarEstado(regiao: hardware.Regiao) -> resultado<u32, hardware.Erro>: {
     retorne hardware.lerVolatil<u32>(regiao, 4)
-    fim
-} fim
+
+}
 ```
 
 # 24. Exemplo integrado: interrupção
@@ -737,14 +737,14 @@ funcao tratarTeclado(evento: interrupcao.Evento) -> vazio: {
     variavel tecla = hardware.teclado.lerSemBloqueio()
     teclado.enfileirar(tecla)
     interrupcao.confirmar(evento)
-    fim
-} fim
+
+}
 
 funcao iniciarTeclado() -> resultado<vazio, sistema.Erro>: {
     interrupcao.registrar(33, tratarTeclado)?
     retorne sucesso()
-    fim
-} fim
+
+}
 ```
 
 O manipulador deve executar apenas operações permitidas no contexto de interrupção. Processamento pesado deve ser delegado a uma thread ou fila apropriada.
@@ -764,8 +764,8 @@ funcao enviar(buffer: memoria.Regiao<u8>) -> resultado<vazio, dma.Erro>: {
     dma.liberar(envio)
 
     retorne sucesso()
-    fim
-} fim
+
+}
 ```
 
 A região deve permanecer válida e inacessível para mutações incompatíveis durante a transferência, de acordo com o contrato do dispositivo.
