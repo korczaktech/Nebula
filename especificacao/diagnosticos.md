@@ -194,7 +194,8 @@ A análise semântica associa os diagnósticos ao intervalo da declaração ou e
 | N3088 | Lambda com parâmetros sem tipo de função contextual |
 | N3089 | Operação de cópia inválida ou aplicada a tipo não copiável |
 | N3090 | Mistura de inteiros assinados e sem sinal sem conversão explícita |
-| N3091 | Caso curinga não está na última posição |
+| N3090 | Mistura de inteiros assinados e sem sinal sem conversão explícita |
 | N3092 | Construtor algébrico com aridade inválida |
+| N3093 | Valor não chamável usado como função |
 
-Os códigos N3038, N3054 e N3058 mantêm um único significado estável: estrutura duplicada, curinga fora de posição e valor não iterável, respectivamente. As situações antes compartilhadas por esses códigos receberam identificadores próprios (N3089–N3092), evitando que ferramentas precisem interpretar a mensagem para descobrir a categoria do erro.
+Os códigos N3038, N3054 e N3058 mantêm seus significados documentados: estrutura duplicada, curinga fora de posição e valor não iterável, respectivamente. As situações que antes compartilhavam esses identificadores receberam códigos próprios: N3089 para cópia inválida, N3090 para mistura de sinais, N3092 para aridade inválida de construtor e N3093 para valor não chamável.
