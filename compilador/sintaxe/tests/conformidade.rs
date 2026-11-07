@@ -8,11 +8,46 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
     let possui_cabecalho_legado = codigo.lines().any(|linha| {
         let conteudo = linha.trim();
-        let prefixos = ["funcao ", "publico funcao ", "privado funcao ", "protegido estatico funcao ", "async funcao ", "exportar funcao ", "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ", "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com "];
+        let prefixos = [
+            "funcao ",
+            "publico funcao ",
+            "privado funcao ",
+            "protegido estatico funcao ",
+            "async funcao ",
+            "exportar funcao ",
+            "estrutura ",
+            "enumeracao ",
+            "classe ",
+            "quando ",
+            "se ",
+            "sendo ",
+            "senao",
+            "escolha ",
+            "avaliar ",
+            "caso ",
+            "cada ",
+            "enquanto ",
+            "para ",
+            "pulso(",
+            "durante ",
+            "repetir ",
+            "critico",
+            "privilegio ",
+            "montagem ",
+            "tente",
+            "erro ",
+            "sempre",
+            "com ",
+        ];
         prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
     });
     if possui_abertura_explicita && !possui_cabecalho_legado {
-        return codigo.lines().filter(|linha| linha.trim() != "fim").collect::<Vec<_>>().join("\n").replace("} fim", "}");
+        return codigo
+            .lines()
+            .filter(|linha| linha.trim() != "fim")
+            .collect::<Vec<_>>()
+            .join("\n")
+            .replace("} fim", "}");
     }
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
