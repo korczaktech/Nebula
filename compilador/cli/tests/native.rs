@@ -470,6 +470,33 @@ fn abi_transporta_tupla_maior_que_dois_registradores_em_parametro_e_retorno() {
 }
 
 #[test]
+fn abi_rejeita_enum_com_payloads_multiplos_sem_gerar_executavel() {
+    let (origem, executavel) = caminhos("abi-enum-payloads-multiplos");
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/tipos/abi-enum-payloads-multiplos.nbx");
+    let codigo = fs::read_to_string(fixture).expect("fixture de enum com payloads múltiplos");
+    fs::write(&origem, codigo).expect("grava fixture temporária");
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI Rust");
+    let _ = fs::remove_file(&origem);
+    assert!(!compilacao.status.success());
+    assert!(
+        !executavel.exists(),
+        "ABI não suportada não pode produzir executável",
+    );
+    let stderr = String::from_utf8_lossy(&compilacao.stderr);
+    assert!(
+        stderr.contains("Payload da enumeração") || stderr.contains("enumeração"),
+        "{stderr}",
+    );
+}
+
+#[test]
 fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro128",
