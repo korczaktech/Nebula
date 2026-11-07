@@ -543,6 +543,7 @@ mod testes {
         let mut base = AnalisadorPropriedade::novo();
         base.declarar("esquerda").unwrap();
         base.declarar("direita").unwrap();
+        base.declarar("terceira").unwrap();
 
         let mut ramo_a = base.clone();
         ramo_a.emprestar(1, Lugar::novo("esquerda"), TipoEmprestimo::Compartilhado).unwrap();
@@ -555,7 +556,8 @@ mod testes {
         assert!(base.mover(&Lugar::novo("direita")).is_err());
 
         let proximo = base.proximo_identificador_emprestimo().unwrap();
-        base.emprestar(proximo, Lugar::novo("esquerda"), TipoEmprestimo::Compartilhado).unwrap_err();
+        base.emprestar(proximo, Lugar::novo("terceira"), TipoEmprestimo::Compartilhado).unwrap();
+        assert_eq!(base.quantidade_emprestimos(), 3);
     }
 
     #[test]
