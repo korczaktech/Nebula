@@ -427,7 +427,6 @@ impl Parser {
         let sempre = if self.corresponde(TipoToken::Sempre) {
             self.bloco()?
         } else { Vec::new() };
-        self.pular_novas_linhas();
         
         if capturas.is_empty() && sempre.is_empty() {
             self.erro_atual("N2007", "'tente' precisa de ao menos uma cláusula 'erro' ou 'sempre'.");
@@ -832,7 +831,6 @@ impl Parser {
             
             while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
             self.esperar(TipoToken::FechaChave, "Function Body de escolha não foi fechado com '}'.");
-            self.separadores();
             
         }
         if casos.is_empty() { self.erro_atual("N2044", "Escolha precisa conter ao menos um caso."); }
