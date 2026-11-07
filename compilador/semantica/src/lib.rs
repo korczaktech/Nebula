@@ -90,6 +90,7 @@ struct Analisador<'a> {
     propriedade: AnalisadorPropriedade,
     proximo_emprestimo: u64,
     contextos_inseguros: Vec<String>,
+    parametros_funcao: Vec<HashSet<String>>,
 }
 
 impl<'a> Analisador<'a> {
@@ -117,6 +118,7 @@ impl<'a> Analisador<'a> {
             propriedade: AnalisadorPropriedade::novo(),
             proximo_emprestimo: 1,
             contextos_inseguros: Vec::new(),
+            parametros_funcao: Vec::new(),
         }
     }
 
@@ -452,6 +454,7 @@ impl<'a> Analisador<'a> {
                 let genericos_anteriores = self.parametros_genericos.clone();
                 self.parametros_genericos.extend(genericos.iter().cloned());
                 self.abrir_escopo();
+                self.parametros_funcao.push(parametros.iter().map(|(nome, _)| nome.clone()).collect());
                 for (indice, ((nome_parametro, _), tipo)) in parametros.iter().zip(&funcao.parametros).enumerate() {
                     if let Some(Some(padrao)) = parametros_padrao.get(indice) {
                         let tipo_obtido = self.expressao_com_tipo_esperado(padrao, tipo);
@@ -469,6 +472,7 @@ impl<'a> Analisador<'a> {
                 self.profundidade_laco = laco_anterior;
                 self.retorno_atual = retorno_anterior;
                 self.fechar_escopo();
+                self.parametros_funcao.pop();
                 self.parametros_genericos = genericos_anteriores;
             }
             NoAst::Tipo { .. } => {
@@ -846,6 +850,11 @@ impl<'a> Analisador<'a> {
                 } else {
                     Tipo::Vazio
                 };
+                if matches!(esperado, Some(Tipo::Referencia { .. }))
+                    && valor.is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
+                {
+                    self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa ser um parâmetro válido da função.");
+                }
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
                         self.mover_valor(valor);
@@ -2701,6 +2710,26 @@ impl<'a> Analisador<'a> {
             }
             self.escopos.last_mut().expect("sempre há escopo global").insert(nome.to_owned(), simbolo);
         }
+    }
+
+    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
+        let Some(parametros) = self.parametros_funcao.last() else {
+            return false;
+        };
+        let origem = match expressao {
+            Expressao::Unaria {
+                operador: TipoToken::EBit | TipoToken::Mutavel,
+                valor,
+            } => match valor.as_ref() {
+                Expressao::Nome(nome) => Some(nome.as_str()),
+                Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
+                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz).leak().into_iter().next().map(String::as_str),
+                _ => None,
+            },
+            Expressao::Nome(nome) => Some(nome.as_str()),
+            _ => None,
+        };
+        origem.is_some_and(|nome| parametros.contains(nome))
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
