@@ -2320,17 +2320,15 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
 
     #[test]
-    fn rejeita_function_body_sem_fim_antes_da_chave() {
-        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n}\nfim"));
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    fn aceita_function_body_sem_terminador_textual() {
+        let r = analisar(&fonte("funcao teste(): {\\n    exibir(1)\\n}"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
-    fn rejeita_function_body_sem_fim_apos_a_chave_externa() {
-        let r = analisar(&fonte("funcao teste(): {\n    exibir(1)\n    fim\n}"));
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N2009"), "{:?}", r.diagnosticos);
+    fn fim_permanece_identificador_apos_function_body() {
+        let r = analisar(&fonte("funcao teste(): {\\n    exibir(1)\\n}\\nvariavel fim = 1"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
     fn analisa_escolha_com_function_body_delimitado() {
         let codigo = "escolha opcao: {\n    caso 1: {\n        exibir(1)\n        fim\n    }\n    caso 2: {\n        exibir(2)\n        fim\n    }\n    fim\n}\nfim";
@@ -2358,15 +2356,10 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     }
 
     #[test]
-    fn rejeita_fim_como_terminador_de_dicionario() {
-        let codigo = r#"variavel dados: dicionario = {
-    "nome": "Nebula"
-    fim
-}"#;
-        let r = analisar(&fonte(codigo));
-        assert!(!r.diagnosticos.is_empty(), "dicionário deve fechar diretamente com chave de fechamento");
+    fn aceita_fim_como_identificador_comum() {
+        let r = analisar(&fonte("variavel fim = 42"));
+        assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     }
-
     #[test]
     fn analisa_async_exportacao_classe_e_lacos_com_function_body() {
         let codigo = r#"async funcao processar(): {
@@ -2918,7 +2911,7 @@ fim"#;
         let exemplos = [
             "variavel pessoa = Pessoa {\n nome: \"Ana\"\n fim\n}",
             "variavel pessoa = Pessoa {\n\n nome: \"Ana\",\n idade: 20;\n fim\n\n}",
-            "variavel pessoa = Pessoa { ; nome: \"Ana\"; fim }",
+            "variavel pessoa = Pessoa { ; nome: \"Ana\"; }",
         ];
 
         for codigo in exemplos {
@@ -3764,7 +3757,7 @@ fim"#;
             "variavel lista = [1, 2)",
             "estrutura Pessoa { nome: inteiro)",
             "enumeracao Estado { Ativo(inteiro]",
-            "funcao principal() { exibir(1) fim",
+            "funcao principal(): { exibir(1) } ]",
             "funcao principal()\n exibir(1)\n}",
         ] {
             let resultado = analisar(&fonte(codigo));
