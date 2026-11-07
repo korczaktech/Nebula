@@ -1562,7 +1562,7 @@ impl<'a> Analisador<'a> {
                             self.validar_argumentos(argumentos, &parametros, nome);
                             return *retorno;
                         }
-                        self.erro("N3058", format!("O valor '{nome}' não é chamável."));
+                        self.erro("N3093", format!("O valor '{nome}' não é chamável."));
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Desconhecido;
                     }
@@ -1820,7 +1820,7 @@ impl<'a> Analisador<'a> {
                 if Self::numerico(a) && Self::numerico(b) {
                     if Self::inteiro(a) && Self::inteiro(b)
                         && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
-                        self.erro("N3038", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
                     }
                     Tipo::Logico
                 } else {
