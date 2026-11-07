@@ -55,7 +55,6 @@ struct LayoutAgregado {
     tamanho: u64,
     alinhamento: u64,
     campos: HashMap<String, (u64, u64)>,
-    tamanho_tag: u64,
 }
 
 struct Emissor {
@@ -175,7 +174,6 @@ impl Emissor {
                 tamanho: layout.tamanho,
                 alinhamento: layout.alinhamento,
                 campos,
-                tamanho_tag: layout.tamanho_tag,
             })
         }).collect();
         self.variantes_enumeracoes = programa.variantes_enumeracoes.clone();
