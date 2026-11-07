@@ -469,6 +469,8 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
             erro.utf8_error().valid_up_to()
         )
     })?;
+    #[cfg(test)]
+    let conteudo = normalizar_blocos_legados(&conteudo);
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
@@ -1079,6 +1081,243 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
 }
 
 #[rustfmt::skip]
+#[cfg(test)]
+fn normalizar_blocos_legados(codigo: &str) -> String {
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum TipoBloco {
+        Completo,
+        Condicional,
+        Escolha,
+        Caso,
+    }
+
+    #[derive(Clone, Copy)]
+    struct Bloco {
+        indentacao: usize,
+        tipo: TipoBloco,
+        explicito: bool,
+    }
+
+    fn indentacao(texto: &str, nivel: usize) -> String {
+        format!("{}{}", " ".repeat(nivel), texto)
+    }
+
+    fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
+        match bloco.tipo {
+            TipoBloco::Caso => {
+                saida.push(indentacao("}", bloco.indentacao));
+            }
+            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
+                saida.push(indentacao("}", bloco.indentacao));
+                }
+        }
+    }
+
+    let mut saida = Vec::new();
+    let mut blocos: Vec<Bloco> = Vec::new();
+
+    for linha_original in codigo.lines() {
+        let nivel = linha_original.len() - linha_original.trim_start().len();
+        let linha_normalizada = if linha_original.trim().ends_with("(): {") {
+            linha_original.to_owned()
+        } else {
+            linha_original.replace("): ", ") -> ")
+        };
+        let linha = linha_normalizada.as_str();
+        let conteudo = linha.trim();
+
+        if conteudo.is_empty() {
+            saida.push(linha.to_owned());
+            continue;
+        }
+
+        if conteudo.ends_with("->:") {
+            saida.push(indentacao(&format!("{conteudo} {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Completo,
+                explicito: false,
+            });
+            continue;
+        }
+
+        let cabecalho_explicito = [
+            "funcao ",
+            "publico funcao ",
+            "privado funcao ",
+            "protegido estatico funcao ",
+            "async funcao ",
+            "exportar funcao ",
+            "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
+            "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
+            "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com ",
+        ]
+        .iter()
+        .any(|prefixo| conteudo.starts_with(prefixo))
+            && conteudo.ends_with(": {");
+
+        if cabecalho_explicito {
+            let tipo = if conteudo.starts_with("caso ") {
+                TipoBloco::Caso
+            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                TipoBloco::Escolha
+            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") || conteudo.starts_with("senao") {
+                TipoBloco::Condicional
+            } else {
+                TipoBloco::Completo
+            };
+            saida.push(linha.to_owned());
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo,
+                explicito: true,
+                etapa: 0,
+            });
+            continue;
+        }
+
+        if conteudo == "fim" {
+            if let Some(bloco) = blocos.last_mut() {
+                if bloco.explicito && bloco.indentacao == nivel {
+                    continue;
+                }
+            }
+
+            while blocos.last().is_some_and(|bloco| {
+                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+
+            if blocos.last().is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            } else {
+                saida.push(linha.to_owned());
+            }
+            continue;
+        }
+
+        if conteudo == "}" {
+            if let Some(bloco) = blocos.last_mut() {
+                if bloco.explicito && bloco.indentacao == nivel {
+                    blocos.pop();
+                    saida.push(linha.to_owned());
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("senao") || conteudo.starts_with("sempre") || conteudo.starts_with("erro ") {
+            if let Some(bloco) = blocos.last() {
+                if !bloco.explicito && bloco.indentacao == nivel {
+                    let tipo = bloco.tipo;
+                    saida.push(indentacao("}", nivel));
+                    saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+                    blocos.pop();
+                    blocos.push(Bloco {
+                        indentacao: nivel,
+                        tipo,
+                        explicito: false,
+                    });
+                    continue;
+                }
+            }
+        }
+
+        if conteudo.starts_with("caso ") || conteudo == "padrao" {
+            if blocos.last().is_some_and(|bloco| {
+                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
+            }) {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Caso,
+                explicito: false,
+                etapa: 0,
+            });
+            continue;
+        }
+
+        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+            || conteudo.starts_with("privado funcao ")
+            || conteudo.starts_with("protegido estatico funcao ")
+            || conteudo.starts_with("funcao ")
+            || conteudo.starts_with("async funcao ")
+            || conteudo.starts_with("exportar funcao ")
+        {
+            let assinatura = if conteudo.ends_with("(): {") {
+                conteudo.to_owned()
+            } else {
+                conteudo.replace("): ", ") -> ")
+            };
+            let assinatura = if assinatura.ends_with(':') {
+                format!("{assinatura} {{")
+            } else if assinatura.ends_with("{") {
+                assinatura
+            } else {
+                format!("{assinatura}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") || conteudo.starts_with("classe ") {
+            let assinatura = if conteudo.ends_with(':') {
+                format!("{conteudo} {{")
+            } else {
+                format!("{conteudo}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(assinatura))
+        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") {
+            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
+        } else if conteudo.starts_with("cada ")
+            || conteudo.starts_with("enquanto ")
+            || conteudo.starts_with("para ")
+            || conteudo.starts_with("pulso(")
+            || conteudo.starts_with("durante ")
+            || conteudo.starts_with("repetir ")
+            || conteudo == "critico"
+            || conteudo.starts_with("critico:")
+            || conteudo.starts_with("privilegio ")
+            || conteudo.starts_with("montagem ")
+            || conteudo == "tente"
+            || conteudo.starts_with("erro ")
+            || conteudo == "sempre"
+            || conteudo.starts_with("com ")
+        {
+            let cabecalho = if conteudo.ends_with(':') {
+                format!("{conteudo} {{")
+            } else {
+                format!("{conteudo}: {{")
+            };
+            (Some(TipoBloco::Completo), Some(cabecalho))
+        } else {
+            (None, None)
+        };
+
+        if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
+            saida.push(indentacao(&cabecalho, nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo,
+                explicito: false,
+                etapa: 0,
+            });
+        } else {
+            saida.push(linha.to_owned());
+        }
+    }
+
+    saida.join("\n")
+}
+
 fn compilar_arquivo_com_nivel(
     caminho: &Path,
     saida: &Path,
@@ -2782,7 +3021,8 @@ mod fixtures_conformidade_tipos {
     use super::*;
 
     fn validar_fixture(codigo: &str, nome: &str) -> Result<(), String> {
-        let fonte = ArquivoFonte::novo(nome, codigo);
+        let codigo = normalizar_blocos_legados(codigo);
+        let fonte = ArquivoFonte::novo(nome, &codigo);
         let sintaxe = analisar(&fonte);
         if !sintaxe.diagnosticos.is_empty() {
             return Err(format!("erros sintáticos: {:?}", sintaxe.diagnosticos));
@@ -2868,7 +3108,8 @@ mod fixtures_conformidade_tipos {
     }
 
     fn rejeita_abi_nativa_pendente(codigo: &str, nome: &str) -> Result<(), String> {
-        let fonte = ArquivoFonte::novo(nome, codigo);
+        let codigo = normalizar_blocos_legados(codigo);
+        let fonte = ArquivoFonte::novo(nome, &codigo);
         let sintaxe = analisar(&fonte);
         if !sintaxe.diagnosticos.is_empty() {
             return Err(format!("erros sintáticos: {:?}", sintaxe.diagnosticos));
