@@ -278,7 +278,7 @@ literal                 = INTEIRO | DECIMAL | TEXTO | TEXTO_INTERPOLADO
 
 A AST de expressões inclui atribuições simples e compostas, operações binárias e unárias, chamadas posicionais e nomeadas, chamadas genéricas, acesso a membros, acesso opcional, indexação, listas, tuplas, construções de estruturas, lambdas, lambdas com Function Body, expressões condicionais e propagação opcional.
 
-O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... fim }`. A palavra `lambda` introduz a forma `lambda x: expressão`.
+O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... }`. A palavra `lambda` introduz a forma `lambda x: expressão`.
 
 Construções de estrutura usam chaves e campos `nome: expressão`; não são blocos de instrução. Campos podem conter expressões aninhadas. Campos duplicados são erro. Em cabeçalhos que aguardam bloco, uma construção vazia com chaves deve ser agrupada para não ser confundida com o início de bloco.
 
