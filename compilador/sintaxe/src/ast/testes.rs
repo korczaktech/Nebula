@@ -307,7 +307,6 @@ fn normalizar_blocos_indentados(codigo: &str) -> String {
     saida.join("\n")
 }
 
-
 #[test]
 fn tipo_generico_aninhado_preserva_estrutura_e_grafia() {
     let tipo = TipoAst::analisar("Resultado<[texto], Tupla<inteiro, logico>>");
