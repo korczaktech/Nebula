@@ -3280,7 +3280,14 @@ mod testes {
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
         if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois lowerer\\n"); }
-        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        if !resultado.diagnosticos.is_empty() {
+            let _ = std::io::stderr().write_all(format!("REFERENCIA_TEST: {} diagnostico(s)\\n", resultado.diagnosticos.len()).as_bytes());
+            for diagnostico in &resultado.diagnosticos {
+                let _ = std::io::stderr().write_all(diagnostico.as_bytes());
+                let _ = std::io::stderr().write_all(b"\\n");
+            }
+            panic!("Lowerer produziu diagnósticos.");
+        }
         if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: diagnosticos ok\\n"); }
         let mut programa = resultado.programa.expect("IR válida");
         if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: programa obtido\\n"); }
