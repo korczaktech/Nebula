@@ -1083,6 +1083,7 @@ fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
 #[rustfmt::skip]
 #[cfg(test)]
 fn normalizar_blocos_legados(codigo: &str) -> String {
+    let codigo = codigo.replace(", fim }", " }");
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
         Completo,
