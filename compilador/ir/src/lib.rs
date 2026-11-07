@@ -1868,6 +1868,7 @@ fn normalizar_valor(tipo: &Tipo, valor: ValorIr) -> Result<ValorIr, String> {
                 let valor = normalizar_valor(erro, campos.into_iter().next().expect("um payload").1)?;
                 Ok(ValorIr::Estrutura { nome, campos: vec![("0".into(), valor)] })
             }
+        (Tipo::Referencia { .. }, valor @ ValorIr::Referencia { .. }) => Ok(valor),
         (Tipo::Funcao(_, _), valor @ ValorIr::Funcao(_)) => Ok(valor),
         (Tipo::Intervalo(interno), ValorIr::Intervalo(inicio, fim))
             if matches!(interno.as_ref(),
@@ -4525,6 +4526,29 @@ mod testes {
         };
         assert!(erro.contains("entrada fornecida"));
         assert!(worker.join().expect("thread").is_err());
+    }
+
+    #[test]
+    fn executa_leitura_e_escrita_por_referencia_exclusiva() {
+        let programa = compilar(
+            "variavel valor: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel valor\n*referencia = 9\nvariavel obtido = *referencia",
+        );
+        let resultado = executar(&programa, 100).expect("referência exclusiva deve executar");
+        assert_eq!(resultado.globais.get("valor"), Some(&ValorIr::Inteiro(9)));
+        assert_eq!(resultado.globais.get("obtido"), Some(&ValorIr::Inteiro(9)));
+    }
+
+    #[test]
+    fn rejeita_referencia_runtime_apos_escopo_de_origem_encerrado() {
+        let mut memoria = nebula_runtime::Memoria::nova();
+        memoria.abrir_escopo();
+        memoria.declarar("local", ValorRuntime::Inteiro(5), true).unwrap();
+        let identificador = memoria.identificador_escopo_da_variavel("local").unwrap();
+        memoria.fechar_escopo().unwrap();
+        assert_eq!(
+            memoria.obter_referenciado(identificador, "local"),
+            Err(nebula_runtime::ErroRuntime::ReferenciaInvalida)
+        );
     }
 
     #[test]
