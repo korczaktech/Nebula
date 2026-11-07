@@ -1087,12 +1087,12 @@ impl<'a> Analisador<'a> {
                         let exclusiva = *operador == TipoToken::Mutavel;
                         if exclusiva {
                             let nome_raiz = match valor.as_ref() {
-                                Expressao::Nome(nome) => Some(nome.as_str()),
+                                Expressao::Nome(nome) => Some(nome.clone()),
                                 Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
-                                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz).as_deref(),
+                                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz),
                                 _ => None,
                             };
-                            if nome_raiz.and_then(|nome| self.buscar(nome)).is_none_or(|simbolo| !simbolo.mutavel) {
+                            if nome_raiz.as_deref().and_then(|nome| self.buscar(nome)).is_none_or(|simbolo| !simbolo.mutavel) {
                                 self.erro("N3091", "Empréstimo exclusivo exige um lugar mutável.");
                             }
                         }
