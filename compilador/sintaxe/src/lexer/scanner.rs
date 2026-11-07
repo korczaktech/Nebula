@@ -783,7 +783,6 @@ impl<'a> Lexer<'a> {
             "durante" => TipoToken::Durante,
             "repetir" => TipoToken::Repetir,
             "devolver" => TipoToken::Devolver,
-            "fim" => TipoToken::FimBloco,
             "parar" => TipoToken::Parar,
             "encerrar" => TipoToken::Encerrar,
             "seguir" => TipoToken::Seguir,
