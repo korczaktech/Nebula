@@ -1567,10 +1567,10 @@ mod ciclo_vida {
         fn finalizar_destroi_variaveis_de_todos_os_escopos() {
             let mut contexto = ContextoRuntime::novo();
             contexto.memoria_mutavel().unwrap()
-                .declarar("global", ValorRuntime::Inteiro(1), true).unwrap();
+                .declarar("global", Valor::Inteiro(1), true).unwrap();
             contexto.abrir_escopo().unwrap();
             contexto.memoria_mutavel().unwrap()
-                .declarar("local", ValorRuntime::Inteiro(2), true).unwrap();
+                .declarar("local", Valor::Inteiro(2), true).unwrap();
             contexto.finalizar().unwrap();
             assert!(contexto.memoria().globais().is_empty());
             assert_eq!(contexto.memoria().quantidade_escopos(), 1);
