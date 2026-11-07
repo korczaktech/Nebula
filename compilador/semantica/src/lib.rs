@@ -1122,6 +1122,12 @@ impl<'a> Analisador<'a> {
                         self.erro("N3030", format!("O valor '{nome}' ou parte de seus campos foi movido e não pode ser utilizado integralmente."));
                     }
                     simbolo.tipo
+                } else if self.funcoes_externas.contains(nome) {
+                    self.erro(
+                        "N3108",
+                        format!("A função externa '{nome}' não pode ser convertida em valor nem escapar de uma chamada direta em contexto 'critico'."),
+                    );
+                    Tipo::Desconhecido
                 } else if let Some(f) = self.funcoes.get(nome).or_else(|| self.classe_atual.as_ref().and_then(|classe| self.funcoes.get(&format!("{classe}::{nome}")))) {
                     if !f.genericos.is_empty() {
                         self.erro(
@@ -4959,6 +4965,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3106"),
             "Bloco seguro aninhado deve revogar permissões inseguras externas: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_funcao_externa_como_valor_indireto() {
+        let resultado = analisar_codigo(
+            "@convencao(\"C\")\nexterna funcao escreverByte(valor: u8): vazio\nvariavel callback = escreverByte",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3108"),
+            "Função externa não pode escapar para chamada indireta: {:?}",
             resultado.diagnosticos
         );
     }
