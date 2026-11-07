@@ -5088,7 +5088,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn rejeita_referencias_armazenadas_em_campos_de_classe() {
         let resultado = analisar_codigo(
-            "classe Caixa\n    variavel referencia: &inteiro = &global",
+            "variavel global: inteiro = 1\nclasse Caixa\n    variavel referencia: &inteiro = &global",
         );
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3107"),
