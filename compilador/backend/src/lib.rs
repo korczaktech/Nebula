@@ -194,6 +194,7 @@ impl Emissor {
 
     fn validar_tipo_abi(&self, tipo: &Tipo) -> Result<(), String> {
         match tipo {
+            Tipo::Referencia { interno, .. } => self.validar_tipo_abi(interno),
             Tipo::Funcao(parametros, retorno) => {
                 for parametro in parametros {
                     if *parametro == Tipo::Vazio {
@@ -287,7 +288,7 @@ impl Emissor {
             Tipo::Inteiro16 | Tipo::InteiroU16 => Some((2, 2)),
             Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
             Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
-            | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            | Tipo::Funcao(_, _) | Tipo::Caractere | Tipo::Referencia { .. } => Some((8, 8)),
             Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
@@ -337,6 +338,9 @@ impl Emissor {
         self.validar_tipo_abi(tipo)?;
         if tipo_inteiro_128(tipo) {
             return Ok(2);
+        }
+        if matches!(tipo, Tipo::Referencia { .. }) {
+            return Ok(1);
         }
         if let Tipo::Estrutura(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
@@ -975,6 +979,53 @@ impl Emissor {
                 | ValorIr::Nulo
                 | ValorIr::Funcao(_)
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
+            ExpressaoIr::Referencia { nome, tipo, .. } => {
+                self.validar_tipo_abi(tipo)?;
+                let deslocamento = self.buscar_local(nome)
+                    .ok_or_else(|| format!("Referência nativa exige variável local viva: '{nome}'."))?;
+                self.emitir_endereco_rbp_rax(deslocamento);
+                self.mov_rdx(0);
+            }
+            ExpressaoIr::Desreferencia(referencia) => {
+                let tipo = tipo_referenciado_ir(referencia)
+                    .cloned()
+                    .or_else(|| self.tipo_expressao_atual(referencia))
+                    .ok_or("Não foi possível determinar o tipo da referência no backend.")?;
+                let (tamanho, _) = self.tamanho_alinhamento_tipo(&tipo)
+                    .ok_or_else(|| format!("Tipo '{}' não possui representação de referência nativa.", tipo.nome()))?;
+                if tamanho == 0 || tamanho > 16 {
+                    return Err(format!("Desreferência de '{}' não é suportada pelo backend nativo.", tipo.nome()));
+                }
+                self.expressao(referencia)?;
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]); // rax = [r11]
+                if tamanho > 8 {
+                    self.codigo.extend_from_slice(&[0x49, 0x8B, 0x53, 0x08]); // rdx = [r11 + 8]
+                } else {
+                    self.mov_rdx(0);
+                }
+            }
+            ExpressaoIr::AtribuicaoReferencia { referencia, valor, tipo } => {
+                let (tamanho, _) = self.tamanho_alinhamento_tipo(tipo)
+                    .ok_or_else(|| format!("Tipo '{}' não possui representação de referência nativa.", tipo.nome()))?;
+                if tamanho == 0 || tamanho > 16 {
+                    return Err(format!("Atribuição por referência de '{}' não é suportada pelo backend nativo.", tipo.nome()));
+                }
+                self.expressao(referencia)?;
+                let endereco = self.reservar_agregado(8, 8)?;
+                self.armazenar_rax(endereco);
+                self.expressao(valor)?;
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = valor baixo
+                self.carregar_rax(endereco);
+                self.codigo.extend_from_slice(&[0x49, 0x89, 0xC2]); // r10 = endereço
+                self.codigo.extend_from_slice(&[0x4D, 0x89, 0x1A]); // [r10] = r11
+                if tamanho > 8 {
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xD3]); // r11 = valor alto
+                    self.codigo.extend_from_slice(&[0x4D, 0x89, 0x5A, 0x08]); // [r10 + 8] = r11
+                }
+                self.mov_rax(0);
+                self.mov_rdx(0);
+            }
             ExpressaoIr::Variavel(nome) => {
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.carregar_rax(deslocamento);
@@ -3613,9 +3664,24 @@ fn tipo_expressao_ir(expressao: &ExpressaoIr) -> Option<&Tipo> {
         ExpressaoIr::Normalizar { tipo, .. }
         | ExpressaoIr::Conversao { tipo, .. }
         | ExpressaoIr::ReferenciaFuncao { tipo, .. }
-        | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => Some(tipo),
+        | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. }
+        | ExpressaoIr::AtribuicaoReferencia { tipo, .. } => Some(tipo),
+        ExpressaoIr::Referencia { .. } => None,
+        ExpressaoIr::Desreferencia(referencia) => tipo_referenciado_ir(referencia),
         ExpressaoIr::Unaria { valor, .. } => tipo_expressao_ir(valor),
         _ => None,
+    }
+}
+
+fn tipo_referenciado_ir(expressao: &ExpressaoIr) -> Option<&Tipo> {
+    match expressao {
+        ExpressaoIr::Referencia { tipo, .. } => Some(tipo),
+        ExpressaoIr::Normalizar { tipo: Tipo::Referencia { interno, .. }, .. }
+        | ExpressaoIr::Conversao { tipo: Tipo::Referencia { interno, .. }, .. } => Some(interno),
+        _ => tipo_expressao_ir(expressao).and_then(|tipo| match tipo {
+            Tipo::Referencia { interno, .. } => Some(interno.as_ref()),
+            _ => None,
+        }),
     }
 }
 
