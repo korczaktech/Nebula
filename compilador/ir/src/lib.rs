@@ -23,6 +23,9 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
+// Limite determinístico para impedir explosão de monomorfizações em fontes hostis.
+const LIMITE_INSTANCIAS_GENERICAS: usize = 256;
+
 /// Valor constante ou resultado de execução na IR.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
@@ -498,6 +501,16 @@ impl Lowerer {
             .collect::<String>());
 
         if !self.instancias.contains_key(&nome_instancia) {
+            if self.instancias.len() >= LIMITE_INSTANCIAS_GENERICAS {
+                if !self.diagnosticos.iter().any(|diagnostico| {
+                    diagnostico.contains("limite de 256 instâncias genéricas")
+                }) {
+                    self.diagnosticos.push(format!(
+                        "A compilação excedeu o limite de {LIMITE_INSTANCIAS_GENERICAS} instâncias genéricas distintas."
+                    ));
+                }
+                return None;
+            }
             let anteriores = std::mem::replace(&mut self.substituicoes, substituicoes.clone());
             let parametros: Vec<_> = modelo.parametros.iter()
                 .map(|(nome, tipo)| (nome.clone(), self.tipo(tipo)))
