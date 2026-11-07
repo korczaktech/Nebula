@@ -616,6 +616,51 @@ impl Lowerer {
                     });
                 }
             }
+            if let Expressao::Membro {
+                alvo: tipo_alvo,
+                operador: TipoToken::Escopo,
+                nome: variante,
+            } = alvo.as_ref()
+            {
+                if let Expressao::Nome(nome_tipo) = tipo_alvo.as_ref() {
+                    let compativel = match esperado {
+                        Tipo::Opcional(_) => matches!(
+                            (nome_tipo.as_str(), variante.as_str()),
+                            ("Opcional" | "opcional", "Algum" | "Nenhum")
+                        ),
+                        Tipo::Resultado(_, _) => matches!(
+                            (nome_tipo.as_str(), variante.as_str()),
+                            ("Resultado" | "resultado", "Sucesso" | "Falha")
+                        ),
+                        _ => false,
+                    };
+                    if compativel {
+                        return Some(ExpressaoIr::Normalizar {
+                            tipo: esperado.clone(),
+                            valor: Box::new(self.expressao(expressao)?),
+                        });
+                    }
+                }
+            }
+        }
+        if let Expressao::Membro {
+            alvo,
+            operador: TipoToken::Escopo,
+            nome: variante,
+        } = expressao
+        {
+            if let Expressao::Nome(nome_tipo) = alvo.as_ref() {
+                let compativel = matches!(
+                    (esperado, nome_tipo.as_str(), variante.as_str()),
+                    (Tipo::Opcional(_), "Opcional" | "opcional", "Nenhum")
+                );
+                if compativel {
+                    return Some(ExpressaoIr::Normalizar {
+                        tipo: esperado.clone(),
+                        valor: Box::new(self.expressao(expressao)?),
+                    });
+                }
+            }
         }
         self.expressao(expressao)
     }
