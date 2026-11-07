@@ -167,9 +167,9 @@ instrucao_verifique     = "verifique", expressao, [ ",", expressao ] ;
 instrucao_escopo        = ("global" | "externa"), IDENTIFICADOR ;
 
 instrucao_quando        = ("quando" | "se"), expressao_antes_bloco,
-                          bloco_sem_fim,
-                          { "sendo", expressao_antes_bloco, bloco_sem_fim },
-                          [ "senao", (instrucao_quando | bloco_sem_fim) ] ;
+                          bloco,
+                          { "sendo", expressao_antes_bloco, bloco },
+                          [ "senao", (instrucao_quando | bloco) ] ;
 
 instrucao_escolha       = ("escolha" | "avaliar"), expressao_antes_bloco,
                           ":", "{", { separador }, lista_casos_escolha,
@@ -177,7 +177,7 @@ instrucao_escolha       = ("escolha" | "avaliar"), expressao_antes_bloco,
 lista_casos_escolha     = caso_escolha, { separador, caso_escolha },
                           { separador } ;
 caso_escolha            = ("caso", padrao_escolha | "padrao"),
-                          bloco_sem_fim ;
+                          bloco ;
 padrao_escolha          = "_"
                         | caminho_variante, [ "(", lista_vinculos, ")" ]
                         | literal ;
@@ -196,9 +196,9 @@ inicializador           = ("variavel", IDENTIFICADOR, [ ":", tipo ], "=",
                           expressao) | expressao ;
 instrucao_pulso         = "pulso", "(", expressao, ")", bloco ;
 
-instrucao_tente         = "tente", bloco_sem_fim,
-                          { "erro", [ IDENTIFICADOR ], bloco_sem_fim },
-                          [ "sempre", bloco_sem_fim ] ;
+instrucao_tente         = "tente", bloco,
+                          { "erro", [ IDENTIFICADOR ], bloco },
+                          [ "sempre", bloco ] ;
 instrucao_com           = "com", expressao_antes_bloco,
                           [ "como", IDENTIFICADOR ], bloco ;
 
