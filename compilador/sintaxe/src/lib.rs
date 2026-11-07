@@ -4637,6 +4637,24 @@ funcao inverter(par: Tupla<inteiro64, inteiro64>): Tupla<inteiro64, inteiro64>
     }
 
     #[test]
+    fn reconhece_tipos_emprestimos_e_dereferencia() {
+        let resultado = analisar(&fonte_bruta(
+            "variavel origem: inteiro = 1\nvariavel referencia: &mutavel inteiro = &mutavel origem\nvariavel valor = *referencia",
+        ));
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Variavel { nome, tipo: Some(tipo), valor: Expressao::Unaria { operador: TipoToken::Mutavel, .. }, .. }
+                if nome == "referencia" && tipo == "&mutavel<inteiro>"
+        )));
+        assert!(resultado.programa.itens.iter().any(|no| matches!(
+            no,
+            NoAst::Variavel { nome, valor: Expressao::Unaria { operador: TipoToken::Vezes, .. }, .. }
+                if nome == "valor"
+        )));
+    }
+
+    #[test]
     fn function_body_fecha_com_chave_sem_terminador_textual() {
         let resultado = analisar(&fonte_bruta(
             "funcao principal(): {\n    exibir(\"ok\")\n}",
