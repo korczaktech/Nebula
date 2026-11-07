@@ -2905,6 +2905,8 @@ fn formatar(valor: &ValorIr) -> String {
         ValorIr::Logico(v) => if *v { "verdadeiro".into() } else { "falso".into() },
         ValorIr::Texto(v) => v.clone(), ValorIr::Caractere(v) => v.to_string(),
         ValorIr::Funcao(nome) => format!("<função {nome}>"),
+        ValorIr::Referencia { nome, escopo, mutavel } =>
+            format!("<referência{} {nome}@{escopo}>", if *mutavel { " exclusiva" } else { " compartilhada" }),
         ValorIr::Lista(v) => format!("[{}]", v.iter().map(formatar).collect::<Vec<_>>().join(", ")),
         ValorIr::Estrutura { nome, campos } => format!("{nome} {{ {} }}", campos.iter().map(|(campo, valor)| format!("{campo}: {}", formatar(valor))).collect::<Vec<_>>().join(", ")),
         ValorIr::Intervalo(a,b) => format!("{a}..{b}"),
