@@ -643,8 +643,7 @@ fn reconhece_async_e_nao_reserva_assinc() {
 
 #[test]
 fn reconhece_delimitadores_do_function_body_e_importacao() {
-    let resultado =
-        analisar("funcao teste(): { } incluir(modulo: arquivos, biblioteca: sistema)");
+    let resultado = analisar("funcao teste(): { } incluir(modulo: arquivos, biblioteca: sistema)");
     assert!(
         resultado.diagnosticos.is_empty(),
         "{:?}",
