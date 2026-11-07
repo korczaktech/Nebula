@@ -471,6 +471,8 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
     })?;
     #[cfg(test)]
     let conteudo = normalizar_blocos_legados(&conteudo);
+    #[cfg(test)]
+    let conteudo = normalizar_blocos_legados(&conteudo);
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
@@ -1334,6 +1336,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     saida.join("\n")
 }
 
+#[rustfmt::skip]
 fn compilar_arquivo_com_nivel(
     caminho: &Path,
     saida: &Path,
