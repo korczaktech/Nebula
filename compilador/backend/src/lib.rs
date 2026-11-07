@@ -915,7 +915,15 @@ impl Emissor {
                 }
                 if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.validar_tipo_abi(tipo)?;
-                    self.expressao(valor)?;
+                    if self.tipo_algebrico_exige_indirecao(tipo) {
+                        if let ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } = valor.as_ref() {
+                            self.construir_enumeracao_indireta(tipo, nome, variante, valores)?;
+                        } else {
+                            self.expressao(valor)?;
+                        }
+                    } else {
+                        self.expressao(valor)?;
+                    }
                 } else if let Tipo::Tupla(tipos) = tipo {
                     self.validar_tipo_abi(tipo)?;
                     if let ExpressaoIr::Tupla(valores) = valor.as_ref() {
@@ -1141,7 +1149,7 @@ impl Emissor {
             ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
                 let tipo_enum = Tipo::Enumeracao(nome.clone());
                 if self.layout_agregado_grande(&tipo_enum).is_some() {
-                    self.construir_enumeracao_indireta(nome, variante, valores)?;
+                    self.construir_enumeracao_indireta(&tipo_enum, nome, variante, valores)?;
                 } else {
                     if valores.len() > 1 {
                         return Err("A ABI de registradores aceita no máximo um valor de payload por variante.".into());
@@ -2541,20 +2549,92 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
     }
 
+    fn metadados_algebricos_indiretos(
+        &self,
+        tipo: &Tipo,
+    ) -> Option<(String, Vec<(String, Vec<Tipo>)>, u64, u64, u64)> {
+        match tipo {
+            Tipo::Enumeracao(nome) => {
+                let variantes = self.variantes_enumeracoes.get(nome)?.clone();
+                let layout = self.layouts_tipos.get(nome)?;
+                let deslocamento_payload = layout.campos.get("payload")?.0;
+                Some((
+                    nome.clone(),
+                    variantes,
+                    layout.tamanho,
+                    layout.alinhamento,
+                    deslocamento_payload,
+                ))
+            }
+            Tipo::Opcional(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                let (_, alinhamento_payload) = self.tamanho_alinhamento_tipo(interno)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento_payload)?;
+                Some((
+                    "Opcional".into(),
+                    vec![
+                        ("Nenhum".into(), Vec::new()),
+                        ("Algum".into(), vec![(**interno).clone()]),
+                    ],
+                    tamanho,
+                    alinhamento,
+                    deslocamento,
+                ))
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                let (_, alinhamento_sucesso) = self.tamanho_alinhamento_tipo(sucesso)?;
+                let (_, alinhamento_falha) = self.tamanho_alinhamento_tipo(falha)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento_sucesso.max(alinhamento_falha))?;
+                Some((
+                    "Resultado".into(),
+                    vec![
+                        ("Sucesso".into(), vec![(**sucesso).clone()]),
+                        ("Falha".into(), vec![(**falha).clone()]),
+                    ],
+                    tamanho,
+                    alinhamento,
+                    deslocamento,
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn armazenar_valor_tipo_agregado(
+        &mut self,
+        base: i32,
+        deslocamento: u64,
+        tamanho: u64,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        if self.layout_agregado_grande(tipo).is_some() {
+            let deslocamento = i32::try_from(deslocamento)
+                .map_err(|_| "Campo indireto excede o deslocamento x86-64.")?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = endereço de origem
+            self.emitir_endereco_rbp_rax(base);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = início do destino
+            if deslocamento != 0 {
+                self.codigo.extend_from_slice(&[0x48, 0x81, 0xC7]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            }
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+            Ok(())
+        } else {
+            self.armazenar_campo_agregado(base, deslocamento, tamanho)
+        }
+    }
+
     fn escolha_enumeracao_indireta(
         &mut self,
-        nome: &str,
+        tipo: &Tipo,
         valor: &ExpressaoIr,
         casos: &[CasoEscolhaIr],
     ) -> Result<(), String> {
-        let variantes = self.variantes_enumeracoes.get(nome)
-            .ok_or_else(|| format!("Variantes da enumeração '{nome}' ausentes no backend."))?
-            .clone();
-        let layout = self.layouts_tipos.get(nome)
-            .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente no backend."))?;
-        let deslocamento_payload = layout.campos.get("payload")
-            .map(|(deslocamento, _)| *deslocamento)
-            .ok_or_else(|| format!("Layout do payload de '{nome}' ausente."))?;
+        let (nome, variantes, _, _, deslocamento_payload) = self.metadados_algebricos_indiretos(tipo)
+            .ok_or_else(|| format!("Metadados da representação indireta de '{}' ausentes.", tipo.nome()))?;
         let nome_base = format!("\\0nebula_enum_base_{}", self.proximo_slot);
         let slot_base = self.declarar(&nome_base)?;
         self.expressao(valor)?;
@@ -2651,10 +2731,8 @@ impl Emissor {
         let tipo = tipo_expressao_ir(valor)
             .ok_or("Correspondência de padrões exige tipo algébrico conhecido.")?;
         self.validar_tipo_abi(tipo)?;
-        if let Tipo::Enumeracao(nome) = tipo {
-            if self.enumeracao_exige_indirecao(nome) {
-                return self.escolha_enumeracao_indireta(nome, valor, casos);
-            }
+        if self.tipo_algebrico_exige_indirecao(tipo) {
+            return self.escolha_enumeracao_indireta(tipo, valor, casos);
         }
         self.expressao(valor)?;
         let nome_tag = format!("\\0nebula_tag_{}", self.proximo_slot);
@@ -2714,32 +2792,27 @@ impl Emissor {
 
     fn construir_enumeracao_indireta(
         &mut self,
+        tipo: &Tipo,
         nome: &str,
         variante: &str,
         valores: &[ExpressaoIr],
     ) -> Result<(), String> {
-        let variantes = self.variantes_enumeracoes.get(nome)
-            .cloned()
-            .ok_or_else(|| format!("Variantes da enumeração '{nome}' ausentes no backend."))?;
+        let (nome_tipo, variantes, tamanho, alinhamento, deslocamento_payload) =
+            self.metadados_algebricos_indiretos(tipo)
+                .ok_or_else(|| format!("Metadados da representação indireta de '{}' ausentes.", tipo.nome()))?;
+        if nome_enum_canonico(nome) != nome_enum_canonico(&nome_tipo) {
+            return Err(format!("Construtor '{nome}' não corresponde ao tipo '{}'.", tipo.nome()));
+        }
         let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
-            .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?;
+            .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome_tipo}'."))?;
         let tipos = variantes[indice].1.clone();
         if tipos.len() != valores.len() {
             return Err(format!(
-                "A variante '{nome}::{variante}' exige {} valores de payload, mas recebeu {}.",
+                "A variante '{nome_tipo}::{variante}' exige {} valores de payload, mas recebeu {}.",
                 tipos.len(),
                 valores.len()
             ));
         }
-        let (tamanho, alinhamento, deslocamento_payload) = self.layouts_tipos.get(nome)
-            .map(|layout| (
-                layout.tamanho,
-                layout.alinhamento,
-                layout.campos.get("payload").map(|(deslocamento, _)| *deslocamento),
-            ))
-            .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente no backend."))?;
-        let deslocamento_payload = deslocamento_payload
-            .ok_or_else(|| format!("Layout do payload de '{nome}' ausente."))?;
         let (_, campos) = self.layout_tupla(&tipos)
             .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
         let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
@@ -2762,7 +2835,12 @@ impl Emissor {
             let deslocamento = deslocamento_payload.checked_add(*deslocamento)
                 .ok_or("Deslocamento do payload de enumeração excedeu o limite.")?;
             self.expressao(&valores[indice_campo])?;
-            self.armazenar_campo_agregado(armazenamento, deslocamento, *tamanho_campo)?;
+            self.armazenar_valor_tipo_agregado(
+                armazenamento,
+                deslocamento,
+                *tamanho_campo,
+                &tipos[indice_campo],
+            )?;
         }
 
         self.emitir_endereco_rbp_rax(armazenamento);
