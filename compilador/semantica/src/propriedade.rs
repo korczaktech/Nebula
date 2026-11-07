@@ -280,6 +280,26 @@ impl AnalisadorPropriedade {
         }
     }
 
+    /// Une estados alternativos de fluxo de controle de forma conservadora.
+    ///
+    /// Um movimento ocorrido em qualquer caminho é preservado. Um empréstimo
+    /// que possa permanecer ativo em qualquer caminho também é preservado.
+    pub fn mesclar_caminhos(&mut self, caminhos: &[Self]) {
+        for (nome, variavel) in &mut self.variaveis {
+            for caminho in caminhos {
+                if let Some(outro) = caminho.variaveis.get(nome) {
+                    variavel.movidos.extend(outro.movidos.iter().cloned());
+                }
+            }
+        }
+        for caminho in caminhos {
+            for (identificador, emprestimo) in &caminho.emprestimos {
+                self.emprestimos.entry(*identificador).or_insert_with(|| emprestimo.clone());
+            }
+            self.proximo_ordem = self.proximo_ordem.max(caminho.proximo_ordem);
+        }
+    }
+
     /// Retorna o número de empréstimos ativos.
     #[must_use]
     pub fn quantidade_emprestimos(&self) -> usize { self.emprestimos.len() }
