@@ -4643,5 +4643,6 @@ funcao sem_retorno(): vazio
 
 pub use implementacao::*;
 
+#[rustfmt::skip]
 mod propriedade;
 pub use propriedade::*;
