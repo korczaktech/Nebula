@@ -2879,8 +2879,6 @@ mod testes {
                     if let Some(bloco) = blocos.pop() {
                         fechar(&mut saida, bloco);
                     }
-                } else {
-                    saida.push(linha.to_owned());
                 }
                 continue;
             }
