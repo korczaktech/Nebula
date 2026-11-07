@@ -49,6 +49,13 @@ pub enum TipoRuntime {
         /// Variantes declaradas.
         variantes: Vec<VarianteRuntime>,
     },
+    /// Referência gerenciada de tamanho de ponteiro, sem expor endereço bruto.
+    Referencia {
+        /// Indica se a referência permite escrita exclusiva.
+        mutavel: bool,
+        /// Tipo do valor referenciado.
+        interno: Box<TipoRuntime>,
+    },
     /// Valor que pode estar presente ou ausente.
     Opcional(Box<TipoRuntime>),
     /// Resultado de sucesso ou falha com tipos independentes.
@@ -168,7 +175,8 @@ fn validar_tipo_interno(tipo: &TipoRuntime, profundidade: usize) -> Result<(), S
         TipoRuntime::Decimal { bits } if !matches!(bits, 32 | 64) => {
             Err(format!("Largura decimal inválida: {bits}."))
         }
-        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento) => {
+        TipoRuntime::Lista(elemento) | TipoRuntime::Opcional(elemento)
+        | TipoRuntime::Referencia { interno: elemento, .. } => {
             validar_tipo_interno(elemento, proxima)
         }
         TipoRuntime::Tupla(tipos) => {
@@ -311,7 +319,7 @@ fn calcular_layout_interno(
         }
         TipoRuntime::Caractere => Ok(escalar(4, 4)),
         TipoRuntime::Texto | TipoRuntime::Lista(_) => Ok(escalar(16, 8)),
-        TipoRuntime::Funcao(_, _) => Ok(escalar(8, 8)),
+        TipoRuntime::Referencia { .. } | TipoRuntime::Funcao(_, _) => Ok(escalar(8, 8)),
         TipoRuntime::Tupla(tipos) => {
             let campos = tipos.iter().enumerate().map(|(i, t)| (i.to_string(), t));
             combinar_campos(campos, pilha)
