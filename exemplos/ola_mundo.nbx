@@ -1,6 +1,4 @@
 // Exemplo da sintaxe atual da Nebula.
 funcao principal() -> vazio: {
     exibir("Olá, Nebula!")
-    fim
 }
-fim
