@@ -967,6 +967,58 @@ impl Emissor {
         }
     }
 
+    fn comparar_lista(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+        elemento: &Tipo,
+        operador: &OperadorIr,
+    ) -> Result<(), String> {
+        if self.tipo_contem_valor_dinamico(elemento) {
+            return Err("Igualdade de listas com elementos textuais ou listas aninhadas ainda não está implementada no backend ELF.".into());
+        }
+        let (tamanho_elemento, _) = self.tamanho_alinhamento_tipo(elemento)
+            .ok_or("Tipo de elemento de lista não possui layout ABI.")?;
+        let tamanho_elemento = i32::try_from(tamanho_elemento)
+            .map_err(|_| "Elemento de lista excede o tamanho máximo comparável.")?;
+
+        self.expressao(esquerda)?;
+        self.push_rax(); // ponteiro esquerdo
+        self.codigo.push(0x52); // push rdx = comprimento esquerdo
+        self.pilha += 1;
+
+        self.expressao(direita)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = ponteiro direito
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD1]); // rcx = comprimento direito
+        self.pop_rax(); // comprimento esquerdo
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp len esquerdo, direito
+        let comprimentos_iguais = self.emitir_jcc(0x84);
+
+        self.mov_rax(0);
+        self.codigo.push(0x5E); // descarta ponteiro esquerdo
+        self.pilha = self.pilha.saturating_sub(1);
+        let fim = self.emitir_jmp();
+
+        self.aplicar_salto(comprimentos_iguais, self.codigo.len());
+        self.codigo.push(0x5E); // pop rsi = ponteiro esquerdo
+        self.pilha = self.pilha.saturating_sub(1);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = comprimento
+        if tamanho_elemento > 1 {
+            self.codigo.extend_from_slice(&[0x48, 0x69, 0xC9]);
+            self.codigo.extend_from_slice(&tamanho_elemento.to_le_bytes());
+            let sem_overflow = self.emitir_jcc(0x81); // JNO
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(sem_overflow, self.codigo.len());
+        }
+        self.codigo.extend_from_slice(&[0xF3, 0xA6, 0x0F, 0x94, 0xC0]); // repe cmpsb; sete al
+        self.aplicar_salto(fim, self.codigo.len());
+        if *operador == OperadorIr::Diferente {
+            self.codigo.extend_from_slice(&[0x34, 0x01]); // xor al, 1
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+        Ok(())
+    }
+
     fn comparar_agregado(
         &mut self,
         esquerda: &ExpressaoIr,
@@ -1359,10 +1411,13 @@ impl Emissor {
                 }
                 if matches!(operador, OperadorIr::Igual | OperadorIr::Diferente) {
                     if let Some(tipo) = self.tipo_expressao_atual(esquerda) {
+                        if let Tipo::Lista(elemento) = &tipo {
+                            self.comparar_lista(esquerda, direita, elemento, operador)?;
+                            return Ok(());
+                        }
                         if matches!(
                             tipo,
-                            Tipo::Lista(_)
-                                | Tipo::Intervalo(_)
+                            Tipo::Intervalo(_)
                                 | Tipo::Tupla(_)
                                 | Tipo::Estrutura(_)
                                 | Tipo::Enumeracao(_)
