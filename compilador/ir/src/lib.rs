@@ -23,6 +23,9 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
+// Limite determinístico para impedir explosão de monomorfizações em fontes hostis.
+const LIMITE_INSTANCIAS_GENERICAS: usize = 256;
+
 /// Valor constante ou resultado de execução na IR.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
@@ -98,6 +101,10 @@ pub struct ProgramaIr {
     pub modulos: HashMap<String, String>,
     /// Layouts físicos validados das estruturas e enumerações declaradas.
     pub layouts_tipos: HashMap<String, LayoutRuntime>,
+    /// Tipos dos campos de estruturas, preservando a ordem declarada.
+    pub campos_estruturas: HashMap<String, Vec<(String, Tipo)>>,
+    /// Variantes e tipos posicionais, preservando a ordem declarada na AST.
+    pub variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
 }
 
 /// Resultado da conversão da AST para IR.
@@ -190,11 +197,31 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             }
         }
     }
+    let campos_estruturas = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Estrutura { nome, campos } = item {
+            Some((nome.clone(), campos.iter().map(|(campo, tipo)| {
+                (campo.clone(), lowerer.tipo(tipo))
+            }).collect()))
+        } else {
+            None
+        }
+    }).collect();
+    let variantes_enumeracoes = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Enumeracao { nome, variantes } = item {
+            Some((nome.clone(), variantes.iter().map(|(variante, payload)| {
+                (variante.clone(), payload.iter().map(|tipo| lowerer.tipo(tipo)).collect())
+            }).collect()))
+        } else {
+            None
+        }
+    }).collect();
     let mut ir = ProgramaIr {
         instrucoes: Vec::new(),
         funcoes: HashMap::new(),
         modulos: modulos_importados,
         layouts_tipos,
+        campos_estruturas,
+        variantes_enumeracoes,
     };
     for item in &programa.itens {
         match item {
@@ -539,6 +566,16 @@ impl Lowerer {
             .collect::<String>());
 
         if !self.instancias.contains_key(&nome_instancia) {
+            if self.instancias.len() >= LIMITE_INSTANCIAS_GENERICAS {
+                if !self.diagnosticos.iter().any(|diagnostico| {
+                    diagnostico.contains("limite de 256 instâncias genéricas")
+                }) {
+                    self.diagnosticos.push(format!(
+                        "A compilação excedeu o limite de {LIMITE_INSTANCIAS_GENERICAS} instâncias genéricas distintas."
+                    ));
+                }
+                return None;
+            }
             let anteriores = std::mem::replace(&mut self.substituicoes, substituicoes.clone());
             let parametros: Vec<_> = modelo.parametros.iter()
                 .map(|(nome, tipo)| (nome.clone(), self.tipo(tipo)))
@@ -3744,6 +3781,51 @@ mod testes {
             instrucao,
             InstrucaoIr::Declarar { nome, tipo: Tipo::Tupla(_), .. } if nome == "ponto"
         )).count(), 1);
+    }
+
+    #[test]
+    fn limita_deterministicamente_instancias_genericas_distintas() {
+        let mut lowerer = Lowerer {
+            diagnosticos: Vec::new(),
+            aliases: HashMap::new(),
+            tipos_agregados: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
+            assinaturas_funcoes: HashMap::new(),
+            modulos_importados: HashMap::new(),
+            genericas: HashMap::from([(
+                "identidade".to_owned(),
+                FuncaoGenericaAst {
+                    genericos: vec!["T".to_owned()],
+                    parametros: vec![("valor".to_owned(), "T".to_owned())],
+                    retorno: Some("T".to_owned()),
+                    corpo: Vec::new(),
+                },
+            )]),
+            instancias: HashMap::new(),
+            fila_instancias: Vec::new(),
+            escopos_tipos: vec![HashMap::from([("valor".to_owned(), Tipo::Inteiro)])],
+            substituicoes: HashMap::new(),
+            localizacoes: HashMap::new(),
+            caminho_fonte: PathBuf::new(),
+        };
+
+        for profundidade in 0..=LIMITE_INSTANCIAS_GENERICAS {
+            let mut argumento = Expressao::Nome("valor".to_owned());
+            for _ in 0..profundidade {
+                argumento = Expressao::Lista(vec![argumento]);
+            }
+            let instancia = lowerer.registrar_instancia_generica("identidade", &[argumento], None);
+            if profundidade < LIMITE_INSTANCIAS_GENERICAS {
+                assert!(instancia.is_some(), "instância {profundidade} deveria ser aceita");
+            } else {
+                assert!(instancia.is_none(), "a instância além do limite deve ser rejeitada");
+            }
+        }
+
+        assert_eq!(lowerer.instancias.len(), LIMITE_INSTANCIAS_GENERICAS);
+        assert_eq!(lowerer.diagnosticos.len(), 1);
+        assert!(lowerer.diagnosticos[0].contains("limite de 256 instâncias genéricas"));
     }
 
     #[test]

@@ -51,6 +51,9 @@ pub fn gerar_executavel(programa: &ProgramaIr) -> Result<Vec<u8>, String> {
     gerar_elf(&codigo, &dados)
 }
 
+type VariantesAlgebricas = Vec<(String, Vec<Tipo>)>;
+type MetadadosAlgebricosIndiretos = (String, VariantesAlgebricas, u64, u64, u64);
+
 struct LayoutAgregado {
     tamanho: u64,
     alinhamento: u64,
@@ -73,6 +76,8 @@ struct Emissor {
     retornos_funcoes: HashMap<String, Tipo>,
     retorno_oculto_atual: Option<(i32, u64)>,
     layouts_tipos: HashMap<String, LayoutAgregado>,
+    campos_estruturas: HashMap<String, Vec<(String, Tipo)>>,
+    variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
     referencias_globais: Vec<(usize, String, i32)>,
     dados_estaticos: Vec<u8>,
     referencias_texto: Vec<(usize, usize)>,
@@ -145,6 +150,8 @@ impl Emissor {
             retornos_funcoes: HashMap::new(),
             retorno_oculto_atual: None,
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
             referencias_globais: Vec::new(),
             dados_estaticos: Vec::new(),
             referencias_texto: Vec::new(),
@@ -168,25 +175,89 @@ impl Emissor {
             let campos = layout.campos.iter().map(|campo| {
                 (campo.nome.clone(), (campo.deslocamento, campo.tamanho))
             }).collect();
-            (nome.clone(), LayoutAgregado { tamanho: layout.tamanho, alinhamento: layout.alinhamento, campos })
+            (nome.clone(), LayoutAgregado {
+                tamanho: layout.tamanho,
+                alinhamento: layout.alinhamento,
+                campos,
+            })
         }).collect();
+        self.campos_estruturas = programa.campos_estruturas.clone();
+        self.variantes_enumeracoes = programa.variantes_enumeracoes.clone();
+    }
+
+    fn enumeracao_exige_indirecao(&self, nome: &str) -> bool {
+        let Some(variantes) = self.variantes_enumeracoes.get(nome) else {
+            return false;
+        };
+        let Some(layout) = self.layouts_tipos.get(nome) else {
+            return false;
+        };
+        layout.tamanho > 16 || variantes.iter().any(|(_, payload)| {
+            payload.len() > 1 || payload.iter().any(|tipo| {
+                self.tamanho_alinhamento_tipo(tipo)
+                    .is_some_and(|(tamanho, _)| tamanho > 8)
+            })
+        })
+    }
+
+    fn tipo_algebrico_exige_indirecao(&self, tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Enumeracao(nome) => self.enumeracao_exige_indirecao(nome),
+            Tipo::Opcional(interno) => self.tamanho_alinhamento_tipo(interno)
+                .is_some_and(|(tamanho, _)| tamanho > 8),
+            Tipo::Resultado(sucesso, falha) => [
+                self.tamanho_alinhamento_tipo(sucesso),
+                self.tamanho_alinhamento_tipo(falha),
+            ].into_iter().flatten().any(|(tamanho, _)| tamanho > 8),
+            _ => false,
+        }
+    }
+
+    fn campo_compativel_com_registradores(deslocamento: u64, tamanho: u64) -> bool {
+        (deslocamento == 0 && tamanho == 16)
+            || (matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho))
     }
 
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
         match tipo {
             Tipo::Estrutura(nome) => {
                 let layout = self.layouts_tipos.get(nome)?;
-                (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
+                let campos_incompativeis = layout.campos.values().any(|(deslocamento, tamanho)| {
+                    !Self::campo_compativel_com_registradores(*deslocamento, *tamanho)
+                });
+                let campo_indireto = self.campos_estruturas.get(nome).is_some_and(|campos| {
+                    campos.iter().any(|(_, tipo_campo)| self.layout_agregado_grande(tipo_campo).is_some())
+                });
+                (layout.tamanho > 16 || campos_incompativeis || campo_indireto)
+                    .then_some((layout.tamanho, layout.alinhamento))
             }
             Tipo::Tupla(tipos) => {
-                let (tamanho, _) = self.layout_tupla(tipos)?;
+                let (tamanho, campos) = self.layout_tupla(tipos)?;
                 let alinhamento = tipos.iter()
                     .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
                     .collect::<Option<Vec<_>>>()?
                     .into_iter()
                     .max()
                     .unwrap_or(1);
-                (tamanho > 16).then_some((tamanho, alinhamento))
+                let campos_incompativeis = campos.iter().any(|(deslocamento, tamanho)| {
+                    !Self::campo_compativel_com_registradores(*deslocamento, *tamanho)
+                });
+                let campo_indireto = tipos.iter().any(|tipo| self.layout_agregado_grande(tipo).is_some());
+                (tamanho > 16 || campos_incompativeis || campo_indireto)
+                    .then_some((tamanho, alinhamento))
+            }
+            Tipo::Intervalo(interno)
+                if self.tamanho_alinhamento_tipo(interno).is_some_and(|(tamanho, _)| tamanho > 8) =>
+            {
+                self.tamanho_alinhamento_tipo(tipo)
+            }
+            Tipo::Enumeracao(nome) if self.enumeracao_exige_indirecao(nome) => {
+                let layout = self.layouts_tipos.get(nome)?;
+                Some((layout.tamanho, layout.alinhamento))
+            }
+            Tipo::Opcional(_) | Tipo::Resultado(_, _) if self.tipo_algebrico_exige_indirecao(tipo) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                Some((tamanho, alinhamento))
             }
             _ => None,
         }
@@ -215,12 +286,10 @@ impl Emissor {
                     if *tamanho == 0 || fim > layout.tamanho {
                         return Err(format!("Campo '{campo}' excede os limites da estrutura '{nome}'."));
                     }
-                    if layout.tamanho <= 16 {
-                        let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
-                        let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
-                        if !campo_em_dois_registros && !campo_escalar {
-                            return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores ABI."));
-                        }
+                }
+                if let Some(campos) = self.campos_estruturas.get(nome) {
+                    for (_, tipo_campo) in campos {
+                        self.validar_tipo_abi(tipo_campo)?;
                     }
                 }
                 Ok(())
@@ -237,38 +306,32 @@ impl Emissor {
                     if tamanho_campo == 0 || fim > tamanho {
                         return Err("Elemento de tupla excede os limites do layout.".into());
                     }
-                    if tamanho <= 16 {
-                        let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
-                        let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
-                        if !campo_em_dois_registros && !campo_escalar {
-                            return Err("Elemento de tupla não cabe nos dois registradores ABI.".into());
-                        }
-                    }
+                }
+                for tipo_elemento in tipos {
+                    self.validar_tipo_abi(tipo_elemento)?;
                 }
                 Ok(())
             }
             Tipo::Enumeracao(nome) => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da enumeração '{nome}' não foi fornecido à ABI nativa."))?;
-                if layout.tamanho == 0 || layout.tamanho > 16 {
-                    return Err(format!("A enumeração '{nome}' excede o limite inicial de 16 bytes da ABI nativa."));
+                if layout.tamanho == 0 {
+                    return Err(format!("A enumeração '{nome}' possui layout vazio na ABI nativa."));
                 }
-                if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 8) {
-                    return Err(format!("Payload da enumeração '{nome}' excede um registrador da ABI inicial."));
-                }
-                Ok(())
-            }
-            Tipo::Opcional(tipo) => {
-                if self.largura_abi_tipo(tipo)? > 1 {
-                    return Err("Payload de Opcional excede um registrador da ABI inicial.".into());
+                let variantes = self.variantes_enumeracoes.get(nome)
+                    .ok_or_else(|| format!("Variantes da enumeração '{nome}' não foram fornecidas à ABI nativa."))?;
+                for (_, payload) in variantes {
+                    for tipo_payload in payload {
+                        self.validar_tipo_abi(tipo_payload)?;
+                    }
                 }
                 Ok(())
             }
+            Tipo::Opcional(tipo) | Tipo::Lista(tipo) => self.validar_tipo_abi(tipo),
+            Tipo::Intervalo(tipo) => self.validar_tipo_abi(tipo),
             Tipo::Resultado(sucesso, falha) => {
-                if self.largura_abi_tipo(sucesso)? > 1 || self.largura_abi_tipo(falha)? > 1 {
-                    return Err("Payload de Resultado excede um registrador da ABI inicial.".into());
-                }
-                Ok(())
+                self.validar_tipo_abi(sucesso)?;
+                self.validar_tipo_abi(falha)
             }
             _ if validar_tipo(tipo).is_ok() => Ok(()),
             _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
@@ -287,9 +350,21 @@ impl Emissor {
             Tipo::Inteiro16 | Tipo::InteiroU16 => Some((2, 2)),
             Tipo::Inteiro32 | Tipo::InteiroU32 | Tipo::Decimal32 => Some((4, 4)),
             Tipo::Inteiro | Tipo::Inteiro64 | Tipo::InteiroU64 | Tipo::Decimal | Tipo::Decimal64
-            | Tipo::Funcao(_, _) | Tipo::Caractere => Some((8, 8)),
+            | Tipo::Funcao(_, _) => Some((8, 8)),
+            Tipo::Caractere => Some((4, 4)),
             Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
+            Tipo::Lista(_) => Some((16, 8)),
+            Tipo::Intervalo(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(interno)?;
+                let campos = [tamanho, tamanho];
+                let mut deslocamento = 0u64;
+                for campo in campos {
+                    deslocamento = Self::alinhar_layout(deslocamento, alinhamento)?;
+                    deslocamento = deslocamento.checked_add(campo)?;
+                }
+                Some((Self::alinhar_layout(deslocamento, alinhamento)?, alinhamento))
+            }
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
             Tipo::Opcional(interno) => {
@@ -341,20 +416,44 @@ impl Emissor {
         if let Tipo::Estrutura(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
                 .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
-            return Ok(if layout.tamanho > 16 { 1 } else if layout.tamanho > 8 { 2 } else { 1 });
+            return Ok(if self.layout_agregado_grande(tipo).is_some() {
+                1
+            } else if layout.tamanho > 8 {
+                2
+            } else {
+                1
+            });
         }
         if let Tipo::Tupla(tipos) = tipo {
             let (tamanho, _) = self.layout_tupla(tipos)
                 .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
-            return Ok(if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 });
+            return Ok(if self.layout_agregado_grande(tipo).is_some() {
+                1
+            } else if tamanho > 8 {
+                2
+            } else {
+                1
+            });
         }
         if let Tipo::Enumeracao(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
                 .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente."))?;
-            return Ok(if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) { 2 } else { 1 });
+            return Ok(if self.enumeracao_exige_indirecao(nome) {
+                1
+            } else if layout.campos.get("payload").is_some_and(|(_, tamanho)| *tamanho > 0) {
+                2
+            } else {
+                1
+            });
+        }
+        if matches!(tipo, Tipo::Lista(_)) {
+            return Ok(2);
+        }
+        if matches!(tipo, Tipo::Intervalo(_)) {
+            return Ok(if self.layout_agregado_grande(tipo).is_some() { 1 } else { 2 });
         }
         if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
-            return Ok(2);
+            return Ok(if self.tipo_algebrico_exige_indirecao(tipo) { 1 } else { 2 });
         }
         if tipo_decimal(tipo) {
             return Ok(1);
@@ -850,6 +949,131 @@ impl Emissor {
         Ok(())
     }
 
+    fn tipo_exige_igualdade_semantica(&self, tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Lista(_) | Tipo::Texto | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 => true,
+            Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
+                self.tipo_exige_igualdade_semantica(interno),
+            Tipo::Resultado(sucesso, falha) =>
+                self.tipo_exige_igualdade_semantica(sucesso) || self.tipo_exige_igualdade_semantica(falha),
+            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_exige_igualdade_semantica(tipo)),
+            Tipo::Estrutura(nome) => self.campos_estruturas.get(nome).is_some_and(|campos| {
+                campos.iter().any(|(_, tipo)| self.tipo_exige_igualdade_semantica(tipo))
+            }),
+            Tipo::Enumeracao(nome) => self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
+                variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_exige_igualdade_semantica(tipo)))
+            }),
+            _ => false,
+        }
+    }
+
+    fn comparar_lista(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+        elemento: &Tipo,
+        operador: &OperadorIr,
+    ) -> Result<(), String> {
+        if self.tipo_exige_igualdade_semantica(elemento) || !matches!(elemento,
+            Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
+                | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
+                | Tipo::Caractere
+        ) {
+            return Err("Igualdade de listas está implementada para elementos inteiros, lógicos, bytes e caracteres; outros tipos ainda não possuem comparação nativa.".into());
+        }
+        let (tamanho_elemento, _) = self.tamanho_alinhamento_tipo(elemento)
+            .ok_or("Tipo de elemento de lista não possui layout ABI.")?;
+        let tamanho_elemento = i32::try_from(tamanho_elemento)
+            .map_err(|_| "Elemento de lista excede o tamanho máximo comparável.")?;
+
+        self.expressao(esquerda)?;
+        self.push_rax(); // ponteiro esquerdo
+        self.codigo.push(0x52); // push rdx = comprimento esquerdo
+        self.pilha += 1;
+
+        self.expressao(direita)?;
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = ponteiro direito
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xD1]); // rcx = comprimento direito
+        self.pop_rax(); // comprimento esquerdo
+        self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp len esquerdo, direito
+        let comprimentos_iguais = self.emitir_jcc(0x84);
+
+        self.mov_rax(0);
+        self.codigo.push(0x5E); // descarta ponteiro esquerdo
+        self.pilha = self.pilha.saturating_sub(1);
+        let fim = self.emitir_jmp();
+
+        self.aplicar_salto(comprimentos_iguais, self.codigo.len());
+        self.codigo.push(0x5E); // pop rsi = ponteiro esquerdo
+        self.pilha = self.pilha.saturating_sub(1);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = comprimento
+        if tamanho_elemento > 1 {
+            self.codigo.extend_from_slice(&[0x48, 0x69, 0xC9]);
+            self.codigo.extend_from_slice(&tamanho_elemento.to_le_bytes());
+            let sem_overflow = self.emitir_jcc(0x81); // JNO
+            self.encerrar_com_erro(2);
+            self.aplicar_salto(sem_overflow, self.codigo.len());
+        }
+        self.codigo.extend_from_slice(&[0xF3, 0xA6, 0x0F, 0x94, 0xC0]); // repe cmpsb; sete al
+        self.aplicar_salto(fim, self.codigo.len());
+        if *operador == OperadorIr::Diferente {
+            self.codigo.extend_from_slice(&[0x34, 0x01]); // xor al, 1
+        }
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+        Ok(())
+    }
+
+    fn comparar_agregado(
+        &mut self,
+        esquerda: &ExpressaoIr,
+        direita: &ExpressaoIr,
+        tipo: &Tipo,
+        operador: &OperadorIr,
+    ) -> Result<(), String> {
+        if self.tipo_exige_igualdade_semantica(tipo) {
+            return Err("Igualdade estrutural de agregados com texto, listas ou decimais ainda não possui comparação nativa por campos.".into());
+        }
+        if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
+            self.expressao(esquerda)?;
+            self.push_rax(); // preserva o endereço esquerdo
+            self.expressao(direita)?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = endereço direito
+            self.pop_rax();
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = endereço esquerdo
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA6]); // repe cmpsb
+        } else {
+            let largura = self.largura_abi_tipo(tipo)?;
+            self.expressao(esquerda)?;
+            self.push_rax();
+            if largura == 2 {
+                self.codigo.push(0x52); // push rdx
+                self.pilha += 1;
+            }
+            self.expressao(direita)?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = rhs low
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xD6]); // rsi = rhs high
+            if largura == 2 {
+                self.codigo.push(0x5A); // pop rdx = lhs high
+                self.pilha = self.pilha.saturating_sub(1);
+            }
+            self.pop_rax(); // rax = lhs low
+            self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8, 0x0F, 0x95, 0xC0]); // low mismatch
+            if largura == 2 {
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xF2, 0x0F, 0x95, 0xC2, 0x08, 0xD0]); // high mismatch OR low
+            }
+        }
+        self.codigo.extend_from_slice(if *operador == OperadorIr::Igual {
+            &[0x0F, 0x94, 0xC0]
+        } else {
+            &[0x0F, 0x95, 0xC0]
+        });
+        self.codigo.extend_from_slice(&[0x48, 0x0F, 0xB6, 0xC0]);
+        Ok(())
+    }
+
     fn expressao(&mut self, expressao: &ExpressaoIr) -> Result<(), String> {
         match expressao {
             ExpressaoIr::Normalizar { tipo, valor } => {
@@ -864,7 +1088,15 @@ impl Emissor {
                 }
                 if matches!(tipo, Tipo::Estrutura(_) | Tipo::Enumeracao(_) | Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
                     self.validar_tipo_abi(tipo)?;
-                    self.expressao(valor)?;
+                    if self.tipo_algebrico_exige_indirecao(tipo) {
+                        if let ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } = valor.as_ref() {
+                            self.construir_enumeracao_indireta(tipo, nome, variante, valores)?;
+                        } else {
+                            self.expressao(valor)?;
+                        }
+                    } else {
+                        self.expressao(valor)?;
+                    }
                 } else if let Tipo::Tupla(tipos) = tipo {
                     self.validar_tipo_abi(tipo)?;
                     if let ExpressaoIr::Tupla(valores) = valor.as_ref() {
@@ -997,25 +1229,17 @@ impl Emissor {
                 };
                 let posicao = indice_literal_ir(indice)
                     .ok_or("A indexação nativa de tupla exige índice literal.")?;
-                let (tamanho_tupla, campos) = self.layout_tupla(tipos)
+                let (_, campos) = self.layout_tupla(tipos)
                     .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
                 let (deslocamento, _) = campos.get(posicao)
                     .ok_or("Índice de tupla fora dos limites.")?;
                 let tipo_elemento = tipos.get(posicao)
-                    .ok_or("Tipo do elemento de tupla não encontrado.")?;
-                if tamanho_tupla > 16 {
-                    self.expressao(alvo)?;
-                    let deslocamento = i32::try_from(*deslocamento)
-                        .map_err(|_| "Deslocamento do elemento da tupla excede o ABI x86-64.")?;
-                    if deslocamento != 0 {
-                        self.codigo.extend_from_slice(&[0x48, 0x05]); // add rax, deslocamento
-                        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
-                    }
-                    let (tamanho_elemento, _) = self.tamanho_alinhamento_tipo(tipo_elemento)
-                        .ok_or("Layout do elemento da tupla não suportado.")?;
-                    self.carregar_valor_abi_de_endereco(tipo_elemento, tamanho_elemento)?;
+                    .ok_or("Tipo do elemento de tupla ausente.")?;
+                self.expressao(alvo)?;
+                if self.layout_agregado_grande(&Tipo::Tupla(tipos.clone())).is_some() {
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço da tupla
+                    self.carregar_elemento_agregado_grande(*deslocamento, tipo_elemento)?;
                 } else {
-                    self.expressao(alvo)?;
                     match deslocamento {
                         0 => {}
                         8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
@@ -1054,10 +1278,11 @@ impl Emissor {
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
-                if layout.tamanho > 16 {
+                if self.layout_agregado_grande(&Tipo::Estrutura(nome.clone())).is_some() {
                     let tamanho = layout.tamanho;
                     let alinhamento = layout.alinhamento;
                     let offsets = layout.campos.clone();
+                    let tipos_campos = self.campos_estruturas.get(nome).cloned().unwrap_or_default();
                     let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
                     self.emitir_endereco_rbp_rax(armazenamento);
                     self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
@@ -1069,7 +1294,16 @@ impl Emissor {
                             .copied()
                             .ok_or_else(|| format!("Campo '{campo}' não existe em '{nome}'."))?;
                         self.expressao(valor)?;
-                        self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                        if let Some((_, tipo_campo)) = tipos_campos.iter().find(|(nome_campo, _)| nome_campo == campo) {
+                            self.armazenar_valor_tipo_agregado(
+                                armazenamento,
+                                deslocamento,
+                                tamanho_campo,
+                                tipo_campo,
+                            )?;
+                        } else {
+                            self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                        }
                     }
                     self.emitir_endereco_rbp_rax(armazenamento);
                     self.mov_rdx(0);
@@ -1096,19 +1330,24 @@ impl Emissor {
                 self.pop_rax();
             }
             ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
-                if valores.len() > 1 {
-                    return Err("A ABI inicial de enumerações aceita no máximo um valor de payload por variante.".into());
-                }
-                if let Some(valor) = valores.first() {
-                    if self.largura_abi_expressao(valor)? > 1 {
-                        return Err("Payload de enumeração não pode ocupar mais de um registrador na ABI inicial.".into());
-                    }
-                    self.expressao(valor)?;
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                let tipo_enum = Tipo::Enumeracao(nome.clone());
+                if self.layout_agregado_grande(&tipo_enum).is_some() {
+                    self.construir_enumeracao_indireta(&tipo_enum, nome, variante, valores)?;
                 } else {
-                    self.mov_rdx(0);
+                    if valores.len() > 1 {
+                        return Err("A ABI de registradores aceita no máximo um valor de payload por variante.".into());
+                    }
+                    if let Some(valor) = valores.first() {
+                        if self.largura_abi_expressao(valor)? > 1 {
+                            return Err("Payload de enumeração excede um registrador na ABI de registradores.".into());
+                        }
+                        self.expressao(valor)?;
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                    } else {
+                        self.mov_rdx(0);
+                    }
+                    self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
                 }
-                self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
@@ -1175,6 +1414,26 @@ impl Emissor {
                     )?;
                     return Ok(());
                 }
+                if matches!(operador, OperadorIr::Igual | OperadorIr::Diferente) {
+                    if let Some(tipo) = self.tipo_expressao_atual(esquerda) {
+                        if let Tipo::Lista(elemento) = &tipo {
+                            self.comparar_lista(esquerda, direita, elemento, operador)?;
+                            return Ok(());
+                        }
+                        if matches!(
+                            tipo,
+                            Tipo::Intervalo(_)
+                                | Tipo::Tupla(_)
+                                | Tipo::Estrutura(_)
+                                | Tipo::Enumeracao(_)
+                                | Tipo::Opcional(_)
+                                | Tipo::Resultado(_, _)
+                        ) {
+                            self.comparar_agregado(esquerda, direita, &tipo, operador)?;
+                            return Ok(());
+                        }
+                    }
+                }
                 if inteiro_128_expressao(esquerda) {
                     self.expressao(esquerda)?;
                     self.codigo.push(0x52); // push rdx = lhs high
@@ -1221,18 +1480,38 @@ impl Emissor {
                     return Ok(());
                 }
                 if *operador == OperadorIr::Intervalo {
-                    if inteiro_128_expressao(esquerda)
-                        || inteiro_128_expressao(direita)
-                        || tipo_decimal_expressao(esquerda).is_some()
-                    {
-                        return Err("O backend ELF nativo aceita intervalos inteiros de até 64 bits.".into());
+                    let tipo_elemento = self.tipo_expressao_atual(esquerda)
+                        .ok_or("Tipo dos endpoints do intervalo não foi resolvido.")?;
+                    let (tamanho_elemento, alinhamento) = self.tamanho_alinhamento_tipo(&tipo_elemento)
+                        .ok_or("Tipo dos endpoints do intervalo não possui layout ABI.")?;
+                    if tamanho_elemento > 8 {
+                        let tipos = vec![tipo_elemento.clone(), tipo_elemento.clone()];
+                        let (tamanho, campos) = self.layout_tupla(&tipos)
+                            .ok_or("Layout de intervalo com endpoints grandes inválido.")?;
+                        let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+                        self.emitir_endereco_rbp_rax(armazenamento);
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]);
+                        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+                        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+                        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
+                        self.expressao(esquerda)?;
+                        self.armazenar_valor_tipo_agregado(
+                            armazenamento, campos[0].0, campos[0].1, &tipo_elemento
+                        )?;
+                        self.expressao(direita)?;
+                        self.armazenar_valor_tipo_agregado(
+                            armazenamento, campos[1].0, campos[1].1, &tipo_elemento
+                        )?;
+                        self.emitir_endereco_rbp_rax(armazenamento);
+                        self.mov_rdx(0);
+                    } else {
+                        self.expressao(esquerda)?;
+                        self.push_rax();
+                        self.expressao(direita)?;
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = limite final
+                        self.pop_rax(); // rax = limite inicial
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xCA]); // rdx = limite final
                     }
-                    self.expressao(esquerda)?;
-                    self.push_rax();
-                    self.expressao(direita)?;
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = limite final
-                    self.pop_rax(); // rax = limite inicial
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xCA]); // rdx = limite final
                     return Ok(());
                 }
                 let operacao_sem_sinal = eh_inteiro_sem_sinal(esquerda);
@@ -1687,7 +1966,7 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
                 Ok(())
             }
-            Tipo::Decimal | Tipo::Decimal64 => Ok(()),
+            Tipo::Decimal | Tipo::Decimal64 | Tipo::Intervalo(_) => Ok(()),
             _ => Err(format!("Normalização de '{}' não é suportada pelo backend nativo.", tipo.nome())),
         }
     }
@@ -2083,55 +2362,7 @@ impl Emissor {
         let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
             return false;
         };
-        self.layouts_tipos.get(nome).is_some_and(|layout| layout.tamanho > 16)
-    }
-
-    /// Carrega um elemento armazenado em memória para a representação de retorno da ABI.
-    /// Para agregados grandes, preserva o endereço em RAX para acesso indireto posterior.
-    fn carregar_valor_abi_de_endereco(
-        &mut self,
-        tipo: &Tipo,
-        tamanho: u64,
-    ) -> Result<(), String> {
-        if tamanho == 0 {
-            return Err("Elemento de agregado possui tamanho zero.".into());
-        }
-        if tamanho > 16 {
-            self.mov_rdx(0);
-            return Ok(());
-        }
-
-        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço
-        match tamanho {
-            16 => {
-                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]); // rax = [r11]
-                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x53, 0x08]); // rdx = [r11 + 8]
-            }
-            9..=15 => {
-                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]);
-                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x53, 0x08]);
-                let bytes_superiores = tamanho - 8;
-                let mascara = (1u64 << (bytes_superiores * 8)) - 1;
-                self.codigo.extend_from_slice(&[0x48, 0xB9]); // rcx = máscara
-                self.codigo.extend_from_slice(&mascara.to_le_bytes());
-                self.codigo.extend_from_slice(&[0x48, 0x21, 0xCA]); // rdx &= rcx
-            }
-            8 => self.codigo.extend_from_slice(&[0x49, 0x8B, 0x03]),
-            4 => match tipo_inteiro_abi(tipo) {
-                Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x03]),
-                _ => self.codigo.extend_from_slice(&[0x41, 0x8B, 0x03]),
-            },
-            2 => match tipo_inteiro_abi(tipo) {
-                Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x03]),
-                _ => self.codigo.extend_from_slice(&[0x41, 0x0F, 0xB7, 0x03]),
-            },
-            1 => match tipo_inteiro_abi(tipo) {
-                Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x03]),
-                _ => self.codigo.extend_from_slice(&[0x41, 0x0F, 0xB6, 0x03]),
-            },
-            _ => return Err(format!("Elemento de {} bytes não possui representação ABI suportada.", tamanho)),
-        }
-        Ok(())
+        self.layout_agregado_grande(&Tipo::Estrutura(nome.clone())).is_some()
     }
 
     fn carregar_membro_agregado(
@@ -2151,7 +2382,7 @@ impl Emissor {
         self.expressao(alvo)?;
         self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço do agregado
 
-        if tamanho > 16 {
+        if tamanho > 16 || self.layout_agregado_grande(tipo).is_some() {
             self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
             self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
             self.mov_rdx(0);
@@ -2207,6 +2438,66 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
         if *tipo == Tipo::Decimal32 {
             self.codigo.extend_from_slice(&[0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0, 0x66, 0x48, 0x0F, 0x7E, 0xC0]);
+        }
+        self.mov_rdx(0);
+        Ok(())
+    }
+
+    fn carregar_elemento_agregado_grande(
+        &mut self,
+        deslocamento: u64,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Elemento de tupla excede o deslocamento x86-64.")?;
+        let (tamanho, _) = self.tamanho_alinhamento_tipo(tipo)
+            .ok_or_else(|| format!("Tipo '{}' não possui layout nativo.", tipo.nome()))?;
+
+        if tamanho > 16 || self.layout_agregado_grande(tipo).is_some() {
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        if tamanho == 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            return Ok(());
+        }
+
+        let bits = tipo_inteiro_abi(tipo);
+        match bits {
+            Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x83]),
+            Some((8, false)) | None if tamanho == 1 =>
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB6, 0x83]),
+            Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x83]),
+            Some((16, false)) | None if tamanho == 2 =>
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB7, 0x83]),
+            Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x83]),
+            Some((32, false)) | None if tamanho == 4 =>
+                self.codigo.extend_from_slice(&[0x41, 0x8B, 0x83]),
+            Some((64, _)) | None if tamanho == 8 =>
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]),
+            Some((128, _)) => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+                self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+                return Ok(());
+            }
+            _ => return Err(format!(
+                "Elemento da tupla possui layout incompatível com o tipo '{}'.",
+                tipo.nome()
+            )),
+        }
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[
+                0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0,
+                0x66, 0x48, 0x0F, 0x7E, 0xC0,
+            ]);
         }
         self.mov_rdx(0);
         Ok(())
@@ -2481,10 +2772,191 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
     }
 
+    fn metadados_algebricos_indiretos(
+        &self,
+        tipo: &Tipo,
+    ) -> Option<MetadadosAlgebricosIndiretos> {
+        match tipo {
+            Tipo::Enumeracao(nome) => {
+                let variantes = self.variantes_enumeracoes.get(nome)?.clone();
+                let layout = self.layouts_tipos.get(nome)?;
+                let deslocamento_payload = layout.campos.get("payload")?.0;
+                Some((
+                    nome.clone(),
+                    variantes,
+                    layout.tamanho,
+                    layout.alinhamento,
+                    deslocamento_payload,
+                ))
+            }
+            Tipo::Opcional(interno) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                let (_, alinhamento_payload) = self.tamanho_alinhamento_tipo(interno)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento_payload)?;
+                Some((
+                    "Opcional".into(),
+                    vec![
+                        ("Nenhum".into(), Vec::new()),
+                        ("Algum".into(), vec![(**interno).clone()]),
+                    ],
+                    tamanho,
+                    alinhamento,
+                    deslocamento,
+                ))
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                let (_, alinhamento_sucesso) = self.tamanho_alinhamento_tipo(sucesso)?;
+                let (_, alinhamento_falha) = self.tamanho_alinhamento_tipo(falha)?;
+                let deslocamento = Self::alinhar_layout(1, alinhamento_sucesso.max(alinhamento_falha))?;
+                Some((
+                    "Resultado".into(),
+                    vec![
+                        ("Sucesso".into(), vec![(**sucesso).clone()]),
+                        ("Falha".into(), vec![(**falha).clone()]),
+                    ],
+                    tamanho,
+                    alinhamento,
+                    deslocamento,
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn armazenar_valor_tipo_agregado(
+        &mut self,
+        base: i32,
+        deslocamento: u64,
+        tamanho: u64,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        if self.layout_agregado_grande(tipo).is_some() {
+            let deslocamento = i32::try_from(deslocamento)
+                .map_err(|_| "Campo indireto excede o deslocamento x86-64.")?;
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC6]); // rsi = endereço de origem
+            self.emitir_endereco_rbp_rax(base);
+            self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = início do destino
+            if deslocamento != 0 {
+                self.codigo.extend_from_slice(&[0x48, 0x81, 0xC7]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            }
+            self.codigo.extend_from_slice(&[0x48, 0xB9]);
+            self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+            self.codigo.extend_from_slice(&[0xF3, 0xA4]); // rep movsb
+            Ok(())
+        } else {
+            self.armazenar_campo_agregado(base, deslocamento, tamanho)
+        }
+    }
+
+    fn escolha_enumeracao_indireta(
+        &mut self,
+        tipo: &Tipo,
+        valor: &ExpressaoIr,
+        casos: &[CasoEscolhaIr],
+    ) -> Result<(), String> {
+        let (nome, variantes, _, _, deslocamento_payload) = self.metadados_algebricos_indiretos(tipo)
+            .ok_or_else(|| format!("Metadados da representação indireta de '{}' ausentes.", tipo.nome()))?;
+        let nome_base = format!("\\0nebula_enum_base_{}", self.proximo_slot);
+        let slot_base = self.declarar(&nome_base)?;
+        self.expressao(valor)?;
+        self.armazenar_rax(slot_base);
+
+        let nome_tag = format!("\\0nebula_enum_tag_{}", self.proximo_slot);
+        let slot_tag = self.declarar(&nome_tag)?;
+        self.carregar_rax(slot_base);
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço da enumeração
+        let tipo_tag = if variantes.len() <= 256 {
+            Tipo::InteiroU8
+        } else if variantes.len() <= 65_536 {
+            Tipo::InteiroU16
+        } else {
+            Tipo::InteiroU32
+        };
+        self.carregar_elemento_agregado_grande(0, &tipo_tag)?;
+        self.armazenar_rax(slot_tag);
+
+        let mut saltos_fim = Vec::new();
+        let mut possui_curinga = false;
+        for caso in casos {
+            let proximo_caso = if let (Some(enumeracao), Some(variante)) =
+                (&caso.enumeracao, &caso.variante)
+            {
+                if nome_enum_canonico(enumeracao) != nome_enum_canonico(&nome) {
+                    return Err(format!("Caso da enumeração '{enumeracao}' não corresponde a '{nome}'."));
+                }
+                let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
+                    .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?;
+                self.mov_rax(indice as i64);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = tag esperada
+                self.carregar_rax(slot_tag);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+                Some(self.emitir_jcc(0x85))
+            } else {
+                possui_curinga = true;
+                None
+            };
+
+            self.escopos.push(HashMap::new());
+            self.tipos_escopos.push(HashMap::new());
+            if let (Some(variante), Some(_)) = (&caso.variante, &caso.enumeracao) {
+                let payload = &variantes.iter()
+                    .find(|(nome_variante, _)| nome_variante == variante)
+                    .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?.1;
+                if caso.vinculacoes.len() != payload.len() {
+                    return Err(format!(
+                        "A variante '{nome}::{variante}' possui {} campos de payload, mas o padrão declarou {} vínculos.",
+                        payload.len(),
+                        caso.vinculacoes.len()
+                    ));
+                }
+                let (_, campos) = self.layout_tupla(payload)
+                    .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
+                for ((vinculo, tipo), (deslocamento, _)) in caso.vinculacoes.iter().zip(payload).zip(&campos) {
+                    let deslocamento = deslocamento_payload.checked_add(*deslocamento)
+                        .ok_or("Deslocamento do payload de enumeração excedeu o limite.")?;
+                    self.carregar_rax(slot_base);
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = base da enumeração
+                    self.carregar_elemento_agregado_grande(deslocamento, tipo)?;
+                    let slot = self.declarar_tipado(vinculo, tipo)?;
+                    self.armazenar_rax(slot);
+                    if self.largura_abi_tipo(tipo)? == 2 {
+                        self.armazenar_rdx(slot - 8);
+                    } else {
+                        self.mov_rdx(0);
+                        self.armazenar_rdx(slot - 8);
+                    }
+                }
+            } else if !caso.vinculacoes.is_empty() {
+                return Err("Padrões curinga de enumeração indireta não podem declarar vínculos posicionais.".into());
+            }
+
+            self.bloco(&caso.corpo)?;
+            let _ = self.escopos.pop();
+            let _ = self.tipos_escopos.pop();
+            saltos_fim.push(self.emitir_jmp());
+            if let Some(salto) = proximo_caso {
+                self.aplicar_salto(salto, self.codigo.len());
+            }
+        }
+        if !possui_curinga {
+            self.encerrar_com_erro(2);
+        }
+        let fim = self.codigo.len();
+        for salto in saltos_fim {
+            self.aplicar_salto(salto, fim);
+        }
+        Ok(())
+    }
+
     fn escolha(&mut self, valor: &ExpressaoIr, casos: &[CasoEscolhaIr]) -> Result<(), String> {
         let tipo = tipo_expressao_ir(valor)
             .ok_or("Correspondência de padrões exige tipo algébrico conhecido.")?;
         self.validar_tipo_abi(tipo)?;
+        if self.tipo_algebrico_exige_indirecao(tipo) {
+            return self.escolha_enumeracao_indireta(tipo, valor, casos);
+        }
         self.expressao(valor)?;
         let nome_tag = format!("\\0nebula_tag_{}", self.proximo_slot);
         let slot_tag = self.declarar(&nome_tag)?;
@@ -2512,7 +2984,7 @@ impl Emissor {
             };
 
             if caso.vinculacoes.len() > 1 {
-                return Err("A ABI inicial de enumerações suporta um único vínculo de payload por caso.".into());
+                return Err("A ABI de registradores suporta um único vínculo de payload por caso.".into());
             }
             self.escopos.push(HashMap::new());
             self.tipos_escopos.push(HashMap::new());
@@ -2541,13 +3013,71 @@ impl Emissor {
         Ok(())
     }
 
+    fn construir_enumeracao_indireta(
+        &mut self,
+        tipo: &Tipo,
+        nome: &str,
+        variante: &str,
+        valores: &[ExpressaoIr],
+    ) -> Result<(), String> {
+        let (nome_tipo, variantes, tamanho, alinhamento, deslocamento_payload) =
+            self.metadados_algebricos_indiretos(tipo)
+                .ok_or_else(|| format!("Metadados da representação indireta de '{}' ausentes.", tipo.nome()))?;
+        if nome_enum_canonico(nome) != nome_enum_canonico(&nome_tipo) {
+            return Err(format!("Construtor '{nome}' não corresponde ao tipo '{}'.", tipo.nome()));
+        }
+        let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
+            .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome_tipo}'."))?;
+        let tipos = variantes[indice].1.clone();
+        if tipos.len() != valores.len() {
+            return Err(format!(
+                "A variante '{nome_tipo}::{variante}' exige {} valores de payload, mas recebeu {}.",
+                tipos.len(),
+                valores.len()
+            ));
+        }
+        let (_, campos) = self.layout_tupla(&tipos)
+            .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
+        let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+
+        // A representação indireta guarda a tag no início e os campos do
+        // payload no offset calculado pelo layout compartilhado do runtime.
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]);
+        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
+
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = início da enumeração
+        self.mov_rax(indice as i64);
+        let largura_tag = if variantes.len() <= 256 { 1 } else if variantes.len() <= 65_536 { 2 } else { 4 };
+        self.armazenar_registro_r11(0, 0, largura_tag);
+
+        for (indice_campo, (deslocamento, tamanho_campo)) in campos.iter().enumerate() {
+            let deslocamento = deslocamento_payload.checked_add(*deslocamento)
+                .ok_or("Deslocamento do payload de enumeração excedeu o limite.")?;
+            self.expressao(&valores[indice_campo])?;
+            self.armazenar_valor_tipo_agregado(
+                armazenamento,
+                deslocamento,
+                *tamanho_campo,
+                &tipos[indice_campo],
+            )?;
+        }
+
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.mov_rdx(0);
+        Ok(())
+    }
+
     fn construir_tupla(&mut self, tipos: &[Tipo], valores: &[ExpressaoIr]) -> Result<(), String> {
         if tipos.len() != valores.len() {
             return Err("Quantidade de elementos da tupla não corresponde ao tipo declarado.".into());
         }
         let (tamanho, campos) = self.layout_tupla(tipos)
             .ok_or("Layout de tupla não suportado pela ABI nativa.")?;
-        if tamanho > 16 {
+        if self.layout_agregado_grande(&Tipo::Tupla(tipos.to_vec())).is_some() {
             let alinhamento = tipos.iter()
                 .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
                 .collect::<Option<Vec<_>>>()
@@ -2563,7 +3093,12 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
             for (indice, (deslocamento, tamanho_campo)) in campos.iter().enumerate() {
                 self.expressao(&valores[indice])?;
-                self.armazenar_campo_agregado(armazenamento, *deslocamento, *tamanho_campo)?;
+                self.armazenar_valor_tipo_agregado(
+                    armazenamento,
+                    *deslocamento,
+                    *tamanho_campo,
+                    &tipos[indice],
+                )?;
             }
             self.emitir_endereco_rbp_rax(armazenamento);
             self.mov_rdx(0);
@@ -3769,6 +4304,8 @@ mod testes {
             })]),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
         }
     }
 
@@ -4157,6 +4694,150 @@ mod testes {
     }
 
     #[test]
+    fn compara_listas_de_inteiros_por_comprimento_e_conteudo() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let lista = Tipo::Lista(Box::new(Tipo::Inteiro));
+        let igualdade = ExpressaoIr::Binaria {
+            operador: OperadorIr::Igual,
+            esquerda: Box::new(ExpressaoIr::Variavel("a".into())),
+            direita: Box::new(ExpressaoIr::Variavel("b".into())),
+        };
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "listas_iguais".into(),
+            parametros: vec![("a".into(), lista.clone()), ("b".into(), lista)],
+            retorno: Tipo::Logico,
+            corpo: vec![InstrucaoIr::Devolver(Some(igualdade))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn rejeita_igualdade_nativa_de_lista_textual_sem_comparar_ponteiros() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let erro = emissor.comparar_lista(
+            &ExpressaoIr::Variavel("a".into()),
+            &ExpressaoIr::Variavel("b".into()),
+            &Tipo::Texto,
+            &OperadorIr::Igual,
+        ).unwrap_err();
+        assert!(erro.contains("outros tipos"));
+    }
+
+    #[test]
+    fn passa_e_retorna_lista_com_ponteiro_e_comprimento() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_lista".into(),
+            parametros: vec![("itens".into(), Tipo::Lista(Box::new(Tipo::Inteiro)))],
+            retorno: Tipo::Lista(Box::new(Tipo::Inteiro)),
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("itens".into())))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn intervalo_de_inteiro_128_usa_representacao_indireta() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro128));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((32, 16)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
+    fn intervalo_decimal_usa_dois_registradores_de_endpoints() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Decimal64));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+    }
+
+    #[test]
+    fn passa_e_retorna_intervalo_128_por_endereco() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro128));
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_intervalo_128".into(),
+            parametros: vec![("faixa".into(), tipo.clone())],
+            retorno: tipo,
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("faixa".into())))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn passa_e_retorna_intervalo_com_dois_endpoints() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "eco_intervalo".into(),
+            parametros: vec![("faixa".into(), tipo.clone())],
+            retorno: tipo,
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Variavel("faixa".into())))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn intervalo_inteiro_usa_dois_registradores_de_endpoints() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Intervalo(Box::new(Tipo::Inteiro64));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+    }
+
+    #[test]
+    fn tupla_com_campos_de_quatro_bytes_usa_passagem_indireta() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Tupla(vec![Tipo::Caractere, Tipo::Caractere]);
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((8, 4)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
+    fn estrutura_com_campos_nao_classificaveis_usa_passagem_indireta() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "ParCaractere".into(),
+            LayoutAgregado {
+                tamanho: 8,
+                alinhamento: 4,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 4)),
+                    ("segundo".into(), (4, 4)),
+                ]),
+            },
+        );
+        emissor.campos_estruturas.insert(
+            "ParCaractere".into(),
+            vec![
+                ("primeiro".into(), Tipo::Caractere),
+                ("segundo".into(), Tipo::Caractere),
+            ],
+        );
+        let tipo = Tipo::Estrutura("ParCaractere".into());
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
+    fn lista_usa_representacao_abi_de_ponteiro_e_comprimento() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Lista(Box::new(Tipo::Inteiro));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+    }
+
+    #[test]
+    fn layout_nativo_de_caractere_usa_quatro_bytes() {
+        let emissor = Emissor::novo(HashMap::new());
+        assert_eq!(
+            emissor.tamanho_alinhamento_tipo(&Tipo::Caractere),
+            Some((4, 4))
+        );
+    }
+
+    #[test]
     fn valida_limites_de_layout_dos_agregados_na_abi() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.layouts_tipos.insert(
@@ -4318,23 +4999,12 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_construcao_de_enum_com_varios_payloads_no_backend() {
+    fn constroi_enum_com_varios_payloads_em_memoria() {
         let mut emissor = Emissor::novo(HashMap::new());
-        let erro = emissor.expressao(&ExpressaoIr::ConstrucaoEnumeracao {
-            nome: "Evento".into(),
-            variante: "Dados".into(),
-            valores: vec![
-                ExpressaoIr::Constante(ValorIr::Inteiro(1)),
-                ExpressaoIr::Constante(ValorIr::Inteiro(2)),
-            ],
-        }).unwrap_err();
-
-        assert!(erro.contains("no máximo um valor de payload"));
-    }
-
-    #[test]
-    fn rejeita_enum_com_payload_maior_que_um_registro_na_abi() {
-        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.variantes_enumeracoes.insert(
+            "Evento".into(),
+            vec![("Dados".into(), vec![Tipo::Inteiro, Tipo::Inteiro])],
+        );
         emissor.layouts_tipos.insert(
             "Evento".into(),
             LayoutAgregado {
@@ -4343,8 +5013,40 @@ mod testes {
                 campos: HashMap::from([("payload".into(), (8, 16))]),
             },
         );
-        let erro = emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).unwrap_err();
-        assert!(erro.contains("16 bytes") || erro.contains("registrador"));
+
+        assert!(emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).is_ok());
+        emissor.expressao(&ExpressaoIr::ConstrucaoEnumeracao {
+            nome: "Evento".into(),
+            variante: "Dados".into(),
+            valores: vec![
+                ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                ExpressaoIr::Constante(ValorIr::Inteiro(2)),
+            ],
+        }).expect("enumeração com dois campos de payload");
+        assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0xF3, 0xAA, 0x48]));
+    }
+
+    #[test]
+    fn aceita_enum_com_payload_de_128_bits_por_endereco() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.variantes_enumeracoes.insert(
+            "Evento".into(),
+            vec![("Dados".into(), vec![Tipo::Inteiro128])],
+        );
+        emissor.layouts_tipos.insert(
+            "Evento".into(),
+            LayoutAgregado {
+                tamanho: 32,
+                alinhamento: 16,
+                campos: HashMap::from([("payload".into(), (16, 16))]),
+            },
+        );
+        assert!(emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).is_ok());
+        assert_eq!(
+            emissor.largura_abi_tipo(&Tipo::Enumeracao("Evento".into())).unwrap(),
+            1
+        );
+        assert!(emissor.layout_agregado_grande(&Tipo::Enumeracao("Evento".into())).is_some());
     }
 
     #[test]

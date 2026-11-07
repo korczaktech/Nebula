@@ -425,6 +425,87 @@ fn compila_payload_decimal_em_enumeracoes() {
 }
 
 #[test]
+fn abi_transporta_enum_composto_em_argumento_e_retorno() {
+    let resultado = compilar_e_executar(
+        "enum-multiplos-payloads-abi",
+        "enumeracao Evento: {\n    Vazio\n    Dados(inteiro, inteiro)\n}\n\nfuncao criar() -> Evento: {\n    retorne Evento::Dados(20, 22)\n}\n\nfuncao somar(evento: Evento) -> inteiro: {\n    escolha evento: {\n        caso Evento::Dados(a, b): {\n            retorne a + b\n        }\n        caso Evento::Vazio: {\n            retorne 1\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    variavel evento = criar()\n    variavel esperado = criar()\n    se evento == esperado: {\n        retorne somar(evento)\n    }\n    retorne 0\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_opcional_com_payload_textual_por_endereco() {
+    let resultado = compilar_e_executar(
+        "opcional-texto-abi-indireta",
+        "funcao criar() -> Opcional<texto>: {\n    retorne Opcional::Algum(\"Nebula\")\n}\n\nfuncao medir(valor: Opcional<texto>) -> inteiro: {\n    escolha valor: {\n        caso Opcional::Algum(texto): {\n            retorne comprimento(texto)\n        }\n        caso Opcional::Nenhum: {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(6));
+}
+
+#[test]
+fn abi_transporta_resultado_com_payload_textual_por_endereco() {
+    let resultado = compilar_e_executar(
+        "resultado-texto-abi-indireta",
+        "funcao criar() -> Resultado<texto, texto>: {\n    retorne Resultado::Sucesso(\"Nebula\")\n}\n\nfuncao medir(valor: Resultado<texto, texto>) -> inteiro: {\n    escolha valor: {\n        caso Resultado::Sucesso(texto): {\n            retorne comprimento(texto)\n        }\n        caso Resultado::Falha(detalheFalha): {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(6));
+}
+
+#[test]
+fn abi_transporta_estrutura_compacta_com_caracteres_por_endereco() {
+    let resultado = compilar_e_executar(
+        "estrutura-caracteres-abi-indireta",
+        "estrutura ParCaractere: {\n    primeiro: caractere\n    segundo: caractere\n}\n\nfuncao eco(valor: ParCaractere) -> ParCaractere: {\n    retorne valor\n}\n\nfuncao principal() -> inteiro: {\n    variavel par = eco(ParCaractere { primeiro: 'A', segundo: 'B' })\n    variavel esperado = ParCaractere { primeiro: 'A', segundo: 'B' }\n    se par == esperado: {\n        retorne 42\n    }\n    retorne 0\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn igualdade_de_tupla_em_registradores_compara_os_dois_campos() {
+    let resultado = compilar_e_executar(
+        "igualdade-tupla-registradores",
+        "funcao principal() -> inteiro: {\n    variavel primeiro = (20, 22)\n    variavel segundo = (20, 22)\n    se primeiro == segundo: {\n        retorne 42\n    }\n    retorne 0\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_estrutura_maior_que_dois_registradores_em_parametro_e_retorno() {
+    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/tipos/abi-estrutura-grande.nbx");
+    let codigo = fs::read_to_string(caminho).expect("fixture de estrutura grande");
+    let resultado = compilar_e_executar("abi-estrutura-grande", &codigo);
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_tupla_maior_que_dois_registradores_em_parametro_e_retorno() {
+    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/tipos/abi-tupla-grande.nbx");
+    let codigo = fs::read_to_string(caminho).expect("fixture de tupla grande");
+    let resultado = compilar_e_executar("abi-tupla-grande", &codigo);
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_estrutura_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-estrutura-grande-argumento-retorno",
+        "estrutura RegistroGrande: {\n    primeiro: inteiro\n    segundo: inteiro\n    terceiro: inteiro\n}\n\nfuncao criar() -> RegistroGrande: {\n    retorne RegistroGrande { primeiro: 10, segundo: 20, terceiro: 12 }\n}\n\nfuncao somar(registro: RegistroGrande) -> inteiro: {\n    retorne registro.primeiro + registro.segundo + registro.terceiro\n}\n\nfuncao principal() -> inteiro: {\n    variavel registro = criar()\n    retorne somar(registro)\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
+fn abi_transporta_tupla_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-tupla-grande-argumento-retorno",
+        "funcao transportar(valor: (inteiro, inteiro, inteiro)) -> (inteiro, inteiro, inteiro): {\n    retorne valor\n}\n\nfuncao somar(valor: (inteiro, inteiro, inteiro)) -> inteiro: {\n    retorne valor[0] + valor[1] + valor[2]\n}\n\nfuncao principal() -> inteiro: {\n    variavel valor = transportar((10, 20, 12))\n    retorne somar(valor)\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn compila_funcoes_parametros_e_chamadas() {
     let resultado = compilar_e_executar(
         "funcao",
@@ -449,51 +530,6 @@ fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
         "estrutura Ponto:\n    x: inteiro8\nfuncao principal(): inteiro\n    variavel origem = Ponto { x: 7 }\n    variavel destino = copiar(origem)\n    quando origem.x == destino.x\n        devolver 42\n    \n    devolver 1",
     );
     assert_eq!(resultado.status.code(), Some(42));
-}
-
-#[test]
-fn abi_transporta_estrutura_maior_que_dois_registradores_em_parametro_e_retorno() {
-    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures/tipos/abi-estrutura-grande.nbx");
-    let codigo = fs::read_to_string(caminho).expect("fixture de estrutura grande");
-    let resultado = compilar_e_executar("abi-estrutura-grande", &codigo);
-    assert_eq!(resultado.status.code(), Some(42));
-}
-
-#[test]
-fn abi_transporta_tupla_maior_que_dois_registradores_em_parametro_e_retorno() {
-    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures/tipos/abi-tupla-grande.nbx");
-    let codigo = fs::read_to_string(caminho).expect("fixture de tupla grande");
-    let resultado = compilar_e_executar("abi-tupla-grande", &codigo);
-    assert_eq!(resultado.status.code(), Some(42));
-}
-
-#[test]
-fn abi_rejeita_enum_com_payloads_multiplos_sem_gerar_executavel() {
-    let (origem, executavel) = caminhos("abi-enum-payloads-multiplos");
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures/tipos/abi-enum-payloads-multiplos.nbx");
-    let codigo = fs::read_to_string(fixture).expect("fixture de enum com payloads múltiplos");
-    fs::write(&origem, codigo).expect("grava fixture temporária");
-    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
-        .arg("compilar")
-        .arg(&origem)
-        .arg("-o")
-        .arg(&executavel)
-        .output()
-        .expect("executa CLI Rust");
-    let _ = fs::remove_file(&origem);
-    assert!(!compilacao.status.success());
-    assert!(
-        !executavel.exists(),
-        "ABI não suportada não pode produzir executável",
-    );
-    let stderr = String::from_utf8_lossy(&compilacao.stderr);
-    assert!(
-        stderr.contains("Payload da enumeração") || stderr.contains("enumeração"),
-        "{stderr}",
-    );
 }
 
 #[test]
