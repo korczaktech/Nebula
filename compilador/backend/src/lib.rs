@@ -949,16 +949,16 @@ impl Emissor {
         Ok(())
     }
 
-    fn tipo_contem_lista(&self, tipo: &Tipo) -> bool {
+    fn tipo_contem_valor_dinamico(&self, tipo: &Tipo) -> bool {
         match tipo {
-            Tipo::Lista(_) => true,
+            Tipo::Lista(_) | Tipo::Texto => true,
             Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
-                self.tipo_contem_lista(interno),
+                self.tipo_contem_valor_dinamico(interno),
             Tipo::Resultado(sucesso, falha) =>
-                self.tipo_contem_lista(sucesso) || self.tipo_contem_lista(falha),
-            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_contem_lista(tipo)),
+                self.tipo_contem_valor_dinamico(sucesso) || self.tipo_contem_valor_dinamico(falha),
+            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_contem_valor_dinamico(tipo)),
             Tipo::Estrutura(nome) => self.campos_estruturas.get(nome).is_some_and(|campos| {
-                campos.iter().any(|(_, tipo)| self.tipo_contem_lista(tipo))
+                campos.iter().any(|(_, tipo)| self.tipo_contem_valor_dinamico(tipo))
             }),
             Tipo::Enumeracao(nome) => self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
                 variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_contem_lista(tipo)))
@@ -974,8 +974,8 @@ impl Emissor {
         tipo: &Tipo,
         operador: &OperadorIr,
     ) -> Result<(), String> {
-        if self.tipo_contem_lista(tipo) {
-            return Err("Igualdade de agregados que contêm listas ainda não está implementada no backend ELF.".into());
+        if self.tipo_contem_valor_dinamico(tipo) {
+            return Err("Igualdade estrutural de agregados que contêm texto ou listas ainda não está implementada no backend ELF.".into());
         }
         if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
             self.expressao(esquerda)?;
