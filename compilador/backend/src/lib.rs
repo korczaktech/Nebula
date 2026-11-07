@@ -2365,10 +2365,10 @@ impl Emissor {
     }
 
     fn alvo_estrutura_grande(&self, alvo: &ExpressaoIr) -> bool {
-        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+        let Some(Tipo::Estrutura(nome)) = self.tipo_expressao_atual(alvo) else {
             return false;
         };
-        self.layout_agregado_grande(&Tipo::Estrutura(nome.clone())).is_some()
+        self.layout_agregado_grande(&Tipo::Estrutura(nome)).is_some()
     }
 
     fn carregar_membro_agregado(
@@ -2377,7 +2377,7 @@ impl Emissor {
         campo: &str,
         tipo: &Tipo,
     ) -> Result<(), String> {
-        let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
+        let Some(Tipo::Estrutura(nome)) = self.tipo_expressao_atual(alvo) else {
             return Err("Acesso a agregado grande exige estrutura tipada.".into());
         };
         let (deslocamento, tamanho) = self.layouts_tipos.get(nome)
