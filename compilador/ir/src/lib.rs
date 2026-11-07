@@ -101,6 +101,8 @@ pub struct ProgramaIr {
     pub modulos: HashMap<String, String>,
     /// Layouts físicos validados das estruturas e enumerações declaradas.
     pub layouts_tipos: HashMap<String, LayoutRuntime>,
+    /// Variantes e tipos posicionais, preservando a ordem declarada na AST.
+    pub variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
 }
 
 /// Resultado da conversão da AST para IR.
@@ -193,11 +195,21 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             }
         }
     }
+    let variantes_enumeracoes = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Enumeracao { nome, variantes } = item {
+            Some((nome.clone(), variantes.iter().map(|(variante, payload)| {
+                (variante.clone(), payload.iter().map(|tipo| lowerer.tipo(tipo)).collect())
+            }).collect()))
+        } else {
+            None
+        }
+    }).collect();
     let mut ir = ProgramaIr {
         instrucoes: Vec::new(),
         funcoes: HashMap::new(),
         modulos: modulos_importados,
         layouts_tipos,
+        variantes_enumeracoes,
     };
     for item in &programa.itens {
         match item {
