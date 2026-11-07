@@ -4533,23 +4533,12 @@ mod testes {
     }
 
     #[test]
-    fn rejeita_construcao_de_enum_com_varios_payloads_no_backend() {
+    fn constroi_enum_com_varios_payloads_em_memoria() {
         let mut emissor = Emissor::novo(HashMap::new());
-        let erro = emissor.expressao(&ExpressaoIr::ConstrucaoEnumeracao {
-            nome: "Evento".into(),
-            variante: "Dados".into(),
-            valores: vec![
-                ExpressaoIr::Constante(ValorIr::Inteiro(1)),
-                ExpressaoIr::Constante(ValorIr::Inteiro(2)),
-            ],
-        }).unwrap_err();
-
-        assert!(erro.contains("no máximo um valor de payload"));
-    }
-
-    #[test]
-    fn rejeita_enum_com_payload_maior_que_um_registro_na_abi() {
-        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.variantes_enumeracoes.insert(
+            "Evento".into(),
+            vec![("Dados".into(), vec![Tipo::Inteiro, Tipo::Inteiro])],
+        );
         emissor.layouts_tipos.insert(
             "Evento".into(),
             LayoutAgregado {
@@ -4558,8 +4547,40 @@ mod testes {
                 campos: HashMap::from([("payload".into(), (8, 16))]),
             },
         );
-        let erro = emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).unwrap_err();
-        assert!(erro.contains("16 bytes") || erro.contains("registrador"));
+
+        assert!(emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).is_ok());
+        emissor.expressao(&ExpressaoIr::ConstrucaoEnumeracao {
+            nome: "Evento".into(),
+            variante: "Dados".into(),
+            valores: vec![
+                ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                ExpressaoIr::Constante(ValorIr::Inteiro(2)),
+            ],
+        }).expect("enumeração com dois campos de payload");
+        assert!(emissor.codigo.windows(3).any(|bytes| bytes == [0xF3, 0xAA, 0x48]));
+    }
+
+    #[test]
+    fn aceita_enum_com_payload_de_128_bits_por_endereco() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.variantes_enumeracoes.insert(
+            "Evento".into(),
+            vec![("Dados".into(), vec![Tipo::Inteiro128])],
+        );
+        emissor.layouts_tipos.insert(
+            "Evento".into(),
+            LayoutAgregado {
+                tamanho: 32,
+                alinhamento: 16,
+                campos: HashMap::from([("payload".into(), (16, 16))]),
+            },
+        );
+        assert!(emissor.validar_tipo_abi(&Tipo::Enumeracao("Evento".into())).is_ok());
+        assert_eq!(
+            emissor.largura_abi_tipo(&Tipo::Enumeracao("Evento".into())).unwrap(),
+            1
+        );
+        assert!(emissor.layout_agregado_grande(&Tipo::Enumeracao("Evento".into())).is_some());
     }
 
     #[test]
