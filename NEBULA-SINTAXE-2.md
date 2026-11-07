@@ -880,7 +880,7 @@ expressao_montagem  = "montagem", identificador,
 bloco_montagem      = "montagem", identificador,
                       [ "<", lista_tipos, ">" ],
                       [ "(", argumentos, ")" ],
-                      [ ":" ], bloco, "fim" ;
+                      [ ":" ], bloco ;
 ```
 
 Observações de conformidade:
