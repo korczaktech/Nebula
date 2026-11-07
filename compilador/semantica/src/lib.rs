@@ -2103,6 +2103,22 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn tipo_contem_parametro(tipo: &Tipo, nome: &str) -> bool {
+        match tipo {
+            Tipo::Parametro(parametro) => parametro == nome,
+            Tipo::Lista(interno) | Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
+                Self::tipo_contem_parametro(interno, nome),
+            Tipo::Resultado(sucesso, falha) =>
+                Self::tipo_contem_parametro(sucesso, nome)
+                    || Self::tipo_contem_parametro(falha, nome),
+            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| Self::tipo_contem_parametro(tipo, nome)),
+            Tipo::Funcao(parametros, retorno) =>
+                parametros.iter().any(|tipo| Self::tipo_contem_parametro(tipo, nome))
+                    || Self::tipo_contem_parametro(retorno, nome),
+            _ => false,
+        }
+    }
+
     fn inferir_genericos_chamada(
         funcao: &Funcao,
         tipos_obtidos: &[Tipo],
@@ -2174,6 +2190,12 @@ impl<'a> Analisador<'a> {
                 if let Some(anterior) = inferidos.get(nome) {
                     Self::tipos_compativeis(obtido, anterior)
                 } else {
+                    // Impede vínculos recursivos como T = Lista<T>, que
+                    // poderiam produzir expansão infinita na monomorfização.
+                    let identidade = matches!(obtido, Tipo::Parametro(outro) if outro == nome);
+                    if !identidade && Self::tipo_contem_parametro(obtido, nome) {
+                        return false;
+                    }
                     inferidos.insert(nome.clone(), obtido.clone());
                     true
                 }
@@ -4300,6 +4322,21 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
                 Box::new(Tipo::Vazio),
             )),
         );
+        let mut inferidos = HashMap::new();
+
+        assert!(!Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &["T".into()],
+            &mut inferidos,
+        ));
+        assert!(inferidos.is_empty());
+    }
+
+    #[test]
+    fn rejeita_inferencia_generica_recursiva_que_expandiria_o_tipo() {
+        let esperado = Tipo::Parametro("T".into());
+        let obtido = Tipo::Lista(Box::new(Tipo::Parametro("T".into())));
         let mut inferidos = HashMap::new();
 
         assert!(!Analisador::inferir_genericos(
