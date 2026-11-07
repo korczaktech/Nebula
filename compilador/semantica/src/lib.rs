@@ -494,12 +494,14 @@ impl<'a> Analisador<'a> {
                     }
                     inferido
                 };
-                if !matches!(&final_tipo, Tipo::Referencia { .. })
-                    && Self::tipo_contem_referencia(&final_tipo)
+                let campo_de_classe = self.classe_atual.is_some() && self.escopos.len() == 2;
+                if (campo_de_classe && Self::tipo_contem_referencia(&final_tipo))
+                    || (!matches!(&final_tipo, Tipo::Referencia { .. })
+                        && Self::tipo_contem_referencia(&final_tipo))
                 {
                     self.erro(
                         "N3107",
-                        format!("A variável '{nome}' não pode armazenar referências dentro de agregados; use uma referência direta com vida útil verificável."),
+                        format!("A variável '{nome}' não pode armazenar referências dentro de agregados ou campos de classe; use uma referência direta com vida útil verificável."),
                     );
                 }
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
@@ -5079,6 +5081,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
             "Não pode escapar uma referência ao slot local de um parâmetro: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_referencias_armazenadas_em_campos_de_classe() {
+        let resultado = analisar_codigo(
+            "classe Caixa\n    variavel referencia: &inteiro = &global",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3107"),
+            "Campos de classe não podem armazenar referências sem vida útil associada: {:?}",
             resultado.diagnosticos
         );
     }
