@@ -1,10 +1,10 @@
 estrutura Conta: {
     nome: texto
     idade: inteiro
-    fim
+
 }
-fim
-variavel conta = Conta { nome: "Lia", idade: 20, fim }
+
+variavel conta = Conta { nome: "Lia", idade: 20 }
 variavel nome = conta.nome
 exibir(conta.idade)
 variavel par = ("Lia", 20)
