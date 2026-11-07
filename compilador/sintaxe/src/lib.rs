@@ -801,7 +801,7 @@ impl Parser {
                     self.avancar();
                 }
             }
-            let corpo = match self.bloco_sem_fim() {
+            let corpo = match self.bloco() {
                 Some(corpo) => corpo,
                 None => {
                     if !self.separador_atual()
