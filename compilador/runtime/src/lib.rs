@@ -1274,7 +1274,7 @@ mod ciclo_vida {
     pub struct ContextoRuntime {
         memoria: Memoria,
         alocador: Alocador,
-        finalizadores: Vec<AcaoFinalizacao>,
+        finalizadores: Vec<Vec<AcaoFinalizacao>>,
         estado: EstadoRuntime,
     }
     
@@ -1297,7 +1297,7 @@ mod ciclo_vida {
             Self {
                 memoria: Memoria::nova(),
                 alocador: Alocador::default(),
-                finalizadores: Vec::new(),
+                finalizadores: vec![Vec::new()],
                 estado: EstadoRuntime::Ativo,
             }
         }
@@ -1344,11 +1344,53 @@ mod ciclo_vida {
             if self.estado != EstadoRuntime::Ativo {
                 return Err(ErroRuntime::RuntimeFinalizado);
             }
-            self.finalizadores.push(Box::new(acao));
+            self.finalizadores.last_mut().expect("escopo global sempre presente").push(Box::new(acao));
             Ok(())
         }
     
-        /// Executa todos os finalizadores em ordem LIFO.
+        /// Abre um escopo de vida útil. Finalizadores registrados a partir
+        /// deste ponto pertencem ao novo escopo.
+        pub fn abrir_escopo(&mut self) -> Resultado<()> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            self.memoria.abrir_escopo();
+            self.finalizadores.push(Vec::new());
+            Ok(())
+        }
+
+        /// Fecha o escopo atual, executando seus finalizadores em ordem LIFO.
+        /// O escopo global só pode ser encerrado por `finalizar`.
+        pub fn fechar_escopo(&mut self) -> Resultado<()> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            if self.finalizadores.len() <= 1 {
+                return Err(ErroRuntime::EscopoGlobal);
+            }
+            let finalizadores = self.finalizadores.pop().expect("escopo validado");
+            let resultado = Self::executar_finalizadores(finalizadores);
+            self.memoria.fechar_escopo().map_err(|_| ErroRuntime::EscopoGlobal)?;
+            resultado
+        }
+
+        fn executar_finalizadores(mut finalizadores: Vec<AcaoFinalizacao>) -> Resultado<()> {
+            let mut primeiro_erro = None;
+            while let Some(finalizador) = finalizadores.pop() {
+                let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(finalizador));
+                let erro = match resultado {
+                    Ok(Ok(())) => None,
+                    Ok(Err(erro)) => Some(erro),
+                    Err(_) => Some(ErroRuntime::FalhaTarefa),
+                };
+                if primeiro_erro.is_none() {
+                    primeiro_erro = erro;
+                }
+            }
+            primeiro_erro.map_or(Ok(()), Err)
+        }
+
+        /// Executa todos os finalizadores de todos os escopos em ordem LIFO.
         ///
         /// A função continua a limpeza após falhas e retorna o primeiro erro
         /// encontrado. Chamadas subsequentes não repetem ações já executadas.
@@ -1358,15 +1400,11 @@ mod ciclo_vida {
             }
             self.estado = EstadoRuntime::Finalizado;
             let mut primeiro_erro = None;
-            while let Some(finalizador) = self.finalizadores.pop() {
-                let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(finalizador));
-                let erro = match resultado {
-                    Ok(Ok(())) => None,
-                    Ok(Err(erro)) => Some(erro),
-                    Err(_) => Some(ErroRuntime::FalhaTarefa),
-                };
-                if primeiro_erro.is_none() {
-                    primeiro_erro = erro;
+            while let Some(finalizadores) = self.finalizadores.pop() {
+                if let Err(erro) = Self::executar_finalizadores(finalizadores) {
+                    if primeiro_erro.is_none() {
+                        primeiro_erro = Some(erro);
+                    }
                 }
             }
             self.alocador.limpar();
@@ -1379,6 +1417,35 @@ mod ciclo_vida {
         use super::*;
         use std::sync::{Arc, Mutex};
     
+        #[test]
+        fn finalizadores_sao_limitados_ao_escopo_e_executados_em_lifo() {
+            let ordem = Arc::new(Mutex::new(Vec::new()));
+            let mut contexto = ContextoRuntime::novo();
+            let global = Arc::clone(&ordem);
+            contexto.registrar_finalizador(move || {
+                global.lock().unwrap().push(1);
+                Ok(())
+            }).unwrap();
+            contexto.abrir_escopo().unwrap();
+            for valor in 2..=3 {
+                let ordem = Arc::clone(&ordem);
+                contexto.registrar_finalizador(move || {
+                    ordem.lock().unwrap().push(valor);
+                    Ok(())
+                }).unwrap();
+            }
+            contexto.fechar_escopo().unwrap();
+            assert_eq!(*ordem.lock().unwrap(), vec![3, 2]);
+            contexto.finalizar().unwrap();
+            assert_eq!(*ordem.lock().unwrap(), vec![3, 2, 1]);
+        }
+
+        #[test]
+        fn nao_permite_fechar_escopo_global() {
+            let mut contexto = ContextoRuntime::novo();
+            assert_eq!(contexto.fechar_escopo(), Err(ErroRuntime::EscopoGlobal));
+        }
+
         #[test]
         fn contexto_finaliza_em_ordem_lifo_e_apenas_uma_vez() {
             let ordem = Arc::new(Mutex::new(Vec::new()));
