@@ -168,7 +168,7 @@ Formas sem Function Body, como `funcao teste()` seguida diretamente por linhas i
 
 Observações:
 - `nao` representa negação lógica e o valor lógico falso, conforme o contexto.
-- `pare` interrompe o laço atual; `fim` encerra um bloco.
+- `pare` interrompe o laço atual; `}` encerra o corpo do bloco.
 - `prossiga` pula para a próxima repetição.
 - `isto` referencia a instância atual de uma classe.
 - `sendo` é reservado para condições alternativas.
@@ -530,7 +530,7 @@ variavel somar = (a, b) -> a + b
 variavel quadrado = x -> x ** 2
 ```
 
-Para funções de seta com bloco, a seta é seguida por Function Body; o `fim` interno antecede `}`, e o `fim` externo encerra a lambda:
+Para funções de seta com bloco, a seta é seguida por Function Body delimitado por `: {` e `}`:
 
 ```nbx
 variavel calcular = (a, b) ->: {
@@ -1137,8 +1137,8 @@ importacao     = "incluir", "(",
                  "biblioteca", ":", caminho, ")",
                  ["como", identificador] ;
 
-bloco          = ":", "{", { instrucao | declaracao }, "fim", "}", "fim" ;
-bloco_clausula = ":", "{", { instrucao | declaracao }, "fim", "}" ;
+bloco          = ":", "{", { instrucao | declaracao }, "}" ;
+bloco_clausula = bloco ;
 ```
 
 # 30. Compilação e execução
@@ -1172,7 +1172,7 @@ nebula interpretar programa.nbx
 3. Nomes curtos e intuitivos.
 4. CamelCase para nomes compostos.
 5. Indentação obrigatória.
-6. `fim` obrigatório para encerramento de blocos.
+6. Corpos delimitados exclusivamente por `{` e `}`.
 7. `()`, `[]`, `<>` e `{}` obrigatórios nos respectivos contextos gramaticais.
 8. Tipagem estática e forte.
 9. Inferência de tipos.
