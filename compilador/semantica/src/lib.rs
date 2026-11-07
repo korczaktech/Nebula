@@ -9,7 +9,7 @@ use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
 use nebula_fonte::IntervaloFonte;
-use super::{AnalisadorPropriedade, Lugar, TipoEmprestimo};
+use super::{AnalisadorPropriedade, ContextoInseguro, Lugar, TipoEmprestimo};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -582,13 +582,18 @@ impl<'a> Analisador<'a> {
                     }
                 }
                 self.abrir_escopo();
-                let contexto_inseguro = matches!(contexto.as_str(), "critico" | "privilegio" | "montagem");
-                if contexto_inseguro {
-                    self.propriedade.entrar_inseguro();
+                let tipo_contexto_inseguro = match contexto.as_str() {
+                    "critico" => Some(ContextoInseguro::Critico),
+                    "privilegio" => Some(ContextoInseguro::Privilegio),
+                    "montagem" => Some(ContextoInseguro::Montagem),
+                    _ => None,
+                };
+                if let Some(tipo_contexto) = tipo_contexto_inseguro {
+                    self.propriedade.entrar_contexto_inseguro(tipo_contexto);
                     self.contextos_inseguros.push(contexto.clone());
                 }
                 for instrucao in corpo { self.item(instrucao); }
-                if contexto_inseguro {
+                if tipo_contexto_inseguro.is_some() {
                     self.contextos_inseguros.pop();
                     if let Err(erro) = self.propriedade.sair_inseguro() {
                         self.erro("N3097", format!("Falha ao encerrar contexto inseguro: {erro:?}."));
