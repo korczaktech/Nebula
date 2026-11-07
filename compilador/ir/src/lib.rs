@@ -3744,7 +3744,10 @@ mod testes {
         );
         assert!(ir.funcoes.contains_key("ausente__inteiro"));
         let resultado = executar(&ir, 100).expect("inferência contextual do retorno genérico");
-        assert_eq!(resultado.globais.get("valor"), Some(&ValorIr::Nulo));
+        assert!(matches!(
+            resultado.globais.get("valor"),
+            Some(ValorIr::Estrutura { nome, .. }) if nome == "Opcional::Nenhum"
+        ));
     }
 
     #[test]
