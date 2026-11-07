@@ -588,6 +588,8 @@ fn tipo_valor(valor: &ValorIr) -> &'static str {
         ValorIr::Texto(_) => "texto",
         ValorIr::Caractere(_) => "caractere",
         ValorIr::Funcao(_) => "função",
+        ValorIr::Referencia { mutavel: true, .. } => "referência exclusiva",
+        ValorIr::Referencia { mutavel: false, .. } => "referência compartilhada",
         ValorIr::Lista(_) => "lista",
         ValorIr::Estrutura { .. } => "estrutura",
         ValorIr::Intervalo(_, _) | ValorIr::IntervaloSemSinal(_, _) | ValorIr::IntervaloDecimal(_, _) => "intervalo",
