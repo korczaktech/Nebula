@@ -41,12 +41,7 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
     });
     if possui_abertura_explicita && !possui_cabecalho_legado {
-        return codigo
-            .lines()
-            .filter(|linha| linha.trim() != "fim")
-            .collect::<Vec<_>>()
-            .join("\n")
-            .replace("} fim", "}");
+        return codigo.to_owned();
     }
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
@@ -438,7 +433,7 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
             "variavel soma = 1\n + 2\nvariavel chamada = sistema\n ::somar(\n  1,\n  2\n )",
         ),
         (
-            "bloco com fim",
+            "bloco com chaves",
             "funcao executar()\n    variavel ativo = verdadeiro\n    enquanto ativo\n        ativo = falso",
         ),
         (
