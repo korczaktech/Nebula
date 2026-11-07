@@ -4669,7 +4669,7 @@ fim
     #[test]
     fn function_body_fecha_com_chave_sem_terminador_textual() {
         let resultado = analisar(&fonte_bruta(
-            "funcao principal(): {\\n    exibir(\\"ok\\")\\n}",
+            "funcao principal(): {\n    exibir(\"ok\")\n}",
         ));
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -4681,7 +4681,7 @@ fim
     #[test]
     fn palavra_fim_e_identificador_dentro_de_um_bloco() {
         let resultado = analisar(&fonte_bruta(
-            "funcao principal(): {\\n    fim\\n}",
+            "funcao principal(): {\n    fim\n}",
         ));
         assert!(
             resultado.diagnosticos.is_empty(),
