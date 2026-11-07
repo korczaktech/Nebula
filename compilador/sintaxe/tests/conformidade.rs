@@ -4,6 +4,16 @@ use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
 
 fn normalizar_blocos_legados(codigo: &str) -> String {
+    let codigo = codigo.replace(", fim }", " }");
+    let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
+    let possui_cabecalho_legado = codigo.lines().any(|linha| {
+        let conteudo = linha.trim();
+        let prefixos = ["funcao ", "publico funcao ", "privado funcao ", "protegido estatico funcao ", "async funcao ", "exportar funcao ", "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ", "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com "];
+        prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
+    });
+    if possui_abertura_explicita && !possui_cabecalho_legado {
+        return codigo.lines().filter(|linha| linha.trim() != "fim").collect::<Vec<_>>().join("\n").replace("} fim", "}");
+    }
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
         Completo,
@@ -17,7 +27,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         indentacao: usize,
         tipo: TipoBloco,
         explicito: bool,
-        etapa: u8,
     }
 
     fn indentacao(texto: &str, nivel: usize) -> String {
@@ -26,14 +35,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
-            TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
+            TipoBloco::Caso | TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
                 saida.push(indentacao("}", bloco.indentacao));
-            }
-            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
-                saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
             }
         }
     }
@@ -62,7 +65,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Completo,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -121,22 +123,13 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: true,
-                etapa: 0,
             });
             continue;
         }
 
         if conteudo == "fim" {
-            if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel {
-                    if bloco.etapa == 0 {
-                        bloco.etapa = 1;
-                    } else if bloco.etapa == 2 {
-                        blocos.pop();
-                    }
-                    saida.push(linha.to_owned());
-                    continue;
-                }
+            if blocos.is_empty() || blocos.last().is_some_and(|bloco| bloco.explicito) {
+                continue;
             }
 
             while blocos.last().is_some_and(|bloco| {
@@ -162,12 +155,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel && bloco.etapa == 1 {
-                    if bloco.tipo == TipoBloco::Caso {
-                        blocos.pop();
-                    } else {
-                        bloco.etapa = 2;
-                    }
+                if bloco.explicito && bloco.indentacao == nivel {
+                    blocos.pop();
                     saida.push(linha.to_owned());
                     continue;
                 }
@@ -181,7 +170,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             if let Some(bloco) = blocos.last() {
                 if !bloco.explicito && bloco.indentacao == nivel {
                     let tipo = bloco.tipo;
-                    saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
                     blocos.pop();
@@ -189,7 +177,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                         indentacao: nivel,
                         tipo,
                         explicito: false,
-                        etapa: 0,
                     });
                     continue;
                 }
@@ -209,7 +196,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Caso,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -287,7 +273,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: false,
-                etapa: 0,
             });
         } else {
             saida.push(linha.to_owned());
