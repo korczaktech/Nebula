@@ -4642,3 +4642,6 @@ funcao sem_retorno(): vazio
 }
 
 pub use implementacao::*;
+
+mod propriedade;
+pub use propriedade::*;
