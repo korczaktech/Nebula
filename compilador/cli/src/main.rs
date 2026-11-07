@@ -2379,7 +2379,17 @@ funcao principal() -> inteiro: {
         .unwrap();
 
         compilar_arquivo(&origem, &saida).expect("compilação de texto Unicode");
-        let status = Command::new(&saida).status().expect("executável gerado");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
         assert_eq!(status.code(), Some(42));
         std::fs::remove_dir_all(diretorio).unwrap();
     }
@@ -2444,7 +2454,17 @@ funcao principal() -> inteiro: {
         .unwrap();
 
         compilar_arquivo(&origem, &saida).expect("compilação de decimais em agregados");
-        let status = Command::new(&saida).status().expect("executável gerado");
+        let mut tentativas = 0;
+        let status = loop {
+            match Command::new(&saida).status() {
+                Ok(status) => break status,
+                Err(erro) if erro.raw_os_error() == Some(26) && tentativas < 5 => {
+                    tentativas += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(erro) => panic!("executável gerado não pôde ser iniciado: {erro}"),
+            }
+        };
         assert_eq!(status.code(), Some(42));
         std::fs::remove_dir_all(diretorio).unwrap();
     }
