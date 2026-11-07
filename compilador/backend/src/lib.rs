@@ -2704,6 +2704,7 @@ impl Emissor {
         valores: &[ExpressaoIr],
     ) -> Result<(), String> {
         let variantes = self.variantes_enumeracoes.get(nome)
+            .cloned()
             .ok_or_else(|| format!("Variantes da enumeração '{nome}' ausentes no backend."))?;
         let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
             .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?;
@@ -2715,12 +2716,14 @@ impl Emissor {
                 valores.len()
             ));
         }
-        let layout = self.layouts_tipos.get(nome)
+        let (tamanho, alinhamento, deslocamento_payload) = self.layouts_tipos.get(nome)
+            .map(|layout| (
+                layout.tamanho,
+                layout.alinhamento,
+                layout.campos.get("payload").map(|(deslocamento, _)| *deslocamento),
+            ))
             .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente no backend."))?;
-        let tamanho = layout.tamanho;
-        let alinhamento = layout.alinhamento;
-        let deslocamento_payload = layout.campos.get("payload")
-            .map(|(deslocamento, _)| *deslocamento)
+        let deslocamento_payload = deslocamento_payload
             .ok_or_else(|| format!("Layout do payload de '{nome}' ausente."))?;
         let (_, campos) = self.layout_tupla(&tipos)
             .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
