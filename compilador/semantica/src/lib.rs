@@ -684,7 +684,12 @@ impl<'a> Analisador<'a> {
                 let propriedade_senao = self.propriedade.clone();
                 self.mesclar_movidos(&depois_entao, &depois_senao);
                 self.propriedade = propriedade_antes;
-                self.propriedade.mesclar_caminhos(&[propriedade_entao, propriedade_senao]);
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_entao, propriedade_senao]) {
+                    self.erro("N3104", format!("Não foi possível unir empréstimos dos ramos: {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
             }
             NoAst::Escolha { valor, casos } => {
                 let tipo_valor = self.expressao(valor);
@@ -785,7 +790,12 @@ impl<'a> Analisador<'a> {
                 // ou empréstimo que possa ocorrer em uma iteração.
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
                 self.propriedade = propriedade_antes.clone();
-                self.propriedade.mesclar_caminhos(&[propriedade_depois]);
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_depois]) {
+                    self.erro("N3104", format!("Não foi possível unir empréstimos do laço: {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
             }
             NoAst::Cada { nome, iteravel, corpo } => {
                 let tipo_iteravel = self.expressao(iteravel);
