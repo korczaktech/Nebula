@@ -413,19 +413,19 @@ impl Parser {
 
     fn tente(&mut self) -> Option<NoAst> {
         self.avancar();
-        let corpo = self.bloco_sem_fim()?;
+        let corpo = self.bloco()?;
         let mut capturas = Vec::new();
         self.pular_novas_linhas();
         while self.corresponde(TipoToken::Erro) {
             let tipo = if self.verifica(TipoToken::Identificador) {
                 Some(self.avancar().lexema)
             } else { None };
-            let corpo_captura = self.bloco_sem_fim()?;
+            let corpo_captura = self.bloco()?;
             capturas.push(CapturaAst { tipo, corpo: corpo_captura });
             self.pular_novas_linhas();
         }
         let sempre = if self.corresponde(TipoToken::Sempre) {
-            self.bloco_sem_fim()?
+            self.bloco()?
         } else { Vec::new() };
         self.pular_novas_linhas();
         
@@ -607,13 +607,13 @@ impl Parser {
     fn quando_interno(&mut self) -> Option<NoAst> {
         self.avancar();
         let condicao = self.expressao_antes_de_bloco()?;
-        let entao = self.bloco_sem_fim()?;
+        let entao = self.bloco()?;
         let mut alternativas = Vec::new();
         while self.proximo_tipo_significativo() == TipoToken::Sendo {
             self.pular_novas_linhas();
             self.avancar();
             let condicao_alternativa = self.expressao_antes_de_bloco()?;
-            let corpo_alternativo = self.bloco_sem_fim()?;
+            let corpo_alternativo = self.bloco()?;
             alternativas.push((condicao_alternativa, corpo_alternativo));
         }
         let mut senao = if self.proximo_tipo_significativo() == TipoToken::Senao {
@@ -623,7 +623,7 @@ impl Parser {
                 self.pular_novas_linhas();
                 vec![self.quando()?]
             } else {
-                self.bloco_sem_fim()?
+                self.bloco()?
             }
         } else {
             Vec::new()
@@ -887,12 +887,9 @@ impl Parser {
         Some(NoAst::Para { inicial, condicao, atualizacao, corpo })
     }
     fn bloco(&mut self) -> Option<Vec<NoAst>> {
-        self.com_profundidade(|parser| parser.bloco_interno(true))
+        self.com_profundidade(|parser| parser.bloco_interno())
     }
-    fn bloco_sem_fim(&mut self) -> Option<Vec<NoAst>> {
-        self.com_profundidade(|parser| parser.bloco_interno(false))
-    }
-    fn bloco_interno(&mut self, consumir_fim: bool) -> Option<Vec<NoAst>> {
+    fn bloco_interno(&mut self) -> Option<Vec<NoAst>> {
         if !self.corresponde(TipoToken::DoisPontos) {
             self.erro_atual("N2007", "Function Body exige ':' seguido de '{'. A forma antiga com indentação foi removida.");
             return None;
@@ -938,7 +935,6 @@ impl Parser {
         while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
         self.esperar(TipoToken::FechaChave, "Function Body aberto com '{' não foi fechado com '}'.");
 
-        let _ = consumir_fim;
         Some(itens)
     }
     fn caminho_tipo(&mut self) -> Option<String> {
