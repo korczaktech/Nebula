@@ -142,6 +142,12 @@ impl<'a> Analisador<'a> {
                 }
             }
             let item = Self::alvo_atributo(item);
+            // A sintaxe externa funcao e normalizada como funcao sem corpo.
+            if let NoAst::Funcao { nome, corpo, .. } = item {
+                if corpo.is_empty() {
+                    self.funcoes_externas.insert(nome.clone());
+                }
+            }
             if let NoAst::Incluir { caminho, apelido } = item {
                 let alternativo = caminho.replace("::", ".");
                 if !self.modulos.contains_key(caminho) && !self.modulos.contains_key(&alternativo) {
