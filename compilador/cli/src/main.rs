@@ -2466,7 +2466,7 @@ funcao principal() -> inteiro: {
         let raiz = diretorio.join("projeto");
         std::fs::create_dir_all(&raiz).unwrap();
         let externo = diretorio.join("externo.nbx");
-        std::fs::write(&externo, "publico funcao vazia()\n    passar\nfim").unwrap();
+        std::fs::write(&externo, "publico funcao vazia(): {\n    passar\n}").unwrap();
         symlink(&externo, raiz.join("Externo.nbx")).unwrap();
 
         let origem = raiz.join("principal.nbx");
@@ -2621,7 +2621,7 @@ funcao principal() -> inteiro: {
         std::fs::create_dir_all(&externo).unwrap();
         std::fs::write(
             externo.join("Segredo.nbx"),
-            "publico funcao valor(): inteiro\n    devolver 42\nfim",
+            "publico funcao valor(): inteiro: {\n    devolver 42\n}",
         )
         .unwrap();
         symlink(externo.join("Segredo.nbx"), raiz.join("Atalho.nbx")).unwrap();
@@ -2706,7 +2706,7 @@ funcao principal() -> inteiro: {
         let saida = std::env::temp_dir().join(format!("nebula-preservado-{}", std::process::id()));
         std::fs::write(
             &origem,
-            "funcao principal(): vazio\n    variavel quebrada =\nfim",
+            "funcao principal(): vazio: {\n    variavel quebrada =\n}",
         )
         .unwrap();
         std::fs::write(&saida, b"executavel anterior").unwrap();
@@ -2736,7 +2736,7 @@ funcao principal() -> inteiro: {
     fn compilacao_nao_sobrescreve_o_arquivo_fonte() {
         let origem =
             std::env::temp_dir().join(format!("nebula-fonte-protegido-{}.nbx", std::process::id()));
-        let conteudo = "funcao principal(): inteiro\n    devolver 42\nfim";
+        let conteudo = "funcao principal(): inteiro: {\n    devolver 42\n}";
         std::fs::write(&origem, conteudo).unwrap();
         let erro = validar_caminhos_compilacao(&origem, &origem).unwrap_err();
         assert!(erro.contains("não pode sobrescrever"));
