@@ -477,7 +477,6 @@ impl Parser {
     fn fechar_declaracao_indentada(&mut self, _mensagem: &str) {
         while self.corresponde(TipoToken::Indent) || self.corresponde(TipoToken::Dedent) {}
         self.esperar(TipoToken::FechaChave, "Declaração estrutural não foi fechada com '}'.");
-        self.separadores();
     }
     fn estrutura(&mut self) -> Option<NoAst> {
         self.avancar();
