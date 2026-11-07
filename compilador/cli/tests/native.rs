@@ -105,10 +105,10 @@ fn normalizar_blocos_indentados(codigo: &str) -> String {
             || conteudo.starts_with("erro ")
             || conteudo.starts_with("caso ")
             || conteudo == "padrao";
-        while blocos
-            .last()
-            .is_some_and(|bloco| !bloco.explicito && (nivel < bloco.indentacao || (nivel <= bloco.indentacao && !continuacao)))
-        {
+        while blocos.last().is_some_and(|bloco| {
+            !bloco.explicito
+                && (nivel < bloco.indentacao || (nivel <= bloco.indentacao && !continuacao))
+        }) {
             if let Some(bloco) = blocos.pop() {
                 fechar(&mut saida, bloco);
             }
