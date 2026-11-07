@@ -949,16 +949,16 @@ impl Emissor {
         Ok(())
     }
 
-    fn tipo_contem_valor_dinamico(&self, tipo: &Tipo) -> bool {
+    fn tipo_exige_igualdade_semantica(&self, tipo: &Tipo) -> bool {
         match tipo {
-            Tipo::Lista(_) | Tipo::Texto => true,
+            Tipo::Lista(_) | Tipo::Texto | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 => true,
             Tipo::Intervalo(interno) | Tipo::Opcional(interno) =>
-                self.tipo_contem_valor_dinamico(interno),
+                self.tipo_exige_igualdade_semantica(interno),
             Tipo::Resultado(sucesso, falha) =>
-                self.tipo_contem_valor_dinamico(sucesso) || self.tipo_contem_valor_dinamico(falha),
-            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_contem_valor_dinamico(tipo)),
+                self.tipo_exige_igualdade_semantica(sucesso) || self.tipo_exige_igualdade_semantica(falha),
+            Tipo::Tupla(tipos) => tipos.iter().any(|tipo| self.tipo_exige_igualdade_semantica(tipo)),
             Tipo::Estrutura(nome) => self.campos_estruturas.get(nome).is_some_and(|campos| {
-                campos.iter().any(|(_, tipo)| self.tipo_contem_valor_dinamico(tipo))
+                campos.iter().any(|(_, tipo)| self.tipo_exige_igualdade_semantica(tipo))
             }),
             Tipo::Enumeracao(nome) => self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
                 variantes.iter().any(|(_, payload)| payload.iter().any(|tipo| self.tipo_contem_valor_dinamico(tipo)))
@@ -974,8 +974,13 @@ impl Emissor {
         elemento: &Tipo,
         operador: &OperadorIr,
     ) -> Result<(), String> {
-        if self.tipo_contem_valor_dinamico(elemento) {
-            return Err("Igualdade de listas com elementos textuais ou listas aninhadas ainda não está implementada no backend ELF.".into());
+        if self.tipo_exige_igualdade_semantica(elemento) || !matches!(elemento,
+            Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16 | Tipo::Inteiro32
+                | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8 | Tipo::InteiroU16
+                | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128 | Tipo::Byte
+                | Tipo::Caractere
+        ) {
+            return Err("Igualdade de listas está implementada para elementos inteiros, lógicos, bytes e caracteres; outros tipos ainda não possuem comparação nativa.".into());
         }
         let (tamanho_elemento, _) = self.tamanho_alinhamento_tipo(elemento)
             .ok_or("Tipo de elemento de lista não possui layout ABI.")?;
@@ -1026,8 +1031,8 @@ impl Emissor {
         tipo: &Tipo,
         operador: &OperadorIr,
     ) -> Result<(), String> {
-        if self.tipo_contem_valor_dinamico(tipo) {
-            return Err("Igualdade estrutural de agregados que contêm texto ou listas ainda não está implementada no backend ELF.".into());
+        if self.tipo_exige_igualdade_semantica(tipo) {
+            return Err("Igualdade estrutural de agregados com texto, listas ou decimais ainda não possui comparação nativa por campos.".into());
         }
         if let Some((tamanho, _)) = self.layout_agregado_grande(tipo) {
             self.expressao(esquerda)?;
