@@ -3,13 +3,13 @@ funcao principal() -> inteiro: {
     variavel sem_sinal: inteiro_u128 = 42
     quando valor == inteiro128(sem_sinal): {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
