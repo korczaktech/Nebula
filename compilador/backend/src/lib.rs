@@ -213,21 +213,38 @@ impl Emissor {
         }
     }
 
+    fn campo_compativel_com_registradores(deslocamento: u64, tamanho: u64) -> bool {
+        (deslocamento == 0 && tamanho == 16)
+            || (matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho))
+    }
+
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
         match tipo {
             Tipo::Estrutura(nome) => {
                 let layout = self.layouts_tipos.get(nome)?;
-                (layout.tamanho > 16).then_some((layout.tamanho, layout.alinhamento))
+                let campos_incompativeis = layout.campos.values().any(|(deslocamento, tamanho)| {
+                    !Self::campo_compativel_com_registradores(*deslocamento, *tamanho)
+                });
+                let campo_indireto = self.campos_estruturas.get(nome).is_some_and(|campos| {
+                    campos.iter().any(|(_, tipo_campo)| self.layout_agregado_grande(tipo_campo).is_some())
+                });
+                (layout.tamanho > 16 || campos_incompativeis || campo_indireto)
+                    .then_some((layout.tamanho, layout.alinhamento))
             }
             Tipo::Tupla(tipos) => {
-                let (tamanho, _) = self.layout_tupla(tipos)?;
+                let (tamanho, campos) = self.layout_tupla(tipos)?;
                 let alinhamento = tipos.iter()
                     .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
                     .collect::<Option<Vec<_>>>()?
                     .into_iter()
                     .max()
                     .unwrap_or(1);
-                (tamanho > 16).then_some((tamanho, alinhamento))
+                let campos_incompativeis = campos.iter().any(|(deslocamento, tamanho)| {
+                    !Self::campo_compativel_com_registradores(*deslocamento, *tamanho)
+                });
+                let campo_indireto = tipos.iter().any(|tipo| self.layout_agregado_grande(tipo).is_some());
+                (tamanho > 16 || campos_incompativeis || campo_indireto)
+                    .then_some((tamanho, alinhamento))
             }
             Tipo::Enumeracao(nome) if self.enumeracao_exige_indirecao(nome) => {
                 let layout = self.layouts_tipos.get(nome)?;
@@ -264,12 +281,10 @@ impl Emissor {
                     if *tamanho == 0 || fim > layout.tamanho {
                         return Err(format!("Campo '{campo}' excede os limites da estrutura '{nome}'."));
                     }
-                    if layout.tamanho <= 16 {
-                        let campo_em_dois_registros = *deslocamento == 0 && *tamanho == 16;
-                        let campo_escalar = matches!(*deslocamento, 0 | 8) && (1..=8).contains(tamanho);
-                        if !campo_em_dois_registros && !campo_escalar {
-                            return Err(format!("Campo '{campo}' da estrutura '{nome}' não cabe nos dois registradores ABI."));
-                        }
+                }
+                if let Some(campos) = self.campos_estruturas.get(nome) {
+                    for (_, tipo_campo) in campos {
+                        self.validar_tipo_abi(tipo_campo)?;
                     }
                 }
                 Ok(())
@@ -286,13 +301,9 @@ impl Emissor {
                     if tamanho_campo == 0 || fim > tamanho {
                         return Err("Elemento de tupla excede os limites do layout.".into());
                     }
-                    if tamanho <= 16 {
-                        let campo_em_dois_registros = deslocamento == 0 && tamanho_campo == 16;
-                        let campo_escalar = matches!(deslocamento, 0 | 8) && (1..=8).contains(&tamanho_campo);
-                        if !campo_em_dois_registros && !campo_escalar {
-                            return Err("Elemento de tupla não cabe nos dois registradores ABI.".into());
-                        }
-                    }
+                }
+                for tipo_elemento in tipos {
+                    self.validar_tipo_abi(tipo_elemento)?;
                 }
                 Ok(())
             }
@@ -389,12 +400,24 @@ impl Emissor {
         if let Tipo::Estrutura(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
                 .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente."))?;
-            return Ok(if layout.tamanho > 16 { 1 } else if layout.tamanho > 8 { 2 } else { 1 });
+            return Ok(if self.layout_agregado_grande(tipo).is_some() {
+                1
+            } else if layout.tamanho > 8 {
+                2
+            } else {
+                1
+            });
         }
         if let Tipo::Tupla(tipos) = tipo {
             let (tamanho, _) = self.layout_tupla(tipos)
                 .ok_or_else(|| "Layout de tupla não suportado pela ABI nativa.".to_owned())?;
-            return Ok(if tamanho > 16 { 1 } else if tamanho > 8 { 2 } else { 1 });
+            return Ok(if self.layout_agregado_grande(tipo).is_some() {
+                1
+            } else if tamanho > 8 {
+                2
+            } else {
+                1
+            });
         }
         if let Tipo::Enumeracao(nome) = tipo {
             let layout = self.layouts_tipos.get(nome)
