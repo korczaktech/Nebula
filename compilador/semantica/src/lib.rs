@@ -70,6 +70,7 @@ struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, nomes_parametros:
 struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
     funcoes: HashMap<String, Funcao>,
+    funcoes_externas: HashSet<String>,
     aliases: HashMap<String, String>,
     estruturas: HashSet<String>,
     campos_estruturas: HashMap<String, HashMap<String, Tipo>>,
@@ -98,6 +99,7 @@ impl<'a> Analisador<'a> {
         Self {
             escopos: vec![HashMap::new()],
             funcoes: HashMap::new(),
+            funcoes_externas: HashSet::new(),
             aliases: HashMap::new(),
             estruturas: HashSet::new(),
             campos_estruturas: HashMap::new(),
@@ -131,6 +133,13 @@ impl<'a> Analisador<'a> {
         for item in &programa.itens {
             if let Some(intervalo) = self.intervalos_nos.iter().find(|(no, _)| no == item).map(|(_, intervalo)| *intervalo) {
                 self.intervalo_atual = Some(intervalo);
+            }
+            if let NoAst::Atributada { atributos, declaracao } = item {
+                if atributos.iter().any(|atributo| atributo.nome == "externa") {
+                    if let NoAst::Funcao { nome, .. } = Self::alvo_atributo(declaracao) {
+                        self.funcoes_externas.insert(nome.clone());
+                    }
+                }
             }
             let item = Self::alvo_atributo(item);
             if let NoAst::Incluir { caminho, apelido } = item {
@@ -1268,6 +1277,17 @@ impl<'a> Analisador<'a> {
                 }
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
+                if let Expressao::Nome(nome_externo) = alvo.as_ref() {
+                    if self.funcoes_externas.contains(nome_externo)
+                        && (self.contextos_inseguros.last().map(String::as_str) != Some("critico")
+                            || self.propriedade.validar_operacao_insegura().is_err())
+                    {
+                        self.erro(
+                            "N3106",
+                            format!("A chamada externa '{nome_externo}' exige um bloco contextual 'critico' explícito."),
+                        );
+                    }
+                }
                 if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome.starts_with("montagem::"))
                     && (self.contextos_inseguros.last().map(String::as_str) != Some("montagem")
                         || self.propriedade.validar_operacao_insegura().is_err())
@@ -4839,9 +4859,21 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
-    fn valida_funcao_externa_com_convencao() {
+    fn rejeita_chamada_externa_fora_de_contexto_inseguro() {
         let resultado = analisar_codigo(
             "@convencao(\"C\")\nexterna funcao escreverByte(valor: u8): vazio\nescreverByte(255)",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3106"),
+            "Chamada externa não verificada deve exigir contexto inseguro: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn valida_funcao_externa_com_convencao() {
+        let resultado = analisar_codigo(
+            "@convencao(\"C\")\nexterna funcao escreverByte(valor: u8): vazio\ncritico\n    escreverByte(255)",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
     }
