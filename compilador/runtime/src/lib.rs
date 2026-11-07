@@ -532,7 +532,9 @@ impl Memoria {
         while self.escopos.len() > 1 {
             let _ = self.fechar_escopo();
         }
-        if let (Some(global), Some(ordem)) = (self.escopos.first_mut(), self.ordem_variaveis.first_mut()) {
+        if let (Some(global), Some(ordem)) =
+            (self.escopos.first_mut(), self.ordem_variaveis.first_mut())
+        {
             for nome in ordem.drain(..).rev() {
                 if let Some(celula) = global.remove(&nome) {
                     drop(celula);
