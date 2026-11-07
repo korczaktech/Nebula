@@ -4,7 +4,7 @@
 
 
 **Estado:** normativa e alinhada ao Lexer, Parser e AST atualmente implementados em `compilador/sintaxe`.
-**Regra central:** todo bloco executável ou estrutural usa Function Body: `: { ... fim } fim`. Blocos de cláusulas encadeadas usam `: { ... fim }` e são encerrados pelo `fim` da construção externa. A sintaxe antiga baseada somente em indentação é rejeitada. Chaves de valores de dados, como dicionários em declarações comuns, não são Function Body.
+**Regra central:** todo bloco executável ou estrutural usa Function Body: `: { ... }`. Blocos aninhados fecham suas próprias chaves. A palavra `fim` não é reservada nem participa da gramática de blocos. A sintaxe antiga baseada somente em indentação é rejeitada. Chaves de valores de dados, como dicionários em declarações comuns, continuam sendo expressões de dados.
 
 Esta gramática descreve a sintaxe reconhecida. Resolução de nomes, compatibilidade de tipos, mutabilidade, ABI, validade de operações e regras dependentes do contexto pertencem às fases semânticas.
 
@@ -17,68 +17,33 @@ Esta gramática descreve a sintaxe reconhecida. Resolução de nomes, compatibil
 - `EOF` é o fim do arquivo.
 - `NOVA_LINHA` é uma quebra lógica de linha preservada.
 - `ABRE_CHAVE` e `FECHA_CHAVE` delimitam o Function Body.
-- `FIM_BLOCO` é a palavra-chave `fim`.
 - `separador` é `NOVA_LINHA` ou `;`.
 
-A indentação organiza visualmente o código e é validada como estilo. Os limites sintáticos dos blocos são definidos por `: {`, `fim` e `}`; `INDENT` e `DEDENT` não substituem esses delimitadores.
+A indentação organiza visualmente o código e é validada como estilo. Os limites sintáticos dos blocos são definidos por `: {` e `}`; `INDENT` e `DEDENT` não substituem esses delimitadores.
 
 ## 2. Regra normativa do Function Body
 
 ### 2.1 Princípios obrigatórios
 
 1. Todo corpo executável ou estrutural DEVE começar com dois-pontos seguido de abertura de chave: `: {`.
-2. O conteúdo de cada Function Body DEVE terminar com `fim` imediatamente antes do `}` correspondente.
-3. Depois de fechar a chave, declarações e blocos completos DEVEM receber um segundo `fim` para encerrar a construção externa.
-4. Blocos aninhados DEVEM encerrar seu próprio conteúdo com `fim` antes de fechar sua chave. O encerramento de um bloco interno não encerra o bloco externo.
-5. Cláusulas encadeadas, como `sendo`, `senao`, `caso`, `erro` e `sempre`, usam um Function Body cada; a construção externa consome seu `fim` depois da última cláusula.
-6. A indentação DEVE ser consistente e usar espaços. Ela organiza e valida a apresentação, mas não substitui `fim` nem as chaves.
-7. A forma antiga baseada somente em linhas indentadas, sem `: {`, é inválida e DEVE ser rejeitada.
-8. Chaves usadas em valores de dados, como objetos e dicionários em declarações comuns, não se tornam Function Body automaticamente e não exigem `fim` apenas por serem delimitadores de dados.
-9. Uma declaração comum de variável não exige Function Body, salvo quando a construção declarada introduzir explicitamente um corpo estrutural.
-10. O Parser DEVE rejeitar ausência de abertura, ausência de `fim`, fechamento fora de ordem e delimitadores incompatíveis.
+2. O corpo DEVE terminar na chave `}` correspondente.
+3. Blocos aninhados DEVEM fechar suas próprias chaves, respeitando a ordem de abertura.
+4. Cláusulas encadeadas, como `sendo`, `senao`, `caso`, `erro` e `sempre`, usam um Function Body cada.
+5. A indentação DEVE ser consistente e refletir o aninhamento das chaves.
+6. Chaves usadas em valores de dados, como objetos e dicionários em declarações comuns, não se tornam Function Body automaticamente.
+7. O Parser DEVE rejeitar abertura ausente, chave de fechamento ausente, fechamento fora de ordem e delimitadores incompatíveis.
+8. A palavra `fim` é um identificador comum e nunca fecha um bloco.
 
-### 2.2 Estrutura dos delimitadores
+### 2.2 Produções fundamentais
 
-- O Lexer preserva `:`, `{`, `fim` e `}` como tokens distintos.
-- Dentro de chaves, quebras de linha continuam disponíveis como separadores de instruções.
-- A indentação dentro de chaves não cria nem fecha blocos sintáticos.
-- Dentro de parênteses `()` e colchetes `[]`, quebras físicas são continuação de linha e não separam instruções.
-- Chaves de dados e chaves de Function Body são distinguidas pelo contexto do Parser.
-- Tabulações em posições de indentação geram diagnóstico; código normativo usa espaços.
+```ebnf
+corpo       = ":", "{", { separador }, { instrucao | declaracao }, { separador }, "}" ;
+bloco       = corpo ;
+bloco_funcao = corpo ;
+bloco_clausula = corpo ;
+separador   = NOVA_LINHA | ";" ;
+```
 
-### 2.3 Forma canônica de um bloco
-
-~~~ebnf
-bloco                   = ":", "{", { separador }, lista_itens,
-                          { separador }, "fim", "}", { separador }, "fim" ;
-bloco_sem_fim           = ":", "{", { separador }, lista_itens,
-                          { separador }, "fim", "}" ;
-lista_itens             = [ item, { separador, item }, { separador } ] ;
-separador               = NOVA_LINHA | ";" ;
-~~~
-
-`bloco` representa uma construção completa: o primeiro `fim` fecha o conteúdo antes de `}`; o segundo `fim`, depois de `}`, encerra a declaração ou instrução externa. `bloco_sem_fim` representa o corpo de uma cláusula encadeada; a construção externa consome um único `fim` depois de todas as cláusulas.
-
-Exemplo normativo:
-
-~~~nebula
-funcao principal() -> vazio: {
-    variavel pronto = verdadeiro
-    se pronto: {
-        exibir("Iniciado")
-        fim
-    }
-    senao: {
-        exibir("Aguardando")
-        fim
-    }
-    fim
-    fim
-}
-fim
-~~~
-
-O primeiro `fim` fecha o corpo de `se`; o segundo fecha o corpo de `senao`; o terceiro encerra a construção condicional; o quarto encerra o Function Body da função; o quinto encerra a declaração da função.
 
 ## 3. Arquivo e itens
 
@@ -121,7 +86,7 @@ declaracao_tipo         = "tipo", IDENTIFICADOR, "=", tipo ;
 
 declaracao_estrutura    = "estrutura", IDENTIFICADOR, ":",
                           "{", { separador }, lista_campos_estrutura,
-                          { separador }, "fim", "}", "fim" ;
+                          { separador }, "}" ;
 lista_campos_estrutura  = [ campo_estrutura,
                           { separador_membro, campo_estrutura },
                           [ separador_membro ] ] ;
@@ -130,7 +95,7 @@ campo_estrutura         = IDENTIFICADOR, ":", tipo ;
 declaracao_enumeracao   = "enumeracao", IDENTIFICADOR, ":",
                           "{", { separador }, variante,
                           { separador_variante, variante },
-                          [ separador_variante ], "fim", "}", "fim" ;
+                          [ separador_variante ], "}" ;
 variante                = IDENTIFICADOR, [ "(", [ lista_tipos ], ")" ] ;
 lista_tipos             = tipo, { ",", tipo } ;
 
@@ -204,12 +169,11 @@ instrucao_escopo        = ("global" | "externa"), IDENTIFICADOR ;
 instrucao_quando        = ("quando" | "se"), expressao_antes_bloco,
                           bloco_sem_fim,
                           { "sendo", expressao_antes_bloco, bloco_sem_fim },
-                          [ "senao", (instrucao_quando | bloco_sem_fim) ],
-                          "fim" ;
+                          [ "senao", (instrucao_quando | bloco_sem_fim) ] ;
 
 instrucao_escolha       = ("escolha" | "avaliar"), expressao_antes_bloco,
                           ":", "{", { separador }, lista_casos_escolha,
-                          { separador }, "fim", "}", "fim" ;
+                          { separador }, "}" ;
 lista_casos_escolha     = caso_escolha, { separador, caso_escolha },
                           { separador } ;
 caso_escolha            = ("caso", padrao_escolha | "padrao"),
@@ -234,7 +198,7 @@ instrucao_pulso         = "pulso", "(", expressao, ")", bloco ;
 
 instrucao_tente         = "tente", bloco_sem_fim,
                           { "erro", [ IDENTIFICADOR ], bloco_sem_fim },
-                          [ "sempre", bloco_sem_fim ], "fim" ;
+                          [ "sempre", bloco_sem_fim ] ;
 instrucao_com           = "com", expressao_antes_bloco,
                           [ "como", IDENTIFICADOR ], bloco ;
 
@@ -314,7 +278,7 @@ literal                 = INTEIRO | DECIMAL | TEXTO | TEXTO_INTERPOLADO
 
 A AST de expressões inclui atribuições simples e compostas, operações binárias e unárias, chamadas posicionais e nomeadas, chamadas genéricas, acesso a membros, acesso opcional, indexação, listas, tuplas, construções de estruturas, lambdas, lambdas com Function Body, expressões condicionais e propagação opcional.
 
-O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... fim } fim`. A palavra `lambda` introduz a forma `lambda x: expressão`.
+O operador `->` também introduz lambda: `x -> x * 2`, `(a, b) -> a + b` ou uma lambda de bloco com Function Body `: { ... fim }`. A palavra `lambda` introduz a forma `lambda x: expressão`.
 
 Construções de estrutura usam chaves e campos `nome: expressão`; não são blocos de instrução. Campos podem conter expressões aninhadas. Campos duplicados são erro. Em cabeçalhos que aguardam bloco, uma construção vazia com chaves deve ser agrupada para não ser confundida com o início de bloco.
 
@@ -360,12 +324,12 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 13. Quebras após vírgulas continuam listas quando a construção permite a continuação.
 14. Uma quebra imediatamente antes de `senao`, `sendo`, `erro` ou `sempre` mantém a cláusula associada à construção aberta. Ponto e vírgula não substitui essa regra.
 15. A indentação organiza visualmente o conteúdo de Function Body e não cria limites sintáticos.
-16. O `fim` interno deve aparecer antes do `}` correspondente; o `fim` externo encerra a construção completa quando exigido.
+16. O cada corpo é encerrado exclusivamente pela chave `}` correspondente.
 
 ## 9. Delimitadores
 
 - Parênteses, colchetes e chaves devem ser pareados e respeitar a ordem de aninhamento.
-- `fim` encerra o conteúdo de um Function Body antes de `}`; em construções completas, outro `fim` encerra a construção após `}`.
+- `}` encerra o conteúdo de um Function Body.
 - Chaves de dados não recebem `fim` por si só.
 - Fechamento cruzado, extra ou fora do contexto é erro sintático.
 - O Parser diagnostica fechamento incompatível e tenta preservar os itens posteriores.
@@ -410,23 +374,23 @@ funcao principal() -> vazio: {
         quando contador < 3: {
             exibir(contador)
             contador += 1
-            fim
+
         }
         sendo contador == 3: {
             exibir("Último ciclo")
             ativo = falso
-            fim
+
         }
         senao: {
             passar
-            fim
+
         }
-        fim
-        fim
+
+
     }
-    fim
+
 }
-fim
+
 ~~~
 
 ### Estrutura e enumeração
@@ -436,15 +400,15 @@ estrutura Cabecalho: {
     codigo: u32
     tamanho: u16
     flags: u16
-    fim
-} fim
+
+}
 
 enumeracao Estado: {
     Inicializando
     Pronto
     Falha(inteiro)
-    fim
-} fim
+
+}
 ~~~
 
 ### Escolha com padrões
@@ -454,25 +418,25 @@ funcao tratar(estado: Estado) -> vazio: {
     escolha estado: {
         caso Estado::Inicializando: {
             exibir("Iniciando")
-            fim
+
         }
         caso Estado::Pronto: {
             exibir("Pronto")
-            fim
+
         }
         caso Estado::Falha(codigo): {
             exibir(codigo)
-            fim
+
         }
         padrao: {
             passar
-            fim
+
         }
-        fim
+
     }
-    fim
+
 }
-fim
+
 ~~~
 
 ### Tratamento de erro e contexto de recurso
@@ -481,24 +445,24 @@ fim
 funcao carregar() -> vazio: {
     tente: {
         variavel dados = lerArquivo("dados.bin")
-        fim
+
     }
     erro ArquivoInvalido: {
         exibir("Arquivo inválido")
-        fim
+
     }
     sempre: {
         exibir("Operação encerrada")
-        fim
+
     }
-    fim
+
 
     com abrir("dados.bin", "leitura") como arquivo: {
         exibir(arquivo)
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 ~~~
 
 ### Lambda e tipos compostos
@@ -509,20 +473,20 @@ variavel somar = (a, b) -> a + b
 variavel aplicar = valor ->: {
     quando valor > 0: {
         devolver valor
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-} fim
+
+
+}
 
 funcao inverter(par: Tupla<inteiro64, inteiro64>) -> Tupla<inteiro64, inteiro64>: {
     devolver (par[1], par[0])
-    fim
-} fim
+
+}
 ~~~
 
 ### Construção de estrutura (chaves de dados)
@@ -532,7 +496,7 @@ variavel cabecalho = Cabecalho{
     codigo: 10,
     tamanho: 20,
     flags: 0,
-    fim
+
 }
 ~~~
 
@@ -544,8 +508,8 @@ variavel cabecalho = Cabecalho{
 estrutura Registro: {
     codigo: u32
     tamanho: u16
-    fim
-} fim
+
+}
 
 @convencao(C)
 externa funcao escreverByte(valor: u8) -> vazio
@@ -554,10 +518,10 @@ funcao lerTeclado() -> vazio: {
     variavel tecla = porta.ler8(0x60)
     critico: {
         passar
-        fim
-    } fim
-    fim
-} fim
+
+    }
+
+}
 ~~~
 
 ### Expressão multilinha com continuação
@@ -575,11 +539,11 @@ A indentação adicional nesse exemplo é continuação da expressão, não um b
 
 Uma implementação conforme deve:
 
-1. Preservar os tokens `:`, `{`, `fim` e `}` com suas localizações.
+1. Preservar os tokens `:`, `{` e `}` com suas localizações.
 2. Exigir `: {` para todo Function Body.
-3. Exigir `fim` antes de `}` e o encerramento externo quando aplicável.
+3. Exigir uma chave `}` correspondente para cada abertura `{`.
 4. Rejeitar a sintaxe antiga baseada somente em indentação.
 5. Distinguir Function Body de chaves usadas em valores de dados.
 6. Preservar as regras de separação e continuação da seção 8.
-7. Produzir AST e diagnósticos com limites de bloco determinados pelos delimitadores e por `fim`, não apenas pela indentação.
+7. Produzir AST e diagnósticos com limites de bloco determinados pelos delimitadores, não apenas pela indentação/.
 8. Manter esta gramática, `tokens.md`, exemplos e testes de conformidade sincronizados.
