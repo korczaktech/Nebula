@@ -4,7 +4,7 @@ use nebula_fonte::ArquivoFonte;
 use nebula_sintaxe::analisar;
 
 fn normalizar_blocos_legados(codigo: &str) -> String {
-    let codigo = codigo.replace(", fim }", " }");
+    let codigo = codigo.replace(" }", " }");
     let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
     let possui_cabecalho_legado = codigo.lines().any(|linha| {
         let conteudo = linha.trim();
@@ -340,13 +340,13 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "funcao publica generica",
-            "publico funcao identidade<T>(valor: T): T\n    devolver valor\nfim",
+            "publico funcao identidade<T>(valor: T): T\n    devolver valor",
         ),
         (
             "funcao privada e parametros",
-            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U\n    devolver b\nfim",
+            "privado funcao combinar<T, U>(a: [T], b: U): funcao(T): U\n    devolver b",
         ),
-        ("funcao sem retorno", "funcao executar()\n    passar\nfim"),
+        ("funcao sem retorno", "funcao executar()\n    passar"),
         (
             "tipos simples e qualificados",
             "tipo A = inteiro\ntipo B <- Modulo::Interno::Tipo",
@@ -357,15 +357,15 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "estrutura vazia",
-            "estrutura Vazia:\n    marcador: inteiro\nfim",
+            "estrutura Vazia:\n    marcador: inteiro",
         ),
         (
             "estrutura com campos e separadores",
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\n    ativo: logico\nfim",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\n    ativo: logico",
         ),
         (
             "enumeracao com variantes",
-            "enumeracao Estado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)\nfim",
+            "enumeracao Estado:\n    Vazio\n    Unidade()\n    Valor(inteiro, texto)",
         ),
         (
             "inclusao com alias",
@@ -377,36 +377,36 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "quando e senao",
-            "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)\nfim",
+            "quando verdadeiro\n    exibir(1)\nsenao\n    exibir(0)",
         ),
         (
             "quando encadeado",
-            "quando a\n    passar\nsenao\n    passar\nfim",
+            "quando a\n    passar\nsenao\n    passar",
         ),
         (
             "escolha e padroes",
-            "escolha valor\n    caso Resultado::Sucesso(texto)\n        exibir(texto)\n    caso Resultado::Falha(codigo)\n        passar\n    caso _\n        passar\nfim",
+            "escolha valor\n    caso Resultado::Sucesso(texto)\n        exibir(texto)\n    caso Resultado::Falha(codigo)\n        passar\n    caso _\n        passar",
         ),
         (
             "alias avaliar",
-            "avaliar valor\n    caso Estado::Pronto\n        passar\nfim",
+            "avaliar valor\n    caso Estado::Pronto\n        passar",
         ),
         (
             "lacos enquanto",
-            "enquanto verdadeiro\n    parar\nfim\ndurante falso\n    seguir\nfim\nrepetir verdadeiro\n    encerrar\nfim",
+            "enquanto verdadeiro\n    parar\ndurante falso\n    seguir\nrepetir verdadeiro\n    encerrar",
         ),
         (
             "iteracao cada",
-            "cada item em [1, 2, 3]\n    exibir(item)\nfim",
+            "cada item em [1, 2, 3]\n    exibir(item)",
         ),
-        ("pulso", "pulso(100)\n    exibir(1)\nfim"),
+        ("pulso", "pulso(100)\n    exibir(1)"),
         (
             "para com declaracao",
-            "para (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)\nfim",
+            "para (variavel i = 0; i < 3; i = i + 1)\n    exibir(i)",
         ),
         (
             "para com expressoes opcionais",
-            "para (inicio = 0; ; passo = passo + 1)\n    passar\nfim\npara (; condicao; )\n    passar\nfim\npara (;; )\n    passar\nfim",
+            "para (inicio = 0; ; passo = passo + 1)\n    passar\npara (; condicao; )\n    passar\npara (;; )\n    passar",
         ),
         ("alterar", "alterar total <- 10\nalterar total = total + 1"),
         (
@@ -433,11 +433,11 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ("listas", "variavel vazia = []\nvariavel valores = [a, b]"),
         (
             "construcao de estrutura",
-            "variavel pessoa = Pessoa { nome: \"Ana\", idade: 20, fim }",
+            "variavel pessoa = Pessoa { nome: \"Ana\", idade: 20 }",
         ),
         (
             "construcao aninhada",
-            "Pessoa { endereco: Endereco { cidade: \"São Paulo\", fim }, dados: ([1, 2], (3,)), fim }",
+            "Pessoa { endereco: Endereco { cidade: \"São Paulo\" }, dados: ([1, 2], (3,)) }",
         ),
         (
             "literais",
@@ -453,15 +453,15 @@ fn corpus_positivo_cobre_as_producoes_normativas() {
         ),
         (
             "bloco com fim",
-            "funcao executar()\n    variavel ativo = verdadeiro\n    enquanto ativo\n        ativo = falso\n    fim\nfim",
+            "funcao executar()\n    variavel ativo = verdadeiro\n    enquanto ativo\n        ativo = falso",
         ),
         (
             "bloco com instrucao vazia",
-            "funcao sem_corpo()\n    passar\nfim",
+            "funcao sem_corpo()\n    passar",
         ),
         (
             "aliases sem acentos",
-            "funcao principal()\n    quando nao falso\n        passar\n    senao\n        passar\n    fim\nfim\nenumeracao Estado:\n    Pronto\nfim\npublico funcao iniciar()\n    passar\nfim",
+            "funcao principal()\n    quando nao falso\n        passar\n    senao\n        passar\nenumeracao Estado:\n    Pronto\npublico funcao iniciar()\n    passar",
         ),
         (
             "fixture de sintaxe visual",
@@ -520,12 +520,12 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "campo duplicado",
             "N2031",
-            "estrutura Pessoa: {\n    nome: texto\n    nome: inteiro\n    fim\n}\nfim",
+            "estrutura Pessoa: {\n    nome: texto\n    nome: inteiro\n}",
         ),
         (
             "separador de campo ausente",
             "N2032",
-            "estrutura Pessoa: {\n    nome: texto idade: inteiro\n    fim\n}\nfim",
+            "estrutura Pessoa: {\n    nome: texto idade: inteiro\n}",
         ),
         (
             "abertura de enumeracao ausente",
@@ -535,27 +535,27 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "variante duplicada",
             "N2034",
-            "enumeracao Estado: {\n    Ativo\n    Ativo\n    fim\n}\nfim",
+            "enumeracao Estado: {\n    Ativo\n    Ativo\n}",
         ),
         (
             "payload malformado",
             "N2035",
-            "enumeracao Estado: {\n Ativo(inteiro,)\nfim}",
+            "enumeracao Estado: {\n Ativo(inteiro,)}",
         ),
         (
             "enumeracao vazia",
             "N2036",
-            "enumeracao Estado: {\n    fim\n}\nfim",
+            "enumeracao Estado: {\n}",
         ),
         (
             "campo de construcao duplicado",
             "N2037",
-            "variavel p = Pessoa { nome: 1, nome: 2, fim }",
+            "variavel p = Pessoa { nome: 1, nome: 2 }",
         ),
         (
             "separador de construcao ausente",
             "N2038",
-            "variavel p = Pessoa { nome: 1 idade: 2, fim }",
+            "variavel p = Pessoa { nome: 1 idade: 2 }",
         ),
         (
             "abertura de escolha ausente",
@@ -565,43 +565,43 @@ fn corpus_negativo_cobre_regras_e_restricoes_normativas() {
         (
             "caso ausente",
             "N2041",
-            "escolha valor: {\n    outro\n    fim\n}\nfim",
+            "escolha valor: {\n    outro\n}",
         ),
         (
             "padrao invalido",
             "N2042",
-            "escolha valor: {\n    caso Variante: {\n        passar\n        fim\n    }\n    fim\n}\nfim",
+            "escolha valor: {\n    caso Variante: {\n        passar\n    }\n}",
         ),
         (
             "curinga duplicado",
             "N2043",
-            "escolha valor: {\n    caso _: {\n        passar\n        fim\n    }\n    caso _: {\n        passar\n        fim\n    }\n    fim\n}\nfim",
+            "escolha valor: {\n    caso _: {\n        passar\n    }\n    caso _: {\n        passar\n    }\n}",
         ),
         (
             "escolha vazia",
             "N2044",
-            "escolha valor: {\n    variavel x = 1\n    fim\n}\nfim",
+            "escolha valor: {\n    variavel x = 1\n}",
         ),
         (
             "vinculo de payload ausente",
             "N2045",
-            "escolha valor: {\n    caso Estado::Erro(1): {\n        passar\n        fim\n    }\n    fim\n}\nfim",
+            "escolha valor: {\n    caso Estado::Erro(1): {\n        passar\n    }\n}",
         ),
         (
             "vinculo duplicado",
             "N2046",
-            "escolha valor: {\n    caso Estado::Erro(item, item): {\n        passar\n        fim\n    }\n    fim\n}\nfim",
+            "escolha valor: {\n    caso Estado::Erro(item, item): {\n        passar\n    }\n}",
         ),
         ("alterar sem atribuicao", "N2047", "alterar total"),
         (
             "padrao de variante duplicado",
             "N2048",
-            "escolha valor: {\n    caso Estado::Erro: {\n        passar\n        fim\n    }\n    caso Estado::Erro: {\n        passar\n        fim\n    }\n    fim\n}\nfim",
+            "escolha valor: {\n    caso Estado::Erro: {\n        passar\n    }\n    caso Estado::Erro: {\n        passar\n    }\n}",
         ),
         (
             "parametro duplicado",
             "N2050",
-            "funcao f(item: inteiro, item: texto)\n    passar\nfim",
+            "funcao f(item: inteiro, item: texto)\n    passar",
         ),
         ("fechamento sem abertura", "N2051", "variavel valor = 1)"),
     ];
@@ -840,7 +840,7 @@ variavel atribuicao = destino = 10
 variavel chamada = executar(1)
 variavel indexacao = itens[0]
 variavel membro = objeto.campo
-variavel construcao = Pessoa { nome: "Ana", fim }
+variavel construcao = Pessoa { nome: "Ana" }
 variavel funcao_lambda = x -> x + 1
 variavel lambda_bloco = x ->:
     devolver x
@@ -1040,44 +1040,44 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
     let invalidos = [
         (
             "parâmetro duplicado",
-            "funcao f(x: inteiro, x: texto)\n    passar\nfim",
+            "funcao f(x: inteiro, x: texto)\n    passar",
         ),
         (
             "genérico sem fechamento",
-            "funcao f<T(valor: T)\n    passar\nfim",
+            "funcao f<T(valor: T)\n    passar",
         ),
         ("tipo genérico vazio", "variavel x: Mapa<> = nulo"),
         ("lista sem fechamento", "variavel x = [1, 2"),
         ("tupla sem fechamento", "variavel x = (1, 2"),
         ("chamada sem fechamento", "variavel x = executar(1, 2"),
         ("acesso sem nome", "variavel x = objeto."),
-        ("atributo sem nome", "@ funcao f()\n    passar\nfim"),
+        ("atributo sem nome", "@ funcao f()\n    passar"),
         ("lambda com parâmetro inválido", "variavel f = (1, 2) -> 3"),
         ("bloco contextual sem corpo", "critico"),
         ("classe sem bloco", "classe Pessoa"),
         (
             "estrutura sem tipo de campo",
-            "estrutura Pessoa:\n    nome:\nfim",
+            "estrutura Pessoa:\n    nome:",
         ),
         (
             "enumeração com payload incompleto",
-            "enumeracao Estado:\n    Falha(inteiro,)\nfim",
+            "enumeracao Estado:\n    Falha(inteiro,)",
         ),
         (
             "escolha sem padrão",
-            "escolha valor\n    caso\n        passar\nfim",
+            "escolha valor\n    caso\n        passar",
         ),
         (
             "caso com tokens extras",
-            "escolha valor\n    caso Estado::Pronto extra\n        passar\nfim",
+            "escolha valor\n    caso Estado::Pronto extra\n        passar",
         ),
-        ("tente sem cláusula", "tente\n    passar\nfim"),
-        ("com sem recurso", "com\n    passar\nfim"),
+        ("tente sem cláusula", "tente\n    passar"),
+        ("com sem recurso", "com\n    passar"),
         (
             "para com cabeçalho inválido",
-            "para (variavel i = ; ; )\n    passar\nfim",
+            "para (variavel i = ; ; )\n    passar",
         ),
-        ("condicional sem corpo", "quando verdadeiro\nfim"),
+        ("condicional sem corpo", "quando verdadeiro"),
         ("fechamento isolado", "variavel x = 1]"),
     ];
     for (nome, codigo) in invalidos {
@@ -1114,9 +1114,9 @@ fn matriz_de_erros_limites_e_recuperacao_do_parser() {
 
     let recuperaveis = [
         "variavel quebrada =\nvariavel preservada = 1",
-        "funcao quebrada(x inteiro)\n    passar\nfim\nvariavel preservada = 2",
-        "estrutura Quebrada:\n    campo sem_tipo\nfim\nvariavel preservada = 3",
-        "enumeracao Quebrada:\n    Falha(inteiro,)\nfim\nvariavel preservada = 4",
+        "funcao quebrada(x inteiro)\n    passar\nvariavel preservada = 2",
+        "estrutura Quebrada:\n    campo sem_tipo\nvariavel preservada = 3",
+        "enumeracao Quebrada:\n    Falha(inteiro,)\nvariavel preservada = 4",
     ];
     for codigo in recuperaveis {
         let resultado = analisar_codigo(codigo);
@@ -1184,16 +1184,16 @@ fim
 #[test]
 fn rejeita_sintaxe_antiga_de_blocos() {
     let casos = [
-        "funcao executar()\n    passar\nfim",
-        "funcao executar(): inteiro: {\n    devolver 1\n    fim\n}\nfim",
+        "funcao executar()\n    passar",
+        "funcao executar(): inteiro: {\n    devolver 1\n}",
         "variavel operacao: funcao(inteiro): inteiro = identidade",
-        "se sim\n    passar\nfim",
-        "enquanto sim\n    passar\nfim",
-        "classe Pessoa\n    passar\nfim",
-        "estrutura Pessoa:\n    nome: texto\nfim",
-        "enumeracao Estado:\n    Ativo\nfim",
-        "escolha valor\n    caso _\n        passar\nfim",
-        "seguro:\n    passar\nfim",
+        "se sim\n    passar",
+        "enquanto sim\n    passar",
+        "classe Pessoa\n    passar",
+        "estrutura Pessoa:\n    nome: texto",
+        "enumeracao Estado:\n    Ativo",
+        "escolha valor\n    caso _\n        passar",
+        "seguro:\n    passar",
     ];
     for codigo in casos {
         let resultado = analisar_codigo_bruto(codigo);
