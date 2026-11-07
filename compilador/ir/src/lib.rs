@@ -3661,7 +3661,7 @@ mod testes {
     #[test]
     fn monomorfiza_funcao_generica_para_tipos_inferidos() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n}\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__texto"));
@@ -3683,7 +3683,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_chamada_generica_aninhada() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel numero = identidade(identidade(42))",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n}\n\nvariavel numero = identidade(identidade(42))",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamadas genéricas aninhadas válidas");
@@ -3707,7 +3707,7 @@ mod testes {
     #[test]
     fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
         let ir = compilar(
-            "funcao extrair<T,U>(ponto: Tupla<T,U>) -> T: {\n    devolver ponto[0]\n} fim\nfuncao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
+            "funcao extrair<T,U>(ponto: Tupla<T,U>) -> T: {\n    devolver ponto[0]\n}\nfuncao identidade<T>(valor: T) -> T: {\n    devolver valor\n}\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
         );
         assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3718,7 +3718,7 @@ mod testes {
     #[test]
     fn infere_chamada_generica_em_variavel_local() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\nfuncao repassar<T>(valor: T) -> T: {\n    variavel copia = identidade(valor)\n    devolver copia\n} fim\n\nvariavel numero = repassar(42)",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n}\nfuncao repassar<T>(valor: T) -> T: {\n    variavel copia = identidade(valor)\n    devolver copia\n}\n\nvariavel numero = repassar(42)",
         );
         assert!(ir.funcoes.contains_key("repassar__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
