@@ -1184,6 +1184,22 @@ impl<'a> Analisador<'a> {
                             Tipo::Desconhecido
                         }
                     }
+                    Expressao::Unaria { operador: TipoToken::Vezes, valor: referencia } => {
+                        match self.expressao(referencia) {
+                            Tipo::Referencia { interno, mutavel: true } => {
+                                self.exigir_expressao_tipo(valor, &tipo_valor, &interno, "atribuição por referência");
+                                *interno
+                            }
+                            Tipo::Referencia { mutavel: false, .. } => {
+                                self.erro("N3102", "Não é permitido escrever por uma referência compartilhada.");
+                                Tipo::Desconhecido
+                            }
+                            _ => {
+                                self.erro("N3103", "O destino desreferenciado não é uma referência válida.");
+                                Tipo::Desconhecido
+                            }
+                        }
+                    }
                     Expressao::Membro { .. } | Expressao::Indexacao { .. } => {
                         let tipo_destino = if let Some((raiz, caminho)) = Self::decompor_caminho_campo(destino) {
                             let tipo = self.resolver_tipo_caminho(&raiz, &caminho, false);
