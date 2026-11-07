@@ -62,6 +62,8 @@ A Fase 5 não pode apagar nem enfraquecer os contratos já aprovados nas Fases 1
 - [ ] Não exigir coletor de lixo global; qualquer gerenciamento automático deve ter semântica e custo documentados.
 - [ ] Testar casos positivos e negativos, stress de memória, sanitização quando disponível e regressões de segurança.
 
+**Contrato aprovado e implementação em andamento:** a sintaxe oficial de referências é `&T` e `&mutavel T`; empréstimos são `&valor` e `&mutavel valor`; desreferência é `*referencia`. A especificação normativa detalha propriedade, movimentação, vidas úteis, junções de fluxo, destruição LIFO e obrigações de operações inseguras. Os sete requisitos permanecem desmarcados até que Parser/AST, análise semântica, IR, interpretador/backend e testes estejam integrados e validados.
+
 ## 3. Runtime
 
 - [ ] Implementar runtime próprio em Rust, modular e opcional quando o programa não precisar dele.
