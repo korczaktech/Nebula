@@ -140,7 +140,7 @@ fn fim_nao_e_palavra_reservada() {
 #[test]
 fn emite_quebra_e_indent_apos_fechamento_de_tipo_generico() {
     let resultado = analisar(
-        "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>\n    devolver valor\nfim",
+        "funcao envolver<T>(valor: T): Resultado<Opcional<T>, texto>: {\n    devolver valor\n}",
     );
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -574,7 +574,7 @@ fn comentarios_de_linha_nao_iniciam_continuacao_por_engano() {
 
 #[test]
 fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
-    let r = analisar("inicio\n    /* comentario */\n    meio\nfim");
+    let r = analisar("a\n    /* comentario */\n    b\na");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert_eq!(
         r.tokens
@@ -594,7 +594,7 @@ fn comentarios_de_bloco_sozinhos_nao_alteram_indentacao() {
 
 #[test]
 fn comentarios_de_bloco_nao_criam_niveis_em_linhas_vazias() {
-    let r = analisar("inicio\n    /* comentario */\nfim");
+    let r = analisar("a\n    /* comentario */\na");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
     assert_eq!(
         r.tokens
@@ -613,8 +613,8 @@ fn comentarios_de_bloco_nao_criam_niveis_em_linhas_vazias() {
 }
 
 #[test]
-fn emite_fim_unico_e_dedents_no_final_do_arquivo() {
-    let r = analisar("inicio\n    meio");
+fn emite_token_eof_e_dedents_no_final_do_arquivo() {
+    let r = analisar("a\n    b");
     assert_eq!(
         r.tokens.iter().filter(|t| t.tipo == TipoToken::Fim).count(),
         1
