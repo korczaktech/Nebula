@@ -149,6 +149,7 @@ impl Emissor {
             retornos_funcoes: HashMap::new(),
             retorno_oculto_atual: None,
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
             referencias_globais: Vec::new(),
             dados_estaticos: Vec::new(),
