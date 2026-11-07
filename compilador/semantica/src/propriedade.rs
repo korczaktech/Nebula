@@ -188,7 +188,11 @@ impl AnalisadorPropriedade {
         }
         let _ = variavel;
         let estado = self.variaveis.get_mut(&lugar.raiz).expect("validado acima");
-        estado.movidos.retain(|movido| {\n            movido.raiz != lugar.raiz\n                || lugar.projecoes.len() > movido.projecoes.len()\n                || !lugar.projecoes.iter().zip(&movido.projecoes).all(|(a, b)| a == b)\n        });
+        estado.movidos.retain(|movido| {
+            movido.raiz != lugar.raiz
+                || lugar.projecoes.len() > movido.projecoes.len()
+                || !lugar.projecoes.iter().zip(&movido.projecoes).all(|(a, b)| a == b)
+        });
         Ok(())
     }
 
