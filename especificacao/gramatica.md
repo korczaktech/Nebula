@@ -123,8 +123,8 @@ Observações normativas:
 - `externa funcao ...` declara função externa sem corpo. `global nome` e `externa nome` declaram referências de escopo.
 - `exportar funcao ...` equivale a uma declaração de função pública.
 - Modificadores de função são aceitos antes de `funcao`; `async` marca a função como assíncrona.
-- `estrutura` exige `: {`, `fim` antes de `}` e outro `fim` após a chave. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
-- `enumeracao` exige `: {`, ao menos uma variante, `fim` antes de `}` e outro `fim` após a chave. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
+- `estrutura` exige `: {` e fecha com `}`. Campos exigem nome, dois-pontos e tipo. Campos repetidos geram diagnóstico.
+- `enumeracao` exige `: {`, ao menos uma variante e fecha com `}`. Uma variante pode não ter payload, usar payload vazio `()` ou conter uma lista de tipos. Variantes repetidas são erro.
 - Atributos podem ser repetidos antes de uma declaração e recebem argumentos posicionais.
 - `montagem` também pode aparecer como expressão de chamada nativa; a forma contextual acima representa o bloco contextual.
 - A forma de inclusão aceita caminhos qualificados e origem explícita, por exemplo `incluir raiz de matematica como mat`.
@@ -207,10 +207,10 @@ expressao_antes_bloco   = expressao ;
 
 Regras específicas:
 
-- `quando` aceita `se` como alias. As cláusulas `sendo` repetem condições alternativas. `senao` é opcional e pode conter outro condicional. Um único `fim` encerra a construção completa.
-- `escolha` exige `: {`. Cada caso ocupa seu próprio Function Body; o `fim` interno antecede `}`, e um `fim` externo encerra a escolha.
+- `quando` aceita `se` como alias. As cláusulas `sendo` repetem condições alternativas. `senao` é opcional e pode conter outro condicional. A chave `}` encerra a construção completa.
+- `escolha` exige `: {`. Cada caso ocupa seu próprio Function Body, fechado por `}`; a escolha também fecha por `}`.
 - Padrões aceitos: `Enum::Variante`, `Enum::Variante(vinculo, ...)`, `_`, `padrao` e literais. Padrões de enumeração e curinga duplicados são rejeitados. O curinga deve ser o último caso; casos posteriores são inalcançáveis e geram diagnóstico semântico.
-- `tente` possui um corpo, zero ou mais cláusulas `erro` e uma cláusula `sempre` opcional. Deve existir pelo menos uma cláusula `erro` ou `sempre`. Um único `fim` encerra a construção.
+- `tente` possui um corpo, zero ou mais cláusulas `erro` e uma cláusula `sempre` opcional. Deve existir pelo menos uma cláusula `erro` ou `sempre`. A chave `}` encerra a construção.
 - `para nome dentro iteravel` é a forma iterativa. A forma tradicional usa três partes separadas por ponto e vírgula dentro de parênteses.
 - `alterar` deve conter uma atribuição simples ou composta.
 - A validade contextual de `devolver`, `parar`, `seguir` e `ceder` é semântica.
@@ -311,7 +311,7 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 
 1. Entre itens independentes no arquivo e dentro de blocos, DEVE existir ao menos um separador: quebra lógica de linha ou `;`.
 2. Quebras repetidas, linhas vazias e pontos e vírgulas repetidos são aceitos entre itens.
-3. Separador final é permitido antes de `fim`, `}` e `EOF`.
+3. Separador final é permitido antes de `}` e `EOF`.
 4. Dentro de `()` e `[]`, quebras físicas são ignoradas como separadores e funcionam como espaço.
 5. Dentro de `()` e `[]`, `;` continua token explícito e NÃO substitui vírgula de parâmetros, argumentos, listas, tuplas ou tipos.
 6. Dentro de chaves usadas em construções de estrutura, quebras e `;` separam campos.
@@ -340,7 +340,7 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 O Parser rejeita, entre outros casos:
 
 - Bloco de instrução sem abertura `: {`.
-- Bloco sem `fim` antes de `}` ou sem o `fim` externo exigido pela construção.
+- Bloco sem a chave `}` correspondente.
 - Indentação inicial no escopo do arquivo ou nível de indentação sem bloco correspondente.
 - Campo de estrutura sem dois-pontos ou tipo.
 - Estrutura ou enumeração sem Function Body e os dois encerramentos exigidos.
@@ -533,7 +533,7 @@ variavel resultado = valorInicial
     + terceiraEtapa
 ~~~
 
-A indentação adicional nesse exemplo é continuação da expressão, não um bloco de instrução. A expressão continua até ser concluída; não recebe `fim`.
+A indentação adicional nesse exemplo é continuação da expressão, não um bloco de instrução. A expressão continua até ser concluída; não recebe terminador textual.
 
 ## 13. Conformidade
 
