@@ -4572,13 +4572,14 @@ mod testes {
 
     #[test]
     fn executa_leitura_e_escrita_por_referencia_exclusiva() {
-        eprintln!("REFERENCIA_TEST: antes de compilar");
+        use std::io::Write as _;
+        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: antes de compilar\\n");
         let programa = compilar(
             "variavel valor: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel valor\n*referencia = 9\nvariavel obtido = *referencia",
         );
-        eprintln!("REFERENCIA_TEST: compilacao concluida");
+        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: compilacao concluida\\n");
         let resultado = executar(&programa, 100).expect("referência exclusiva deve executar");
-        eprintln!("REFERENCIA_TEST: execucao concluida");
+        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: execucao concluida\\n");
         assert_eq!(resultado.globais.get("valor"), Some(&ValorIr::Inteiro(9)));
         assert_eq!(resultado.globais.get("obtido"), Some(&ValorIr::Inteiro(9)));
     }
