@@ -962,6 +962,15 @@ impl Parser {
         tipo
     }
     fn caminho_tipo_interno(&mut self) -> Option<String> {
+        if self.corresponde(TipoToken::EBit) {
+            let exclusiva = self.corresponde(TipoToken::Mutavel);
+            let interno = self.caminho_tipo_interno()?;
+            return Some(if exclusiva {
+                format!("&mutavel<{interno}>")
+            } else {
+                format!("&<{interno}>")
+            });
+        }
         if self.corresponde(TipoToken::Vazio) {
             return Some("vazio".into());
         }
@@ -1088,8 +1097,13 @@ impl Parser {
                 };
                 Expressao::Atribuicao { destino: Box::new(destino), valor: Box::new(calculo) }
             }
-            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave  | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
-                let op = self.avancar().tipo; self.pular_novas_linhas(); let valor = self.expressao(14)?;
+            TipoToken::Negacao | TipoToken::NaoBit | TipoToken::EBit | TipoToken::Vezes | TipoToken::Reticencias | TipoToken::Menos | TipoToken::Mais | TipoToken::Aguarda | TipoToken::Novo | TipoToken::Apagar | TipoToken::Nao if self.tipo() != TipoToken::Nao || self.tokens.get(self.atual + 1).is_some_and(|token| !matches!(token.tipo, TipoToken::NovaLinha | TipoToken::PontoVirgula | TipoToken::FechaPar | TipoToken::FechaColchete | TipoToken::FechaChave  | TipoToken::Dedent | TipoToken::Fim | TipoToken::Variavel | TipoToken::Constante | TipoToken::Retorne | TipoToken::Devolver | TipoToken::Pare | TipoToken::Parar | TipoToken::Prossiga | TipoToken::Seguir | TipoToken::Passar | TipoToken::Se | TipoToken::Quando | TipoToken::Sendo | TipoToken::Senao | TipoToken::Para | TipoToken::Enquanto | TipoToken::Escolha | TipoToken::Avaliar | TipoToken::Tente | TipoToken::Com | TipoToken::Lancar | TipoToken::Verifique | TipoToken::Incluir | TipoToken::Classe | TipoToken::Funcao | TipoToken::Async | TipoToken::Tipo | TipoToken::Estrutura | TipoToken::Enumeracao | TipoToken::Global | TipoToken::Externa | TipoToken::Estatico | TipoToken::Publico | TipoToken::Privado | TipoToken::Protegido | TipoToken::Arroba | TipoToken::Critico | TipoToken::Seguro | TipoToken::Privilegio | TipoToken::Montagem | TipoToken::Exportar)) => {
+                let mut op = self.avancar().tipo;
+                if op == TipoToken::EBit && self.corresponde(TipoToken::Mutavel) {
+                    op = TipoToken::Mutavel;
+                }
+                self.pular_novas_linhas();
+                let valor = self.expressao(14)?;
                 Expressao::Unaria { operador: op, valor: Box::new(valor) }
             }
             TipoToken::Lambda => {
