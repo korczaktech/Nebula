@@ -452,6 +452,15 @@ fn abi_transporta_resultado_com_payload_textual_por_endereco() {
 }
 
 #[test]
+fn abi_transporta_estrutura_compacta_com_caracteres_por_endereco() {
+    let resultado = compilar_e_executar(
+        "estrutura-caracteres-abi-indireta",
+        "estrutura ParCaractere: {\n    primeiro: caractere\n    segundo: caractere\n}\n\nfuncao eco(valor: ParCaractere) -> ParCaractere: {\n    retorne valor\n}\n\nfuncao principal() -> inteiro: {\n    variavel par = eco(ParCaractere { primeiro: 'A', segundo: 'B' })\n    se par.segundo == 'B': {\n        retorne 42\n    }\n    retorne 0\n}",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn abi_transporta_estrutura_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-estrutura-grande-argumento-retorno",
