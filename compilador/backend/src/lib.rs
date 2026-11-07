@@ -1085,7 +1085,7 @@ impl Emissor {
                 };
                 let posicao = indice_literal_ir(indice)
                     .ok_or("A indexação nativa de tupla exige índice literal.")?;
-                let (tamanho_total, campos) = self.layout_tupla(tipos)
+                let (_, campos) = self.layout_tupla(tipos)
                     .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
                 let (deslocamento, _) = campos.get(posicao)
                     .ok_or("Índice de tupla fora dos limites.")?;
