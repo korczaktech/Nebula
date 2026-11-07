@@ -425,10 +425,10 @@ fn compila_payload_decimal_em_enumeracoes() {
 }
 
 #[test]
-fn abi_transporta_enum_com_multiplos_payloads_por_endereco() {
+fn abi_transporta_enum_composto_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "enum-multiplos-payloads-abi",
-        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao principal(): inteiro\n    variavel evento = Evento::Dados(20, 22)\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1",
+        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao criar(): Evento\n    retorne Evento::Dados(20, 22)\nfuncao somar(evento: Evento): inteiro\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1\nfuncao principal(): inteiro\n    variavel evento = criar()\n    retorne somar(evento)",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
