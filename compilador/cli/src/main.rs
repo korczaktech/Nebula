@@ -2882,10 +2882,16 @@ mod fixtures_conformidade_tipos {
     #[test]
     fn backend_aceita_agregados_grandes_com_retorno_oculto() {
         let estrutura = rejeita_abi_nativa_pendente(
-            include_str!("../fixtures/tipos/abi-estrutura-pendente.nbx"),
-            "abi-estrutura-pendente.nbx",
+            include_str!("../fixtures/tipos/abi-estrutura-grande.nbx"),
+            "abi-estrutura-grande.nbx",
         );
-        assert!(estrutura.is_ok(), "ABI de agregado grande com retorno oculto falhou: {estrutura:?}");
+        assert!(estrutura.is_ok(), "ABI de estrutura grande com retorno oculto falhou: {estrutura:?}");
+
+        let tupla = rejeita_abi_nativa_pendente(
+            include_str!("../fixtures/tipos/abi-tupla-grande.nbx"),
+            "abi-tupla-grande.nbx",
+        );
+        assert!(tupla.is_ok(), "ABI de tupla grande com retorno oculto falhou: {tupla:?}");
 
         let inteiro128 = include_str!("../fixtures/tipos/abi-inteiro128.nbx");
         let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", inteiro128);
