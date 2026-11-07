@@ -1805,10 +1805,10 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Estrutura { nome, campos } => ValorRuntime::Estrutura { nome, campos: Arc::new(RwLock::new(
             campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
         )) },
-        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
-        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio, fim },
+        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio },
+        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio },
         ValorIr::IntervaloDecimal(inicio, fim) => {
-            ValorRuntime::IntervaloDecimal { inicio, fim }
+            ValorRuntime::IntervaloDecimal { inicio }
         }
         ValorIr::Nulo => ValorRuntime::Nulo,
         ValorIr::Vazio => ValorRuntime::Vazio,
@@ -1832,9 +1832,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
             let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
         }
-        ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
-        ValorRuntime::IntervaloSemSinal { inicio, fim } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
-        ValorRuntime::IntervaloDecimal { inicio, fim } => {
+        ValorRuntime::Intervalo { inicio } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::IntervaloSemSinal { inicio } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
+        ValorRuntime::IntervaloDecimal { inicio } => {
             Ok(ValorIr::IntervaloDecimal(inicio, fim))
         }
         ValorRuntime::Nulo => Ok(ValorIr::Nulo),
@@ -3105,7 +3105,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20, fim }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21, fim }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
@@ -3117,7 +3117,7 @@ mod testes {
     #[test]
     fn executa_copia_explicita_de_estrutura_derivada() {
         let ir = compilar(
-            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7, fim }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         let resultado = executar(&ir, 100).expect("cópia explícita de estrutura");
         assert_eq!(resultado.saida, vec!["7", "7"]);
@@ -3160,7 +3160,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar, fim }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3320,7 +3320,7 @@ mod testes {
     #[test]
     fn construi_estrutura_e_le_campos_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28, fim }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura executável");
         assert_eq!(resultado.saida, vec!["Lia", "28"]);
@@ -3329,7 +3329,7 @@ mod testes {
     #[test]
     fn estrutura_aninhada_le_campo_da_estrutura_interna() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\", fim }, fim }\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura aninhada executável");
         assert_eq!(resultado.saida, vec!["Recife"]);
@@ -3338,7 +3338,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28, fim }\npessoa.idade = 29\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição de campo válida");
         assert_eq!(resultado.saida, vec!["29"]);
@@ -3347,7 +3347,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_aninhada_no_runtime() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\", fim }, fim }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição aninhada válida");
         assert_eq!(resultado.saida, vec!["Olinda"]);
