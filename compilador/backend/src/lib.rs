@@ -997,15 +997,22 @@ impl Emissor {
                 };
                 let posicao = indice_literal_ir(indice)
                     .ok_or("A indexação nativa de tupla exige índice literal.")?;
-                let (_, campos) = self.layout_tupla(tipos)
+                let (tamanho_total, campos) = self.layout_tupla(tipos)
                     .ok_or("Layout da tupla não suportado pela ABI nativa.")?;
                 let (deslocamento, _) = campos.get(posicao)
                     .ok_or("Índice de tupla fora dos limites.")?;
+                let tipo_elemento = tipos.get(posicao)
+                    .ok_or("Tipo do elemento de tupla ausente.")?;
                 self.expressao(alvo)?;
-                match deslocamento {
-                    0 => {}
-                    8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
-                    _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                if tamanho_total > 16 {
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço da tupla
+                    self.carregar_elemento_agregado_grande(*deslocamento, tipo_elemento)?;
+                } else {
+                    match deslocamento {
+                        0 => {}
+                        8 => self.codigo.extend_from_slice(&[0x48, 0x89, 0xD0]),
+                        _ => return Err("Elemento da tupla não está em um registrador ABI.".into()),
+                    }
                 }
             }
             ExpressaoIr::Membro { alvo, campo } => {
@@ -2144,6 +2151,66 @@ impl Emissor {
         self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
         if *tipo == Tipo::Decimal32 {
             self.codigo.extend_from_slice(&[0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0, 0x66, 0x48, 0x0F, 0x7E, 0xC0]);
+        }
+        self.mov_rdx(0);
+        Ok(())
+    }
+
+    fn carregar_elemento_agregado_grande(
+        &mut self,
+        deslocamento: u64,
+        tipo: &Tipo,
+    ) -> Result<(), String> {
+        let deslocamento = i32::try_from(deslocamento)
+            .map_err(|_| "Elemento de tupla excede o deslocamento x86-64.")?;
+        let (tamanho, _) = self.tamanho_alinhamento_tipo(tipo)
+            .ok_or_else(|| format!("Tipo '{}' não possui layout nativo.", tipo.nome()))?;
+
+        if tamanho > 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.mov_rdx(0);
+            return Ok(());
+        }
+        if tamanho == 16 {
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+            self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+            self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+            self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+            return Ok(());
+        }
+
+        let bits = tipo_inteiro_abi(tipo);
+        match bits {
+            Some((8, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBE, 0x83]),
+            Some((8, false)) | None if tamanho == 1 =>
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB6, 0x83]),
+            Some((16, true)) => self.codigo.extend_from_slice(&[0x49, 0x0F, 0xBF, 0x83]),
+            Some((16, false)) | None if tamanho == 2 =>
+                self.codigo.extend_from_slice(&[0x49, 0x0F, 0xB7, 0x83]),
+            Some((32, true)) => self.codigo.extend_from_slice(&[0x49, 0x63, 0x83]),
+            Some((32, false)) | None if tamanho == 4 =>
+                self.codigo.extend_from_slice(&[0x41, 0x8B, 0x83]),
+            Some((64, _)) | None if tamanho == 8 =>
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]),
+            Some((128, _)) => {
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x83]);
+                self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+                self.codigo.extend_from_slice(&[0x49, 0x8B, 0x93]);
+                self.codigo.extend_from_slice(&(deslocamento + 8).to_le_bytes());
+                return Ok(());
+            }
+            _ => return Err(format!(
+                "Elemento da tupla possui layout incompatível com o tipo '{}'.",
+                tipo.nome()
+            )),
+        }
+        self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
+        if *tipo == Tipo::Decimal32 {
+            self.codigo.extend_from_slice(&[
+                0x66, 0x0F, 0x6E, 0xC0, 0xF3, 0x0F, 0x5A, 0xC0,
+                0x66, 0x48, 0x0F, 0x7E, 0xC0,
+            ]);
         }
         self.mov_rdx(0);
         Ok(())
