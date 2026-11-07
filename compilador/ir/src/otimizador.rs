@@ -549,6 +549,7 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         }
     }
@@ -563,6 +564,7 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         };
         let relatorio = otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
@@ -582,6 +584,7 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         };
         otimizar(&mut ir, NivelOtimizacao::O2).expect("O2");
@@ -787,6 +790,7 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         };
         let original = crate::executar(&ir, 100).unwrap_err();
@@ -812,6 +816,7 @@ mod testes {
             funcoes: HashMap::new(),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            campos_estruturas: HashMap::new(),
             variantes_enumeracoes: HashMap::new(),
         };
         let original = crate::executar(&ir, 100).expect("IR original");
