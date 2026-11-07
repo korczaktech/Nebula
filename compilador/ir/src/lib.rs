@@ -1805,10 +1805,10 @@ fn converter_para_runtime(valor: ValorIr) -> ValorRuntime {
         ValorIr::Estrutura { nome, campos } => ValorRuntime::Estrutura { nome, campos: Arc::new(RwLock::new(
             campos.into_iter().map(|(nome, valor)| (nome, converter_para_runtime(valor))).collect(),
         )) },
-        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio, fim },
-        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio, fim },
+        ValorIr::Intervalo(inicio, fim) => ValorRuntime::Intervalo { inicio },
+        ValorIr::IntervaloSemSinal(inicio, fim) => ValorRuntime::IntervaloSemSinal { inicio },
         ValorIr::IntervaloDecimal(inicio, fim) => {
-            ValorRuntime::IntervaloDecimal { inicio, fim }
+            ValorRuntime::IntervaloDecimal { inicio }
         }
         ValorIr::Nulo => ValorRuntime::Nulo,
         ValorIr::Vazio => ValorRuntime::Vazio,
@@ -1832,9 +1832,9 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
             let itens = itens.read().map_err(|_| "Lista do runtime corrompida.")?;
             Ok(ValorIr::Lista(itens.iter().cloned().map(converter_para_ir).collect::<Result<_, _>>()?))
         }
-        ValorRuntime::Intervalo { inicio, fim } => Ok(ValorIr::Intervalo(inicio, fim)),
-        ValorRuntime::IntervaloSemSinal { inicio, fim } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
-        ValorRuntime::IntervaloDecimal { inicio, fim } => {
+        ValorRuntime::Intervalo { inicio } => Ok(ValorIr::Intervalo(inicio, fim)),
+        ValorRuntime::IntervaloSemSinal { inicio } => Ok(ValorIr::IntervaloSemSinal(inicio, fim)),
+        ValorRuntime::IntervaloDecimal { inicio } => {
             Ok(ValorIr::IntervaloDecimal(inicio, fim))
         }
         ValorRuntime::Nulo => Ok(ValorIr::Nulo),
@@ -2789,17 +2789,46 @@ mod testes {
         caminho.to_string_lossy().replace('\\', "/")
     }
 
-    fn normalizar_blocos_legados(codigo: &str) -> String {
-        let codigo = codigo.replace("): ", ") -> ");
-        if codigo.lines().any(|linha| linha.trim().ends_with(": {")) {
-            return codigo
-                .lines()
-                .filter(|linha| linha.trim() != "fim")
-                .collect::<Vec<_>>()
-                .join("\n")
-                .replace("} fim", "}");
+        fn normalizar_blocos_indentados(codigo: &str) -> String {
+        let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
+        let possui_cabecalho_legado = codigo.lines().any(|linha| {
+            let conteudo = linha.trim();
+            let prefixos = [
+                "funcao ",
+                "publico funcao ",
+                "privado funcao ",
+                "protegido estatico funcao ",
+                "async funcao ",
+                "exportar funcao ",
+                "estrutura ",
+                "enumeracao ",
+                "classe ",
+                "quando ",
+                "se ",
+                "sendo ",
+                "senao",
+                "escolha ",
+                "avaliar ",
+                "caso ",
+                "cada ",
+                "enquanto ",
+                "para ",
+                "pulso(",
+                "durante ",
+                "repetir ",
+                "critico",
+                "privilegio ",
+                "montagem ",
+                "tente",
+                "erro ",
+                "sempre",
+                "com ",
+            ];
+            prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
+        });
+        if possui_abertura_explicita && !possui_cabecalho_legado {
+            return codigo.to_owned();
         }
-
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum TipoBloco {
             Completo,
@@ -2807,52 +2836,159 @@ mod testes {
             Escolha,
             Caso,
         }
-
+    
+        #[derive(Clone, Copy)]
         struct Bloco {
             indentacao: usize,
             tipo: TipoBloco,
+            explicito: bool,
         }
-
+    
         fn indentacao(texto: &str, nivel: usize) -> String {
             format!("{}{}", " ".repeat(nivel), texto)
         }
-
+    
         fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
             match bloco.tipo {
-                TipoBloco::Caso => {
+                TipoBloco::Caso | TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
                     saida.push(indentacao("}", bloco.indentacao));
                 }
-                TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                    saida.push(indentacao("}", bloco.indentacao));
-                    }
             }
         }
-
+    
         let mut saida = Vec::new();
         let mut blocos: Vec<Bloco> = Vec::new();
-
-        for linha in codigo.lines() {
+    
+        for linha_original in codigo.lines() {
+            let nivel = linha_original.len() - linha_original.trim_start().len();
+            let linha_normalizada = if linha_original.trim().ends_with("(): {") {
+                linha_original.to_owned()
+            } else {
+                linha_original.replace("): ", ") -> ")
+            };
+            let linha = linha_normalizada.as_str();
             let conteudo = linha.trim();
-            let nivel = linha.len() - linha.trim_start().len();
-
+    
             if conteudo.is_empty() {
                 saida.push(linha.to_owned());
                 continue;
             }
-
-            if conteudo.starts_with("senao") {
-                if let Some(bloco) = blocos.last() {
-                    if bloco.tipo == TipoBloco::Condicional && bloco.indentacao == nivel {
-                        saida.push(indentacao("}", nivel));
-                        saida.push(indentacao("senao: {", nivel));
+    
+            let continuacao = conteudo.starts_with("senao")
+                || conteudo.starts_with("sempre")
+                || conteudo.starts_with("erro ")
+                || conteudo.starts_with("caso ")
+                || conteudo == "padrao";
+            while blocos
+                .last()
+                .is_some_and(|bloco| !bloco.explicito && nivel <= bloco.indentacao && !continuacao)
+            {
+                if let Some(bloco) = blocos.pop() {
+                    fechar(&mut saida, bloco);
+                }
+            }
+    
+            if conteudo.ends_with("->:") {
+                saida.push(indentacao(&format!("{conteudo} {{"), nivel));
+                blocos.push(Bloco {
+                    indentacao: nivel,
+                    tipo: TipoBloco::Completo,
+                    explicito: false,
+                });
+                continue;
+            }
+    
+            let cabecalho_explicito = [
+                "funcao ",
+                "publico funcao ",
+                "privado funcao ",
+                "protegido estatico funcao ",
+                "async funcao ",
+                "exportar funcao ",
+                "estrutura ",
+                "enumeracao ",
+                "classe ",
+                "quando ",
+                "se ",
+                "sendo ",
+                "senao",
+                "escolha ",
+                "avaliar ",
+                "caso ",
+                "cada ",
+                "enquanto ",
+                "para ",
+                "pulso(",
+                "durante ",
+                "repetir ",
+                "critico",
+                "privilegio ",
+                "montagem ",
+                "tente",
+                "erro ",
+                "sempre",
+                "com ",
+            ]
+            .iter()
+            .any(|prefixo| conteudo.starts_with(prefixo))
+                && conteudo.ends_with(": {");
+    
+            if cabecalho_explicito {
+                let tipo = if conteudo.starts_with("caso ") {
+                    TipoBloco::Caso
+                } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
+                    TipoBloco::Escolha
+                } else if conteudo.starts_with("quando ")
+                    || conteudo.starts_with("se ")
+                    || conteudo.starts_with("sendo ")
+                    || conteudo.starts_with("senao")
+                {
+                    TipoBloco::Condicional
+                } else {
+                    TipoBloco::Completo
+                };
+                saida.push(linha.to_owned());
+                blocos.push(Bloco {
+                    indentacao: nivel,
+                    tipo,
+                    explicito: true,
+                });
+                continue;
+            }
+    
+            if conteudo == "}" {
+                if let Some(bloco) = blocos.last_mut() {
+                    if bloco.explicito && bloco.indentacao == nivel {
+                        blocos.pop();
+                        saida.push(linha.to_owned());
                         continue;
                     }
                 }
             }
-
+    
+            if conteudo.starts_with("senao")
+                || conteudo.starts_with("sempre")
+                || conteudo.starts_with("erro ")
+            {
+                if let Some(bloco) = blocos.last() {
+                    if !bloco.explicito && bloco.indentacao == nivel {
+                        let tipo = bloco.tipo;
+                        saida.push(indentacao("}", nivel));
+                        saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
+                        blocos.pop();
+                        blocos.push(Bloco {
+                            indentacao: nivel,
+                            tipo,
+                            explicito: false,
+                        });
+                        continue;
+                    }
+                }
+            }
+    
             if conteudo.starts_with("caso ") || conteudo == "padrao" {
                 if blocos.last().is_some_and(|bloco| {
-                    bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
+                    !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
                 }) {
                     if let Some(bloco) = blocos.pop() {
                         fechar(&mut saida, bloco);
@@ -2862,38 +2998,35 @@ mod testes {
                 blocos.push(Bloco {
                     indentacao: nivel,
                     tipo: TipoBloco::Caso,
+                    explicito: false,
                 });
                 continue;
             }
-
-            if conteudo == "fim" {
-                while blocos.last().is_some_and(|bloco| {
-                    bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-                }) {
-                    if let Some(bloco) = blocos.pop() {
-                        fechar(&mut saida, bloco);
-                    }
-                }
-
-                if blocos.last().is_some_and(|bloco| bloco.indentacao == nivel) {
-                    if let Some(bloco) = blocos.pop() {
-                        fechar(&mut saida, bloco);
-                    }
-                }
-                continue;
-            }
-
+    
             let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+                || conteudo.starts_with("privado funcao ")
+                || conteudo.starts_with("protegido estatico funcao ")
                 || conteudo.starts_with("funcao ")
+                || conteudo.starts_with("async funcao ")
+                || conteudo.starts_with("exportar funcao ")
             {
-                let assinatura = conteudo.replace("): ", ") -> ");
+                let assinatura = if conteudo.ends_with("(): {") {
+                    conteudo.to_owned()
+                } else {
+                    conteudo.replace("): ", ") -> ")
+                };
                 let assinatura = if assinatura.ends_with(':') {
                     format!("{assinatura} {{")
+                } else if assinatura.ends_with("{") {
+                    assinatura
                 } else {
                     format!("{assinatura}: {{")
                 };
                 (Some(TipoBloco::Completo), Some(assinatura))
-            } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") {
+            } else if conteudo.starts_with("estrutura ")
+                || conteudo.starts_with("enumeracao ")
+                || conteudo.starts_with("classe ")
+            {
                 let assinatura = if conteudo.ends_with(':') {
                     format!("{conteudo} {{")
                 } else {
@@ -2904,62 +3037,59 @@ mod testes {
                 (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
             } else if conteudo.starts_with("quando ")
                 || conteudo.starts_with("se ")
+                || conteudo.starts_with("sendo ")
             {
-                (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
+                (
+                    Some(TipoBloco::Condicional),
+                    Some(format!("{conteudo}: {{")),
+                )
             } else if conteudo.starts_with("cada ")
                 || conteudo.starts_with("enquanto ")
                 || conteudo.starts_with("para ")
                 || conteudo.starts_with("pulso(")
                 || conteudo.starts_with("durante ")
                 || conteudo.starts_with("repetir ")
+                || conteudo == "seguro"
+                || conteudo.starts_with("seguro:")
+                || conteudo == "critico"
+                || conteudo.starts_with("critico:")
+                || conteudo.starts_with("privilegio ")
+                || conteudo.starts_with("montagem ")
+                || conteudo == "tente"
+                || conteudo.starts_with("erro ")
+                || conteudo == "sempre"
+                || conteudo.starts_with("com ")
             {
-                (Some(TipoBloco::Completo), Some(format!("{conteudo}: {{")))
+                let cabecalho = if conteudo.ends_with(':') {
+                    format!("{conteudo} {{")
+                } else {
+                    format!("{conteudo}: {{")
+                };
+                (Some(TipoBloco::Completo), Some(cabecalho))
             } else {
                 (None, None)
             };
-
+    
             if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
                 saida.push(indentacao(&cabecalho, nivel));
                 blocos.push(Bloco {
                     indentacao: nivel,
                     tipo,
+                    explicito: false,
                 });
             } else {
                 saida.push(linha.to_owned());
             }
         }
-
-        saida.join("\n")
-    }
-
-    fn compilar(codigo: &str) -> ProgramaIr {
-        let codigo = normalizar_blocos_legados(codigo);
-        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
-        let sintaxe = analisar(&fonte);
-        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
-        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
-        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
-        let mut programa = resultado.programa.expect("IR válida");
-        fn deslocalizar(instrucao: InstrucaoIr) -> InstrucaoIr {
-            match instrucao {
-                InstrucaoIr::Localizada { instrucao, .. } => deslocalizar(*instrucao),
-                InstrucaoIr::Bloco(itens) => InstrucaoIr::Bloco(itens.into_iter().map(deslocalizar).collect()),
-                InstrucaoIr::Se { condicao, entao, senao } => InstrucaoIr::Se { condicao, entao: entao.into_iter().map(deslocalizar).collect(), senao: senao.into_iter().map(deslocalizar).collect() },
-                InstrucaoIr::Escolha { valor, casos } => InstrucaoIr::Escolha { valor, casos: casos.into_iter().map(|mut caso| { caso.corpo = caso.corpo.into_iter().map(deslocalizar).collect(); caso }).collect() },
-                InstrucaoIr::Enquanto { condicao, corpo } => InstrucaoIr::Enquanto { condicao, corpo: corpo.into_iter().map(deslocalizar).collect() },
-                InstrucaoIr::Cada { nome, iteravel, corpo } => InstrucaoIr::Cada { nome, iteravel, corpo: corpo.into_iter().map(deslocalizar).collect() },
-                InstrucaoIr::Pulso { intervalo, corpo } => InstrucaoIr::Pulso { intervalo, corpo: corpo.into_iter().map(deslocalizar).collect() },
-                InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => InstrucaoIr::Para { inicial: inicial.map(|i| Box::new(deslocalizar(*i))), condicao, atualizacao, corpo: corpo.into_iter().map(deslocalizar).collect() },
-                outra => outra,
+    
+        while let Some(bloco) = blocos.pop() {
+            if !bloco.explicito {
+                fechar(&mut saida, bloco);
             }
         }
-        programa.instrucoes = programa.instrucoes.into_iter().map(deslocalizar).collect();
-        for funcao in programa.funcoes.values_mut() {
-            funcao.corpo = std::mem::take(&mut funcao.corpo).into_iter().map(deslocalizar).collect();
-        }
-        programa
+        saida.join("\n")
     }
-
+    
     #[test]
     fn infere_genericos_por_aliases_de_vetor_e_matriz_na_ir() {
         let lowerer = Lowerer {
@@ -3073,7 +3203,7 @@ mod testes {
     #[test]
     fn executa_comandos_de_controle_e_colecoes_em_conjunto() {
         let ir = compilar(
-            "funcao incrementar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\ndefinir contador = 0\nalterar contador <- incrementar(contador)\nquando contador == 1\n    exibir(\"quando\")\nsenao\n    exibir(\"senao\")\nfim\navaliar Opcional::Algum(contador)\n    caso Opcional::Algum(valor)\n        exibir(valor)\n    caso Opcional::Nenhum\n        exibir(0)\nfim\nrepetir contador < 3\n    alterar contador <- contador + 1\nfim\ndurante contador < 4\n    alterar contador <- contador + 1\nfim\ncada item em gerar(2, 2)\n    alterar contador <- contador + item\nfim\npulso(0)\n    alterar contador <- contador + 1\n    quando contador >= 9\n        parar\n    fim\nfim\n\naguardar(0)\nexibir(contador)",
+            "funcao incrementar(valor: inteiro): inteiro\n    devolver valor + 1\n\ndefinir contador = 0\nalterar contador <- incrementar(contador)\nquando contador == 1\n    exibir(\"quando\")\nsenao\n    exibir(\"senao\")\navaliar Opcional::Algum(contador)\n    caso Opcional::Algum(valor)\n        exibir(valor)\n    caso Opcional::Nenhum\n        exibir(0)\nrepetir contador < 3\n    alterar contador <- contador + 1\ndurante contador < 4\n    alterar contador <- contador + 1\ncada item em gerar(2, 2)\n    alterar contador <- contador + item\npulso(0)\n    alterar contador <- contador + 1\n    quando contador >= 9\n        parar\n\naguardar(0)\nexibir(contador)",
         );
         let resultado = executar(&ir, 500).expect("comandos de controle devem executar");
         assert_eq!(resultado.saida, vec!["quando", "1", "9"]);
@@ -3082,7 +3212,7 @@ mod testes {
     #[test]
     fn executa_igualdade_estrutural_de_agregados() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nfim\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nenumeracao Estado:\n    Ativo\n    Falha(texto)\nvariavel a = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel b = Pessoa { nome: \"Lia\", idade: 20 }\nvariavel c = Pessoa { nome: \"Lia\", idade: 21 }\nexibir(a == b)\nexibir(a != c)\nexibir((1, \"x\") == (1, \"x\"))\nexibir([1, 2] == [1, 2])\nexibir(Estado::Falha(\"erro\") == Estado::Falha(\"erro\"))\nexibir(Opcional::Algum(1) == Opcional::Algum(1))\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"x\")\nvariavel sucesso: Resultado<inteiro,texto> = Resultado::Sucesso(1)\nexibir(falha != sucesso)",
         );
         let resultado = executar(&ir, 300).expect("igualdade estrutural válida");
         assert_eq!(
@@ -3094,7 +3224,7 @@ mod testes {
     #[test]
     fn executa_copia_explicita_de_estrutura_derivada() {
         let ir = compilar(
-            "estrutura Ponto:\n    x: inteiro8\nfim\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
+            "estrutura Ponto:\n    x: inteiro8\nvariavel origem = Ponto { x: 7 }\nvariavel destino = copiar(origem)\nexibir(origem.x)\nexibir(destino.x)",
         );
         let resultado = executar(&ir, 100).expect("cópia explícita de estrutura");
         assert_eq!(resultado.saida, vec!["7", "7"]);
@@ -3137,7 +3267,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_campo_de_estrutura() {
         let ir = compilar(
-            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfim\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\nfim\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
+            "estrutura Operacoes:\n    callback: funcao(inteiro): inteiro\nfuncao somar(valor: inteiro): inteiro\n    devolver valor + 2\n\nvariavel operacoes = Operacoes { callback: somar }\nexibir(operacoes.callback(40))",
         );
         let resultado = executar(&ir, 200).expect("chamada por campo de função válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3146,7 +3276,7 @@ mod testes {
     #[test]
     fn executa_chamada_indireta_de_retorno_de_funcao() {
         let ir = compilar(
-            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\nfuncao consultar(): funcao(inteiro): inteiro\n    devolver somar\nfim\n\nexibir(consultar()(41))",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfuncao consultar(): funcao(inteiro): inteiro\n    devolver somar\n\nexibir(consultar()(41))",
         );
         let resultado = executar(&ir, 200).expect("chamada de função retornada válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3155,7 +3285,7 @@ mod testes {
     #[test]
     fn executa_valor_de_funcao_e_chamada_indireta() {
         let ir = compilar(
-            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\nfim\n\nvariavel callback: funcao(inteiro): inteiro = somar\nexibir(callback(41))",
+            "funcao somar(valor: inteiro): inteiro\n    devolver valor + 1\n\nvariavel callback: funcao(inteiro): inteiro = somar\nexibir(callback(41))",
         );
         let resultado = executar(&ir, 200).expect("chamada indireta válida");
         assert_eq!(resultado.saida, vec!["42"]);
@@ -3274,7 +3404,7 @@ mod testes {
     #[test]
     fn calcula_layout_de_campo_com_tipo_de_funcao() {
         let ir = compilar(
-            "estrutura Registro:\n    callback: funcao(inteiro, texto): logico\n    inicializar: funcao(funcao(inteiro): logico): vazio\nfim",
+            "estrutura Registro:\n    callback: funcao(inteiro, texto): logico\n    inicializar: funcao(funcao(inteiro): logico): vazio",
         );
         let layout = ir.layouts_tipos.get("Registro").expect("layout nominal");
         assert_eq!(layout.tamanho, 16);
@@ -3286,7 +3416,7 @@ mod testes {
     #[test]
     fn baixa_assinaturas_com_tipos_nominais() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\nfim\nenumeracao Estado:\n    Ativo\n    Inativo\nfim\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa\nfim",
+            "estrutura Pessoa:\n    nome: texto\nenumeracao Estado:\n    Ativo\n    Inativo\nfuncao receber(pessoa: Pessoa, estado: Estado): Pessoa\n    devolver pessoa",
         );
         let funcao = ir.funcoes.get("receber").expect("função declarada");
         assert_eq!(funcao.parametros[0].1, Tipo::Estrutura("Pessoa".into()));
@@ -3297,7 +3427,7 @@ mod testes {
     #[test]
     fn construi_estrutura_e_le_campos_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\nexibir(pessoa.nome)\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura executável");
         assert_eq!(resultado.saida, vec!["Lia", "28"]);
@@ -3306,7 +3436,7 @@ mod testes {
     #[test]
     fn estrutura_aninhada_le_campo_da_estrutura_interna() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nestrutura Pessoa:\n    endereco: Endereco\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("estrutura aninhada executável");
         assert_eq!(resultado.saida, vec!["Recife"]);
@@ -3315,7 +3445,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_no_runtime() {
         let ir = compilar(
-            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nfim\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
+            "estrutura Pessoa:\n    nome: texto\n    idade: inteiro\nvariavel pessoa = Pessoa { nome: \"Lia\", idade: 28 }\npessoa.idade = 29\nexibir(pessoa.idade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição de campo válida");
         assert_eq!(resultado.saida, vec!["29"]);
@@ -3324,7 +3454,7 @@ mod testes {
     #[test]
     fn atribui_campo_de_estrutura_aninhada_no_runtime() {
         let ir = compilar(
-            "estrutura Endereco:\n    cidade: texto\nfim\nestrutura Pessoa:\n    endereco: Endereco\nfim\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
+            "estrutura Endereco:\n    cidade: texto\nestrutura Pessoa:\n    endereco: Endereco\nvariavel pessoa = Pessoa { endereco: Endereco { cidade: \"Recife\" } }\npessoa.endereco.cidade = \"Olinda\"\nexibir(pessoa.endereco.cidade)",
         );
         let resultado = executar(&ir, 100).expect("atribuição aninhada válida");
         assert_eq!(resultado.saida, vec!["Olinda"]);
@@ -3333,7 +3463,7 @@ mod testes {
     #[test]
     fn constroi_enumeracao_com_payload_no_runtime() {
         let ir = compilar(
-            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nexibir(resultado)",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nvariavel resultado = Resultado::Sucesso(42)\nexibir(resultado)",
         );
         let resultado = executar(&ir, 100).expect("payload de enumeração válido");
         assert_eq!(resultado.saida, vec!["Resultado::Sucesso { 0: 42 }"]);
@@ -3359,7 +3489,7 @@ mod testes {
     #[test]
     fn executa_escolha_com_payload_de_enumeracao() {
         let ir = compilar(
-            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nfim\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\nfim\n\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
+            "enumeracao Resultado:\n    Sucesso(inteiro)\n    Falha(texto)\nvariavel resultado = Resultado::Sucesso(42)\nescolha resultado\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\n    caso _\n        exibir(0)\n\nvariavel falha = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(valor)\n        exibir(valor)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)",
         );
         let resultado = executar(&ir, 200).expect("pattern matching válido");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3368,7 +3498,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_opcional_e_resultado() {
         let ir = compilar(
-            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor\n    caso Opcional::Algum(numero)\n        exibir(numero)\n    caso Opcional::Nenhum\n        exibir(0)\nfim\n\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(numero)\n        exibir(numero)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)\nfim",
+            "variavel valor: Opcional<inteiro> = Opcional::Algum(42)\nescolha valor\n    caso Opcional::Algum(numero)\n        exibir(numero)\n    caso Opcional::Nenhum\n        exibir(0)\n\nvariavel falha: Resultado<inteiro,texto> = Resultado::Falha(\"opa\")\nescolha falha\n    caso Resultado::Sucesso(numero)\n        exibir(numero)\n    caso Resultado::Falha(mensagem)\n        exibir(mensagem)",
         );
         let resultado = executar(&ir, 200).expect("escolha algébrica válida");
         assert_eq!(resultado.saida, vec!["42", "opa"]);
@@ -3377,7 +3507,7 @@ mod testes {
     #[test]
     fn executa_escolha_de_variantes_sem_payload() {
         let ir = compilar(
-            "enumeracao Estado:\n    Ativo\n    Inativo\nfim\nvariavel estado = Estado::Ativo\nescolha estado\n    caso Estado::Ativo\n        exibir(\"ativo\")\n    caso Estado::Inativo\n        exibir(\"inativo\")\nfim",
+            "enumeracao Estado:\n    Ativo\n    Inativo\nvariavel estado = Estado::Ativo\nescolha estado\n    caso Estado::Ativo\n        exibir(\"ativo\")\n    caso Estado::Inativo\n        exibir(\"inativo\")",
         );
         let resultado = executar(&ir, 200).expect("enumeração sem payload válida");
         assert_eq!(resultado.saida, vec!["ativo"]);
@@ -3525,7 +3655,7 @@ mod testes {
     #[test]
     fn monomorfiza_generico_com_tupla() {
         let ir = compilar(
-            "funcao primeiro<T>(ponto: Tupla<T,T>): T\n    devolver ponto[0]\nfim\n\nvariavel numero = primeiro((7, 8))",
+            "funcao primeiro<T>(ponto: Tupla<T,T>): T\n    devolver ponto[0]\n\nvariavel numero = primeiro((7, 8))",
         );
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("genérico com tupla válido");
@@ -3535,7 +3665,7 @@ mod testes {
     #[test]
     fn monomorfiza_funcao_generica_para_tipos_inferidos() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel numero = identidade(42)\nvariavel texto = identidade(\"Nebula\")",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__texto"));
@@ -3547,7 +3677,7 @@ mod testes {
     #[test]
     fn monomorfiza_generico_com_parametro_composto() {
         let ir = compilar(
-            "funcao primeiro<T>(valores: [T]): T\n    devolver valores[0]\nfim\n\nvariavel numero = primeiro([7, 8])",
+            "funcao primeiro<T>(valores: [T]): T\n    devolver valores[0]\n\nvariavel numero = primeiro([7, 8])",
         );
         assert!(ir.funcoes.contains_key("primeiro__inteiro"));
         let resultado = executar(&ir, 100).expect("instância de lista genérica válida");
@@ -3557,7 +3687,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_chamada_generica_aninhada() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel numero = identidade(identidade(42))",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel numero = identidade(identidade(42))",
         );
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
         let resultado = executar(&ir, 100).expect("chamadas genéricas aninhadas válidas");
@@ -3567,7 +3697,7 @@ mod testes {
     #[test]
     fn infere_retorno_de_funcao_nao_generica() {
         let ir = compilar(
-            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\n\nvariavel total = somar(20, 22)",
+            "funcao somar(a: inteiro, b: inteiro): inteiro\n    devolver a + b\n\nvariavel total = somar(20, 22)",
         );
         let declaracao = ir.instrucoes.iter().find_map(|instrucao| match instrucao {
             InstrucaoIr::Declarar { nome, tipo, .. } if nome == "total" => Some(tipo),
@@ -3581,7 +3711,7 @@ mod testes {
     #[test]
     fn infere_tipo_de_indice_literal_de_tupla_em_chamada_generica() {
         let ir = compilar(
-            "funcao extrair<T,U>(ponto: Tupla<T,U>) -> T: {\n    devolver ponto[0]\n    fim\n} fim\nfuncao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
+            "funcao extrair<T,U>(ponto: Tupla<T,U>) -> T: {\n    devolver ponto[0]\n} fim\nfuncao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\n\nvariavel ponto = (42, \"Nebula\")\nvariavel numero = identidade(extrair(ponto))",
         );
         assert!(ir.funcoes.contains_key("extrair__inteiro__texto"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3592,7 +3722,7 @@ mod testes {
     #[test]
     fn infere_chamada_generica_em_variavel_local() {
         let ir = compilar(
-            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n    fim\n} fim\nfuncao repassar<T>(valor: T) -> T: {\n    variavel copia = identidade(valor)\n    devolver copia\n    fim\n} fim\n\nvariavel numero = repassar(42)",
+            "funcao identidade<T>(valor: T) -> T: {\n    devolver valor\n} fim\nfuncao repassar<T>(valor: T) -> T: {\n    variavel copia = identidade(valor)\n    devolver copia\n} fim\n\nvariavel numero = repassar(42)",
         );
         assert!(ir.funcoes.contains_key("repassar__inteiro"));
         assert!(ir.funcoes.contains_key("identidade__inteiro"));
@@ -3603,7 +3733,7 @@ mod testes {
     #[test]
     fn infere_genericos_em_parametros_e_retorno_de_tipo_funcao() {
         let ir = compilar(
-            "funcao identidade(valor: inteiro): inteiro\n    devolver valor\nfim\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T\n    devolver operacao(valor)\nfim\n\nvariavel resultado = aplicar(identidade, 42)",
+            "funcao identidade(valor: inteiro): inteiro\n    devolver valor\nfuncao aplicar<T>(operacao: funcao(T): T, valor: T): T\n    devolver operacao(valor)\n\nvariavel resultado = aplicar(identidade, 42)",
         );
         assert!(ir.funcoes.contains_key("aplicar__inteiro"));
         let resultado = executar(&ir, 100).expect("inferência em tipo de função válida");
@@ -3612,7 +3742,7 @@ mod testes {
 
     #[test]
     fn executa_funcao_com_retorno() {
-        let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro\n    devolver a + b\nfim\n\nvariavel total = soma(2, 3)");
+        let ir = compilar("funcao soma(a: inteiro, b: inteiro): inteiro\n    devolver a + b\n\nvariavel total = soma(2, 3)");
         let r = executar(&ir, 100).expect("execução válida");
         assert_eq!(r.globais.get("total"), Some(&ValorIr::Inteiro(5)));
     }
@@ -3620,7 +3750,7 @@ mod testes {
     #[test]
     fn em_paralelo_aguarda_todas_as_funcoes_e_preserva_ordem() {
         let ir = compilar(
-            "funcao primeira(): inteiro\n    devolver 11\nfim\nfuncao segunda(): inteiro\n    devolver 22\nfim\n\nvariavel resultados = em_paralelo(primeira, segunda)\nexibir(resultados[0])\nexibir(resultados[1])",
+            "funcao primeira(): inteiro\n    devolver 11\nfuncao segunda(): inteiro\n    devolver 22\n\nvariavel resultados = em_paralelo(primeira, segunda)\nexibir(resultados[0])\nexibir(resultados[1])",
         );
         let resultado = executar(&ir, 300).expect("tarefas paralelas devem concluir");
         assert_eq!(resultado.saida, vec!["11", "22"]);
@@ -3648,14 +3778,14 @@ mod testes {
 
     #[test]
     fn executa_condicional_e_laco() {
-        let ir = compilar("variavel x = 0\nenquanto x < 3\n    x = x + 1\nfim\nquando x == 3\n    exibir(x)\nfim");
+        let ir = compilar("variavel x = 0\nenquanto x < 3\n    x = x + 1\nquando x == 3\n    exibir(x)");
         let r = executar(&ir, 100).expect("execução válida");
         assert_eq!(r.saida, vec!["3"]);
     }
 
     #[test]
     fn interrompe_laco_infinito_por_limite() {
-        let ir = compilar("enquanto verdadeiro\n    exibir(1)\nfim");
+        let ir = compilar("enquanto verdadeiro\n    exibir(1)");
         assert!(executar(&ir, 5).is_err());
     }
 
@@ -3675,14 +3805,14 @@ mod testes {
 
     #[test]
     fn limita_recursao_da_maquina() {
-        let ir = compilar("funcao recursiva(n: inteiro): inteiro\n    devolver recursiva(n + 1)\nfim\n\nvariavel x = recursiva(0)");
+        let ir = compilar("funcao recursiva(n: inteiro): inteiro\n    devolver recursiva(n + 1)\n\nvariavel x = recursiva(0)");
         assert!(executar(&ir, 10_000).is_err());
     }
 
     #[test]
     fn executa_intervalo_com_tipo_generico_explicito() {
         let ir = compilar(
-            "variavel faixa: Intervalo<inteiro> = 1..3\ncada numero em faixa\n    exibir(numero)\nfim",
+            "variavel faixa: Intervalo<inteiro> = 1..3\ncada numero em faixa\n    exibir(numero)",
         );
         let resultado = executar(&ir, 100).expect("intervalo tipado explícito");
         assert_eq!(resultado.saida, vec!["1", "2", "3"]);
@@ -3691,7 +3821,7 @@ mod testes {
     #[test]
     fn executa_intervalo_u128_acima_do_limite_de_i128() {
         let ir = compilar(
-            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel limite: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..limite\ncada numero em faixa\n    exibir(numero)\nfim",
+            "variavel inicio: inteiro_u128 = 340282366920938463463374607431768211453\nvariavel limite: inteiro_u128 = 340282366920938463463374607431768211455\nvariavel faixa: Intervalo<inteiro_u128> = inicio..limite\ncada numero em faixa\n    exibir(numero)",
         );
         let resultado = executar(&ir, 100).expect("intervalo u128 válido");
         assert_eq!(
@@ -3729,14 +3859,14 @@ mod testes {
 
     #[test]
     fn executa_laco_para() {
-        let ir = compilar("variavel soma = 0\npara (variavel i = 0; i < 3; i = i + 1)\n    soma = soma + i\nfim\n\nexibir(soma)");
+        let ir = compilar("variavel soma = 0\npara (variavel i = 0; i < 3; i = i + 1)\n    soma = soma + i\n\nexibir(soma)");
         let r = executar(&ir, 200).expect("execução válida");
         assert_eq!(r.saida, vec!["3"]);
     }
 
     #[test]
     fn executa_parar_e_seguir_em_lacos() {
-        let ir = compilar("variavel x = 0\nenquanto x < 5\n    x = x + 1\n    quando x == 2\n        seguir\n    fim\n    quando x == 4\n        parar\n    fim\n    \n    exibir(x)\nfim");
+        let ir = compilar("variavel x = 0\nenquanto x < 5\n    x = x + 1\n    quando x == 2\n        seguir\n    quando x == 4\n        parar\n    \n    exibir(x)");
         let r = executar(&ir, 200).expect("execução válida");
         assert_eq!(r.saida, vec!["1", "3"]);
     }
@@ -3745,7 +3875,7 @@ mod testes {
     #[test]
     fn baixa_layouts_nominais_para_a_ir() {
         let ir = compilar(
-            "estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nfim\nenumeracao Estado:\n    Inativo\n    Ativo\n    Falha(texto)\nfim",
+            "estrutura Pessoa:\n    idade: inteiro8\n    ativo: logico\n    saldo: decimal64\nenumeracao Estado:\n    Inativo\n    Ativo\n    Falha(texto)",
         );
         let pessoa = ir.layouts_tipos.get("Pessoa").expect("layout da estrutura");
         assert_eq!(pessoa.tamanho, 16);
