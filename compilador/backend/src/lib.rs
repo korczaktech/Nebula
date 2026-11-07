@@ -194,6 +194,19 @@ impl Emissor {
         })
     }
 
+    fn tipo_algebrico_exige_indirecao(&self, tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Enumeracao(nome) => self.enumeracao_exige_indirecao(nome),
+            Tipo::Opcional(interno) => self.tamanho_alinhamento_tipo(interno)
+                .is_some_and(|(tamanho, _)| tamanho > 8),
+            Tipo::Resultado(sucesso, falha) => [
+                self.tamanho_alinhamento_tipo(sucesso),
+                self.tamanho_alinhamento_tipo(falha),
+            ].into_iter().flatten().any(|(tamanho, _)| tamanho > 8),
+            _ => false,
+        }
+    }
+
     fn layout_agregado_grande(&self, tipo: &Tipo) -> Option<(u64, u64)> {
         match tipo {
             Tipo::Estrutura(nome) => {
@@ -213,6 +226,10 @@ impl Emissor {
             Tipo::Enumeracao(nome) if self.enumeracao_exige_indirecao(nome) => {
                 let layout = self.layouts_tipos.get(nome)?;
                 Some((layout.tamanho, layout.alinhamento))
+            }
+            Tipo::Opcional(_) | Tipo::Resultado(_, _) if self.tipo_algebrico_exige_indirecao(tipo) => {
+                let (tamanho, alinhamento) = self.tamanho_alinhamento_tipo(tipo)?;
+                Some((tamanho, alinhamento))
             }
             _ => None,
         }
@@ -288,17 +305,10 @@ impl Emissor {
                 }
                 Ok(())
             }
-            Tipo::Opcional(tipo) => {
-                if self.largura_abi_tipo(tipo)? > 1 {
-                    return Err("Payload de Opcional excede um registrador da ABI inicial.".into());
-                }
-                Ok(())
-            }
+            Tipo::Opcional(tipo) | Tipo::Lista(tipo) => self.validar_tipo_abi(tipo),
             Tipo::Resultado(sucesso, falha) => {
-                if self.largura_abi_tipo(sucesso)? > 1 || self.largura_abi_tipo(falha)? > 1 {
-                    return Err("Payload de Resultado excede um registrador da ABI inicial.".into());
-                }
-                Ok(())
+                self.validar_tipo_abi(sucesso)?;
+                self.validar_tipo_abi(falha)
             }
             _ if validar_tipo(tipo).is_ok() => Ok(()),
             _ => Err(format!("Tipo '{}' ainda não possui ABI nativa implementada.", tipo.nome())),
@@ -321,6 +331,7 @@ impl Emissor {
             Tipo::Caractere => Some((4, 4)),
             Tipo::Texto => Some((16, 8)),
             Tipo::Inteiro128 | Tipo::InteiroU128 => Some((16, 16)),
+            Tipo::Lista(_) => Some((16, 8)),
             Tipo::Estrutura(nome) | Tipo::Enumeracao(nome) => self.layouts_tipos.get(nome)
                 .map(|layout| (layout.tamanho, layout.alinhamento)),
             Tipo::Opcional(interno) => {
@@ -390,8 +401,11 @@ impl Emissor {
                 1
             });
         }
-        if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+        if matches!(tipo, Tipo::Lista(_)) {
             return Ok(2);
+        }
+        if matches!(tipo, Tipo::Opcional(_) | Tipo::Resultado(_, _)) {
+            return Ok(if self.tipo_algebrico_exige_indirecao(tipo) { 1 } else { 2 });
         }
         if tipo_decimal(tipo) {
             return Ok(1);
@@ -2208,7 +2222,7 @@ impl Emissor {
         let (tamanho, _) = self.tamanho_alinhamento_tipo(tipo)
             .ok_or_else(|| format!("Tipo '{}' não possui layout nativo.", tipo.nome()))?;
 
-        if tamanho > 16 {
+        if tamanho > 16 || self.layout_agregado_grande(tipo).is_some() {
             self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
             self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
             self.mov_rdx(0);
