@@ -2293,6 +2293,8 @@ impl Maquina<'_, '_> {
             ExpressaoIr::Referencia { nome, mutavel, .. } => {
                 let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
                     .ok_or_else(|| format!("Variável '{nome}' não encontrada para criação de referência."))?;
+                self.contexto.emprestar_referenciado(escopo, nome, *mutavel)
+                    .map_err(formatar_erro_runtime)?;
                 Ok(ValorIr::Referencia { nome: nome.clone(), escopo, mutavel: *mutavel })
             }
             ExpressaoIr::Desreferencia(referencia) => {
