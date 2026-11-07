@@ -704,7 +704,7 @@ impl<'a> Analisador<'a> {
                         }
                         _ => {
                             if indice_caso + 1 != casos.len() {
-                                self.erro("N3091", "O caso curinga deve ser o último caso de 'escolha'.");
+                                self.erro("N3054", "O caso curinga deve ser o último caso de 'escolha'.");
                             }
                             if possui_curinga {
                                 self.erro("N3052", "A instrução 'escolha' possui mais de um caso curinga.");
@@ -3340,7 +3340,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let r = analisar_codigo(
             "enumeracao Estado:\n    Ativo\n    Inativo\nvariavel estado = Estado::Ativo\nescolha estado\n    caso _\n        exibir(0)\n    caso Estado::Ativo\n        exibir(1)",
         );
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3091"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
     }
 
     #[test]
