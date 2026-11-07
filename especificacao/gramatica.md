@@ -330,7 +330,7 @@ Comparações relacionais não podem ser encadeadas sem agrupamento explícito. 
 
 - Parênteses, colchetes e chaves devem ser pareados e respeitar a ordem de aninhamento.
 - `}` encerra o conteúdo de um Function Body.
-- Chaves de dados não recebem `fim` por si só.
+- Chaves de dados delimitam expressões de agregados e não criam um Function Body.
 - Fechamento cruzado, extra ou fora do contexto é erro sintático.
 - O Parser diagnostica fechamento incompatível e tenta preservar os itens posteriores.
 - Abertura sem fechamento no fim do arquivo é diagnosticada pelo Lexer/Parser.
