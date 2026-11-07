@@ -270,6 +270,8 @@ pub enum ErroRuntime {
     RuntimeFinalizado,
     /// A referência aponta para um escopo que já foi encerrado.
     ReferenciaInvalida,
+    /// Um novo empréstimo viola um empréstimo ativo sobre o mesmo recurso.
+    EmprestimoConflitante,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -1390,6 +1392,9 @@ mod ciclo_vida {
     pub struct ContextoRuntime {
         memoria: Memoria,
         alocador: Alocador,
+        emprestimos: TabelaEmprestimos,
+        recursos_emprestimo: HashMap<(u64, String), u64>,
+        proximo_recurso_emprestimo: u64,
         finalizadores: Vec<Vec<AcaoFinalizacao>>,
         estado: EstadoRuntime,
     }
@@ -1413,6 +1418,9 @@ mod ciclo_vida {
             Self {
                 memoria: Memoria::nova(),
                 alocador: Alocador::default(),
+                emprestimos: TabelaEmprestimos::nova(),
+                recursos_emprestimo: HashMap::new(),
+                proximo_recurso_emprestimo: 1,
                 finalizadores: vec![Vec::new()],
                 estado: EstadoRuntime::Ativo,
             }
@@ -1450,6 +1458,42 @@ mod ciclo_vida {
                 return Err(ErroRuntime::RuntimeFinalizado);
             }
             Ok(&mut self.alocador)
+        }
+
+        /// Adquire um empréstimo dinâmico para uma variável e o libera
+        /// automaticamente ao encerrar o escopo que criou a referência.
+        ///
+        /// O identificador do escopo e o nome formam a identidade do recurso,
+        /// impedindo colisões entre variáveis sombreadas.
+        pub fn emprestar_referenciado(
+            &mut self,
+            escopo: u64,
+            nome: &str,
+            mutavel: bool,
+        ) -> Resultado<()> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            let chave = (escopo, nome.to_owned());
+            let recurso = if let Some(recurso) = self.recursos_emprestimo.get(&chave) {
+                *recurso
+            } else {
+                let recurso = self.proximo_recurso_emprestimo;
+                self.proximo_recurso_emprestimo = self.proximo_recurso_emprestimo
+                    .checked_add(1)
+                    .ok_or(ErroRuntime::Overflow)?;
+                self.recursos_emprestimo.insert(chave, recurso);
+                recurso
+            };
+            let guarda = if mutavel {
+                self.emprestimos.exclusivo(recurso)
+            } else {
+                self.emprestimos.compartilhar(recurso)
+            }.map_err(|_| ErroRuntime::EmprestimoConflitante)?;
+            self.registrar_finalizador(move || {
+                drop(guarda);
+                Ok(())
+            })
         }
 
         /// Registra uma ação de encerramento, executada em ordem inversa.
@@ -1534,6 +1578,35 @@ mod ciclo_vida {
         use super::*;
         use std::sync::{Arc, Mutex};
     
+        #[test]
+        fn emprestimo_compartilhado_e_liberado_ao_fechar_escopo() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", false).unwrap();
+            assert_eq!(
+                contexto.emprestar_referenciado(escopo, "valor", true),
+                Err(ErroRuntime::EmprestimoConflitante)
+            );
+            contexto.fechar_escopo().unwrap();
+            contexto.abrir_escopo().unwrap();
+            assert!(contexto.emprestar_referenciado(escopo, "valor", true).is_ok());
+        }
+
+        #[test]
+        fn emprestimo_exclusivo_bloqueia_emprestimo_compartilhado() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", true).unwrap();
+            assert_eq!(
+                contexto.emprestar_referenciado(escopo, "valor", false),
+                Err(ErroRuntime::EmprestimoConflitante)
+            );
+        }
+
         #[test]
         fn finalizadores_sao_limitados_ao_escopo_e_executados_em_lifo() {
             let ordem = Arc::new(Mutex::new(Vec::new()));
