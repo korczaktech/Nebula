@@ -428,7 +428,7 @@ fn compila_payload_decimal_em_enumeracoes() {
 fn abi_transporta_enum_composto_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "enum-multiplos-payloads-abi",
-        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao criar(): Evento\n    retorne Evento::Dados(20, 22)\nfuncao somar(evento: Evento): inteiro\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1\nfuncao principal(): inteiro\n    variavel evento = criar()\n    variavel esperado = criar()\n    se evento == esperado\n        retorne somar(evento)\n    retorne 0",
+        "enumeracao Evento: {\n    Vazio\n    Dados(inteiro, inteiro)\n}\n\nfuncao criar() -> Evento: {\n    retorne Evento::Dados(20, 22)\n}\n\nfuncao somar(evento: Evento) -> inteiro: {\n    escolha evento: {\n        caso Evento::Dados(a, b): {\n            retorne a + b\n        }\n        caso Evento::Vazio: {\n            retorne 1\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    variavel evento = criar()\n    variavel esperado = criar()\n    se evento == esperado: {\n        retorne somar(evento)\n    }\n    retorne 0\n}",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
@@ -437,7 +437,7 @@ fn abi_transporta_enum_composto_em_argumento_e_retorno() {
 fn abi_transporta_opcional_com_payload_textual_por_endereco() {
     let resultado = compilar_e_executar(
         "opcional-texto-abi-indireta",
-        "funcao criar(): Opcional<texto>\n    retorne Opcional::Algum(\"Nebula\")\nfuncao medir(valor: Opcional<texto>): inteiro\n    escolha valor\n        caso Opcional::Algum(texto)\n            retorne comprimento(texto)\n        caso Opcional::Nenhum\n            retorne 0\nfuncao principal(): inteiro\n    retorne medir(criar())",
+        "funcao criar() -> Opcional<texto>: {\n    retorne Opcional::Algum(\"Nebula\")\n}\n\nfuncao medir(valor: Opcional<texto>) -> inteiro: {\n    escolha valor: {\n        caso Opcional::Algum(texto): {\n            retorne comprimento(texto)\n        }\n        caso Opcional::Nenhum: {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
     );
     assert_eq!(resultado.status.code(), Some(6));
 }
@@ -446,7 +446,7 @@ fn abi_transporta_opcional_com_payload_textual_por_endereco() {
 fn abi_transporta_resultado_com_payload_textual_por_endereco() {
     let resultado = compilar_e_executar(
         "resultado-texto-abi-indireta",
-        "funcao criar(): Resultado<texto, texto>\n    retorne Resultado::Sucesso(\"Nebula\")\nfuncao medir(valor: Resultado<texto, texto>): inteiro\n    escolha valor\n        caso Resultado::Sucesso(texto)\n            retorne comprimento(texto)\n        caso Resultado::Falha(erro)\n            retorne 0\nfuncao principal(): inteiro\n    retorne medir(criar())",
+        "funcao criar() -> Resultado<texto, texto>: {\n    retorne Resultado::Sucesso(\"Nebula\")\n}\n\nfuncao medir(valor: Resultado<texto, texto>) -> inteiro: {\n    escolha valor: {\n        caso Resultado::Sucesso(texto): {\n            retorne comprimento(texto)\n        }\n        caso Resultado::Falha(erro): {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
     );
     assert_eq!(resultado.status.code(), Some(6));
 }
@@ -464,7 +464,7 @@ fn abi_transporta_estrutura_compacta_com_caracteres_por_endereco() {
 fn igualdade_de_tupla_em_registradores_compara_os_dois_campos() {
     let resultado = compilar_e_executar(
         "igualdade-tupla-registradores",
-        "funcao principal(): inteiro\n    variavel primeiro = (20, 22)\n    variavel segundo = (20, 22)\n    se primeiro == segundo\n        retorne 42\n    retorne 0",
+        "funcao principal() -> inteiro: {\n    variavel primeiro = (20, 22)\n    variavel segundo = (20, 22)\n    se primeiro == segundo: {\n        retorne 42\n    }\n    retorne 0\n}",
     );
     assert_eq!(resultado.status.code(), Some(42));
 }
