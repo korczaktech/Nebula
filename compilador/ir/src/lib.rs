@@ -3086,6 +3086,35 @@ mod testes {
         saida.join("\n")
     }
     
+    fn compilar(codigo: &str) -> ProgramaIr {
+        let codigo = normalizar_blocos_indentados(codigo);
+        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        let mut programa = resultado.programa.expect("IR válida");
+        fn deslocalizar(instrucao: InstrucaoIr) -> InstrucaoIr {
+            match instrucao {
+                InstrucaoIr::Localizada { instrucao, .. } => deslocalizar(*instrucao),
+                InstrucaoIr::Bloco(itens) => InstrucaoIr::Bloco(itens.into_iter().map(deslocalizar).collect()),
+                InstrucaoIr::Se { condicao, entao, senao } => InstrucaoIr::Se { condicao, entao: entao.into_iter().map(deslocalizar).collect(), senao: senao.into_iter().map(deslocalizar).collect() },
+                InstrucaoIr::Escolha { valor, casos } => InstrucaoIr::Escolha { valor, casos: casos.into_iter().map(|mut caso| { caso.corpo = caso.corpo.into_iter().map(deslocalizar).collect(); caso }).collect() },
+                InstrucaoIr::Enquanto { condicao, corpo } => InstrucaoIr::Enquanto { condicao, corpo: corpo.into_iter().map(deslocalizar).collect() },
+                InstrucaoIr::Cada { nome, iteravel, corpo } => InstrucaoIr::Cada { nome, iteravel, corpo: corpo.into_iter().map(deslocalizar).collect() },
+                InstrucaoIr::Pulso { intervalo, corpo } => InstrucaoIr::Pulso { intervalo, corpo: corpo.into_iter().map(deslocalizar).collect() },
+                InstrucaoIr::Para { inicial, condicao, atualizacao, corpo } => InstrucaoIr::Para { inicial: inicial.map(|i| Box::new(deslocalizar(*i))), condicao, atualizacao, corpo: corpo.into_iter().map(deslocalizar).collect() },
+                outra => outra,
+            }
+        }
+        programa.instrucoes = programa.instrucoes.into_iter().map(deslocalizar).collect();
+        for funcao in programa.funcoes.values_mut() {
+            funcao.corpo = std::mem::take(&mut funcao.corpo).into_iter().map(deslocalizar).collect();
+        }
+        programa
+    }
+
+
     #[test]
     fn infere_genericos_por_aliases_de_vetor_e_matriz_na_ir() {
         let lowerer = Lowerer {
