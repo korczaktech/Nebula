@@ -132,8 +132,15 @@ impl TabelaEmprestimos {
     /// Valida leitura direta: empréstimos compartilhados permitem ler,
     /// mas um empréstimo exclusivo impede acesso pelo proprietário.
     pub fn validar_leitura(&self, recurso: u64) -> Result<(), ErroEmprestimo> {
-        let estado = self.estado.lock().map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
-        if estado.recursos.get(&recurso).is_some_and(|item| item.exclusivo.is_some()) {
+        let estado = self
+            .estado
+            .lock()
+            .map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
+        if estado
+            .recursos
+            .get(&recurso)
+            .is_some_and(|item| item.exclusivo.is_some())
+        {
             return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
         }
         Ok(())
@@ -142,7 +149,10 @@ impl TabelaEmprestimos {
     /// Valida escrita direta: qualquer empréstimo ativo impede escrita
     /// pelo proprietário, inclusive quando há apenas leitores.
     pub fn validar_escrita(&self, recurso: u64) -> Result<(), ErroEmprestimo> {
-        let estado = self.estado.lock().map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
+        let estado = self
+            .estado
+            .lock()
+            .map_err(|_| ErroEmprestimo::EstadoIndisponivel)?;
         if let Some(item) = estado.recursos.get(&recurso) {
             if item.exclusivo.is_some() {
                 return Err(ErroEmprestimo::ExclusivoAtivo(recurso));
