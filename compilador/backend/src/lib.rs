@@ -4694,6 +4694,35 @@ mod testes {
     }
 
     #[test]
+    fn compara_listas_de_inteiros_por_comprimento_e_conteudo() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let lista = Tipo::Lista(Box::new(Tipo::Inteiro));
+        let igualdade = ExpressaoIr::Binaria {
+            operador: OperadorIr::Igual,
+            esquerda: Box::new(ExpressaoIr::Variavel("a".into())),
+            direita: Box::new(ExpressaoIr::Variavel("b".into())),
+        };
+        emissor.compilar_funcao(&FuncaoIr {
+            nome: "listas_iguais".into(),
+            parametros: vec![("a".into(), lista.clone()), ("b".into(), lista)],
+            retorno: Tipo::Logico,
+            corpo: vec![InstrucaoIr::Devolver(Some(igualdade))],
+        }).unwrap();
+    }
+
+    #[test]
+    fn rejeita_igualdade_nativa_de_lista_textual_sem_comparar_ponteiros() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        let erro = emissor.comparar_lista(
+            &ExpressaoIr::Variavel("a".into()),
+            &ExpressaoIr::Variavel("b".into()),
+            &Tipo::Texto,
+            &OperadorIr::Igual,
+        ).unwrap_err();
+        assert!(erro.contains("outros tipos"));
+    }
+
+    #[test]
     fn passa_e_retorna_lista_com_ponteiro_e_comprimento() {
         let mut emissor = Emissor::novo(HashMap::new());
         emissor.compilar_funcao(&FuncaoIr {
