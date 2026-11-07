@@ -2526,10 +2526,121 @@ impl Emissor {
         self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0, 0x0F, 0x95, 0xC0, 0x48, 0x0F, 0xB6, 0xC0]);
     }
 
+    fn escolha_enumeracao_indireta(
+        &mut self,
+        nome: &str,
+        valor: &ExpressaoIr,
+        casos: &[CasoEscolhaIr],
+    ) -> Result<(), String> {
+        let variantes = self.variantes_enumeracoes.get(nome)
+            .ok_or_else(|| format!("Variantes da enumeração '{nome}' ausentes no backend."))?
+            .clone();
+        let layout = self.layouts_tipos.get(nome)
+            .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente no backend."))?;
+        let deslocamento_payload = layout.campos.get("payload")
+            .map(|(deslocamento, _)| *deslocamento)
+            .ok_or_else(|| format!("Layout do payload de '{nome}' ausente."))?;
+        let nome_base = format!("\\0nebula_enum_base_{}", self.proximo_slot);
+        let slot_base = self.declarar(&nome_base)?;
+        self.expressao(valor)?;
+        self.armazenar_rax(slot_base);
+
+        let nome_tag = format!("\\0nebula_enum_tag_{}", self.proximo_slot);
+        let slot_tag = self.declarar(&nome_tag)?;
+        self.carregar_rax(slot_base);
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço da enumeração
+        let tipo_tag = if variantes.len() <= 256 {
+            Tipo::InteiroU8
+        } else if variantes.len() <= 65_536 {
+            Tipo::InteiroU16
+        } else {
+            Tipo::InteiroU32
+        };
+        self.carregar_elemento_agregado_grande(0, &tipo_tag)?;
+        self.armazenar_rax(slot_tag);
+
+        let mut saltos_fim = Vec::new();
+        let mut possui_curinga = false;
+        for caso in casos {
+            let proximo_caso = if let (Some(enumeracao), Some(variante)) =
+                (&caso.enumeracao, &caso.variante)
+            {
+                if nome_enum_canonico(enumeracao) != nome_enum_canonico(nome) {
+                    return Err(format!("Caso da enumeração '{enumeracao}' não corresponde a '{nome}'."));
+                }
+                let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
+                    .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?;
+                self.mov_rax(indice as i64);
+                self.codigo.extend_from_slice(&[0x48, 0x89, 0xC1]); // rcx = tag esperada
+                self.carregar_rax(slot_tag);
+                self.codigo.extend_from_slice(&[0x48, 0x39, 0xC8]); // cmp rax, rcx
+                Some(self.emitir_jcc(0x85))
+            } else {
+                possui_curinga = true;
+                None
+            };
+
+            self.escopos.push(HashMap::new());
+            self.tipos_escopos.push(HashMap::new());
+            if let (Some(variante), Some(_)) = (&caso.variante, &caso.enumeracao) {
+                let payload = &variantes.iter()
+                    .find(|(nome_variante, _)| nome_variante == variante)
+                    .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?.1;
+                if caso.vinculacoes.len() != payload.len() {
+                    return Err(format!(
+                        "A variante '{nome}::{variante}' possui {} campos de payload, mas o padrão declarou {} vínculos.",
+                        payload.len(),
+                        caso.vinculacoes.len()
+                    ));
+                }
+                let (_, campos) = self.layout_tupla(payload)
+                    .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
+                for ((vinculo, tipo), (deslocamento, _)) in caso.vinculacoes.iter().zip(payload).zip(&campos) {
+                    let deslocamento = deslocamento_payload.checked_add(*deslocamento)
+                        .ok_or("Deslocamento do payload de enumeração excedeu o limite.")?;
+                    self.carregar_rax(slot_base);
+                    self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = base da enumeração
+                    self.carregar_elemento_agregado_grande(deslocamento, tipo)?;
+                    let slot = self.declarar_tipado(vinculo, tipo)?;
+                    self.armazenar_rax(slot);
+                    if self.largura_abi_tipo(tipo)? == 2 {
+                        self.armazenar_rdx(slot - 8);
+                    } else {
+                        self.mov_rdx(0);
+                        self.armazenar_rdx(slot - 8);
+                    }
+                }
+            } else if !caso.vinculacoes.is_empty() {
+                return Err("Padrões curinga de enumeração indireta não podem declarar vínculos posicionais.".into());
+            }
+
+            self.bloco(&caso.corpo)?;
+            let _ = self.escopos.pop();
+            let _ = self.tipos_escopos.pop();
+            saltos_fim.push(self.emitir_jmp());
+            if let Some(salto) = proximo_caso {
+                self.aplicar_salto(salto, self.codigo.len());
+            }
+        }
+        if !possui_curinga {
+            self.encerrar_com_erro(2);
+        }
+        let fim = self.codigo.len();
+        for salto in saltos_fim {
+            self.aplicar_salto(salto, fim);
+        }
+        Ok(())
+    }
+
     fn escolha(&mut self, valor: &ExpressaoIr, casos: &[CasoEscolhaIr]) -> Result<(), String> {
         let tipo = tipo_expressao_ir(valor)
             .ok_or("Correspondência de padrões exige tipo algébrico conhecido.")?;
         self.validar_tipo_abi(tipo)?;
+        if let Tipo::Enumeracao(nome) = tipo {
+            if self.enumeracao_exige_indirecao(nome) {
+                return self.escolha_enumeracao_indireta(nome, valor, casos);
+            }
+        }
         self.expressao(valor)?;
         let nome_tag = format!("\\0nebula_tag_{}", self.proximo_slot);
         let slot_tag = self.declarar(&nome_tag)?;
@@ -2557,7 +2668,7 @@ impl Emissor {
             };
 
             if caso.vinculacoes.len() > 1 {
-                return Err("A ABI inicial de enumerações suporta um único vínculo de payload por caso.".into());
+                return Err("A ABI de registradores suporta um único vínculo de payload por caso.".into());
             }
             self.escopos.push(HashMap::new());
             self.tipos_escopos.push(HashMap::new());
