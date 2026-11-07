@@ -3903,6 +3903,69 @@ mod testes {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn executa_referencia_compartilhada_e_desreferencia_no_elf() {
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.corpo = vec![
+            InstrucaoIr::Declarar {
+                nome: "valor".into(),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Constante(ValorIr::Inteiro(37)),
+                constante: false,
+            },
+            InstrucaoIr::Declarar {
+                nome: "referencia".into(),
+                tipo: Tipo::Referencia { interno: Box::new(Tipo::Inteiro), mutavel: false },
+                valor: ExpressaoIr::Referencia {
+                    nome: "valor".into(),
+                    mutavel: false,
+                    tipo: Tipo::Inteiro,
+                },
+                constante: true,
+            },
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Desreferencia(Box::new(
+                ExpressaoIr::Variavel("referencia".into()),
+            )))),
+        ];
+        assert_eq!(executar_elf_de_teste(&programa), 37);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn executa_escrita_por_referencia_exclusiva_no_elf() {
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.corpo = vec![
+            InstrucaoIr::Declarar {
+                nome: "valor".into(),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Constante(ValorIr::Inteiro(7)),
+                constante: false,
+            },
+            InstrucaoIr::Declarar {
+                nome: "referencia".into(),
+                tipo: Tipo::Referencia { interno: Box::new(Tipo::Inteiro), mutavel: true },
+                valor: ExpressaoIr::Referencia {
+                    nome: "valor".into(),
+                    mutavel: true,
+                    tipo: Tipo::Inteiro,
+                },
+                constante: true,
+            },
+            InstrucaoIr::Expressao(ExpressaoIr::AtribuicaoReferencia {
+                referencia: Box::new(ExpressaoIr::Variavel("referencia".into())),
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(42))),
+                tipo: Tipo::Inteiro,
+            }),
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Desreferencia(Box::new(
+                ExpressaoIr::Variavel("referencia".into()),
+            )))),
+        ];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn executa_aritmetica_nativa_de_inteiros_128_bits() {
         let casos = [
             (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(7), ValorIr::Inteiro(9), 63),
