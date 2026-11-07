@@ -3129,7 +3129,15 @@ mod testes {
         }
         saida.join("\n")
     }
-    
+
+    fn analisar_codigo(codigo: &str) -> ResultadoSemantico {
+        let codigo = normalizar_blocos_indentados(codigo);
+        let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
+        let sintaxe = analisar(&fonte);
+        assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
+        analisar_semantica(&sintaxe.programa)
+    }
+
     #[test]
     fn permite_igualdade_estrutural_de_tipos_compostos() {
         let r = analisar_codigo(
