@@ -446,7 +446,7 @@ fn abi_transporta_opcional_com_payload_textual_por_endereco() {
 fn abi_transporta_resultado_com_payload_textual_por_endereco() {
     let resultado = compilar_e_executar(
         "resultado-texto-abi-indireta",
-        "funcao criar() -> Resultado<texto, texto>: {\n    retorne Resultado::Sucesso(\"Nebula\")\n}\n\nfuncao medir(valor: Resultado<texto, texto>) -> inteiro: {\n    escolha valor: {\n        caso Resultado::Sucesso(texto): {\n            retorne comprimento(texto)\n        }\n        caso Resultado::Falha(erro): {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
+        "funcao criar() -> Resultado<texto, texto>: {\n    retorne Resultado::Sucesso(\"Nebula\")\n}\n\nfuncao medir(valor: Resultado<texto, texto>) -> inteiro: {\n    escolha valor: {\n        caso Resultado::Sucesso(texto): {\n            retorne comprimento(texto)\n        }\n        caso Resultado::Falha(detalheFalha): {\n            retorne 0\n        }\n    }\n}\n\nfuncao principal() -> inteiro: {\n    retorne medir(criar())\n}",
     );
     assert_eq!(resultado.status.code(), Some(6));
 }
