@@ -592,6 +592,7 @@ impl<'a> Analisador<'a> {
                 }
                 self.abrir_escopo();
                 let tipo_contexto_inseguro = match contexto.as_str() {
+                    "seguro" => Some(ContextoInseguro::Seguro),
                     "critico" => Some(ContextoInseguro::Critico),
                     "privilegio" => Some(ContextoInseguro::Privilegio),
                     "montagem" => Some(ContextoInseguro::Montagem),
@@ -4874,6 +4875,18 @@ funcao sem_retorno(): vazio
              classe Cachorro herda Animal\n    funcao falar(mensagem: inteiro): texto\n        devolver \"Olá\"",
         );
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3087"), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn bloco_seguro_bloqueia_contexto_inseguro_herdado() {
+        let resultado = analisar_codigo(
+            "@convencao(\"C\")\nexterna funcao escreverByte(valor: u8): vazio\ncritico\n    seguro\n        escreverByte(255)",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3106"),
+            "Bloco seguro aninhado deve revogar permissões inseguras externas: {:?}",
+            resultado.diagnosticos
+        );
     }
 
     #[test]
