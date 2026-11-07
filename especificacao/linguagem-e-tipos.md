@@ -208,6 +208,74 @@ A tabela abaixo é normativa; níveis maiores vinculam primeiro. Operadores no m
 
 A avaliação de chamadas e operadores binários é da esquerda para a direita, salvo quando a tabela declarar associatividade à direita. Curto-circuito lógico não avalia o operando direito quando o resultado já é determinado pelo esquerdo. A ordem de avaliação não pode ser alterada por otimizações quando houver efeitos observáveis. Comparações relacionais e operadores de intervalo encadeados são erros sintáticos; agrupamento explícito com parênteses é permitido.
 
-## 10. Conformidade da implementação
+## 10. Propriedade, referências, empréstimos e segurança
+
+Esta seção define o contrato de propriedade da linguagem. A presença de uma regra normativa não significa que todas as camadas já a implementem; a conformidade deve ser comprovada conforme a seção de conformidade.
+
+### 10.1 Propriedade e movimentação
+
+1. Cada valor não copiável possui exatamente um proprietário. A atribuição de um valor não copiável transfere a propriedade; o identificador de origem fica indisponível até ser reinicializado integralmente.
+2. Tipos escalares e agregados cujos componentes sejam copiáveis podem ser copiados por valor. Tipos que possuam recursos exclusivos, referências exclusivas ou componentes não copiáveis são movidos.
+3. Movimentação parcial só é permitida para campos de estruturas e posições de tuplas quando o verificador consegue provar a projeção estática. O agregado não pode ser lido ou movido enquanto uma projeção obrigatória estiver não inicializada.
+4. A escrita pode reinicializar uma projeção movida. A leitura do agregado inteiro só volta a ser válida quando todas as projeções obrigatórias estiverem inicializadas.
+5. Uma movimentação, escrita ou destruição não pode ocorrer enquanto existir empréstimo ativo sobre lugar sobreposto.
+
+### 10.2 Tipos e expressões de referência
+
+A sintaxe normativa é:
+
+| Forma | Significado |
+|---|---|
+| `&T` | Tipo de referência compartilhada para `T` |
+| `&mutavel T` | Tipo de referência exclusiva e mutável para `T` |
+| `&valor` | Cria empréstimo compartilhado |
+| `&mutavel valor` | Cria empréstimo exclusivo |
+| `*referencia` | Acessa o valor referenciado |
+
+Uma referência não possui o valor referenciado. Seu tempo de vida não pode exceder o do proprietário. Referências compartilhadas permitem somente leitura; referências exclusivas permitem leitura e escrita e exigem ausência de qualquer outro empréstimo sobreposto. É permitido manter vários empréstimos compartilhados simultâneos. Não é permitido manter dois empréstimos exclusivos, nem combinar empréstimo exclusivo com compartilhado sobre lugares sobrepostos.
+
+A palavra `mutavel` qualifica o empréstimo, não altera a mutabilidade declarada do proprietário. A criação de referência a uma variável imutável é sempre compartilhada. A criação de referência exclusiva exige que o lugar de origem seja mutável.
+
+### 10.3 Vidas úteis e fluxo de controle
+
+1. A vida útil de uma referência começa na criação do empréstimo e termina após seu último uso comprovável no fluxo de controle. O compilador deve encerrar empréstimos após o último uso, e não apenas no fim lexical do bloco.
+2. O verificador acompanha estado de propriedade e empréstimos em cada caminho de controle. Na junção de caminhos, uma variável só é considerada inicializada se estiver inicializada em todos os caminhos alcançáveis; um empréstimo é considerado ativo se puder permanecer ativo em qualquer caminho.
+3. Uma referência não pode escapar do escopo do proprietário, inclusive por retorno, armazenamento em estrutura, captura ou chamada indireta.
+4. Laços exigem análise de estado estável: uma movimentação ou empréstimo que conflite com a próxima iteração deve ser rejeitado, salvo se todos os caminhos reinicializarem/encerrarem o estado antes da iteração seguinte.
+5. A verificação estática deve rejeitar referência pendente, uso após movimentação, movimentação/escrita durante empréstimo incompatível, aliasing mutável e uso de valor parcialmente inicializado.
+
+### 10.4 Destruição determinística
+
+1. Valores proprietários são destruídos automaticamente ao sair do escopo em que foram inicializados, em ordem inversa à inicialização (LIFO).
+2. Empréstimos terminam antes da destruição do proprietário. Uma referência não pode permanecer viva após o encerramento do escopo do proprietário.
+3. A destruição deve ocorrer em saída normal, retorno, propagação de erro e encerramento antecipado de laço. A IR deve representar explicitamente as ações de destruição para que interpretador e backends observem a mesma ordem.
+4. Se a destruição de um recurso falhar, as demais destruições pendentes ainda devem ser executadas; a primeira falha é preservada como erro de encerramento. Durante propagação de erro, a falha de destruição não pode apagar silenciosamente a causa original.
+5. A inicialização parcial destrói somente os campos efetivamente inicializados, em ordem inversa à inicialização. Um campo movido não é destruído novamente pelo agregado.
+
+### 10.5 Operações inseguras
+
+Código seguro não pode executar operações que dependam de validade de ponteiro não comprovada, alinhamento, inicialização, aliasing ou sincronização não garantidos pelo sistema de tipos.
+
+As operações abaixo exigem contexto inseguro explícito:
+
+- desreferenciar ponteiro bruto ou converter inteiro em endereço;
+- criar referência a partir de endereço bruto;
+- acessar memória fora de uma alocação ou sem prova estática de limites;
+- reinterpretar representação, layout, alinhamento ou tipo de memória;
+- chamar função externa cuja assinatura/contrato não tenha sido verificado pelo compilador;
+- executar instrução de montagem ou operação privilegiada;
+- liberar manualmente uma alocação enquanto houver referência ou empréstimo ativo;
+- declarar ou acessar região de memória mapeada por dispositivo.
+
+Os blocos contextuais `critico`, `privilegio` e `montagem` são os únicos contextos que podem autorizar essas operações, conforme suas permissões: `critico` autoriza operações de memória explicitamente listadas; `privilegio` exige alvo/suporte privilegiado e autorização do sistema; `montagem` exige alvo de arquitetura compatível. Um bloco contextual não transforma automaticamente uma operação inválida em válida.
+
+Cada operação insegura deve ser validada contra suas obrigações específicas: origem e validade do endereço, tamanho e alinhamento, inicialização, exclusividade/aliasing, limites da alocação, validade da ABI e requisitos do alvo. A ausência de prova ou de obrigação satisfeita é erro estático. O compilador não pode inferir segurança apenas pela presença de um bloco contextual.
+
+### 10.6 Alocação e coleta
+
+A alocação dinâmica é explícita e pertence a um alocador documentado. Toda alocação possui proprietário e deve ser liberada automaticamente pelo encerramento do proprietário ou por liberação explícita validada. A liberação manual não pode ocorrer enquanto referências estiverem vivas. A Nebula não exige coletor global de lixo; custos de alocação, liberação, contagem ou sincronização devem ser documentados por API e alvo.
+
+## 11. Conformidade da implementação
+
 
 Esta especificação é normativa; a implementação pode estar em estágio diferente. Um recurso só é considerado implementado quando percorre as camadas que lhe são aplicáveis: Lexer/Parser, AST, análise semântica, IR, interpretador, backend e testes de conformidade. O interpretador de referência deve preservar a semântica da linguagem. Cada backend deve implementar a representação declarada para seu alvo ou emitir diagnóstico explícito antes de gerar um artefato. O estado verificável, os limites por alvo e as evidências de CI permanecem registrados em `criterios-fase-5.md` e `tipos.md`.
