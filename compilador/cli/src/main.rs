@@ -1172,7 +1172,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: true,
-                etapa: 0,
             });
             continue;
         }
@@ -1242,7 +1241,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Caso,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
@@ -1309,7 +1307,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: false,
-                etapa: 0,
             });
         } else {
             saida.push(linha.to_owned());
