@@ -2365,7 +2365,16 @@ impl Emissor {
             | ExpressaoIr::ReferenciaFuncao { tipo, .. }
             | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. }
             | ExpressaoIr::Atribuicao { tipo, .. }
-            | ExpressaoIr::AtribuicaoCampo { tipo, .. } => Some(tipo.clone()),
+            | ExpressaoIr::AtribuicaoCampo { tipo, .. }
+            | ExpressaoIr::AtribuicaoReferencia { tipo, .. } => Some(tipo.clone()),
+            ExpressaoIr::Referencia { tipo, mutavel, .. } => Some(Tipo::Referencia {
+                interno: Box::new(tipo.clone()),
+                mutavel: *mutavel,
+            }),
+            ExpressaoIr::Desreferencia(referencia) => match self.tipo_expressao_atual(referencia)? {
+                Tipo::Referencia { interno, .. } => Some(*interno),
+                _ => None,
+            },
             ExpressaoIr::Constante(ValorIr::Inteiro(_)) => Some(Tipo::Inteiro),
             ExpressaoIr::Constante(ValorIr::InteiroSemSinal(_)) => Some(Tipo::InteiroU128),
             ExpressaoIr::Constante(ValorIr::Decimal(_)) => Some(Tipo::Decimal64),
