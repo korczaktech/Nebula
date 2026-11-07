@@ -1092,7 +1092,7 @@ impl Emissor {
                 let tipo_elemento = tipos.get(posicao)
                     .ok_or("Tipo do elemento de tupla ausente.")?;
                 self.expressao(alvo)?;
-                if tamanho_total > 16 {
+                if self.layout_agregado_grande(&Tipo::Tupla(tipos.clone())).is_some() {
                     self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço da tupla
                     self.carregar_elemento_agregado_grande(*deslocamento, tipo_elemento)?;
                 } else {
@@ -1134,10 +1134,11 @@ impl Emissor {
             ExpressaoIr::ConstrucaoEstrutura { nome, campos } => {
                 let layout = self.layouts_tipos.get(nome)
                     .ok_or_else(|| format!("Layout da estrutura '{nome}' ausente no backend."))?;
-                if layout.tamanho > 16 {
+                if self.layout_agregado_grande(&Tipo::Estrutura(nome.clone())).is_some() {
                     let tamanho = layout.tamanho;
                     let alinhamento = layout.alinhamento;
                     let offsets = layout.campos.clone();
+                    let tipos_campos = self.campos_estruturas.get(nome).cloned().unwrap_or_default();
                     let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
                     self.emitir_endereco_rbp_rax(armazenamento);
                     self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]); // rdi = destino
@@ -1149,7 +1150,16 @@ impl Emissor {
                             .copied()
                             .ok_or_else(|| format!("Campo '{campo}' não existe em '{nome}'."))?;
                         self.expressao(valor)?;
-                        self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                        if let Some((_, tipo_campo)) = tipos_campos.iter().find(|(nome_campo, _)| nome_campo == campo) {
+                            self.armazenar_valor_tipo_agregado(
+                                armazenamento,
+                                deslocamento,
+                                tamanho_campo,
+                                tipo_campo,
+                            )?;
+                        } else {
+                            self.armazenar_campo_agregado(armazenamento, deslocamento, tamanho_campo)?;
+                        }
                     }
                     self.emitir_endereco_rbp_rax(armazenamento);
                     self.mov_rdx(0);
@@ -2168,7 +2178,7 @@ impl Emissor {
         let Some(Tipo::Estrutura(nome)) = tipo_expressao_ir(alvo) else {
             return false;
         };
-        self.layouts_tipos.get(nome).is_some_and(|layout| layout.tamanho > 16)
+        self.layout_agregado_grande(&Tipo::Estrutura(nome.clone())).is_some()
     }
 
     fn carregar_membro_agregado(
@@ -2188,7 +2198,7 @@ impl Emissor {
         self.expressao(alvo)?;
         self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = endereço do agregado
 
-        if tamanho > 16 {
+        if tamanho > 16 || self.layout_agregado_grande(tipo).is_some() {
             self.codigo.extend_from_slice(&[0x49, 0x8D, 0x83]);
             self.codigo.extend_from_slice(&deslocamento.to_le_bytes());
             self.mov_rdx(0);
@@ -2883,7 +2893,7 @@ impl Emissor {
         }
         let (tamanho, campos) = self.layout_tupla(tipos)
             .ok_or("Layout de tupla não suportado pela ABI nativa.")?;
-        if tamanho > 16 {
+        if self.layout_agregado_grande(&Tipo::Tupla(tipos.to_vec())).is_some() {
             let alinhamento = tipos.iter()
                 .map(|tipo| self.tamanho_alinhamento_tipo(tipo).map(|(_, alinhamento)| alinhamento))
                 .collect::<Option<Vec<_>>>()
@@ -2899,7 +2909,12 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
             for (indice, (deslocamento, tamanho_campo)) in campos.iter().enumerate() {
                 self.expressao(&valores[indice])?;
-                self.armazenar_campo_agregado(armazenamento, *deslocamento, *tamanho_campo)?;
+                self.armazenar_valor_tipo_agregado(
+                    armazenamento,
+                    *deslocamento,
+                    *tamanho_campo,
+                    &tipos[indice],
+                )?;
             }
             self.emitir_endereco_rbp_rax(armazenamento);
             self.mov_rdx(0);
