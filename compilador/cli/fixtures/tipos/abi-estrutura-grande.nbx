@@ -1,0 +1,22 @@
+estrutura VetorGrande: {
+    a: inteiro64
+    b: inteiro64
+    c: inteiro64
+}
+
+funcao construir(base: inteiro64) -> VetorGrande: {
+    devolver VetorGrande { a: base, b: base + 1, c: base + 2 }
+}
+
+funcao somar(vetor: VetorGrande) -> inteiro64: {
+    devolver vetor.a + vetor.b + vetor.c
+}
+
+funcao principal() -> inteiro: {
+    variavel registro = construir(13)
+    variavel total = somar(registro)
+    quando total == 42: {
+        devolver 42
+    }
+    devolver 1
+}
