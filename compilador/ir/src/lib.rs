@@ -50,7 +50,7 @@ pub enum ExpressaoIr {
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
-    Referencia { nome: String, mutavel: bool },
+    Referencia { nome: String, mutavel: bool, tipo: Tipo },
     Desreferencia(Box<ExpressaoIr>),
     AtribuicaoReferencia { referencia: Box<ExpressaoIr>, valor: Box<ExpressaoIr>, tipo: Tipo },
     Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
@@ -895,6 +895,7 @@ impl Lowerer {
                         Some(ExpressaoIr::Referencia {
                             nome: nome.clone(),
                             mutavel: *operador == TipoToken::Mutavel,
+                            tipo: self.inferir_tipo_ast(valor),
                         })
                     }
                     TipoToken::Vezes => Some(ExpressaoIr::Desreferencia(Box::new(self.expressao(valor)?))),
@@ -1355,6 +1356,13 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         },
         ExpressaoIr::Unaria { valor, .. } => inferir_tipo(valor),
         ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => inferir_tipo(valor),
+        ExpressaoIr::Referencia { tipo, mutavel, .. } =>
+            Tipo::Referencia { interno: Box::new(tipo.clone()), mutavel: *mutavel },
+        ExpressaoIr::Desreferencia(referencia) => match inferir_tipo(referencia) {
+            Tipo::Referencia { interno, .. } => *interno,
+            _ => Tipo::Desconhecido,
+        },
+        ExpressaoIr::AtribuicaoReferencia { tipo, .. } => tipo.clone(),
         ExpressaoIr::Indexacao { .. } | ExpressaoIr::Membro { .. } | ExpressaoIr::Chamada { .. } | ExpressaoIr::ChamadaQualificada { .. } | ExpressaoIr::Variavel(_) => Tipo::Desconhecido,
     }
 }
@@ -2260,7 +2268,7 @@ impl Maquina<'_, '_> {
             ExpressaoIr::Normalizar { tipo, valor } => normalizar_valor(tipo, self.expressao(valor)?),
             ExpressaoIr::Conversao { tipo, valor, .. } => converter_valor_explicito(tipo, self.expressao(valor)?),
             ExpressaoIr::Variavel(nome) => self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR.")),
-            ExpressaoIr::Referencia { nome, mutavel } => {
+            ExpressaoIr::Referencia { nome, mutavel, .. } => {
                 let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
                     .ok_or_else(|| format!("Variável '{nome}' não encontrada para criação de referência."))?;
                 Ok(ValorIr::Referencia { nome: nome.clone(), escopo, mutavel: *mutavel })
