@@ -40,6 +40,15 @@ pub enum Valor {
     Texto(String),
     /// Caractere Unicode.
     Caractere(char),
+    /// Referência segura a uma célula de variável em um escopo ativo.
+    Referencia {
+        /// Nome da variável de origem.
+        nome: String,
+        /// Identificador estável do escopo de origem.
+        escopo: u64,
+        /// Indica permissão exclusiva de escrita.
+        mutavel: bool,
+    },
     /// Referência nominal a uma função compilada.
     Funcao(String),
     /// Lista compartilhada e protegida contra acesso concorrente.
@@ -85,6 +94,10 @@ impl PartialEq for Valor {
             (Self::Texto(a), Self::Texto(b)) => a == b,
             (Self::Caractere(a), Self::Caractere(b)) => a == b,
             (Self::Funcao(a), Self::Funcao(b)) => a == b,
+            (
+                Self::Referencia { nome: an, escopo: ae, mutavel: am },
+                Self::Referencia { nome: bn, escopo: be, mutavel: bm },
+            ) => an == bn && ae == be && am == bm,
             (
                 Self::Intervalo {
                     inicio: ai,
@@ -247,6 +260,8 @@ pub enum ErroRuntime {
     TarefaCancelada,
     /// O contexto de execução já foi finalizado.
     RuntimeFinalizado,
+    /// A referência aponta para um escopo que já foi encerrado.
+    ReferenciaInvalida,
 }
 
 /// Resultado padrão das operações do runtime.
@@ -426,6 +441,8 @@ struct Celula {
 #[derive(Clone, Debug)]
 pub struct Memoria {
     escopos: Vec<HashMap<String, Celula>>,
+    identificadores_escopos: Vec<u64>,
+    proximo_identificador_escopo: u64,
 }
 
 impl Default for Memoria {
@@ -440,6 +457,8 @@ impl Memoria {
     pub fn nova() -> Self {
         Self {
             escopos: vec![HashMap::new()],
+            identificadores_escopos: vec![0],
+            proximo_identificador_escopo: 1,
         }
     }
 
@@ -475,6 +494,9 @@ impl Memoria {
     /// Abre um novo escopo léxico.
     pub fn abrir_escopo(&mut self) {
         self.escopos.push(HashMap::new());
+        let identificador = self.proximo_identificador_escopo;
+        self.proximo_identificador_escopo = self.proximo_identificador_escopo.saturating_add(1);
+        self.identificadores_escopos.push(identificador);
     }
 
     /// Fecha o escopo atual sem permitir remover o escopo global.
@@ -483,6 +505,7 @@ impl Memoria {
             return Err(ErroRuntime::EscopoGlobal);
         }
         self.escopos.pop();
+        self.identificadores_escopos.pop();
         Ok(())
     }
 
@@ -513,6 +536,40 @@ impl Memoria {
             .find_map(|escopo| escopo.get(nome))
             .map(|celula| celula.valor.clone())
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
+    }
+
+    /// Obtém o identificador estável do escopo que contém a variável visível.
+    #[must_use]
+    pub fn identificador_escopo_da_variavel(&self, nome: &str) -> Option<u64> {
+        self.escopos.iter().enumerate().rev().find_map(|(indice, escopo)| {
+            escopo.contains_key(nome).then(|| self.identificadores_escopos[indice])
+        })
+    }
+
+    /// Lê uma célula por seu identificador estável de escopo.
+    pub fn obter_referenciado(&self, identificador: u64, nome: &str) -> Resultado<Valor> {
+        let indice = self.identificadores_escopos.iter().position(|id| *id == identificador)
+            .ok_or(ErroRuntime::ReferenciaInvalida)?;
+        self.escopos[indice].get(nome).map(|celula| celula.valor.clone())
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
+    }
+
+    /// Escreve por uma referência exclusiva, sem resolver nomes em escopos internos.
+    pub fn atribuir_referenciado(
+        &mut self,
+        identificador: u64,
+        nome: &str,
+        valor: Valor,
+    ) -> Resultado<()> {
+        let indice = self.identificadores_escopos.iter().position(|id| *id == identificador)
+            .ok_or(ErroRuntime::ReferenciaInvalida)?;
+        let celula = self.escopos[indice].get_mut(nome)
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
+        if !celula.mutavel {
+            return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        celula.valor = valor;
+        Ok(())
     }
 
     /// Atribui um novo valor à declaração visível mais próxima.
