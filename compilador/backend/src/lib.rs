@@ -978,6 +978,7 @@ impl Emissor {
                 | ValorIr::IntervaloDecimal(_, _)
                 | ValorIr::Nulo
                 | ValorIr::Funcao(_)
+                | ValorIr::Referencia { .. }
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
             ExpressaoIr::Referencia { nome, tipo, .. } => {
                 self.validar_tipo_abi(tipo)?;
