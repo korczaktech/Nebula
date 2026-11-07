@@ -1831,14 +1831,11 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
             TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
             }
             TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
                 saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
-            }
+                }
         }
     }
 
@@ -1909,12 +1906,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         if conteudo == "fim" {
             if let Some(bloco) = blocos.last_mut() {
                 if bloco.explicito && bloco.indentacao == nivel {
-                    if bloco.etapa == 0 {
-                        bloco.etapa = 1;
-                    } else if bloco.etapa == 2 {
-                        blocos.pop();
-                    }
-                    saida.push(linha.to_owned());
                     continue;
                 }
             }
@@ -1939,12 +1930,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel && bloco.etapa == 1 {
-                    if bloco.tipo == TipoBloco::Caso {
-                        blocos.pop();
-                    } else {
-                        bloco.etapa = 2;
-                    }
+                if bloco.explicito && bloco.indentacao == nivel {
+                    blocos.pop();
                     saida.push(linha.to_owned());
                     continue;
                 }
@@ -1955,7 +1942,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             if let Some(bloco) = blocos.last() {
                 if !bloco.explicito && bloco.indentacao == nivel {
                     let tipo = bloco.tipo;
-                    saida.push(indentacao("fim", nivel));
                     saida.push(indentacao("}", nivel));
                     saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
                     blocos.pop();
