@@ -4674,6 +4674,30 @@ pub use ast::{
     AliasTipoAst, AtributoAst, CampoAst, CapturaAst, CasoEscolha, CasoEscolhaLocalizado, Expressao,
     ExpressaoLocalizada, NoAst, NoLocalizado, OperadorAst, PadraoAst, ParametroAst, Programa,
     ResultadoSintatico, TipoAst, TipoLocalizado, VarianteAst, Visibilidade,
+    #[test]
+    fn function_body_fecha_com_chave_sem_terminador_textual() {
+        let resultado = analisar(&fonte_bruta(
+            "funcao principal(): {\\n    exibir(\\"ok\\")\\n}",
+        ));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "{:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn palavra_fim_e_identificador_dentro_de_um_bloco() {
+        let resultado = analisar(&fonte_bruta(
+            "funcao principal(): {\\n    fim\\n}",
+        ));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "{:?}",
+            resultado.diagnosticos
+        );
+    }
+
 };
 pub use lexer::{ResultadoLexico, TipoToken, Token, analisar_lexico};
 
