@@ -17,6 +17,8 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 - A análise semântica acompanha movimentações de valores não copiáveis e rejeita uso após move.
 - A movimentação é propagada de forma conservadora na junção de ramos condicionais e em laços que podem executar zero vezes.
 - Atribuição compatível reinicializa uma variável anteriormente movida.
+- Junções de fluxo preservam todos os empréstimos ativos de ramos alternativos, inclusive quando identificadores provisórios colidem em ramos clonados; identificadores são remapeados sem descartar empréstimos distintos.
+- O plano semântico de destruição omite valores integralmente movidos e registra projeções parcialmente movidas para impedir destruição dupla. A execução dessas exclusões ainda depende da integração explícita da IR/runtime.
 - O runtime Rust possui um alocador de blocos com limite de bytes, identificadores geracionais, validação de intervalos, redimensionamento e invalidação de handles liberados.
 - O contexto do runtime é dono do alocador e invalida todas as alocações durante a finalização.
 
