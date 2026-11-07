@@ -425,6 +425,15 @@ fn compila_payload_decimal_em_enumeracoes() {
 }
 
 #[test]
+fn abi_transporta_enum_com_multiplos_payloads_por_endereco() {
+    let resultado = compilar_e_executar(
+        "enum-multiplos-payloads-abi",
+        "enumeracao Evento:\n    Vazio\n    Dados(inteiro, inteiro)\nfuncao principal(): inteiro\n    variavel evento = Evento::Dados(20, 22)\n    escolha evento\n        caso Evento::Dados(a, b)\n            retorne a + b\n        caso Evento::Vazio\n            retorne 1",
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn abi_transporta_estrutura_maior_que_dezesseis_bytes_em_argumento_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-estrutura-grande-argumento-retorno",
