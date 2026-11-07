@@ -120,6 +120,7 @@ pub enum ErroPropriedade {
     EscritaDuranteEmprestimo(Lugar),
     ConflitoEmprestimo { lugar: Lugar, existente: TipoEmprestimo, solicitado: TipoEmprestimo },
     EmprestimoDuplicado(u64),
+    IdentificadoresEmprestimoEsgotados,
     EmprestimoInexistente(u64),
     EmprestimoVivoAoDestruir(Lugar),
     EscopoGlobal,
@@ -393,9 +394,11 @@ impl AnalisadorPropriedade {
 
     /// Une estados alternativos de fluxo de controle de forma conservadora.
     ///
-    /// Um movimento ocorrido em qualquer caminho é preservado. Um empréstimo
-    /// que possa permanecer ativo em qualquer caminho também é preservado.
-    pub fn mesclar_caminhos(&mut self, caminhos: &[Self]) {
+    /// Movimentos e empréstimos ativos em qualquer caminho são preservados.
+    /// Identificadores criados em ramos clonados podem coincidir; nesse caso,
+    /// empréstimos distintos recebem identificadores novos para que nenhum
+    /// deles desapareça na junção.
+    pub fn mesclar_caminhos(&mut self, caminhos: &[Self]) -> Result<(), ErroPropriedade> {
         for (nome, variavel) in &mut self.variaveis {
             for caminho in caminhos {
                 if let Some(outro) = caminho.variaveis.get(nome) {
@@ -403,12 +406,48 @@ impl AnalisadorPropriedade {
                 }
             }
         }
+
+        let mut emprestimos = self.emprestimos.clone();
+        let mut proximo = emprestimos.keys()
+            .chain(caminhos.iter().flat_map(|caminho| caminho.emprestimos.keys()))
+            .copied()
+            .max()
+            .unwrap_or(0)
+            .checked_add(1);
+
         for caminho in caminhos {
             for (identificador, emprestimo) in &caminho.emprestimos {
-                self.emprestimos.entry(*identificador).or_insert_with(|| emprestimo.clone());
+                match emprestimos.get(identificador) {
+                    None => {
+                        emprestimos.insert(*identificador, emprestimo.clone());
+                    }
+                    Some(existente)
+                        if existente.lugar == emprestimo.lugar
+                            && existente.tipo == emprestimo.tipo
+                            && existente.escopo == emprestimo.escopo => {}
+                    Some(_) => {
+                        let novo = loop {
+                            let candidato = proximo.ok_or(ErroPropriedade::IdentificadoresEmprestimoEsgotados)?;
+                            proximo = candidato.checked_add(1);
+                            if !emprestimos.contains_key(&candidato) {
+                                break candidato;
+                            }
+                        };
+                        emprestimos.insert(novo, emprestimo.clone());
+                    }
+                }
             }
             self.proximo_ordem = self.proximo_ordem.max(caminho.proximo_ordem);
         }
+
+        self.emprestimos = emprestimos;
+        Ok(())
+    }
+
+    /// Próximo identificador livre após todos os empréstimos atualmente ativos.
+    #[must_use]
+    pub fn proximo_identificador_emprestimo(&self) -> Option<u64> {
+        self.emprestimos.keys().copied().max().unwrap_or(0).checked_add(1)
     }
 
     /// Retorna o número de empréstimos ativos.
@@ -497,6 +536,38 @@ mod testes {
         let acoes = fluxo.sair_escopo().unwrap();
         assert_eq!(acoes.iter().map(|a| a.lugar.raiz.as_str()).collect::<Vec<_>>(), vec!["segundo", "primeiro"]);
         assert_eq!(fluxo.quantidade_emprestimos(), 0);
+    }
+
+    #[test]
+    fn junção_de_ramos_preserva_emprestimos_com_ids_colidentes() {
+        let mut base = AnalisadorPropriedade::novo();
+        base.declarar("esquerda").unwrap();
+        base.declarar("direita").unwrap();
+
+        let mut ramo_a = base.clone();
+        ramo_a.emprestar(1, Lugar::novo("esquerda"), TipoEmprestimo::Compartilhado).unwrap();
+        let mut ramo_b = base.clone();
+        ramo_b.emprestar(1, Lugar::novo("direita"), TipoEmprestimo::Compartilhado).unwrap();
+
+        base.mesclar_caminhos(&[ramo_a, ramo_b]).unwrap();
+        assert_eq!(base.quantidade_emprestimos(), 2);
+        assert!(base.mover(&Lugar::novo("esquerda")).is_err());
+        assert!(base.mover(&Lugar::novo("direita")).is_err());
+
+        let proximo = base.proximo_identificador_emprestimo().unwrap();
+        base.emprestar(proximo, Lugar::novo("esquerda"), TipoEmprestimo::Compartilhado).unwrap_err();
+    }
+
+    #[test]
+    fn junção_deduplica_o_mesmo_emprestimo_presente_em_dois_ramos() {
+        let mut base = AnalisadorPropriedade::novo();
+        base.declarar("valor").unwrap();
+        let mut ramo_a = base.clone();
+        ramo_a.emprestar(7, Lugar::novo("valor"), TipoEmprestimo::Compartilhado).unwrap();
+        let ramo_b = ramo_a.clone();
+
+        base.mesclar_caminhos(&[ramo_a, ramo_b]).unwrap();
+        assert_eq!(base.quantidade_emprestimos(), 1);
     }
 
     #[test]
