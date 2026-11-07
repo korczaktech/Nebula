@@ -2660,7 +2660,7 @@ impl Emissor {
             let proximo_caso = if let (Some(enumeracao), Some(variante)) =
                 (&caso.enumeracao, &caso.variante)
             {
-                if nome_enum_canonico(enumeracao) != nome_enum_canonico(nome) {
+                if nome_enum_canonico(enumeracao) != nome_enum_canonico(&nome) {
                     return Err(format!("Caso da enumeração '{enumeracao}' não corresponde a '{nome}'."));
                 }
                 let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
