@@ -4465,6 +4465,15 @@ mod testes {
     }
 
     #[test]
+    fn lista_usa_representacao_abi_de_ponteiro_e_comprimento() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Lista(Box::new(Tipo::Inteiro));
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((16, 8)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 2);
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+    }
+
+    #[test]
     fn layout_nativo_de_caractere_usa_quatro_bytes() {
         let emissor = Emissor::novo(HashMap::new());
         assert_eq!(
