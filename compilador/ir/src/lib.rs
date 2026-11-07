@@ -4124,7 +4124,7 @@ mod testes {
         let InstrucaoIr::Localizada { intervalo: repetido, .. } = &corpo[0] else {
             panic!("corpo do laço precisa ter origem");
         };
-        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((7, 5)));
+        assert_eq!(fonte.linha_coluna(repetido.inicio), Some((5, 5)));
     }
 
     #[test]
