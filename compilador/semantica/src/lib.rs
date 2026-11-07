@@ -143,12 +143,13 @@ impl<'a> Analisador<'a> {
                     }
                 }
             }
+            let possui_abi_c = Self::possui_convencao_c(item);
             let item = Self::alvo_atributo(item);
             // A sintaxe externa funcao e normalizada como funcao sem corpo.
             if let NoAst::Funcao { nome, corpo, .. } = item {
                 if corpo.is_empty() {
                     self.funcoes_externas.insert(nome.clone());
-                    if Self::possui_convencao_c(item) {
+                    if possui_abi_c {
                         self.funcoes_externas_abi_validada.insert(nome.clone());
                     }
                 }
