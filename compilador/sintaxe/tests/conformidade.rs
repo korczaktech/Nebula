@@ -622,24 +622,19 @@ variavel nome = "Nebula"
 estrutura Pessoa:
     nome: texto
     idade: inteiro
-fim
 enumeracao Estado:
     Ativo
     Inativo
-fim
 funcao principal(pessoa: Pessoa): vazio
     quando verdadeiro
         exibir(pessoa.nome)
     senao
         devolver
-    fim
     escolha Estado::Ativo
         caso Estado::Ativo
             passar
         caso _
             passar
-    fim
-fim
 "#;
     let resultado = analisar_codigo(codigo);
     assert!(
@@ -658,39 +653,30 @@ fn matriz_ast_cobre_todas_as_variantes_de_instrucao() {
 variavel valor = 1
 publico funcao identidade<T>(item: T = valor): T
     devolver item
-fim
 tipo Identificador = inteiro
 estrutura Pessoa:
     nome: texto
-fim
 enumeracao Estado:
     Pronto
     Falha(texto)
-fim
 incluir(modulo: Texto, biblioteca: Biblioteca) como Texto
 quando verdadeiro
     passar
 senao
     passar
-fim
 escolha 1
     caso 1
         passar
     caso _
         passar
-fim
 enquanto falso
     passar
-fim
 cada item em [1, 2]
     passar
-fim
 pulso(10)
     passar
-fim
 para (variavel i = 0; i < 2; i = i + 1)
     passar
-fim
 devolver
 pare
 prossiga
@@ -699,29 +685,22 @@ ceder
 @marcador(8)
 funcao anotada()
     passar
-fim
 seguro:
     passar
-fim
 critico:
     passar
-fim
 privilegio sistema:
     passar
-fim
 montagem x86_64<u32>:
     passar
-fim
 tente
     passar
 erro Falha
     passar
 sempre
     passar
-fim
 com abrir() como arquivo
     passar
-fim
 lancar erro "falha"
 verifique verdadeiro, "invariante"
 global contador
@@ -730,8 +709,6 @@ executar()
 classe PessoaBase herda Entidade
     publico funcao nome()
         devolver "Pessoa"
-    fim
-fim
 "#;
     let resultado = analisar_codigo(codigo);
     assert!(
@@ -822,7 +799,6 @@ variavel construcao = Pessoa { nome: "Ana" }
 variavel funcao_lambda = x -> x + 1
 variavel lambda_bloco = x ->:
     devolver x
-fim
 variavel condicional = idade >= 18 ? "adulto" : "menor"
 variavel generica = converter<texto>(valor)
 variavel acesso_opcional = objeto?.campo
@@ -985,7 +961,6 @@ escolha estado
         passar
     caso _
         passar
-fim
 "#;
     let resultado = analisar_codigo(codigo);
     assert!(
@@ -1117,39 +1092,27 @@ fn function_body_normativo_e_obrigatorio() {
 funcao principal() -> vazio: {
     quando verdadeiro: {
         exibir("Nebula")
-        fim
     }
-    fim
-    fim
 }
-fim
 
 estrutura Pessoa: {
     nome: texto
     idade: inteiro
-    fim
 }
-fim
 
 enumeracao Estado: {
     Ativo
     Inativo
-    fim
 }
-fim
 
 escolha estado: {
     caso Estado::Ativo: {
         passar
-        fim
     }
     caso _: {
         passar
-        fim
     }
-    fim
 }
-fim
 "#;
     let resultado = analisar_codigo(codigo);
     assert!(
