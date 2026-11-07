@@ -4198,6 +4198,16 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
     }
 
     #[test]
+    fn rejeita_chamada_de_valor_nao_funcao_com_codigo_especifico() {
+        let resultado = analisar_codigo("variavel numero = 42\nnumero()");
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3093"),
+            "{:?}",
+            resultado.diagnosticos,
+        );
+    }
+
+    #[test]
     fn rejeita_cada_sobre_valor_nao_iteravel() {
         let invalido = analisar_codigo("cada item em 42\n    exibir(item)");
         assert!(invalido.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", invalido.diagnosticos);
