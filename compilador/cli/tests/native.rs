@@ -452,6 +452,36 @@ fn executa_copia_explicita_de_estrutura_no_backend_nativo() {
 }
 
 #[test]
+fn abi_transporta_estrutura_maior_que_dois_registradores_em_parametro_e_retorno() {
+    let resultado = compilar_e_executar(
+        "abi-estrutura-grande",
+        r#"estrutura VetorGrande: {
+    a: inteiro64
+    b: inteiro64
+    c: inteiro64
+}
+
+funcao construir(base: inteiro64) -> VetorGrande: {
+    devolver VetorGrande { a: base, b: base + 1, c: base + 2 }
+}
+
+funcao somar(vetor: VetorGrande) -> inteiro64: {
+    devolver vetor.a + vetor.b + vetor.c
+}
+
+funcao principal() -> inteiro: {
+    variavel registro = construir(13)
+    variavel total = somar(registro)
+    quando total == 42: {
+        devolver 42
+    }
+    devolver 1
+}"#,
+    );
+    assert_eq!(resultado.status.code(), Some(42));
+}
+
+#[test]
 fn abi_transporta_inteiro128_com_parte_alta_em_parametro_e_retorno() {
     let resultado = compilar_e_executar(
         "abi-inteiro128",
