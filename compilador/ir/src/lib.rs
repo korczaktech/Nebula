@@ -101,6 +101,8 @@ pub struct ProgramaIr {
     pub modulos: HashMap<String, String>,
     /// Layouts físicos validados das estruturas e enumerações declaradas.
     pub layouts_tipos: HashMap<String, LayoutRuntime>,
+    /// Tipos dos campos de estruturas, preservando a ordem declarada.
+    pub campos_estruturas: HashMap<String, Vec<(String, Tipo)>>,
     /// Variantes e tipos posicionais, preservando a ordem declarada na AST.
     pub variantes_enumeracoes: HashMap<String, Vec<(String, Vec<Tipo>)>>,
 }
@@ -195,6 +197,15 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
             }
         }
     }
+    let campos_estruturas = programa.itens.iter().filter_map(|item| {
+        if let NoAst::Estrutura { nome, campos } = item {
+            Some((nome.clone(), campos.iter().map(|(campo, tipo)| {
+                (campo.clone(), lowerer.tipo(tipo))
+            }).collect()))
+        } else {
+            None
+        }
+    }).collect();
     let variantes_enumeracoes = programa.itens.iter().filter_map(|item| {
         if let NoAst::Enumeracao { nome, variantes } = item {
             Some((nome.clone(), variantes.iter().map(|(variante, payload)| {
@@ -209,6 +220,7 @@ pub fn baixar(programa: &Programa, modulos: &ModulosDisponiveis) -> ResultadoIr 
         funcoes: HashMap::new(),
         modulos: modulos_importados,
         layouts_tipos,
+        campos_estruturas,
         variantes_enumeracoes,
     };
     for item in &programa.itens {
