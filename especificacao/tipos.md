@@ -47,7 +47,7 @@ Texto é UTF-8; comprimento e indexação por caractere contam escalares Unicode
 - **Opcional:** `Opcional<T>`, com `Opcional::Algum(valor)` e `Opcional::Nenhum`.
 - **Resultado:** `Resultado<T, E>`, com `Resultado::Sucesso(valor)` e `Resultado::Falha(erro)`.
 - **Intervalo:** `Intervalo<T>`, numérico e fechado; limites precisam pertencer ao mesmo tipo numérico após normalização.
-- **Tipo de função:** `funcao(T1, T2): Retorno`; valores de função sem captura podem ser armazenados e chamados indiretamente.
+- **Tipo de função:** `funcao(T1, T2) -> Retorno`; valores de função sem captura podem ser armazenados e chamados indiretamente.
 
 Estruturas, enumerações, opcionais, resultados, listas e tuplas percorrem a sintaxe, AST, análise semântica e IR. O interpretador de referência constrói e executa esses valores e suas operações suportadas, incluindo correspondência de padrões. A IR mantém tipos e layouts compostos; o runtime Rust também valida descrições de tipos e calcula tamanho, alinhamento, padding e tags.
 
