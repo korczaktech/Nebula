@@ -9,7 +9,7 @@ use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
 use nebula_fonte::IntervaloFonte;
-use super::{AnalisadorPropriedade, ContextoInseguro, Lugar, TipoEmprestimo};
+use super::{AnalisadorPropriedade, ContextoInseguro, Lugar, OperacaoInsegura, ProvasInseguras, TipoEmprestimo};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1278,21 +1278,39 @@ impl<'a> Analisador<'a> {
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
                 if let Expressao::Nome(nome_externo) = alvo.as_ref() {
-                    if self.funcoes_externas.contains(nome_externo)
-                        && (self.contextos_inseguros.last().map(String::as_str) != Some("critico")
-                            || self.propriedade.validar_operacao_insegura().is_err())
-                    {
-                        self.erro(
-                            "N3106",
-                            format!("A chamada externa '{nome_externo}' exige um bloco contextual 'critico' explícito."),
-                        );
+                    if self.funcoes_externas.contains(nome_externo) {
+                        let provas = ProvasInseguras {
+                            // A assinatura foi resolvida e validada pelo sistema
+                            // de tipos antes da análise do corpo da chamada.
+                            abi_validada: true,
+                            alvo_compativel: true,
+                            ..ProvasInseguras::default()
+                        };
+                        if let Err(erro) = self.propriedade.validar_operacao_especifica(
+                            OperacaoInsegura::ChamarExternoNaoVerificado,
+                            provas,
+                        ) {
+                            self.erro(
+                                "N3106",
+                                format!("A chamada externa '{nome_externo}' não satisfez as obrigações inseguras: {erro:?}."),
+                            );
+                        }
                     }
                 }
-                if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome.starts_with("montagem::"))
-                    && (self.contextos_inseguros.last().map(String::as_str) != Some("montagem")
-                        || self.propriedade.validar_operacao_insegura().is_err())
-                {
-                    self.erro("N3098", "Instrução de montagem exige um bloco contextual 'montagem' ativo.");
+                if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome.starts_with("montagem::")) {
+                    let provas = ProvasInseguras {
+                        // O bloco contextual restringe a arquitetura e a
+                        // validação semântica verifica os argumentos nomeados.
+                        abi_validada: true,
+                        alvo_compativel: true,
+                        ..ProvasInseguras::default()
+                    };
+                    if let Err(erro) = self.propriedade.validar_operacao_especifica(
+                        OperacaoInsegura::Montagem,
+                        provas,
+                    ) {
+                        self.erro("N3098", format!("Instrução de montagem inválida: {erro:?}."));
+                    }
                 }
                 if let Expressao::Membro { alvo: objeto, operador: TipoToken::Ponto, nome: metodo } = alvo.as_ref() {
                     let tipo_objeto = self.expressao(objeto);
