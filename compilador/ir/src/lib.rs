@@ -2380,7 +2380,7 @@ impl Maquina<'_, '_> {
                 Ok(valor)
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
-                let valores = argumentos.iter().map(|a| self.expressao(a)).collect::<Result<Vec<_>,_>>()?;
+                let valores = self.avaliar_valores_lifo(argumentos)?;
                 if let Some(funcao) = self.programa.funcoes.get(nome).cloned() {
                     return self.chamar_funcao(nome, funcao, valores);
                 }
