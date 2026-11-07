@@ -1,11 +1,11 @@
 funcao identidade(valor: inteiro) -> inteiro: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao aplicar<T>(operacao: funcao(T) -> T, valor: T) -> T: {
     devolver operacao(valor)
-    fim
+
 }
-fim
+
 variavel resposta = aplicar(identidade, 42)

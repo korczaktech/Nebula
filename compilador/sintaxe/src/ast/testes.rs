@@ -6,7 +6,46 @@ use super::{
 use crate::analisar;
 use nebula_fonte::ArquivoFonte;
 
-fn normalizar_blocos_legados(codigo: &str) -> String {
+fn normalizar_blocos_indentados(codigo: &str) -> String {
+    let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
+    let possui_cabecalho_legado = codigo.lines().any(|linha| {
+        let conteudo = linha.trim();
+        let prefixos = [
+            "funcao ",
+            "publico funcao ",
+            "privado funcao ",
+            "protegido estatico funcao ",
+            "async funcao ",
+            "exportar funcao ",
+            "estrutura ",
+            "enumeracao ",
+            "classe ",
+            "quando ",
+            "se ",
+            "sendo ",
+            "senao",
+            "escolha ",
+            "avaliar ",
+            "caso ",
+            "cada ",
+            "enquanto ",
+            "para ",
+            "pulso(",
+            "durante ",
+            "repetir ",
+            "critico",
+            "privilegio ",
+            "montagem ",
+            "tente",
+            "erro ",
+            "sempre",
+            "com ",
+        ];
+        prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo)) && !conteudo.ends_with(": {")
+    });
+    if possui_abertura_explicita && !possui_cabecalho_legado {
+        return codigo.to_owned();
+    }
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum TipoBloco {
         Completo,
@@ -20,7 +59,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
         indentacao: usize,
         tipo: TipoBloco,
         explicito: bool,
-        etapa: u8,
     }
 
     fn indentacao(texto: &str, nivel: usize) -> String {
@@ -29,14 +67,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
     fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
         match bloco.tipo {
-            TipoBloco::Caso => {
-                saida.push(indentacao("fim", bloco.indentacao));
+            TipoBloco::Caso | TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
                 saida.push(indentacao("}", bloco.indentacao));
-            }
-            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("fim", bloco.indentacao));
-                saida.push(indentacao("}", bloco.indentacao));
-                saida.push(indentacao("fim", bloco.indentacao));
             }
         }
     }
@@ -56,6 +88,30 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
 
         if conteudo.is_empty() {
             saida.push(linha.to_owned());
+            continue;
+        }
+
+        let continuacao = conteudo.starts_with("senao")
+            || conteudo.starts_with("sempre")
+            || conteudo.starts_with("erro ")
+            || conteudo.starts_with("caso ")
+            || conteudo == "padrao";
+        while blocos
+            .last()
+            .is_some_and(|bloco| !bloco.explicito && nivel <= bloco.indentacao && !continuacao)
+        {
+            if let Some(bloco) = blocos.pop() {
+                fechar(&mut saida, bloco);
+            }
+        }
+
+        if conteudo.ends_with("->:") {
+            saida.push(indentacao(&format!("{conteudo} {{"), nivel));
+            blocos.push(Bloco {
+                indentacao: nivel,
+                tipo: TipoBloco::Completo,
+                explicito: false,
+            });
             continue;
         }
 
@@ -82,6 +138,13 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             "pulso(",
             "durante ",
             "repetir ",
+            "critico",
+            "privilegio ",
+            "montagem ",
+            "tente",
+            "erro ",
+            "sempre",
+            "com ",
         ]
         .iter()
         .any(|prefixo| conteudo.starts_with(prefixo))
@@ -106,74 +169,34 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: true,
-                etapa: 0,
             });
-            continue;
-        }
-
-        if conteudo == "fim" {
-            if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel {
-                    if bloco.etapa == 0 {
-                        bloco.etapa = 1;
-                    } else if bloco.etapa == 2 {
-                        blocos.pop();
-                    }
-                    saida.push(linha.to_owned());
-                    continue;
-                }
-            }
-
-            while blocos.last().is_some_and(|bloco| {
-                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-            }) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            }
-
-            if blocos
-                .last()
-                .is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel)
-            {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            } else {
-                saida.push(linha.to_owned());
-            }
             continue;
         }
 
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel && bloco.etapa == 1 {
-                    if bloco.tipo == TipoBloco::Caso {
-                        blocos.pop();
-                    } else {
-                        bloco.etapa = 2;
-                    }
+                if bloco.explicito && bloco.indentacao == nivel {
+                    blocos.pop();
                     saida.push(linha.to_owned());
                     continue;
                 }
             }
         }
 
-        if conteudo.starts_with("senao") {
+        if conteudo.starts_with("senao")
+            || conteudo.starts_with("sempre")
+            || conteudo.starts_with("erro ")
+        {
             if let Some(bloco) = blocos.last() {
-                if !bloco.explicito
-                    && bloco.tipo == TipoBloco::Condicional
-                    && bloco.indentacao == nivel
-                {
-                    saida.push(indentacao("fim", nivel));
+                if !bloco.explicito && bloco.indentacao == nivel {
+                    let tipo = bloco.tipo;
                     saida.push(indentacao("}", nivel));
-                    saida.push(indentacao("senao: {", nivel));
+                    saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
                     blocos.pop();
                     blocos.push(Bloco {
                         indentacao: nivel,
-                        tipo: TipoBloco::Condicional,
+                        tipo,
                         explicito: false,
-                        etapa: 0,
                     });
                     continue;
                 }
@@ -193,12 +216,13 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo: TipoBloco::Caso,
                 explicito: false,
-                etapa: 0,
             });
             continue;
         }
 
         let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
+            || conteudo.starts_with("privado funcao ")
+            || conteudo.starts_with("protegido estatico funcao ")
             || conteudo.starts_with("funcao ")
             || conteudo.starts_with("async funcao ")
             || conteudo.starts_with("exportar funcao ")
@@ -242,6 +266,8 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             || conteudo.starts_with("pulso(")
             || conteudo.starts_with("durante ")
             || conteudo.starts_with("repetir ")
+            || conteudo == "seguro"
+            || conteudo.starts_with("seguro:")
             || conteudo == "critico"
             || conteudo.starts_with("critico:")
             || conteudo.starts_with("privilegio ")
@@ -267,13 +293,17 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
                 indentacao: nivel,
                 tipo,
                 explicito: false,
-                etapa: 0,
             });
         } else {
             saida.push(linha.to_owned());
         }
     }
 
+    while let Some(bloco) = blocos.pop() {
+        if !bloco.explicito {
+            fechar(&mut saida, bloco);
+        }
+    }
     saida.join("\n")
 }
 
@@ -394,8 +424,8 @@ fn padrao_e_operadores_possuem_representacao_propria() {
 
 #[test]
 fn parser_registra_intervalos_de_nos_aninhados() {
-    let codigo = normalizar_blocos_legados(
-        "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome\n    fim\nfim",
+    let codigo = normalizar_blocos_indentados(
+        "funcao principal()\n    variavel nome: texto = \"Nebula\"\n    quando verdadeiro\n       devolver nome",
     );
     let resultado = analisar(&ArquivoFonte::novo("ast.nbx", &codigo));
     assert!(
@@ -465,46 +495,37 @@ constante fixa = 2
 tipo Identificador = inteiro
 estrutura Pessoa:
     nome: texto
-fim
 enumeracao Estado:
     Pronto
     Falha(texto)
-fim
 incluir(modulo: Texto, biblioteca: Modulo) como Texto
 funcao executar(item: inteiro): vazio
     quando verdadeiro
         exibir(item)
     senao
         passar
-    fim
     escolha Estado::Pronto
         caso Estado::Pronto
             passar
         caso _
             passar
-    fim
     enquanto falso
         passar
-    fim
     cada elemento em [1, 2]
         passar
-    fim
     pulso(10)
         passar
-    fim
     para (;;)
         passar
-    fim
     devolver
     parar
     seguir
-fim
 
 executar(1)
 "#;
     let resultado = analisar(&ArquivoFonte::novo(
         "nos.nbx",
-        normalizar_blocos_legados(codigo),
+        normalizar_blocos_indentados(codigo),
     ));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -556,11 +577,11 @@ variavel indexada = itens[0]
 variavel membro = pessoa.nome
 variavel lista = [1, 2]
 variavel tupla = (1, 2)
-variavel construcao = Pessoa { nome: "Ana", fim }
+variavel construcao = Pessoa { nome: "Ana" }
 "#;
     let resultado = analisar(&ArquivoFonte::novo(
         "expressoes.nbx",
-        normalizar_blocos_legados(codigo),
+        normalizar_blocos_indentados(codigo),
     ));
     assert!(
         resultado.diagnosticos.is_empty(),
@@ -614,8 +635,8 @@ variavel construcao = Pessoa { nome: "Ana", fim }
 
 #[test]
 fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
-    let codigo = normalizar_blocos_legados(
-        "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        fim\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    fim\n    variavel final = 5\nfim",
+    let codigo = normalizar_blocos_indentados(
+        "funcao principal()\n    quando verdadeiro\n        variavel inicio = 1\n        enquanto falso\n            variavel lista = [1, , 3]\n            variavel preservada = 2\n        variavel depois = 3\n    senao\n        variavel alternativa = 4\n    variavel final = 5",
     );
     let resultado = analisar(&ArquivoFonte::novo("recuperacao.nbx", &codigo));
 
@@ -716,8 +737,8 @@ fn recuperacao_preserva_hierarquia_e_localizacoes_da_ast_aninhada() {
 
 #[test]
 fn recuperacao_aninhada_e_deterministica_e_nao_contamina_analise_seguinte() {
-    let codigo = "funcao principal()\n    variavel quebrada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, fim }\n    quando verdadeiro\n        variavel preservada = 7\n    fim\nfim\nvariavel posterior = 9";
-    let codigo = normalizar_blocos_legados(codigo);
+    let codigo = "funcao principal()\n    variavel quebrada = Pessoa { dados: calcular([1, , 2], 3), outro: 4, campo }\n    quando verdadeiro\n        variavel preservada = 7\nvariavel posterior = 9";
+    let codigo = normalizar_blocos_indentados(codigo);
     let fonte = ArquivoFonte::novo("determinismo.nbx", &codigo);
     let primeira = analisar(&fonte);
     let segunda = analisar(&fonte);

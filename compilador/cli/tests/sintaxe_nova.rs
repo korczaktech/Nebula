@@ -36,15 +36,15 @@ fn compila_e_executa_function_body_aninhado_sem_normalizacao() {
     variavel total = 40
     se total == 40: {
         devolver total + 2
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-} fim
+
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -76,10 +76,10 @@ fn distingue_function_body_de_dicionario_e_valor_estrutural() {
     let (origem, _) = caminhos("dados");
     let codigo = r#"estrutura Pessoa: {
     nome: texto
-    fim
-} fim
 
-variavel pessoa = Pessoa { nome: "Nebula", fim }
+}
+
+variavel pessoa = Pessoa { nome: "Nebula" }
 variavel dados: dicionario = {
     "nome": "Nebula"
 }
@@ -108,15 +108,15 @@ fn compila_cada_em_intervalos_crescentes_e_decrescentes() {
     variavel total = 0
     cada item em 1..3: {
         total += item
-        fim
-    } fim
+
+    }
     cada item em 3..1: {
         total += item
-        fim
-    } fim
+
+    }
     devolver total
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -153,14 +153,14 @@ fn compila_pulso_nativo_com_pare() {
         total += 1
         se total == 3: {
             pare
-            fim
+
         }
-        fim
-        fim
-    } fim
+
+
+    }
     devolver total
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -193,8 +193,8 @@ fn compila_e_exibe_literal_texto_no_backend_nativo() {
     let (origem, executavel) = caminhos("texto-nativo");
     let codigo = r#"funcao principal() -> vazio: {
     exibir("Olá, Nebula")
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -275,8 +275,8 @@ fn comprimento_nativo_conta_caracteres_unicode() {
     let codigo = r#"funcao principal() -> inteiro: {
     variavel texto = "Olá 🌌"
     devolver comprimento(texto)
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -311,8 +311,8 @@ fn dormir_e_aguardar_usam_runtime_nativo() {
     dormir(0)
     aguardar(0)
     devolver 42
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -346,12 +346,12 @@ fn tempo_nativo_retorna_milisegundos_unix() {
     let codigo = r#"funcao principal() -> inteiro: {
     quando tempo() > 0: {
         devolver 42
-        fim
+
     }
-    fim
+
     devolver 1
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -386,11 +386,11 @@ fn compara_prefixo_e_sufixo_de_texto_nativo() {
     variavel texto = "Olá Nebula"
     quando comeca_com(texto, "Olá") e termina_com(texto, "Nebula") e comeca_com(texto, "") e termina_com(texto, "") e nao comeca_com(texto, "Olá Nebula!") e nao termina_com(texto, "Olá Nebula!"): {
         devolver 42
-        fim
-    } fim
+
+    }
     devolver 1
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -425,11 +425,11 @@ fn busca_trecho_em_texto_nativo() {
     variavel texto = "Olá Nebula"
     quando contem(texto, "Neb") e nao contem(texto, "xyz") e contem(texto, "") e nao contem(texto, "Olá Nebula!"): {
         devolver 42
-        fim
-    } fim
+
+    }
     devolver 1
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -464,11 +464,11 @@ fn igualdade_de_texto_compara_conteudo_utf8() {
     variavel texto = "Olá 🌌"
     quando texto == "Olá 🌌" e texto != "Olá" e texto != "Olá 🌠": {
         devolver 42
-        fim
-    } fim
+
+    }
     devolver 1
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 
@@ -501,17 +501,17 @@ fn concatena_textos_dinamicos_no_backend_nativo() {
     let (origem, executavel) = caminhos("soma-texto");
     let codigo = r#"funcao prefixo() -> texto: {
     devolver "Olá"
-    fim
-} fim
+
+}
 funcao sufixo() -> texto: {
     devolver " Nebula"
-    fim
-} fim
+
+}
 funcao principal() -> vazio: {
     variavel texto = prefixo() + sufixo()
     exibir(texto)
-    fim
-} fim
+
+}
 "#;
     fs::write(&origem, codigo).unwrap();
 

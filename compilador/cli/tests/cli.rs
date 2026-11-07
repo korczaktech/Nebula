@@ -114,7 +114,7 @@ fn limpar_remove_somente_executavel_elf64_padrao() {
     let fonte = diretorio.join("principal.nbx");
     std::fs::write(
         &fonte,
-        "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim",
+        "funcao principal() -> inteiro: {\n    devolver 42\n}",
     )
     .unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
@@ -148,7 +148,7 @@ fn limpar_preserva_arquivo_out_que_nao_seja_elf64() {
     std::fs::create_dir_all(&diretorio).unwrap();
     let fonte = diretorio.join("principal.nbx");
     let artefato = fonte.with_extension("out");
-    std::fs::write(&fonte, "funcao principal(): {\n    passar\n    fim\n} fim").unwrap();
+    std::fs::write(&fonte, "funcao principal(): {\n    passar\n}").unwrap();
     std::fs::write(&artefato, b"arquivo de usuario").unwrap();
     let limpar = executar(&["limpar", fonte.to_str().unwrap()]);
     assert_eq!(limpar.status.code(), Some(1));
@@ -315,7 +315,7 @@ fn analisar_aceita_programa_com_tipos_validos() {
     let caminho = std::env::temp_dir().join(format!("nebula-semantica-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao soma(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n    fim\n} fim\nvariavel total = soma(2, 3)",
+        "funcao soma(a: inteiro, b: inteiro) -> inteiro: {\n    devolver a + b\n}\nvariavel total = soma(2, 3)",
     )
     .expect("grava arquivo");
     let saida = executar(&["analisar", caminho.to_str().expect("caminho UTF-8")]);
@@ -344,7 +344,7 @@ fn interpreta_aliases_de_controle_e_operador_de_atribuicao() {
     let caminho = std::env::temp_dir().join(format!("nebula-aliases-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "definir total = 0\ncada numero em [1, 2, 3]: {\n    alterar total <- total + numero\n    fim\n} fim\ndurante falso: {\n    exibir(100)\n    fim\n} fim\nrepetir verdadeiro: {\n    encerrar\n    fim\n} fim\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional: {\n    caso Opcional::Algum(valor): {\n        exibir(valor)\n        fim\n    }\n    caso Opcional::Nenhum: {\n        exibir(0)\n        fim\n    }\n    fim\n} fim",
+        "definir total = 0\ncada numero em [1, 2, 3]: {\n    alterar total <- total + numero\n}\ndurante falso: {\n    exibir(100)\n}\nrepetir verdadeiro: {\n    encerrar\n}\nalterar total <- total + 1\nvariavel opcional: Opcional<inteiro> = Opcional::Algum(total)\navaliar opcional: {\n    caso Opcional::Algum(valor): {\n        exibir(valor)\n    }\n    caso Opcional::Nenhum: {\n        exibir(0)\n    }\n}",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -391,7 +391,7 @@ fn gerar_constroi_lista_e_percorrer_iteraveis_funciona() {
         std::env::temp_dir().join(format!("nebula-gerar-cada-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\": {\n    exibir(letra)\n    fim\n} fim\ncada numero em 1..3: {\n    exibir(numero)\n    fim\n} fim",
+        "variavel repetidos = gerar(7, 3)\nexibir(comprimento(repetidos))\ncada letra em \"ab\": {\n    exibir(letra)\n}\ncada numero em 1..3: {\n    exibir(numero)\n}",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -409,7 +409,7 @@ fn pulso_executa_ciclos_ate_encerrar() {
     let caminho = std::env::temp_dir().join(format!("nebula-pulso-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "variavel batidas = 0\npulso(1): {\n    alterar batidas <- batidas + 1\n    quando batidas >= 2: {\n        encerrar\n        fim\n    } fim\n    fim\n} fim\nexibir(batidas)",
+        "variavel batidas = 0\npulso(1): {\n    alterar batidas <- batidas + 1\n    quando batidas >= 2: {\n        encerrar\n    }\n}\nexibir(batidas)",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -427,7 +427,7 @@ fn em_paralelo_executa_funcoes_independentes_e_preserva_ordem() {
     let caminho = std::env::temp_dir().join(format!("nebula-paralelo-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao um() -> inteiro: {\n    devolver 11\n    fim\n} fim\nfuncao dois() -> inteiro: {\n    devolver 22\n    fim\n} fim\nvariavel resultados = em_paralelo(um, dois)\nexibir(resultados[0])\nexibir(resultados[1])",
+        "funcao um() -> inteiro: {\n    devolver 11\n}\nfuncao dois() -> inteiro: {\n    devolver 22\n}\nvariavel resultados = em_paralelo(um, dois)\nexibir(resultados[0])\nexibir(resultados[1])",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -497,7 +497,7 @@ fn funcao_do_usuario_pode_se_chamar_receber() {
         std::env::temp_dir().join(format!("nebula-receber-funcao-{}.nbx", std::process::id()));
     std::fs::write(
         &caminho,
-        "funcao receber<T>(valor: Resultado<Opcional<T>,texto>): {\n    exibir(\"funcao\")\n    fim\n} fim\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
+        "funcao receber<T>(valor: Resultado<Opcional<T>,texto>): {\n    exibir(\"funcao\")\n}\nvariavel valor: Resultado<Opcional<inteiro>,texto> = Resultado::Sucesso(Opcional::Algum(42))\nreceber(valor)",
     )
     .unwrap();
     let saida = executar(&["interpretar", caminho.to_str().unwrap()]);
@@ -526,12 +526,12 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
     let modulo = diretorio.join("Base.nbx");
     std::fs::write(
         &modulo,
-        "publico funcao valor() -> inteiro: {\n    devolver 40\n    fim\n} fim",
+        "publico funcao valor() -> inteiro: {\n    devolver 40\n}",
     )
     .unwrap();
     std::fs::write(
         &fonte,
-        "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n    fim\n} fim",
+        "incluir(biblioteca: Base)\nfuncao principal() -> inteiro: {\n    devolver Base::valor() + 2\n}",
     )
     .unwrap();
 
@@ -560,7 +560,7 @@ fn cache_incremental_invalida_quando_modulo_transitivo_muda() {
 
     std::fs::write(
         &modulo,
-        "publico funcao valor() -> inteiro: {\n    devolver 39\n    fim\n} fim",
+        "publico funcao valor() -> inteiro: {\n    devolver 39\n}",
     )
     .unwrap();
     assert_eq!(compilar(), Some(41));
@@ -588,7 +588,7 @@ fn limpar_cache_remove_artefatos_sem_remover_fontes() {
     let fonte = diretorio.join("principal.nbx");
     std::fs::write(
         &fonte,
-        "funcao principal() -> inteiro: {\n    devolver 42\n    fim\n} fim",
+        "funcao principal() -> inteiro: {\n    devolver 42\n}",
     )
     .unwrap();
     let compilar = executar(&["compilar", fonte.to_str().unwrap()]);
@@ -689,8 +689,8 @@ fn tipos_primitivos_sao_tipados_e_executados_no_interpretador() {
         &caminho,
         r#"funcao sem_retorno() -> vazio: {
     exibir("ok")
-    fim
-} fim
+
+}
 funcao principal() -> inteiro: {
     variavel logico: logico = verdadeiro
     variavel i8: inteiro8 = 127
@@ -712,11 +712,11 @@ funcao principal() -> inteiro: {
     quando logico e i8 == 127 e i16 == 1000 e i32 == 1000 e i64 > 0 e i128 > 0 e u8 == inteiro_u8(255) e u16 == inteiro_u16(1000) e u32 > inteiro_u32(0) e u64 > inteiro_u64(0) e u128 > inteiro_u128(0) e d32 == 1.25 e d64 == 2.5 e octeto == byte(255) e letra == 'λ' e nome == "Nebula": {
         exibir(42)
         devolver 42
-        fim
-    } fim
+
+    }
     devolver 1
-    fim
-} fim
+
+}
 principal()
 "#,
     )
@@ -741,15 +741,15 @@ tipo ListaIdades = Vetor<Idade>
 estrutura Pessoa: {
     nome: texto
     idade: Idade
-    fim
-} fim
+
+}
 enumeracao Estado: {
     Ativo
     Falha(texto, inteiro)
-    fim
-} fim
+
+}
 funcao principal() -> inteiro: {
-    variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 10, fim }
+    variavel pessoa: Pessoa = Pessoa { nome: "Lia", idade: 10 }
     variavel par: (inteiro, texto) = (pessoa.idade, "Nebula")
     variavel tupla_vazia: () = ()
     variavel unitario: (inteiro,) = (7,)
@@ -766,38 +766,38 @@ funcao principal() -> inteiro: {
                     escolha estado: {
                         caso Estado::Ativo: {
                             devolver 1
-                            fim
+
                         }
                         caso Estado::Falha(mensagem, codigo): {
                             quando mensagem == "erro" e codigo == 7 e tupla_vazia == () e unitario[0] == 7 e idades[0] == 10: {
                                 exibir(pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso)
                                 devolver pessoa.idade + par[0] + vetor[1] + matriz[0][0] + valor + sucesso
-                                fim
-                            } fim
+
+                            }
                             devolver 2
-                            fim
+
                         }
-                        fim
-                    } fim
-                    fim
+
+                    }
+
                 }
                 caso Resultado::Falha(falha): {
                     devolver 3
-                    fim
+
                 }
-                fim
-            } fim
-            fim
+
+            }
+
         }
         caso Opcional::Nenhum: {
             devolver 4
-            fim
+
         }
-        fim
-    } fim
+
+    }
     devolver 5
-    fim
-} fim
+
+}
 principal()
 "#,
     ).expect("grava fonte");
@@ -821,8 +821,8 @@ fn executa_variantes_vazias_e_de_falha_dos_tipos_algebricos() {
     Aberto
     Fechado
     Falha(texto, inteiro)
-    fim
-} fim
+
+}
 funcao principal() -> inteiro: {
     variavel opcional: Opcional<inteiro> = Opcional::Nenhum
     variavel resultado: Resultado<inteiro, texto> = Resultado::Falha("negado")
@@ -830,46 +830,46 @@ funcao principal() -> inteiro: {
     escolha opcional: {
         caso Opcional::Algum(valor): {
             devolver 1
-            fim
+
         }
         caso Opcional::Nenhum: {
             escolha resultado: {
                 caso Resultado::Sucesso(valor): {
                     devolver 2
-                    fim
+
                 }
                 caso Resultado::Falha(mensagem): {
                     escolha estado: {
                         caso Estado::Aberto: {
                             devolver 3
-                            fim
+
                         }
                         caso Estado::Fechado: {
                             quando mensagem == "negado": {
                                 exibir("algebricos")
                                 devolver 42
-                                fim
-                            } fim
+
+                            }
                             devolver 4
-                            fim
+
                         }
                         caso Estado::Falha(texto, codigo): {
                             devolver 5
-                            fim
+
                         }
-                        fim
-                    } fim
-                    fim
+
+                    }
+
                 }
-                fim
-            } fim
-            fim
+
+            }
+
         }
-        fim
-    } fim
+
+    }
     devolver 6
-    fim
-} fim
+
+}
 principal()
 "#,
     )

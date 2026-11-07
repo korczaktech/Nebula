@@ -18,6 +18,6 @@ variavel caractere: caractere = 'λ'
 variavel byte: byte = byte(255)
 funcao sem_retorno() -> vazio: {
     exibir("vazio")
-    fim
+
 }
-fim
+

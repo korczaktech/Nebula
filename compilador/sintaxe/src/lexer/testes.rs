@@ -130,13 +130,11 @@ fn reconhece_palavras_de_baixo_nivel_e_deixa_apis_como_identificadores() {
 }
 
 #[test]
-fn emite_indent_dedent_e_preserva_fim_explicito() {
-    let r = analisar("funcao principal()\n    se sim\n        exibir(\"oi\")\n    fim\nfim");
+fn fim_nao_e_palavra_reservada() {
+    let r = analisar("fim");
     assert!(r.diagnosticos.is_empty(), "{:?}", r.diagnosticos);
-    let tipos: Vec<_> = r.tokens.iter().map(|t| t.tipo).collect();
-    assert_eq!(tipos.iter().filter(|t| **t == TipoToken::Indent).count(), 2);
-    assert_eq!(tipos.iter().filter(|t| **t == TipoToken::Dedent).count(), 2);
-    assert_eq!(tipos.last(), Some(&TipoToken::Fim));
+    assert_eq!(r.tokens[0].tipo, TipoToken::Identificador);
+    assert_eq!(r.tokens[0].lexema, "fim");
 }
 
 #[test]
@@ -645,8 +643,7 @@ fn reconhece_async_e_nao_reserva_assinc() {
 
 #[test]
 fn reconhece_delimitadores_do_function_body_e_importacao() {
-    let resultado =
-        analisar("funcao teste(): { fim } incluir(modulo: arquivos, biblioteca: sistema)");
+    let resultado = analisar("funcao teste(): { } incluir(modulo: arquivos, biblioteca: sistema)");
     assert!(
         resultado.diagnosticos.is_empty(),
         "{:?}",
@@ -654,7 +651,6 @@ fn reconhece_delimitadores_do_function_body_e_importacao() {
     );
     let tipos: Vec<_> = resultado.tokens.iter().map(|token| token.tipo).collect();
     assert!(tipos.contains(&TipoToken::AbreChave));
-    assert!(tipos.contains(&TipoToken::FimBloco));
     assert!(tipos.contains(&TipoToken::FechaChave));
     assert!(tipos.contains(&TipoToken::Incluir));
     assert!(tipos.contains(&TipoToken::AbrePar));

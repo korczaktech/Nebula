@@ -1,17 +1,17 @@
 estrutura Ponto: {
     x: inteiro
     y: inteiro
-    fim
+
 }
-fim
+
 enumeracao Estado: {
     Codigo(inteiro)
     Vazio
-    fim
-}
-fim
 
-variavel original = Ponto { x: 10, y: 20, fim }
+}
+
+
+variavel original = Ponto { x: 10, y: 20 }
 variavel copia = copiar(original)
 variavel estado = Estado::Codigo(42)
 variavel estado_copia = copiar(estado)

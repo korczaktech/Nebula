@@ -5,5 +5,4 @@ variavel versao = 1
 funcao principal(): {
     exibir(nome)
     exibir(versao);
-    fim
-} fim
+}

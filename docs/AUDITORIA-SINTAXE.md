@@ -25,16 +25,16 @@ A aceitação sintática de `memoria.ler<T>()`, por exemplo, não prova que exis
 - `compilador/sintaxe/tests/conformidade.rs`: testes externos de conformidade.
 - Testes internos em `compilador/sintaxe/src/lib.rs`.
 
-O Parser contém testes específicos para produções normativas, alternativas, precedência, tipos, blocos indentados, estruturas, enumerações, padrões, operadores, atributos, recursos nativos e recuperação de erros. A existência desses testes foi inspecionada; esta auditoria remota não executou `cargo test`.
+O Parser contém testes específicos para produções normativas, alternativas, precedência, tipos, blocos delimitados por chaves, estruturas, enumerações, padrões, operadores, atributos, recursos nativos e recuperação de erros. A existência desses testes foi inspecionada; esta auditoria remota não executou `cargo test`.
 
 ## 3. NEBULA-SINTAXE.md — conferência por seção
 
 | Seção | Construções examinadas | Estado |
 |---|---|---|
 | 1 — Identidade e nomenclatura | Identificadores, UTF-8, ausência de acentos e normalização NFC | Implementado no Lexer, com diagnóstico para acentos e normalização |
-| 2 — Regras obrigatórias | Delimitadores, indentação, blocos e `fim` | Implementado; blocos de instrução exigem indentação e `fim`; chaves não substituem blocos |
+| 2 — Regras obrigatórias | Delimitadores, indentação e blocos | Em migração: Function Body abre com `: {` e fecha exclusivamente com `}` |
 | 3 — Palavras reservadas | Palavras de controle, tipos, modificadores, contexto e aliases | Parcial; ver matriz de palavras reservadas abaixo |
-| 4 — Condicionais | `se`, `sendo`, `senao` | Implementado; `se` e alias `quando`; cláusulas são associadas ao mesmo `fim` |
+| 4 — Condicionais | `se`, `sendo`, `senao` | Em migração; `se` e alias `quando`; cada cláusula possui seu próprio corpo delimitado por chaves |
 | 4 — Seleção | `escolha`, `caso`, `padrao` | Implementado com restrições: literal, variante `Enum::Variante`, payload nomeado e curinga; não aceita expressão arbitrária como padrão |
 | 5 — Repetições | `para`, `enquanto`, `pare`, `prossiga`, `passar` | Implementado; `para` também possui forma C com cabeçalho entre parênteses |
 | 6 — Variáveis e constantes | Declaração tipada, inferência e atribuição | Implementado sintaticamente; verificação de mutabilidade/tipos pertence à semântica |
@@ -159,8 +159,8 @@ O Scanner reconhece tanto a grafia Nebula com o sinal de atribuição antes do o
 4. **Interpolação:** o Lexer verifica delimitadores e conteúdo de `${...}`, mas o Parser recebe o texto interpolado como token literal. Não há AST independente para cada expressão interpolada.
 5. **Getter/setter:** `obter` e `definir` são palavras reconhecidas, mas não existe uma produção de declaração de propriedade getter/setter.
 6. **EBNF da seção 29 do documento principal:** é explicitamente preliminar e não cobre integralmente o Parser atual. A gramática normativa é `especificacao/gramatica.md`.
-7. **EBNF de montagem no documento nativo:** a alternativa `| "fim"` estava malformada como produção isolada. O documento agora esclarece as duas formas contextuais distintas.
-8. **Fixture de integração desatualizado:** o teste `executa_decimais_em_agregados_e_payloads_da_abi` ainda declarava `estrutura` e `enumeracao` com chaves. A fixture foi migrada para `:` + indentação + `fim`, conforme a sintaxe atual do Parser.
+7. **EBNF de montagem no documento nativo:** a regra antiga de terminador textual foi removida; blocos contextuais de montagem fecham pela chave correspondente.
+8. **Fixture de integração desatualizado:** o teste `executa_decimais_em_agregados_e_payloads_da_abi` ainda declarava `estrutura` e `enumeracao` com chaves. As fixtures de integração devem usar `: { ... }`, sem terminadores textuais.
 
 ## 8. O que a auditoria não declara concluído
 
@@ -185,12 +185,12 @@ Foram inspecionados os testes já existentes no Parser. Entre eles há testes pa
 - produções normativas e combinações de gramática;
 - palavras reservadas e aliases;
 - tipos genéricos, tipos de função e tuplas;
-- blocos indentados, `fim`, estruturas e enumerações;
+- blocos delimitados por chaves, estruturas e enumerações;
 - precedência, associatividade e operadores;
 - atributos, contextos nativos e montagem;
 - recuperação de erros e limites de aninhamento.
 
-**Não foi executado `cargo test`, `cargo fmt`, `cargo clippy` ou CI nesta auditoria.** A inspeção do código e dos testes não substitui sua execução.
+**A migração está sendo validada pelo GitHub Actions.** Os resultados desta rodada ainda não certificam a aprovação completa; a conclusão depende de todos os jobs ficarem verdes.
 
 ## 10. Conclusão
 
