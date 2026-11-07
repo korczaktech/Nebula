@@ -315,6 +315,30 @@ fn normalizar_blocos_indentados(codigo: &str) -> String {
     saida.join("\n")
 }
 
+fn compilar_e_executar(rotulo: &str, codigo: &str) -> std::process::Output {
+    let (origem, executavel) = caminhos(rotulo);
+    let codigo_normalizado = normalizar_blocos_indentados(codigo);
+    fs::write(&origem, codigo_normalizado).expect("grava fonte Nebula");
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI Rust");
+    assert!(
+        compilacao.status.success(),
+        "falha de compilação: {}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    execucao
+}
+
 #[test]
 fn gera_elf_executavel_com_codigo_de_saida() {
     let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro\n    devolver 42");
