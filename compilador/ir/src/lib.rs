@@ -27,6 +27,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValorIr {
     Inteiro(i128), InteiroSemSinal(u128), Decimal(f64), Logico(bool), Texto(String), Caractere(char), Funcao(String),
+    Referencia { nome: String, escopo: u64, mutavel: bool },
     Lista(Vec<ValorIr>), Estrutura { nome: String, campos: Vec<(String, ValorIr)> }, Intervalo(i128, i128), IntervaloSemSinal(u128, u128), IntervaloDecimal(f64, f64), Nulo, Vazio,
 }
 
@@ -49,6 +50,9 @@ pub enum ExpressaoIr {
     Variavel(String),
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
+    Referencia { nome: String, mutavel: bool },
+    Desreferencia(Box<ExpressaoIr>),
+    AtribuicaoReferencia { referencia: Box<ExpressaoIr>, valor: Box<ExpressaoIr>, tipo: Tipo },
     Binaria { esquerda: Box<ExpressaoIr>, operador: OperadorIr, direita: Box<ExpressaoIr> },
     Atribuicao { nome: String, valor: Box<ExpressaoIr>, tipo: Tipo },
     AtribuicaoCampo { raiz: String, caminho: Vec<String>, valor: Box<ExpressaoIr>, tipo: Tipo },
@@ -871,21 +875,36 @@ impl Lowerer {
                 campos: campos.iter().map(|(campo, valor)| Some((campo.clone(), self.expressao(valor)?))).collect::<Option<Vec<_>>>()?,
             }),
             Expressao::Unaria { operador, valor } => {
-                let valor_ir = if *operador == TipoToken::Menos {
-                    match valor.as_ref() {
-                        Expressao::Literal(bruto) => match literal(bruto) {
-                            Some(valor @ ValorIr::Inteiro(_)) => ExpressaoIr::Constante(valor),
-                            _ => self.expressao(valor)?,
-                        },
-                        _ => self.expressao(valor)?,
+                match operador {
+                    TipoToken::EBit | TipoToken::Mutavel => {
+                        let Expressao::Nome(nome) = valor.as_ref() else {
+                            self.diagnosticos.push("Referência IR exige uma variável nomeada nesta versão.".into());
+                            return None;
+                        };
+                        Some(ExpressaoIr::Referencia {
+                            nome: nome.clone(),
+                            mutavel: *operador == TipoToken::Mutavel,
+                        })
                     }
-                } else {
-                    self.expressao(valor)?
-                };
-                Some(ExpressaoIr::Unaria {
-                    operador: converter_operador(*operador)?,
-                    valor: Box::new(valor_ir),
-                })
+                    TipoToken::Vezes => Some(ExpressaoIr::Desreferencia(Box::new(self.expressao(valor)?))),
+                    _ => {
+                        let valor_ir = if *operador == TipoToken::Menos {
+                            match valor.as_ref() {
+                                Expressao::Literal(bruto) => match literal(bruto) {
+                                    Some(valor @ ValorIr::Inteiro(_)) => ExpressaoIr::Constante(valor),
+                                    _ => self.expressao(valor)?,
+                                },
+                                _ => self.expressao(valor)?,
+                            }
+                        } else {
+                            self.expressao(valor)?
+                        };
+                        Some(ExpressaoIr::Unaria {
+                            operador: converter_operador(*operador)?,
+                            valor: Box::new(valor_ir),
+                        })
+                    }
+                }
             },
             Expressao::Binaria { esquerda, operador, direita } => {
                 let tipo_esquerda = self.inferir_tipo_ast(esquerda);
@@ -934,6 +953,12 @@ impl Lowerer {
                 let valor = Box::new(self.expressao(valor)?);
                 if let Expressao::Nome(nome) = destino.as_ref() {
                     Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor, tipo })
+                } else if let Expressao::Unaria { operador: TipoToken::Vezes, valor: referencia } = destino.as_ref() {
+                    Some(ExpressaoIr::AtribuicaoReferencia {
+                        referencia: Box::new(self.expressao(referencia)?),
+                        valor,
+                        tipo,
+                    })
                 } else if let Some((raiz, caminho)) = caminho_campos(destino) {
                     Some(ExpressaoIr::AtribuicaoCampo { raiz, caminho, valor, tipo })
                 } else {
