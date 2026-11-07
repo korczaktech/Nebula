@@ -95,8 +95,16 @@ impl PartialEq for Valor {
             (Self::Caractere(a), Self::Caractere(b)) => a == b,
             (Self::Funcao(a), Self::Funcao(b)) => a == b,
             (
-                Self::Referencia { nome: an, escopo: ae, mutavel: am },
-                Self::Referencia { nome: bn, escopo: be, mutavel: bm },
+                Self::Referencia {
+                    nome: an,
+                    escopo: ae,
+                    mutavel: am,
+                },
+                Self::Referencia {
+                    nome: bn,
+                    escopo: be,
+                    mutavel: bm,
+                },
             ) => an == bn && ae == be && am == bm,
             (
                 Self::Intervalo {
@@ -541,16 +549,27 @@ impl Memoria {
     /// Obtém o identificador estável do escopo que contém a variável visível.
     #[must_use]
     pub fn identificador_escopo_da_variavel(&self, nome: &str) -> Option<u64> {
-        self.escopos.iter().enumerate().rev().find_map(|(indice, escopo)| {
-            escopo.contains_key(nome).then(|| self.identificadores_escopos[indice])
-        })
+        self.escopos
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(indice, escopo)| {
+                escopo
+                    .contains_key(nome)
+                    .then(|| self.identificadores_escopos[indice])
+            })
     }
 
     /// Lê uma célula por seu identificador estável de escopo.
     pub fn obter_referenciado(&self, identificador: u64, nome: &str) -> Resultado<Valor> {
-        let indice = self.identificadores_escopos.iter().position(|id| *id == identificador)
+        let indice = self
+            .identificadores_escopos
+            .iter()
+            .position(|id| *id == identificador)
             .ok_or(ErroRuntime::ReferenciaInvalida)?;
-        self.escopos[indice].get(nome).map(|celula| celula.valor.clone())
+        self.escopos[indice]
+            .get(nome)
+            .map(|celula| celula.valor.clone())
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
     }
 
@@ -563,11 +582,17 @@ impl Memoria {
         mutavel: bool,
     ) -> Resultado<()> {
         if !mutavel {
-            return Err(ErroRuntime::TipoIncompativel("escrita por referência compartilhada"));
+            return Err(ErroRuntime::TipoIncompativel(
+                "escrita por referência compartilhada",
+            ));
         }
-        let indice = self.identificadores_escopos.iter().position(|id| *id == identificador)
+        let indice = self
+            .identificadores_escopos
+            .iter()
+            .position(|id| *id == identificador)
             .ok_or(ErroRuntime::ReferenciaInvalida)?;
-        let celula = self.escopos[indice].get_mut(nome)
+        let celula = self.escopos[indice]
+            .get_mut(nome)
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
