@@ -266,6 +266,16 @@ fn propagar_constantes_expressao(
             propagar_constantes_expressao(valor, constantes, relatorio);
             constantes.remove(nome);
         }
+        ExpressaoIr::Referencia { .. } => {}
+        ExpressaoIr::Desreferencia(referencia) => {
+            propagar_constantes_expressao(referencia, constantes, relatorio);
+        }
+        ExpressaoIr::AtribuicaoReferencia { referencia, valor, .. } => {
+            propagar_constantes_expressao(referencia, constantes, relatorio);
+            propagar_constantes_expressao(valor, constantes, relatorio);
+            // Uma escrita indireta pode alterar qualquer célula alcançável.
+            constantes.clear();
+        }
         ExpressaoIr::AtribuicaoCampo { raiz, valor, .. } => {
             propagar_constantes_expressao(valor, constantes, relatorio);
             constantes.remove(raiz);
@@ -378,6 +388,12 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
             otimizar_expressao(direita, relatorio);
         }
         ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => otimizar_expressao(valor, relatorio),
+        ExpressaoIr::Referencia { .. } => {}
+        ExpressaoIr::Desreferencia(referencia) => otimizar_expressao(referencia, relatorio),
+        ExpressaoIr::AtribuicaoReferencia { referencia, valor, .. } => {
+            otimizar_expressao(referencia, relatorio);
+            otimizar_expressao(valor, relatorio);
+        }
         ExpressaoIr::Chamada { argumentos, .. }
         | ExpressaoIr::ChamadaQualificada { argumentos, .. } => {
             for argumento in argumentos {
