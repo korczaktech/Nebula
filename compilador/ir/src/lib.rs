@@ -2283,6 +2283,7 @@ impl Maquina<'_, '_> {
                     escopo,
                     &nome,
                     converter_para_runtime(valor.clone()),
+                    true,
                 ).map_err(formatar_erro_runtime)?;
                 Ok(valor)
             }
