@@ -2721,15 +2721,15 @@ impl<'a> Analisador<'a> {
                 operador: TipoToken::EBit | TipoToken::Mutavel,
                 valor,
             } => match valor.as_ref() {
-                Expressao::Nome(nome) => Some(nome.as_str()),
+                Expressao::Nome(nome) => Some(nome.clone()),
                 Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
-                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz).leak().into_iter().next().map(String::as_str),
+                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz),
                 _ => None,
             },
-            Expressao::Nome(nome) => Some(nome.as_str()),
+            Expressao::Nome(nome) => Some(nome.clone()),
             _ => None,
         };
-        origem.is_some_and(|nome| parametros.contains(nome))
+        origem.as_deref().is_some_and(|nome| parametros.contains(nome))
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
