@@ -188,7 +188,7 @@ impl AnalisadorPropriedade {
         }
         let _ = variavel;
         let estado = self.variaveis.get_mut(&lugar.raiz).expect("validado acima");
-        estado.movidos.retain(|movido| !movido.sobrepoe(lugar));
+        estado.movidos.retain(|movido| {\n            movido.raiz != lugar.raiz\n                || lugar.projecoes.len() > movido.projecoes.len()\n                || !lugar.projecoes.iter().zip(&movido.projecoes).all(|(a, b)| a == b)\n        });
         Ok(())
     }
 
@@ -312,6 +312,18 @@ mod testes {
         assert!(matches!(fluxo.ler(&Lugar::novo("pessoa")), Err(ErroPropriedade::UsoAposMovimento(_))));
         fluxo.atribuir(&nome).unwrap();
         assert!(fluxo.ler(&Lugar::novo("pessoa")).is_ok());
+    }
+
+    #[test]
+    fn atribuir_campo_nao_restaura_agregado_inteiro_movido() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.declarar("pessoa").unwrap();
+        fluxo.mover(&Lugar::novo("pessoa")).unwrap();
+        fluxo.atribuir(&Lugar::novo("pessoa").campo("nome")).unwrap();
+        assert!(matches!(
+            fluxo.ler(&Lugar::novo("pessoa")),
+            Err(ErroPropriedade::UsoAposMovimento(_))
+        ));
     }
 
     #[test]
