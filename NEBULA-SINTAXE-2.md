@@ -7,13 +7,13 @@
 **Objetivo:** programação de sistemas, kernels, drivers, runtimes e controle de hardware  
 **Status:** proposta técnica formal para implementação; não implica que os recursos já existam no compilador.
 
-> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas, inclusive a obrigatoriedade de Function Body iniciado por `: {` e encerrado por `fim` antes de `}`; construções completas também exigem o `fim` externo. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
+> Este documento complementa a especificação principal. Em caso de conflito, as regras léxicas e sintáticas gerais de `NEBULA-SINTAXE.md` continuam válidas: Function Body iniciado por `: {` e encerrado por `}`. A palavra `fim` não é palavra reservada nem terminador de bloco. As assinaturas aqui descritas definem a API-alvo, não uma afirmação de implementação concluída.
 
 ---
 
 ## Regra sintática herdada: Function Body
 
-Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer função, condicional, laço, classe, bloco de tratamento de erro, exportação ou outro corpo estrutural deve abrir com `: {`, terminar seu conteúdo com `fim` antes de `}`, e receber o `fim` externo quando a construção for completa. Blocos aninhados exigem encerramentos próprios. A sintaxe antiga baseada somente em indentação é rejeitada.
+Todos os exemplos e declarações deste documento obedecem à especificação principal `NEBULA-SINTAXE.md`. Qualquer corpo estrutural deve abrir com `: {` e terminar com `}`. Blocos aninhados fecham suas próprias chaves; `fim` não possui função sintática.
 
 A palavra reservada assíncrona é `async`; `assinc` não é mais válida.
 
@@ -859,11 +859,11 @@ Cada diagnóstico deve indicar causa, localização, requisito e uma possível c
 As produções abaixo descrevem apenas a forma sintática reconhecida. Os nomes de tipos, atributos, módulos e operações de hardware não se tornam implementados apenas por serem aceitos pelo Parser.
 
 ```ebnf
-bloco_critico       = "critico", ":", bloco, "fim" ;
+bloco_critico       = "critico", ":", bloco ;
 bloco_privilegiado  = "privilegio", identificador,
                       [ "<", lista_tipos, ">" ],
                       [ "(", argumentos, ")" ],
-                      [ ":" ], bloco, "fim" ;
+                      [ ":" ], bloco ;
 
 tipo_primitivo      = identificador ;
 tipo_ponteiro       = identificador, "<", tipo, ">" ;
@@ -889,7 +889,7 @@ Observações de conformidade:
 2. Tipos como `ponteiro<T>`, `ponteiroBruto<T>`, `ponteiroVolatil<T>`, `vetor<T, N>` e `bloco<T, N>` usam a sintaxe genérica geral; isso não implementa suas operações.
 3. Atributos são armazenados na AST, mas seus argumentos e efeitos precisam de validação semântica específica.
 4. `expressao_montagem` é a expressão `montagem arquitetura<T>(argumentos)`.
-5. `bloco_montagem` é um bloco contextual iniciado por `montagem arquitetura` e encerrado por `fim`; não confundir as duas formas.
+5. `bloco_montagem` é um bloco contextual iniciado por `montagem arquitetura` e encerrado por `}`; não confundir as duas formas.
 6. A dereferência prefixa `*referencia` permanece proposta e não é reconhecida como operador unário pelo Parser atual.
 7. A gramática normativa geral continua sendo `especificacao/gramatica.md`.
 
@@ -994,4 +994,4 @@ Este documento descreve contratos e APIs-alvo. A sintaxe de blocos contextuais, 
 
 A matriz completa de cada construção e dos exemplos deste documento está em [`docs/AUDITORIA-SINTAXE.md`](docs/AUDITORIA-SINTAXE.md). Consulte-a antes de usar qualquer exemplo como teste de funcionalidade real.
 
-A EBNF da seção 30 é complementar e preliminar. A produção de `montagem` deve ser lida conforme as duas formas distintas atualmente reconhecidas: expressão de montagem com arquitetura, tipos opcionais e argumentos; ou bloco contextual `montagem arquitetura:` encerrado por `fim`. A palavra `fim` não é uma alternativa solta da expressão de montagem.
+A EBNF da seção 30 é complementar e preliminar. A produção de `montagem` deve ser lida conforme as duas formas distintas: expressão de montagem com arquitetura, tipos opcionais e argumentos; ou bloco contextual `montagem arquitetura:` encerrado por `}`.
