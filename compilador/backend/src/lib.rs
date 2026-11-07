@@ -3980,6 +3980,7 @@ mod testes {
             })]),
             modulos: HashMap::new(),
             layouts_tipos: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
         }
     }
 
