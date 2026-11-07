@@ -1866,6 +1866,20 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
+        let continuacao = conteudo.starts_with("senao")
+            || conteudo.starts_with("sempre")
+            || conteudo.starts_with("erro ")
+            || conteudo.starts_with("caso ")
+            || conteudo == "padrao";
+        while blocos.last().is_some_and(|bloco| {
+            !bloco.explicito
+                && (nivel < bloco.indentacao || (nivel <= bloco.indentacao && !continuacao))
+        }) {
+            if let Some(bloco) = blocos.pop() {
+                fechar(&mut saida, bloco);
+            }
+        }
+
         if conteudo.ends_with("->:") {
             saida.push(indentacao(&format!("{conteudo} {{"), nivel));
             blocos.push(Bloco {
