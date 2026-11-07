@@ -1821,7 +1821,7 @@ impl Emissor {
                 self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x7E, 0xC0]); // movq rax, xmm0
                 Ok(())
             }
-            Tipo::Decimal | Tipo::Decimal64 => Ok(()),
+            Tipo::Decimal | Tipo::Decimal64 | Tipo::Intervalo(_) => Ok(()),
             _ => Err(format!("Normalização de '{}' não é suportada pelo backend nativo.", tipo.nome())),
         }
     }
