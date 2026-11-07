@@ -3768,7 +3768,7 @@ senao: {
             "funcao principal(): {\n exibir(1)",
             "funcao principal()\n exibir(1)",
         ] {
-            let resultado = analisar(&fonte(codigo));
+            let resultado = analisar(&fonte_bruta(codigo));
             assert!(
                 resultado.diagnosticos.iter().any(|d| d.codigo == "N2009"),
                 "abertura não fechada deveria produzir N2009: {codigo:?}: {:?}",
