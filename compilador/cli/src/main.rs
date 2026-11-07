@@ -471,8 +471,6 @@ fn interpretar_arquivo(caminho: &Path) -> Result<Vec<String>, String> {
     })?;
     #[cfg(test)]
     let conteudo = normalizar_blocos_legados(&conteudo);
-    #[cfg(test)]
-    let conteudo = normalizar_blocos_legados(&conteudo);
     let fonte = ArquivoFonte::novo(caminho, conteudo);
     let sintaxe = analisar(&fonte);
     if !sintaxe.diagnosticos.is_empty() {
@@ -1080,260 +1078,6 @@ fn qualificar_expressao_modulo(
 
 fn compilar_arquivo(caminho: &Path, saida: &Path) -> Result<(), String> {
     compilar_arquivo_com_nivel(caminho, saida, NivelOtimizacao::O1)
-}
-
-#[rustfmt::skip]
-#[cfg(test)]
-fn normalizar_blocos_legados(codigo: &str) -> String {
-    let codigo = codigo.replace(", fim }", " }");
-    let possui_abertura_explicita = codigo.lines().any(|linha| linha.trim().ends_with(": {"));
-    let possui_cabecalho_legado = codigo.lines().any(|linha| {
-        let conteudo = linha.trim();
-        let prefixos = [
-            "funcao ", "publico funcao ", "estrutura ", "enumeracao ", "classe ",
-            "quando ", "se ", "sendo ", "senao", "escolha ", "avaliar ", "caso ",
-            "cada ", "enquanto ", "para ", "pulso(", "durante ", "repetir ",
-            "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com ",
-        ];
-        prefixos.iter().any(|prefixo| conteudo.starts_with(prefixo))
-            && !conteudo.ends_with(": {")
-    });
-    if possui_abertura_explicita && !possui_cabecalho_legado {
-        return codigo
-            .lines()
-            .filter(|linha| linha.trim() != "fim")
-            .collect::<Vec<_>>()
-            .join("\n")
-            .replace("} fim", "}");
-    }
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum TipoBloco {
-        Completo,
-        Condicional,
-        Escolha,
-        Caso,
-    }
-
-    #[derive(Clone, Copy)]
-    struct Bloco {
-        indentacao: usize,
-        tipo: TipoBloco,
-        explicito: bool,
-    }
-
-    fn indentacao(texto: &str, nivel: usize) -> String {
-        format!("{}{}", " ".repeat(nivel), texto)
-    }
-
-    fn fechar(saida: &mut Vec<String>, bloco: Bloco) {
-        match bloco.tipo {
-            TipoBloco::Caso => {
-                saida.push(indentacao("}", bloco.indentacao));
-            }
-            TipoBloco::Completo | TipoBloco::Condicional | TipoBloco::Escolha => {
-                saida.push(indentacao("}", bloco.indentacao));
-                }
-        }
-    }
-
-    let mut saida = Vec::new();
-    let mut blocos: Vec<Bloco> = Vec::new();
-
-    for linha_original in codigo.lines() {
-        let nivel = linha_original.len() - linha_original.trim_start().len();
-        let linha_normalizada = if linha_original.trim().ends_with("(): {") {
-            linha_original.to_owned()
-        } else {
-            linha_original.replace("): ", ") -> ")
-        };
-        let linha = linha_normalizada.as_str();
-        let conteudo = linha.trim();
-
-        if conteudo.is_empty() {
-            saida.push(linha.to_owned());
-            continue;
-        }
-
-        if conteudo.ends_with("->:") {
-            saida.push(indentacao(&format!("{conteudo} {{"), nivel));
-            blocos.push(Bloco {
-                indentacao: nivel,
-                tipo: TipoBloco::Completo,
-                explicito: false,
-            });
-            continue;
-        }
-
-        let cabecalho_explicito = [
-            "funcao ",
-            "publico funcao ",
-            "privado funcao ",
-            "protegido estatico funcao ",
-            "async funcao ",
-            "exportar funcao ",
-            "estrutura ", "enumeracao ", "classe ", "quando ", "se ", "sendo ",
-            "senao", "escolha ", "avaliar ", "caso ", "cada ", "enquanto ",
-            "para ", "pulso(", "durante ", "repetir ", "critico", "privilegio ", "montagem ", "tente", "erro ", "sempre", "com ",
-        ]
-        .iter()
-        .any(|prefixo| conteudo.starts_with(prefixo))
-            && conteudo.ends_with(": {");
-
-        if cabecalho_explicito {
-            let tipo = if conteudo.starts_with("caso ") {
-                TipoBloco::Caso
-            } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
-                TipoBloco::Escolha
-            } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") || conteudo.starts_with("senao") {
-                TipoBloco::Condicional
-            } else {
-                TipoBloco::Completo
-            };
-            saida.push(linha.to_owned());
-            blocos.push(Bloco {
-                indentacao: nivel,
-                tipo,
-                explicito: true,
-            });
-            continue;
-        }
-
-        if conteudo == "fim" {
-            if blocos.is_empty() || blocos.last().is_some_and(|bloco| bloco.explicito) {
-                continue;
-            }
-
-            while blocos.last().is_some_and(|bloco| {
-                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao > nivel
-            }) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            }
-
-            if blocos.last().is_some_and(|bloco| !bloco.explicito && bloco.indentacao == nivel) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            } else {
-                saida.push(linha.to_owned());
-            }
-            continue;
-        }
-
-        if conteudo == "}" {
-            if let Some(bloco) = blocos.last_mut() {
-                if bloco.explicito && bloco.indentacao == nivel {
-                    blocos.pop();
-                    saida.push(linha.to_owned());
-                    continue;
-                }
-            }
-        }
-
-        if conteudo.starts_with("senao") || conteudo.starts_with("sempre") || conteudo.starts_with("erro ") {
-            if let Some(bloco) = blocos.last() {
-                if !bloco.explicito && bloco.indentacao == nivel {
-                    let tipo = bloco.tipo;
-                    saida.push(indentacao("}", nivel));
-                    saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
-                    blocos.pop();
-                    blocos.push(Bloco {
-                        indentacao: nivel,
-                        tipo,
-                        explicito: false,
-                    });
-                    continue;
-                }
-            }
-        }
-
-        if conteudo.starts_with("caso ") || conteudo == "padrao" {
-            if blocos.last().is_some_and(|bloco| {
-                !bloco.explicito && bloco.tipo == TipoBloco::Caso && bloco.indentacao == nivel
-            }) {
-                if let Some(bloco) = blocos.pop() {
-                    fechar(&mut saida, bloco);
-                }
-            }
-            saida.push(indentacao(&format!("{conteudo}: {{"), nivel));
-            blocos.push(Bloco {
-                indentacao: nivel,
-                tipo: TipoBloco::Caso,
-                explicito: false,
-            });
-            continue;
-        }
-
-        let (tipo, cabecalho) = if conteudo.starts_with("publico funcao ")
-            || conteudo.starts_with("privado funcao ")
-            || conteudo.starts_with("protegido estatico funcao ")
-            || conteudo.starts_with("funcao ")
-            || conteudo.starts_with("async funcao ")
-            || conteudo.starts_with("exportar funcao ")
-        {
-            let assinatura = if conteudo.ends_with("(): {") {
-                conteudo.to_owned()
-            } else {
-                conteudo.replace("): ", ") -> ")
-            };
-            let assinatura = if assinatura.ends_with(':') {
-                format!("{assinatura} {{")
-            } else if assinatura.ends_with("{") {
-                assinatura
-            } else {
-                format!("{assinatura}: {{")
-            };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("estrutura ") || conteudo.starts_with("enumeracao ") || conteudo.starts_with("classe ") {
-            let assinatura = if conteudo.ends_with(':') {
-                format!("{conteudo} {{")
-            } else {
-                format!("{conteudo}: {{")
-            };
-            (Some(TipoBloco::Completo), Some(assinatura))
-        } else if conteudo.starts_with("escolha ") || conteudo.starts_with("avaliar ") {
-            (Some(TipoBloco::Escolha), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("quando ") || conteudo.starts_with("se ") || conteudo.starts_with("sendo ") {
-            (Some(TipoBloco::Condicional), Some(format!("{conteudo}: {{")))
-        } else if conteudo.starts_with("cada ")
-            || conteudo.starts_with("enquanto ")
-            || conteudo.starts_with("para ")
-            || conteudo.starts_with("pulso(")
-            || conteudo.starts_with("durante ")
-            || conteudo.starts_with("repetir ")
-            || conteudo == "critico"
-            || conteudo.starts_with("critico:")
-            || conteudo.starts_with("privilegio ")
-            || conteudo.starts_with("montagem ")
-            || conteudo == "tente"
-            || conteudo.starts_with("erro ")
-            || conteudo == "sempre"
-            || conteudo.starts_with("com ")
-        {
-            let cabecalho = if conteudo.ends_with(':') {
-                format!("{conteudo} {{")
-            } else {
-                format!("{conteudo}: {{")
-            };
-            (Some(TipoBloco::Completo), Some(cabecalho))
-        } else {
-            (None, None)
-        };
-
-        if let (Some(tipo), Some(cabecalho)) = (tipo, cabecalho) {
-            saida.push(indentacao(&cabecalho, nivel));
-            blocos.push(Bloco {
-                indentacao: nivel,
-                tipo,
-                explicito: false,
-            });
-        } else {
-            saida.push(linha.to_owned());
-        }
-    }
-
-    saida.join("\n")
 }
 
 #[rustfmt::skip]
@@ -2017,30 +1761,29 @@ mod testes {
             r#"estrutura Ponto: {
     x: inteiro64
     y: inteiro64
-    fim
+
 }
-fim
+
 funcao deslocar(ponto: Ponto) -> Ponto: {
-    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2, fim }
-    fim
+    devolver Ponto { x: ponto.x + 1, y: ponto.y + 2 }
+
 }
-fim
+
 funcao principal() -> inteiro: {
-    variavel original = Ponto { x: 39, y: 0, fim }
+    variavel original = Ponto { x: 39, y: 0 }
     original.x = 40
     variavel resultado = deslocar(original)
     quando resultado.x == 41 e resultado.y == 2: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2080,41 +1823,40 @@ fim"#,
     escolha valor: {
         caso Opcional::Algum(conteudo): {
             devolver conteudo
-            fim
+
         }
         caso Opcional::Nenhum: {
             devolver 0
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao ler(valor: Resultado<inteiro64,inteiro64>) -> inteiro: {
     escolha valor: {
         caso Resultado::Sucesso(conteudo): {
             devolver conteudo
-            fim
+
         }
         caso Resultado::Falha(falha): {
             devolver falha
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel opcional: Opcional<inteiro64> = Opcional::Algum(40)
     variavel resultado: Resultado<inteiro64,inteiro64> = Resultado::Sucesso(2)
     devolver extrair(opcional) + ler(resultado)
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -2152,50 +1894,49 @@ fim"#,
     Sucesso(inteiro64)
     Falha(inteiro64)
     Vazio
-    fim
+
 }
-fim
+
 funcao transformar(resposta: Resposta) -> Resposta: {
     escolha resposta: {
         caso Resposta::Sucesso(valor): {
             devolver Resposta::Falha(valor + 1)
-            fim
+
         }
         caso Resposta::Falha(falha): {
             devolver Resposta::Sucesso(falha + 1)
-            fim
+
         }
         caso Resposta::Vazio: {
             devolver Resposta::Vazio
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
+
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel resultado = transformar(Resposta::Sucesso(41))
     escolha resultado: {
         caso Resposta::Sucesso(valor): {
             devolver 0
-            fim
+
         }
         caso Resposta::Falha(falha): {
             devolver falha
-            fim
+
         }
         caso Resposta::Vazio: {
             devolver 1
-            fim
+
         }
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2231,24 +1972,23 @@ fim"#,
             &origem,
             r#"funcao inverter(par: Tupla<inteiro64,inteiro64>) -> Tupla<inteiro64,inteiro64>: {
     devolver (par[1], par[0])
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel original = (40, 2)
     variavel resultado = inverter(original)
     quando resultado[0] == 2 e resultado[1] == 40: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2292,16 +2032,15 @@ fim"#,
     variavel de_volta: inteiro_u64 = inteiro_u64(sem_sinal)
     quando estreito == -42 e ampliado == negativo e de_volta == 42: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2340,19 +2079,19 @@ fim"#,
             r#"variavel valorGlobal: inteiro128 = 1208925819614629174706176
 funcao somar(a: inteiro128, b: inteiro128) -> inteiro128: {
     devolver a + b
-    fim
+
 }
-fim
+
 funcao identidade(valor: inteiro128) -> inteiro128: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao identidade_sem_sinal(valor: inteiro_u128) -> inteiro_u128: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
     variavel soma = somar(valorGlobal, valorGlobal)
     variavel esperado: inteiro128 = 2417851639229258349412352
@@ -2362,16 +2101,15 @@ funcao principal() -> inteiro: {
     variavel zero: inteiro_u128 = 0
     quando soma == esperado e identidade(soma) == esperado e negativo < positivo e -positivo == negativo e identidade_sem_sinal(maximo) == maximo e maximo > zero: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2416,16 +2154,15 @@ fim"#,
     variavel esperado_misto: decimal64 = 16777218.0
     quando soma == esperado e soma_mista == esperado_misto: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2464,9 +2201,8 @@ fim"#,
             r#"funcao principal() -> inteiro64: {
     variavel decimal: decimal64 = 42.75
     devolver inteiro64(decimal)
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -2507,16 +2243,15 @@ fim"#,
     variavel decimal: decimal64 = decimal64(esperado)
     quando convertido == esperado e decimal == valor: {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2543,45 +2278,38 @@ fim"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 1e100
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: decimal64 = 0.0 / 0.0
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = -1.0
     devolver inteiro_u64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u64: {
     variavel valor: decimal64 = 18446744073709551616.0
     devolver inteiro_u64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro64: {
     variavel valor: inteiro128 = 9223372036854775808
     devolver inteiro64(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro128: {
     variavel valor: inteiro_u128 = 170141183460469231731687303715884105728
     devolver inteiro128(valor)
-    fim
-}
-fim"#,
+
+}"#,
             r#"funcao principal() -> inteiro_u128: {
     variavel valor: inteiro128 = -1
     devolver inteiro_u128(valor)
-    fim
-}
-fim"#,
+
+}"#,
         ];
         for (indice, codigo) in programas.into_iter().enumerate() {
             let sufixo = std::time::SystemTime::now()
@@ -2634,16 +2362,15 @@ fim"#,
     variavel letra: caractere = '🛰'
     quando letra == '🛰': {
         devolver 42
-        fim
+
     }
     senao: {
         devolver 0
-        fim
+
     }
-    fim
-    fim
-}
-fim"#,
+
+
+}"#,
         )
         .unwrap();
 
@@ -2672,44 +2399,43 @@ fim"#,
             r#"estrutura Medidas: {
     curta: decimal32
     longa: decimal64
-    fim
+
 }
-fim
+
 enumeracao Evento: {
     Vazio
     Medida(decimal64)
-    fim
+
 }
-fim
+
 funcao identidade(valor: Medidas) -> Medidas: {
     devolver valor
-    fim
+
 }
-fim
+
 funcao principal() -> inteiro: {
-    variavel entrada = Medidas { curta: 1.25, longa: 42.5, fim }
+    variavel entrada = Medidas { curta: 1.25, longa: 42.5 }
     variavel retorno = identidade(entrada)
     variavel evento = Evento::Medida(42.5)
     escolha evento: {
         caso Evento::Medida(valor): {
             quando retorno.curta == decimal32(1.25) e retorno.longa == decimal64(42.5) e valor == decimal64(42.5): {
                 devolver 42
-                fim
+
             }
-            fim
-            fim
+
+
         }
         caso Evento::Vazio: {
             passar
-            fim
+
         }
-        fim
+
     }
-    fim
+
     devolver 0
-    fim
-}
-fim"#,
+
+}"#,
         )
         .unwrap();
 
@@ -3040,7 +2766,6 @@ mod fixtures_conformidade_tipos {
     use super::*;
 
     fn validar_fixture(codigo: &str, nome: &str) -> Result<(), String> {
-        let codigo = normalizar_blocos_legados(codigo);
         let fonte = ArquivoFonte::novo(nome, &codigo);
         let sintaxe = analisar(&fonte);
         if !sintaxe.diagnosticos.is_empty() {
@@ -3165,8 +2890,8 @@ mod fixtures_conformidade_tipos {
         );
         assert!(estrutura.is_ok(), "ABI de agregado grande com retorno oculto falhou: {estrutura:?}");
 
-        let inteiro128 = normalizar_blocos_legados(include_str!("../fixtures/tipos/abi-inteiro128.nbx"));
-        let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", &inteiro128);
+        let inteiro128 = include_str!("../fixtures/tipos/abi-inteiro128.nbx");
+        let fonte = ArquivoFonte::novo("abi-inteiro128.nbx", inteiro128);
         let sintaxe = analisar(&fonte);
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let ir = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
