@@ -3758,7 +3758,7 @@ fim"#;
             "estrutura Pessoa { nome: inteiro)",
             "enumeracao Estado { Ativo(inteiro]",
             "funcao principal(): { exibir(1) } ]",
-            "funcao principal(): { exibir(1) } ]",
+            "funcao principal(): { exibir(1) } }",
         ] {
             let resultado = analisar(&fonte(codigo));
             assert!(
