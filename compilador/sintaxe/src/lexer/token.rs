@@ -146,7 +146,6 @@ pub enum TipoToken {
     Durante,
     Repetir,
     Devolver,
-    FimBloco,
     Parar,
     Encerrar,
     Seguir,
