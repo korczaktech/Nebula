@@ -4510,6 +4510,42 @@ mod testes {
     }
 
     #[test]
+    fn tupla_com_campos_de_quatro_bytes_usa_passagem_indireta() {
+        let emissor = Emissor::novo(HashMap::new());
+        let tipo = Tipo::Tupla(vec![Tipo::Caractere, Tipo::Caractere]);
+        assert_eq!(emissor.tamanho_alinhamento_tipo(&tipo), Some((8, 4)));
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
+    fn estrutura_com_campos_nao_classificaveis_usa_passagem_indireta() {
+        let mut emissor = Emissor::novo(HashMap::new());
+        emissor.layouts_tipos.insert(
+            "ParCaractere".into(),
+            LayoutAgregado {
+                tamanho: 8,
+                alinhamento: 4,
+                campos: HashMap::from([
+                    ("primeiro".into(), (0, 4)),
+                    ("segundo".into(), (4, 4)),
+                ]),
+            },
+        );
+        emissor.campos_estruturas.insert(
+            "ParCaractere".into(),
+            vec![
+                ("primeiro".into(), Tipo::Caractere),
+                ("segundo".into(), Tipo::Caractere),
+            ],
+        );
+        let tipo = Tipo::Estrutura("ParCaractere".into());
+        assert!(emissor.validar_tipo_abi(&tipo).is_ok());
+        assert_eq!(emissor.largura_abi_tipo(&tipo).unwrap(), 1);
+        assert!(emissor.layout_agregado_grande(&tipo).is_some());
+    }
+
+    #[test]
     fn lista_usa_representacao_abi_de_ponteiro_e_comprimento() {
         let emissor = Emissor::novo(HashMap::new());
         let tipo = Tipo::Lista(Box::new(Tipo::Inteiro));
