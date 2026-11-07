@@ -1143,13 +1143,13 @@ impl<'a> Analisador<'a> {
                 }
                 if matches!(alvo.as_ref(), Expressao::Nome(nome) if nome == "copiar") {
                     if argumentos.len() != 1 {
-                        self.erro("N3058", "'copiar' exige exatamente um argumento.");
+                        self.erro("N3089", "'copiar' exige exatamente um argumento.");
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Desconhecido;
                     }
                     let tipo = self.expressao(&argumentos[0]);
                     if !self.tipo_copiavel(&tipo) {
-                        self.erro("N3058", format!("O tipo '{}' não implementa cópia.", tipo.nome()));
+                        self.erro("N3089", format!("O tipo '{}' não implementa cópia.", tipo.nome()));
                     }
                     return tipo;
                 }
@@ -1175,7 +1175,7 @@ impl<'a> Analisador<'a> {
                             _ => {}
                         }
                             if matches!(tipo_base.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado") {
-                                self.erro("N3054", format!("Construtor inválido: '{tipo_base}::{variante}' com {} argumento(s).", argumentos.len()));
+                                self.erro("N3092", format!("Construtor inválido: '{tipo_base}::{variante}' com {} argumento(s).", argumentos.len()));
                                 for argumento in argumentos { self.expressao(argumento); }
                                 return Tipo::Desconhecido;
                             }
@@ -1562,7 +1562,7 @@ impl<'a> Analisador<'a> {
                             self.validar_argumentos(argumentos, &parametros, nome);
                             return *retorno;
                         }
-                        self.erro("N3058", format!("O valor '{nome}' não é chamável."));
+                        self.erro("N3093", format!("O valor '{nome}' não é chamável."));
                         for argumento in argumentos { self.expressao(argumento); }
                         return Tipo::Desconhecido;
                     }
@@ -1806,7 +1806,7 @@ impl<'a> Analisador<'a> {
                 if Self::numerico(a) && Self::numerico(b) {
                     if Self::inteiro(a) && Self::inteiro(b)
                         && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
-                        self.erro("N3038", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
                         Tipo::Desconhecido
                     } else {
                         Self::promover_numerico(a, b)
@@ -1820,7 +1820,7 @@ impl<'a> Analisador<'a> {
                 if Self::numerico(a) && Self::numerico(b) {
                     if Self::inteiro(a) && Self::inteiro(b)
                         && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
-                        self.erro("N3038", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
                     }
                     Tipo::Logico
                 } else {
@@ -3214,7 +3214,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let r = analisar_codigo(
             "variavel a: inteiro = 1\nvariavel b: inteiro_u32 = 2\nvariavel c = a + b",
         );
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3038"));
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3090"));
     }
 
     #[test]
@@ -3811,10 +3811,10 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
         let texto = analisar_codigo(
             "variavel original: texto = \"conteudo\"\nvariavel copia = copiar(original)",
         );
-        assert!(texto.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", texto.diagnosticos);
+        assert!(texto.diagnosticos.iter().any(|d| d.codigo == "N3089"), "{:?}", texto.diagnosticos);
 
         let aridade = analisar_codigo("variavel valor = copiar()");
-        assert!(aridade.diagnosticos.iter().any(|d| d.codigo == "N3058"), "{:?}", aridade.diagnosticos);
+        assert!(aridade.diagnosticos.iter().any(|d| d.codigo == "N3089"), "{:?}", aridade.diagnosticos);
     }
 
     #[test]
@@ -3945,7 +3945,7 @@ variavel opcional_igual = Opcional::Algum(1) == Opcional::Algum(1)"#,
     #[test]
     fn rejeita_construtor_opcional_com_aridade_incorreta() {
         let r = analisar_codigo("variavel valor = Opcional::Algum()");
-        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3054"), "{:?}", r.diagnosticos);
+        assert!(r.diagnosticos.iter().any(|d| d.codigo == "N3092"), "{:?}", r.diagnosticos);
     }
 
     #[test]
@@ -4217,6 +4217,16 @@ fn analisar_codigo_fase5(codigo: &str) -> ResultadoSemantico {
             "variavel total = 0\ncada numero em [1, 2, 3]\n    total = total + numero\ncada caractere em \"abc\"\n    exibir(caractere)\ncada indice em 1..3\n    exibir(indice)",
         );
         assert!(valido.diagnosticos.is_empty(), "{:?}", valido.diagnosticos);
+    }
+
+    #[test]
+    fn rejeita_chamada_de_valor_nao_funcao_com_codigo_especifico() {
+        let resultado = analisar_codigo("variavel numero = 42\nnumero()");
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3093"),
+            "{:?}",
+            resultado.diagnosticos,
+        );
     }
 
     #[test]
