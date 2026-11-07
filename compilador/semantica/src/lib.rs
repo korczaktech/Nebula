@@ -451,6 +451,14 @@ impl<'a> Analisador<'a> {
                     }
                     inferido
                 };
+                if !matches!(final_tipo, Tipo::Referencia { .. })
+                    && Self::tipo_contem_referencia(&final_tipo)
+                {
+                    self.erro(
+                        "N3107",
+                        format!("A variável '{nome}' não pode armazenar referências dentro de agregados; use uma referência direta com vida útil verificável."),
+                    );
+                }
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
             }
             NoAst::Funcao { nome, genericos, parametros, parametros_padrao, corpo, .. } => {
@@ -644,8 +652,12 @@ impl<'a> Analisador<'a> {
                     if !vistos.insert(campo) {
                         self.erro("N3033", format!("Campo '{campo}' duplicado na estrutura '{nome}'."));
                     }
-                    if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
+                    let tipo_resolvido = self.resolver_tipo(tipo);
+                    if Self::tipo_contem_desconhecido(&tipo_resolvido) {
                         self.erro("N3034", format!("Tipo '{tipo}' do campo '{campo}' não foi declarado."));
+                    }
+                    if Self::tipo_contem_referencia(&tipo_resolvido) {
+                        self.erro("N3107", format!("O campo '{campo}' da estrutura '{nome}' não pode armazenar referências sem vida útil associada."));
                     }
                 }
             }
@@ -659,8 +671,12 @@ impl<'a> Analisador<'a> {
                         self.erro("N3036", format!("Variante '{variante}' duplicada na enumeração '{nome}'."));
                     }
                     for tipo in payload {
-                        if Self::tipo_contem_desconhecido(&self.resolver_tipo(tipo)) {
+                        let tipo_resolvido = self.resolver_tipo(tipo);
+                        if Self::tipo_contem_desconhecido(&tipo_resolvido) {
                             self.erro("N3037", format!("Tipo '{tipo}' do payload da variante '{variante}' não foi declarado."));
+                        }
+                        if Self::tipo_contem_referencia(&tipo_resolvido) {
+                            self.erro("N3107", format!("O payload '{variante}' da enumeração '{nome}' não pode armazenar referências sem vida útil associada."));
                         }
                     }
                 }
@@ -2273,6 +2289,20 @@ impl<'a> Analisador<'a> {
                 aliases_visitados.remove(nome);
                 resolvido
             }
+        }
+    }
+
+    fn tipo_contem_referencia(tipo: &Tipo) -> bool {
+        match tipo {
+            Tipo::Referencia { .. } => true,
+            Tipo::Lista(interno) | Tipo::Intervalo(interno) | Tipo::Opcional(interno) => {
+                Self::tipo_contem_referencia(interno)
+            }
+            Tipo::Resultado(sucesso, falha) => {
+                Self::tipo_contem_referencia(sucesso) || Self::tipo_contem_referencia(falha)
+            }
+            Tipo::Tupla(tipos) => tipos.iter().any(Self::tipo_contem_referencia),
+            _ => false,
         }
     }
 
@@ -4975,6 +5005,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
             "Não pode escapar uma referência ao slot local de um parâmetro: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_referencias_armazenadas_em_campos_de_agregados() {
+        let resultado = analisar_codigo(
+            "estrutura Caixa\n    referencia: &inteiro",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3107"),
+            "Campos de agregados não podem armazenar referências sem vida útil associada: {:?}",
             resultado.diagnosticos
         );
     }
