@@ -175,7 +175,6 @@ fn normalizar_blocos_legados(codigo: &str) -> String {
             continue;
         }
 
-
         if conteudo == "}" {
             if let Some(bloco) = blocos.last_mut() {
                 if bloco.explicito && bloco.indentacao == nivel {
