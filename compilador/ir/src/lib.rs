@@ -1266,6 +1266,8 @@ fn nome_tipo(tipo: &Tipo) -> String {
         Tipo::Byte => "byte".into(),
         Tipo::Lista(interno) => format!("[{}]", nome_tipo(interno)),
         Tipo::Opcional(interno) => format!("Opcional<{}>", nome_tipo(interno)),
+        Tipo::Referencia { interno, mutavel: true } => format!("&mutavel {}", nome_tipo(interno)),
+        Tipo::Referencia { interno, mutavel: false } => format!("&{}", nome_tipo(interno)),
         Tipo::Resultado(ok, erro) => format!("Resultado<{},{}>", nome_tipo(ok), nome_tipo(erro)),
         Tipo::Tupla(tipos) => format!("Tupla<{}>", tipos.iter().map(nome_tipo).collect::<Vec<_>>().join(",")),
         Tipo::Estrutura(nome) => nome.clone(),
