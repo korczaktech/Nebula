@@ -163,4 +163,38 @@ Mensagens não devem depender da localização do sistema operacional. A CLI pod
 | N3063 | Índice de tupla inválido ou fora dos limites |
 | N3064 | Parâmetro genérico não inferido pelos argumentos nem pelo contexto |
 
-Os diagnósticos semânticos são globais nesta fase e podem não conter intervalo de origem, pois os nós da AST inicial ainda não carregam spans próprios. A localização exata por nó é uma melhoria planejada, não uma garantia atual.
+A análise semântica associa os diagnósticos ao intervalo da declaração ou expressão atualmente analisada, usando as localizações preservadas pela AST. Diagnósticos emitidos fora de um contexto de fonte (por exemplo, verificações globais ou falhas sem nó correspondente) ainda podem não conter intervalo. Quando houver intervalo, os offsets seguem a convenção de início inclusivo e fim exclusivo, em bytes UTF-8.
+
+### Códigos semânticos adicionais e desambiguados
+
+| Código | Significado |
+|---|---|
+| N3065 | Classe duplicada |
+| N3066 | Parâmetro obrigatório após parâmetro com valor padrão |
+| N3067 | Ramos de expressão condicional com tipos incompatíveis |
+| N3068 | Lambda incompatível com a assinatura de função esperada |
+| N3069 | Classe-base não declarada |
+| N3070 | Herança própria ou ciclo na hierarquia de classes |
+| N3072 | Contexto semântico inválido |
+| N3073 | Argumento contextual inválido, duplicado ou não nomeado conforme o contrato |
+| N3074 | Atributo duplicado |
+| N3075 | Atributo de alinhamento inválido |
+| N3076 | Atributo de representação ou convenção inválido |
+| N3077 | Atributo de função externa inválido |
+| N3078 | Atributo sem contrato semântico |
+| N3079 | Membro duplicado em classe |
+| N3080 | Classe fora do escopo de arquivo |
+| N3081 | Campo herdado com tipo incompatível |
+| N3082 | Argumento posicional após argumento nomeado |
+| N3083 | Nome de parâmetro inexistente |
+| N3084 | Parâmetro informado mais de uma vez |
+| N3085 | Argumento nomeado em chamada sem metadados de nomes |
+| N3086 | Colisão de nome entre tipos |
+| N3087 | Sobrescrita incompatível com a assinatura herdada |
+| N3088 | Lambda com parâmetros sem tipo de função contextual |
+| N3089 | Operação de cópia inválida ou aplicada a tipo não copiável |
+| N3090 | Mistura de inteiros assinados e sem sinal sem conversão explícita |
+| N3091 | Caso curinga não está na última posição |
+| N3092 | Construtor algébrico com aridade inválida |
+
+Os códigos N3038, N3054 e N3058 mantêm um único significado estável: estrutura duplicada, curinga fora de posição e valor não iterável, respectivamente. As situações antes compartilhadas por esses códigos receberam identificadores próprios (N3089–N3092), evitando que ferramentas precisem interpretar a mensagem para descobrir a categoria do erro.
