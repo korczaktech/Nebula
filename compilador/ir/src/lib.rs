@@ -1957,6 +1957,10 @@ fn converter_para_ir(valor: ValorRuntime) -> Result<ValorIr, String> {
     }
 }
 
+/// Limite conservador de chamadas recursivas no interpretador da IR.
+/// O backend nativo não herda este limite.
+const LIMITE_PROFUNDIDADE_CHAMADA_IR: usize = 16;
+
 struct Maquina<'p, 'o> {
     programa: &'p ProgramaIr,
     observador: Option<ObservadorDepuracao<'o>>,
@@ -2783,7 +2787,7 @@ impl Maquina<'_, '_> {
         if funcao.parametros.len() != valores.len() {
             return Err(format!("Quantidade incorreta de argumentos para '{nome}'."));
         }
-        if self.profundidade_chamada >= 32 {
+        if self.profundidade_chamada >= LIMITE_PROFUNDIDADE_CHAMADA_IR {
             return Err("Limite de profundidade de chamadas da IR excedido.".into());
         }
         let localizacao_chamada = (self.caminho_fonte.clone(), self.intervalo_fonte);
@@ -3269,28 +3273,13 @@ mod testes {
     }
     
     fn compilar(codigo: &str) -> ProgramaIr {
-        use std::io::Write as _;
-        let depurar_referencia = codigo.contains("*referencia");
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: antes normalizar\\n"); }
         let codigo = normalizar_blocos_indentados(codigo);
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois normalizar\\n"); }
         let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
         let sintaxe = analisar(&fonte);
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois parser\\n"); }
         assert!(sintaxe.diagnosticos.is_empty(), "{:?}", sintaxe.diagnosticos);
         let resultado = baixar(&sintaxe.programa, &ModulosDisponiveis::new());
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: depois lowerer\\n"); }
-        if !resultado.diagnosticos.is_empty() {
-            let _ = std::io::stderr().write_all(format!("REFERENCIA_TEST: {} diagnostico(s)\\n", resultado.diagnosticos.len()).as_bytes());
-            for diagnostico in &resultado.diagnosticos {
-                let _ = std::io::stderr().write_all(diagnostico.as_bytes());
-                let _ = std::io::stderr().write_all(b"\\n");
-            }
-            panic!("Lowerer produziu diagnósticos.");
-        }
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: diagnosticos ok\\n"); }
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         let mut programa = resultado.programa.expect("IR válida");
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: programa obtido\\n"); }
         fn deslocalizar(instrucao: InstrucaoIr) -> InstrucaoIr {
             match instrucao {
                 InstrucaoIr::Localizada { instrucao, .. } => deslocalizar(*instrucao),
@@ -3305,11 +3294,9 @@ mod testes {
             }
         }
         programa.instrucoes = programa.instrucoes.into_iter().map(deslocalizar).collect();
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: instrucoes deslocalizadas\\n"); }
         for funcao in programa.funcoes.values_mut() {
             funcao.corpo = std::mem::take(&mut funcao.corpo).into_iter().map(deslocalizar).collect();
         }
-        if depurar_referencia { let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: funcoes deslocalizadas\\n"); }
         programa
     }
 
@@ -4589,14 +4576,10 @@ mod testes {
 
     #[test]
     fn executa_leitura_e_escrita_por_referencia_exclusiva() {
-        use std::io::Write as _;
-        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: antes de compilar\\n");
         let programa = compilar(
             "variavel valor: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel valor\n*referencia = 9\nvariavel obtido = *referencia",
         );
-        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: compilacao concluida\\n");
         let resultado = executar(&programa, 100).expect("referência exclusiva deve executar");
-        let _ = std::io::stderr().write_all(b"REFERENCIA_TEST: execucao concluida\\n");
         assert_eq!(resultado.globais.get("valor"), Some(&ValorIr::Inteiro(9)));
         assert_eq!(resultado.globais.get("obtido"), Some(&ValorIr::Inteiro(9)));
     }
