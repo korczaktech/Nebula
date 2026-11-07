@@ -9,6 +9,7 @@ use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
 use nebula_fonte::IntervaloFonte;
+use super::{AnalisadorPropriedade, Lugar, TipoEmprestimo};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -86,6 +87,8 @@ struct Analisador<'a> {
     intervalo_atual: Option<IntervaloFonte>,
     classes: HashMap<String, Option<String>>,
     classe_atual: Option<String>,
+    propriedade: AnalisadorPropriedade,
+    proximo_emprestimo: u64,
 }
 
 impl<'a> Analisador<'a> {
@@ -110,6 +113,8 @@ impl<'a> Analisador<'a> {
             intervalo_atual: None,
             classes: HashMap::new(),
             classe_atual: None,
+            propriedade: AnalisadorPropriedade::novo(),
+            proximo_emprestimo: 1,
         }
     }
 
@@ -1055,6 +1060,39 @@ impl<'a> Analisador<'a> {
             Expressao::Unaria { operador, valor } => {
                 let tipo = self.expressao(valor);
                 match operador {
+                    TipoToken::EBit | TipoToken::Mutavel => {
+                        let Some(lugar) = self.lugar_de_expressao(valor) else {
+                            self.erro("N3090", "Empréstimo exige uma variável ou projeção de memória identificável.");
+                            return Tipo::Desconhecido;
+                        };
+                        let exclusiva = *operador == TipoToken::Mutavel;
+                        if exclusiva {
+                            let nome_raiz = match valor.as_ref() {
+                                Expressao::Nome(nome) => Some(nome.as_str()),
+                                Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
+                                    Self::decompor_caminho_campo(valor).map(|(raiz, _)| raiz).as_deref(),
+                                _ => None,
+                            };
+                            if nome_raiz.and_then(|nome| self.buscar(nome)).is_none_or(|simbolo| !simbolo.mutavel) {
+                                self.erro("N3091", "Empréstimo exclusivo exige um lugar mutável.");
+                            }
+                        }
+                        let identificador = self.proximo_emprestimo;
+                        self.proximo_emprestimo = self.proximo_emprestimo.saturating_add(1);
+                        let modo = if exclusiva { TipoEmprestimo::Exclusivo } else { TipoEmprestimo::Compartilhado };
+                        if let Err(erro) = self.propriedade.emprestar(identificador, lugar, modo) {
+                            self.erro("N3092", format!("Empréstimo inválido: {erro:?}."));
+                        }
+                        Tipo::Referencia { interno: Box::new(tipo), mutavel: exclusiva }
+                    }
+                    TipoToken::Vezes => match tipo {
+                        Tipo::Referencia { interno, .. } => *interno,
+                        Tipo::Desconhecido => Tipo::Desconhecido,
+                        _ => {
+                            self.erro("N3093", "Desreferência exige um valor de tipo referência.");
+                            Tipo::Desconhecido
+                        }
+                    },
                     TipoToken::Negacao | TipoToken::Nao => {
                         self.exigir_tipo(&tipo, &Tipo::Logico, "negação lógica");
                         Tipo::Logico
@@ -2601,8 +2639,29 @@ impl<'a> Analisador<'a> {
         if ja_declarado {
             self.erro("N3019", format!("O nome '{nome}' já foi declarado neste escopo."));
         } else {
+            let indice_escopo = self.escopos.len().saturating_sub(1);
+            let chave_propriedade = format!("{nome}@{indice_escopo}");
+            if let Err(erro) = self.propriedade.declarar(chave_propriedade) {
+                self.erro("N3094", format!("Falha ao registrar propriedade de '{nome}': {erro:?}."));
+            }
             self.escopos.last_mut().expect("sempre há escopo global").insert(nome.to_owned(), simbolo);
         }
+    }
+
+    fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
+        let (raiz, projecoes) = match expressao {
+            Expressao::Nome(nome) => (nome.clone(), Vec::new()),
+            Expressao::Membro { .. } | Expressao::Indexacao { .. } =>
+                Self::decompor_caminho_campo(expressao)?,
+            _ => return None,
+        };
+        let indice = self.escopos.iter().enumerate().rev()
+            .find_map(|(indice, escopo)| escopo.contains_key(&raiz).then_some(indice))?;
+        let mut lugar = Lugar::novo(format!("{raiz}@{indice}"));
+        for projecao in projecoes {
+            lugar = lugar.campo(projecao);
+        }
+        Some(lugar)
     }
 
     fn buscar(&self, nome: &str) -> Option<&Simbolo> {
@@ -2800,8 +2859,18 @@ impl<'a> Analisador<'a> {
         self.restaurar_movidos(&combinado);
     }
 
-    fn abrir_escopo(&mut self) { self.escopos.push(HashMap::new()); }
-    fn fechar_escopo(&mut self) { if self.escopos.len() > 1 { self.escopos.pop(); } }
+    fn abrir_escopo(&mut self) {
+        self.escopos.push(HashMap::new());
+        self.propriedade.entrar_escopo();
+    }
+    fn fechar_escopo(&mut self) {
+        if self.escopos.len() > 1 {
+            self.escopos.pop();
+            if let Err(erro) = self.propriedade.sair_escopo() {
+                self.erro("N3095", format!("Falha ao encerrar vida útil do escopo: {erro:?}."));
+            }
+        }
+    }
 }
 
 impl Tipo {
