@@ -449,6 +449,7 @@ struct Celula {
 #[derive(Clone, Debug)]
 pub struct Memoria {
     escopos: Vec<HashMap<String, Celula>>,
+    ordem_variaveis: Vec<Vec<String>>,
     identificadores_escopos: Vec<u64>,
     proximo_identificador_escopo: u64,
 }
@@ -465,6 +466,7 @@ impl Memoria {
     pub fn nova() -> Self {
         Self {
             escopos: vec![HashMap::new()],
+            ordem_variaveis: vec![Vec::new()],
             identificadores_escopos: vec![0],
             proximo_identificador_escopo: 1,
         }
@@ -502,6 +504,7 @@ impl Memoria {
     /// Abre um novo escopo léxico.
     pub fn abrir_escopo(&mut self) {
         self.escopos.push(HashMap::new());
+        self.ordem_variaveis.push(Vec::new());
         let identificador = self.proximo_identificador_escopo;
         self.proximo_identificador_escopo = self.proximo_identificador_escopo.saturating_add(1);
         self.identificadores_escopos.push(identificador);
@@ -512,8 +515,15 @@ impl Memoria {
         if self.escopos.len() == 1 {
             return Err(ErroRuntime::EscopoGlobal);
         }
-        self.escopos.pop();
+        let mut escopo = self.escopos.pop().expect("escopo local validado");
+        let ordem = self.ordem_variaveis.pop().expect("ordem do escopo local");
         self.identificadores_escopos.pop();
+        for nome in ordem.into_iter().rev() {
+            if let Some(celula) = escopo.remove(&nome) {
+                drop(celula);
+            }
+        }
+        drop(escopo);
         Ok(())
     }
 
@@ -532,7 +542,11 @@ impl Memoria {
         if escopo.contains_key(&nome) {
             return Err(ErroRuntime::NomeDuplicado(nome));
         }
-        escopo.insert(nome, Celula { valor, mutavel });
+        escopo.insert(nome.clone(), Celula { valor, mutavel });
+        self.ordem_variaveis
+            .last_mut()
+            .expect("ordem do escopo global sempre existe")
+            .push(nome);
         Ok(())
     }
 
