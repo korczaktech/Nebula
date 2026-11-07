@@ -317,10 +317,7 @@ fn normalizar_blocos_indentados(codigo: &str) -> String {
 
 #[test]
 fn gera_elf_executavel_com_codigo_de_saida() {
-    let resultado = compilar_e_executar(
-        "retorno",
-        "funcao principal(): inteiro\n    devolver 42",
-    );
+    let resultado = compilar_e_executar("retorno", "funcao principal(): inteiro\n    devolver 42");
     assert_eq!(resultado.status.code(), Some(42));
 }
 
