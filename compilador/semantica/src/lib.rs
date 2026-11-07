@@ -4832,6 +4832,26 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
+    fn rejeita_retorno_de_referencia_para_variavel_local() {
+        let resultado = analisar_codigo(
+            "funcao criar(): &inteiro\n    variavel local: inteiro = 3\n    devolver &local",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
+            "Referência local não pode escapar da função: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn permite_retorno_de_referencia_vinculada_a_parametro() {
+        let resultado = analisar_codigo(
+            "funcao identidade(valor: &inteiro): &inteiro\n    devolver valor",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
     fn rejeita_desreferencia_de_valor_que_nao_e_referencia() {
         let resultado = analisar_codigo("variavel valor: inteiro = 7\nvariavel obtido = *valor");
         assert!(
