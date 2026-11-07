@@ -2355,7 +2355,7 @@ classe Pessoa: {
         exibir("Pessoa")
     }
 }
-fim"#;
+"#;
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:#?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Funcao { assincrona: true, .. }));
@@ -2374,7 +2374,7 @@ sendo valor > 5: {
 senao: {
     exibir("baixo")
 }
-fim"#;
+"#;
         let r = analisar(&fonte(codigo));
         assert!(r.diagnosticos.is_empty(), "{:#?}", r.diagnosticos);
         assert!(matches!(&r.programa.itens[0], NoAst::Quando { .. }));
@@ -3368,7 +3368,7 @@ fim"#;
                 .map(|linha| format!("{indentacao_corpo}{linha}"))
                 .collect::<Vec<_>>()
                 .join("\n");
-            blocos = format!("{indentacao}quando verdadeiro\n{corpo}\n{indentacao}fim");
+            blocos = format!("{indentacao}quando verdadeiro: {{\n{corpo}\n{indentacao}}}");
         }
         let resultado = analisar(&fonte(&blocos));
         assert!(
@@ -4462,7 +4462,7 @@ criarUsuario(nome = "Ana", idade = 25)
         for (codigo, esperado) in [
             ("estrutura Pessoa { nome: texto }", "N2030"),
             ("enumeracao Estado { Pronto }", "N2033"),
-            ("estrutura Pessoa: nome: texto fim", "N2030"),
+            ("estrutura Pessoa: nome: texto", "N2030"),
             ("enumeracao Estado:\nPronto\n", "N2033"),
         ] {
             let resultado = analisar(&fonte_bruta(codigo));
