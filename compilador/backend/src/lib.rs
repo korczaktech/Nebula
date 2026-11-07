@@ -1124,19 +1124,24 @@ impl Emissor {
                 self.pop_rax();
             }
             ExpressaoIr::ConstrucaoEnumeracao { nome, variante, valores } => {
-                if valores.len() > 1 {
-                    return Err("A ABI inicial de enumerações aceita no máximo um valor de payload por variante.".into());
-                }
-                if let Some(valor) = valores.first() {
-                    if self.largura_abi_expressao(valor)? > 1 {
-                        return Err("Payload de enumeração não pode ocupar mais de um registrador na ABI inicial.".into());
-                    }
-                    self.expressao(valor)?;
-                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                let tipo_enum = Tipo::Enumeracao(nome.clone());
+                if self.layout_agregado_grande(&tipo_enum).is_some() {
+                    self.construir_enumeracao_indireta(nome, variante, valores)?;
                 } else {
-                    self.mov_rdx(0);
+                    if valores.len() > 1 {
+                        return Err("A ABI de registradores aceita no máximo um valor de payload por variante.".into());
+                    }
+                    if let Some(valor) = valores.first() {
+                        if self.largura_abi_expressao(valor)? > 1 {
+                            return Err("Payload de enumeração excede um registrador na ABI de registradores.".into());
+                        }
+                        self.expressao(valor)?;
+                        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+                    } else {
+                        self.mov_rdx(0);
+                    }
+                    self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
                 }
-                self.mov_rax(tag_enumeracao(nome_enum_canonico(nome), variante));
             }
             ExpressaoIr::Unaria { operador: OperadorIr::Menos, valor }
                 if matches!(valor.as_ref(), ExpressaoIr::Constante(ValorIr::Inteiro(v)) if *v == i64::MAX as i128 + 1) => {
@@ -2578,6 +2583,61 @@ impl Emissor {
         for salto in saltos_fim {
             self.aplicar_salto(salto, fim);
         }
+        Ok(())
+    }
+
+    fn construir_enumeracao_indireta(
+        &mut self,
+        nome: &str,
+        variante: &str,
+        valores: &[ExpressaoIr],
+    ) -> Result<(), String> {
+        let variantes = self.variantes_enumeracoes.get(nome)
+            .ok_or_else(|| format!("Variantes da enumeração '{nome}' ausentes no backend."))?;
+        let indice = variantes.iter().position(|(nome_variante, _)| nome_variante == variante)
+            .ok_or_else(|| format!("Variante '{variante}' não encontrada em '{nome}'."))?;
+        let tipos = variantes[indice].1.clone();
+        if tipos.len() != valores.len() {
+            return Err(format!(
+                "A variante '{nome}::{variante}' exige {} valores de payload, mas recebeu {}.",
+                tipos.len(),
+                valores.len()
+            ));
+        }
+        let layout = self.layouts_tipos.get(nome)
+            .ok_or_else(|| format!("Layout da enumeração '{nome}' ausente no backend."))?;
+        let tamanho = layout.tamanho;
+        let alinhamento = layout.alinhamento;
+        let deslocamento_payload = layout.campos.get("payload")
+            .map(|(deslocamento, _)| *deslocamento)
+            .ok_or_else(|| format!("Layout do payload de '{nome}' ausente."))?;
+        let (_, campos) = self.layout_tupla(&tipos)
+            .ok_or_else(|| format!("Layout do payload de '{nome}::{variante}' inválido."))?;
+        let armazenamento = self.reservar_agregado(tamanho, alinhamento)?;
+
+        // A representação indireta guarda a tag no início e os campos do
+        // payload no offset calculado pelo layout compartilhado do runtime.
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.codigo.extend_from_slice(&[0x48, 0x89, 0xC7]);
+        self.codigo.extend_from_slice(&[0x48, 0xB9]);
+        self.codigo.extend_from_slice(&tamanho.to_le_bytes());
+        self.codigo.extend_from_slice(&[0x31, 0xC0, 0xF3, 0xAA]);
+
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.codigo.extend_from_slice(&[0x49, 0x89, 0xC3]); // r11 = início da enumeração
+        self.mov_rax(indice as i64);
+        let largura_tag = if variantes.len() <= 256 { 1 } else if variantes.len() <= 65_536 { 2 } else { 4 };
+        self.armazenar_registro_r11(0, 0, largura_tag);
+
+        for (indice_campo, (deslocamento, tamanho_campo)) in campos.iter().enumerate() {
+            let deslocamento = deslocamento_payload.checked_add(*deslocamento)
+                .ok_or("Deslocamento do payload de enumeração excedeu o limite.")?;
+            self.expressao(&valores[indice_campo])?;
+            self.armazenar_campo_agregado(armazenamento, deslocamento, *tamanho_campo)?;
+        }
+
+        self.emitir_endereco_rbp_rax(armazenamento);
+        self.mov_rdx(0);
         Ok(())
     }
 
