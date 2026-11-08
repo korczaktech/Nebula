@@ -554,6 +554,7 @@ impl<'a> Analisador<'a> {
                             VidaUtil {
                                 escopo_proprietario: indice_escopo,
                                 escopo_referencia: indice_escopo,
+                                origem_parametro: true,
                             },
                         );
                     }
@@ -2944,10 +2945,11 @@ impl<'a> Analisador<'a> {
                 let chave = format!("{nome}@{indice}");
                 self.origens_referencia.get(&chave).copied().or_else(|| {
                     self.buscar(nome)
-                        .is_some_and(|simbolo| matches!(simbolo.tipo, Tipo::Referencia { .. }))
+                        .is_some_and(|simbolo| matches!(&simbolo.tipo, Tipo::Referencia { .. }))
                         .then_some(VidaUtil {
                             escopo_proprietario: indice,
                             escopo_referencia: indice,
+                            origem_parametro: false,
                         })
                 })
             }
@@ -2967,7 +2969,7 @@ impl<'a> Analisador<'a> {
             }
         }
         self.vida_util_referencia(expressao)
-            .is_some_and(|vida| vida.escopo_proprietario == 0)
+            .is_some_and(|vida| vida.origem_parametro || vida.escopo_proprietario == 0)
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
@@ -5188,6 +5190,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3105"),
             "A cópia não pode ocultar que a origem pertence ao escopo interno: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn permite_retornar_referencia_de_parametro_apos_copia_local() {
+        let resultado = analisar_codigo(
+            "funcao identidade(valor: &inteiro): &inteiro\n    variavel copia: &inteiro = valor\n    devolver copia",
+        );
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "A proveniência do parâmetro precisa sobreviver à cópia local: {:?}",
             resultado.diagnosticos
         );
     }
