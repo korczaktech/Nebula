@@ -4600,11 +4600,54 @@ mod testes {
         assert_eq!(resultado.globais.get("obtido"), Some(&ValorIr::Inteiro(9)));
     }
 
+    fn programa_com_emprestimo(mutavel: bool, escrita_direta: bool) -> ProgramaIr {
+        let tipo_referencia = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel,
+        };
+        let mut instrucoes = vec![
+            InstrucaoIr::Declarar {
+                nome: "valor".into(),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Constante(ValorIr::Inteiro(4)),
+                constante: false,
+            },
+            InstrucaoIr::Declarar {
+                nome: "referencia".into(),
+                tipo: tipo_referencia,
+                valor: ExpressaoIr::Referencia {
+                    nome: "valor".into(),
+                    mutavel,
+                    tipo: Tipo::Inteiro,
+                },
+                constante: true,
+            },
+        ];
+        if escrita_direta {
+            instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                nome: "valor".into(),
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(5))),
+                tipo: Tipo::Inteiro,
+            }));
+        } else {
+            instrucoes.push(InstrucaoIr::Declarar {
+                nome: "obtido".into(),
+                tipo: Tipo::Inteiro,
+                valor: ExpressaoIr::Variavel("valor".into()),
+                constante: true,
+            });
+        }
+        ProgramaIr {
+            instrucoes,
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        }
+    }
+
     #[test]
     fn runtime_bloqueia_leitura_direta_durante_emprestimo_exclusivo() {
-        let programa = compilar(
-            "variavel valor: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel valor\nvariavel obtido = valor",
-        );
+        let programa = programa_com_emprestimo(true, false);
         let resultado = executar(&programa, 100);
         assert!(
             resultado.as_ref().is_err_and(|erro| erro.contains("EmprestimoConflitante")),
@@ -4614,9 +4657,7 @@ mod testes {
 
     #[test]
     fn runtime_bloqueia_escrita_direta_durante_emprestimo_compartilhado() {
-        let programa = compilar(
-            "variavel valor: inteiro = 4\nvariavel referencia: &inteiro = &valor\nvalor = 5",
-        );
+        let programa = programa_com_emprestimo(false, true);
         let resultado = executar(&programa, 100);
         assert!(
             resultado.as_ref().is_err_and(|erro| erro.contains("EmprestimoConflitante")),
