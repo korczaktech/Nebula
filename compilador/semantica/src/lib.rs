@@ -3108,10 +3108,6 @@ impl<'a> Analisador<'a> {
         None
     }
 
-    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
-        self.origem_retorno_referencia(expressao).is_some()
-    }
-
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
         let (raiz, projecoes) = match expressao {
             Expressao::Nome(nome) => (nome.clone(), Vec::new()),
