@@ -272,6 +272,8 @@ pub enum ErroRuntime {
     ReferenciaInvalida,
     /// Um novo empréstimo viola um empréstimo ativo sobre o mesmo recurso.
     EmprestimoConflitante,
+    /// O valor já foi movido e ainda não foi reinicializado.
+    UsoAposMovimento(String),
 }
 
 /// Resultado padrão das operações do runtime.
@@ -445,6 +447,7 @@ impl<T> Canal<T> {
 struct Celula {
     valor: Valor,
     mutavel: bool,
+    movida: bool,
 }
 
 /// Memória de execução com escopos léxicos e sombreamento.
@@ -560,7 +563,7 @@ impl Memoria {
         if escopo.contains_key(&nome) {
             return Err(ErroRuntime::NomeDuplicado(nome));
         }
-        escopo.insert(nome.clone(), Celula { valor, mutavel });
+        escopo.insert(nome.clone(), Celula { valor, mutavel, movida: false });
         self.ordem_variaveis
             .last_mut()
             .expect("ordem do escopo global sempre existe")
@@ -574,8 +577,25 @@ impl Memoria {
             .iter()
             .rev()
             .find_map(|escopo| escopo.get(nome))
-            .map(|celula| celula.valor.clone())
-            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
+            .map(|celula| {
+                if celula.movida { Err(ErroRuntime::UsoAposMovimento(nome.to_owned())) }
+                else { Ok(celula.valor.clone()) }
+            })
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?
+    }
+
+    /// Move o valor da variável, deixando a célula indisponível até reinicialização.
+    pub fn mover(&mut self, nome: &str) -> Resultado<Valor> {
+        for escopo in self.escopos.iter_mut().rev() {
+            if let Some(celula) = escopo.get_mut(nome) {
+                if celula.movida {
+                    return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
+                }
+                celula.movida = true;
+                return Ok(std::mem::replace(&mut celula.valor, Valor::Nulo));
+            }
+        }
+        Err(ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
     }
 
     /// Obtém o identificador estável do escopo que contém a variável visível.
@@ -599,10 +619,13 @@ impl Memoria {
             .iter()
             .position(|id| *id == identificador)
             .ok_or(ErroRuntime::ReferenciaInvalida)?;
-        self.escopos[indice]
+        let celula = self.escopos[indice]
             .get(nome)
-            .map(|celula| celula.valor.clone())
-            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))
+            .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
+        if celula.movida {
+            return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
+        }
+        Ok(celula.valor.clone())
     }
 
     /// Escreve por uma referência exclusiva, sem resolver nomes em escopos internos.
@@ -630,6 +653,7 @@ impl Memoria {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
         celula.valor = valor;
+        celula.movida = false;
         Ok(())
     }
 
@@ -641,6 +665,7 @@ impl Memoria {
                     return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
                 }
                 celula.valor = valor;
+                celula.movida = false;
                 return Ok(());
             }
         }
@@ -665,6 +690,9 @@ impl Memoria {
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        if celula.movida {
+            return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
         }
         let mut atual = celula.valor.clone();
         for campo in &caminho[..caminho.len() - 1] {
@@ -710,6 +738,7 @@ impl Memoria {
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
+        if celula.movida { return Err(ErroRuntime::UsoAposMovimento(nome.to_owned())); }
 
         let Valor::Lista(lista) = &celula.valor else {
             return Err(ErroRuntime::TipoIncompativel(
@@ -1841,6 +1870,26 @@ mod ciclo_vida {
                 contexto.alocador_mutavel(),
                 Err(ErroRuntime::RuntimeFinalizado)
             ));
+        }
+
+        #[test]
+        fn movimento_de_variavel_invalida_leitura_ate_reinicializacao() {
+            let mut memoria = Memoria::nova();
+            memoria.declarar("recurso", Valor::Texto("dado".into()), true).unwrap();
+            assert_eq!(memoria.mover("recurso"), Ok(Valor::Texto("dado".into())));
+            assert_eq!(memoria.obter("recurso"), Err(ErroRuntime::UsoAposMovimento("recurso".into())));
+            assert_eq!(memoria.mover("recurso"), Err(ErroRuntime::UsoAposMovimento("recurso".into())));
+            memoria.atribuir("recurso", Valor::Texto("novo".into())).unwrap();
+            assert_eq!(memoria.obter("recurso"), Ok(Valor::Texto("novo".into())));
+        }
+
+        #[test]
+        fn movimento_por_referencia_tambem_impede_dereferencia() {
+            let mut memoria = Memoria::nova();
+            memoria.declarar("recurso", Valor::Inteiro(7), true).unwrap();
+            let escopo = memoria.identificador_escopo_da_variavel("recurso").unwrap();
+            memoria.mover("recurso").unwrap();
+            assert_eq!(memoria.obter_referenciado(escopo, "recurso"), Err(ErroRuntime::UsoAposMovimento("recurso".into())));
         }
 
         #[test]
