@@ -14,8 +14,8 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Atribuição | `=` | Inicialização e reatribuição usam o mesmo operador |
 | Igualdade | `==` | Não confundir com atribuição |
 | Separação | Nova linha ou `;` | Separador explícito opcional quando a quebra de linha já é clara |
-| Delimitadores de expressão/dados | `()`, `[]` e chaves em construções de dados | Delimitadores agrupam expressões e valores; chaves não substituem blocos de instrução |
-| Blocos | Function Body `: { ... fim } fim` | Chaves e `fim` delimitam os blocos; indentação organiza visualmente e não substitui os delimitadores |
+| Delimitadores | `()`, `[]`, `{}` e `<>` conforme o contexto gramatical | Cada delimitador possui função própria; `{}` delimita Function Body e também expressões de dados quando a gramática assim define |
+| Blocos | Function Body `: { ... }` | As chaves delimitam os corpos; indentação obrigatória valida a estrutura e `fim` é identificador comum |
 | Codificação | UTF-8 e NFC para identificadores | Comparação de nomes consistente |
 | Memória | Modelo híbrido planejado | Caminho seguro e controle de baixo nível |
 | Backends | Nativo e WebAssembly como alvos planejados | IR independente de plataforma |
@@ -39,32 +39,33 @@ Este documento separa decisões adotadas, metas e questões ainda abertas. Uma p
 | Interpretador de referência | Limites de passos e profundidade de chamadas | Testes não podem executar laços/recursões sem limite |
 | CLI | Comandos verificar, analisar e ir têm responsabilidades separadas | Sintaxe, semântica e inspeção de IR são observáveis separadamente |
 
-## Decisão normativa de blocos indentados
+## Decisão normativa de Function Body
 
-A sintaxe de blocos foi atualizada para a forma indentada obrigatória:
+A sintaxe normativa de blocos usa Function Body explícito, iniciado por `: {` e encerrado pela chave correspondente `}`:
 
 ~~~nebula
-funcao iniciar() -> vazio
-    quando verdadeiro
+funcao iniciar(): {
+    quando verdadeiro: {
         passar
-    senao
+    }
+    senao: {
         passar
-    fim
-fim
+    }
+}
 ~~~
 
 Regras:
-- Todo bloco de instrução começa após uma quebra de linha e aumento de indentação.
-- O Lexer emite `INDENT` e `DEDENT` para marcar os limites físicos dos corpos.
-- Cada bloco completo termina com `fim`, depois do `DEDENT` correspondente.
-- Blocos aninhados fecham do mais interno para o mais externo.
-- Chaves não podem ser usadas como alternativa de bloco de instrução.
-- Chaves permanecem permitidas em construções de dados, como `Pessoa{nome: "Ana"}`.
-- Linhas vazias e comentários não alteram a pilha de indentação.
+- Todo corpo executável ou estrutural abre com `: {` e fecha com `}`.
+- Cada bloco aninhado possui sua própria chave de fechamento.
+- O Lexer preserva as chaves como tokens distintos; o Parser encerra o corpo ao consumir a chave `}` correspondente.
+- A indentação é obrigatória e deve refletir o aninhamento das chaves; ela não substitui os delimitadores.
+- A palavra `fim` não é reservada, não fecha blocos e é classificada como identificador comum.
+- A sintaxe antiga baseada somente em indentação é rejeitada.
+- Chaves em expressões de objetos e agregados continuam sendo interpretadas conforme o contexto gramatical de dados.
+- Linhas vazias e comentários não alteram o pareamento das chaves.
 - Espaços são o padrão; tabulações na indentação são diagnosticadas.
-- Dentro de parênteses e colchetes, quebras são continuação de linha; dentro de chaves, a indentação é suprimida, mas quebras podem separar campos.
 
-A gramática completa e os detalhes de continuação de linha estão em `especificacao/gramatica.md` e `especificacao/tokens.md`.
+A gramática normativa completa está em `especificacao/gramatica.md`, `especificacao/gramatica-blocos.md` e `especificacao/tokens.md`.
 
 ## Metas, não garantias
 
