@@ -1430,6 +1430,11 @@ mod ciclo_vida {
     }
     
     type AcaoFinalizacao = Box<dyn FnOnce() -> Resultado<()> + Send + 'static>;
+
+    struct FinalizadorRegistrado {
+        emprestimo: Option<(u64, String)>,
+        acao: AcaoFinalizacao,
+    }
     
     /// Contexto de execução que centraliza memória e encerramento determinístico.
     ///
