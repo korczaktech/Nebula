@@ -5,7 +5,10 @@
 pub enum TipoAst {
     Nome(String),
     /// Referência com mutabilidade explícita e vida útil inferida.
-    Referencia { interno: Box<TipoAst>, mutavel: bool },
+    Referencia {
+        interno: Box<TipoAst>,
+        mutavel: bool,
+    },
     /// Argumento inteiro constante de um tipo genérico.
     Constante(String),
     Caminho(Vec<String>),
@@ -37,7 +40,10 @@ impl TipoAst {
 
         if let Some(conteudo) = texto.strip_prefix("&mutavel ") {
             if !conteudo.trim().is_empty() {
-                return Self::Referencia { interno: Box::new(Self::analisar(conteudo)), mutavel: true };
+                return Self::Referencia {
+                    interno: Box::new(Self::analisar(conteudo)),
+                    mutavel: true,
+                };
             }
             return Self::Desconhecido(texto.to_owned());
         }
@@ -46,7 +52,10 @@ impl TipoAst {
         }
         if let Some(conteudo) = texto.strip_prefix('&') {
             if !conteudo.trim().is_empty() {
-                return Self::Referencia { interno: Box::new(Self::analisar(conteudo)), mutavel: false };
+                return Self::Referencia {
+                    interno: Box::new(Self::analisar(conteudo)),
+                    mutavel: false,
+                };
             }
             return Self::Desconhecido(texto.to_owned());
         }
@@ -126,9 +135,12 @@ impl TipoAst {
         match self {
             Self::Nome(nome) | Self::Constante(nome) => nome.clone(),
             Self::Referencia { interno, mutavel } => {
-                if *mutavel { format!("&mutavel {}", interno.para_texto()) }
-                else { format!("&{}", interno.para_texto()) }
-            },
+                if *mutavel {
+                    format!("&mutavel {}", interno.para_texto())
+                } else {
+                    format!("&{}", interno.para_texto())
+                }
+            }
             Self::Caminho(partes) => partes.join("::"),
             Self::Lista(tipo) => format!("[{}]", tipo.para_texto()),
             Self::Generico { nome, argumentos } => format!(
@@ -272,14 +284,20 @@ mod testes {
     fn representa_referencias_como_nos_estruturados() {
         assert_eq!(
             TipoAst::analisar("&inteiro"),
-            TipoAst::Referencia { interno: Box::new(TipoAst::Nome("inteiro".into())), mutavel: false }
+            TipoAst::Referencia {
+                interno: Box::new(TipoAst::Nome("inteiro".into())),
+                mutavel: false,
+            }
         );
         assert_eq!(
             TipoAst::analisar("&mutavel Resultado<inteiro, texto>"),
             TipoAst::Referencia {
                 interno: Box::new(TipoAst::Generico {
                     nome: "Resultado".into(),
-                    argumentos: vec![TipoAst::Nome("inteiro".into()), TipoAst::Nome("texto".into())],
+                    argumentos: vec![
+                        TipoAst::Nome("inteiro".into()),
+                        TipoAst::Nome("texto".into()),
+                    ],
                 }),
                 mutavel: true,
             }
