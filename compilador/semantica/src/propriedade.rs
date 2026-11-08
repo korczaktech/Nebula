@@ -657,11 +657,11 @@ pub fn analisar_fluxo_controle_propriedade(
 
         for (indice_operacao, operacao) in blocos[indice].operacoes.iter().enumerate() {
             let resultado = match operacao {
-                OperacaoFluxoPropriedade::Ler(lugar) => estado.ler(lugar),
-                OperacaoFluxoPropriedade::Mover(lugar) => estado.mover(lugar),
-                OperacaoFluxoPropriedade::Atribuir(lugar) => estado.atribuir(lugar),
+                OperacaoFluxoPropriedade::Ler(lugar) => estado.ler(lugar).map(|_| Vec::new()),
+                OperacaoFluxoPropriedade::Mover(lugar) => estado.mover(lugar).map(|_| Vec::new()),
+                OperacaoFluxoPropriedade::Atribuir(lugar) => estado.atribuir(lugar).map(|_| Vec::new()),
                 OperacaoFluxoPropriedade::Emprestar { identificador, lugar, tipo } => {
-                    estado.emprestar(*identificador, lugar.clone(), *tipo)
+                    estado.emprestar(*identificador, lugar.clone(), *tipo).map(|_| Vec::new())
                 }
                 OperacaoFluxoPropriedade::EncerrarEmprestimo(identificador) => {
                     estado.encerrar_emprestimo(*identificador).map(|_| Vec::new())
