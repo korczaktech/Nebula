@@ -102,6 +102,43 @@ variavel dados: dicionario = {
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
+fn para_dentro_faixa_compila_e_executa_sem_terminador_fim() {
+    let (origem, executavel) = caminhos("para-faixa");
+    let codigo = r#"funcao principal() -> inteiro: {
+    variavel total = 0
+    para i dentro faixa(0, 10): {
+        total += i
+    }
+    retorne total
+}
+"#;
+    fs::write(&origem, codigo).unwrap();
+
+    let compilacao = Command::new(env!("CARGO_BIN_EXE_nebula"))
+        .arg("compilar")
+        .arg(&origem)
+        .arg("-o")
+        .arg(&executavel)
+        .output()
+        .expect("executa CLI");
+
+    assert!(
+        compilacao.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilacao.stderr)
+    );
+
+    let execucao = Command::new(&executavel)
+        .output()
+        .expect("executa ELF gerado");
+
+    let _ = fs::remove_file(origem);
+    let _ = fs::remove_file(executavel);
+    assert_eq!(execucao.status.code(), Some(55));
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
 fn compila_cada_em_intervalos_crescentes_e_decrescentes() {
     let (origem, executavel) = caminhos("cada");
     let codigo = r#"funcao principal() -> inteiro: {
