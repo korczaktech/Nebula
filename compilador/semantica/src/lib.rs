@@ -5209,6 +5209,18 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
+    fn emprestimo_de_referencia_transferida_permanece_ativo_no_destino() {
+        let resultado = analisar_codigo(
+            "variavel origem: inteiro = 1\nvariavel alvo: inteiro = 2\nvariavel referencia: &inteiro = &origem\nquando verdadeiro\n    referencia = &alvo\nalvo = 3",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3100"),
+            "O empréstimo transferido ao escopo externo deve continuar ativo: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
     fn rejeita_referencia_local_copiada_para_escopo_externo() {
         let resultado = analisar_codigo(
             "variavel origem: inteiro = 1\nvariavel referencia: &inteiro = &origem\nquando verdadeiro\n    variavel local: inteiro = 2\n    variavel local_ref: &inteiro = &local\n    referencia = local_ref",
