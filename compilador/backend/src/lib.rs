@@ -3975,6 +3975,7 @@ mod testes {
     }
 
     #[cfg(target_os = "linux")]
+    #[cfg(target_os = "linux")]
     #[test]
     fn executa_referencia_compartilhada_e_desreferencia_no_elf() {
         let mut programa = programa_com_retorno(0);
