@@ -2963,10 +2963,6 @@ impl Maquina<'_, '_> {
         }
     }
 
-    fn buscar(&self, nome: &str) -> Option<ValorIr> {
-        self.contexto.memoria().obter(nome).ok().and_then(|valor| converter_para_ir(valor).ok())
-    }
-
     fn logico(&self, valor: ValorIr) -> Result<bool, String> {
         if let ValorIr::Logico(v) = valor { Ok(v) } else { Err("Condição da IR não é lógica.".into()) }
     }
