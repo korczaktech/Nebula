@@ -294,11 +294,11 @@ impl Lowerer {
             "inteiro32" => Tipo::Inteiro32,
             "inteiro64" => Tipo::Inteiro64,
             "inteiro128" => Tipo::Inteiro128,
-            "inteiro_u8" => Tipo::InteiroU8,
-            "inteiro_u16" => Tipo::InteiroU16,
-            "inteiro_u32" => Tipo::InteiroU32,
-            "inteiro_u64" => Tipo::InteiroU64,
-            "inteiro_u128" => Tipo::InteiroU128,
+            "u8" | "inteiro_u8" => Tipo::InteiroU8,
+            "u16" | "inteiro_u16" => Tipo::InteiroU16,
+            "u32" | "inteiro_u32" => Tipo::InteiroU32,
+            "u64" | "inteiro_u64" => Tipo::InteiroU64,
+            "u128" | "inteiro_u128" => Tipo::InteiroU128,
             "byte" => Tipo::Byte,
             "decimal" | "decimal64" => Tipo::Decimal64,
             "decimal32" => Tipo::Decimal32,
@@ -1823,11 +1823,11 @@ fn tipo_conversao_explicita(nome: &str) -> Option<Tipo> {
         "inteiro32" => Tipo::Inteiro32,
         "inteiro64" => Tipo::Inteiro64,
         "inteiro128" => Tipo::Inteiro128,
-        "inteiro_u8" => Tipo::InteiroU8,
-        "inteiro_u16" => Tipo::InteiroU16,
-        "inteiro_u32" => Tipo::InteiroU32,
-        "inteiro_u64" => Tipo::InteiroU64,
-        "inteiro_u128" => Tipo::InteiroU128,
+        "u8" | "inteiro_u8" => Tipo::InteiroU8,
+        "u16" | "inteiro_u16" => Tipo::InteiroU16,
+        "u32" | "inteiro_u32" => Tipo::InteiroU32,
+        "u64" | "inteiro_u64" => Tipo::InteiroU64,
+        "u128" | "inteiro_u128" => Tipo::InteiroU128,
         "byte" => Tipo::Byte,
         "decimal32" => Tipo::Decimal32,
         "decimal64" => Tipo::Decimal64,
@@ -3731,6 +3731,15 @@ mod testes {
         );
         let resultado = executar(&ir, 200).expect("conversões explícitas válidas");
         assert_eq!(resultado.saida, vec!["1", "0", "127", "255", "42", "16777216", "42", "42", "42"]);
+    }
+
+    #[test]
+    fn aceita_aliases_curto_de_inteiros_sem_sinal() {
+        let ir = compilar(
+            "variavel a: u8 = 255\nvariavel b: u16 = 65535\nvariavel c: u32 = 42\nvariavel d: u64 = 42\nvariavel e: u128 = 42\nvariavel convertido = u64(u32(42))\nexibir(a)\nexibir(b)\nexibir(c)\nexibir(d)\nexibir(e)\nexibir(convertido)",
+        );
+        let resultado = executar(&ir, 200).expect("aliases curtos de inteiros sem sinal");
+        assert_eq!(resultado.saida, vec!["255", "65535", "42", "42", "42", "42"]);
     }
 
     #[test]
