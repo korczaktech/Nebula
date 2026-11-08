@@ -3919,38 +3919,34 @@ mod testes {
     #[cfg(target_os = "linux")]
     #[test]
     fn executa_referencia_compartilhada_a_variavel_global_no_elf() {
-        let tipo_referencia = Tipo::Referencia {
-            interno: Box::new(Tipo::Inteiro),
-            mutavel: false,
-        };
-        let programa = ProgramaIr {
-            instrucoes: vec![
-                InstrucaoIr::Declarar {
+        let mut programa = programa_com_retorno(0);
+        programa.instrucoes.push(InstrucaoIr::Declarar {
+            nome: "valorGlobal".into(),
+            tipo: Tipo::Inteiro,
+            valor: ExpressaoIr::Constante(ValorIr::Inteiro(42)),
+            constante: false,
+        });
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro;
+        principal.corpo = vec![
+            InstrucaoIr::Declarar {
+                nome: "referencia".into(),
+                tipo: Tipo::Referencia {
+                    interno: Box::new(Tipo::Inteiro),
+                    mutavel: false,
+                },
+                valor: ExpressaoIr::Referencia {
                     nome: "valorGlobal".into(),
+                    mutavel: false,
                     tipo: Tipo::Inteiro,
-                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(42)),
-                    constante: false,
                 },
-                InstrucaoIr::Declarar {
-                    nome: "referencia".into(),
-                    tipo: tipo_referencia,
-                    valor: ExpressaoIr::Referencia {
-                        nome: "valorGlobal".into(),
-                        mutavel: false,
-                        tipo: Tipo::Inteiro,
-                    },
-                    constante: false,
-                },
-                InstrucaoIr::Devolver(Some(ExpressaoIr::Desreferencia(Box::new(
-                    ExpressaoIr::Variavel("referencia".into()),
-                )))),
-            ],
-            funcoes: HashMap::new(),
-            modulos: HashMap::new(),
-            layouts_tipos: HashMap::new(),
-        };
-        let elf = compilar_elf(&programa).expect("referência global deve ser emitida");
-        assert!(!elf.is_empty());
+                constante: true,
+            },
+            InstrucaoIr::Devolver(Some(ExpressaoIr::Desreferencia(Box::new(
+                ExpressaoIr::Variavel("referencia".into()),
+            )))),
+        ];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
     }
 
     #[test]
