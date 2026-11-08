@@ -982,9 +982,13 @@ impl Emissor {
                 | ValorIr::Vazio) => return Err("Literal ainda não suportado pelo backend nativo sem runtime.".into()),
             ExpressaoIr::Referencia { nome, tipo, .. } => {
                 self.validar_tipo_abi(tipo)?;
-                let deslocamento = self.buscar_local(nome)
-                    .ok_or_else(|| format!("Referência nativa exige variável local viva: '{nome}'."))?;
-                self.emitir_endereco_rbp_rax(deslocamento);
+                if let Some(deslocamento) = self.buscar_local(nome) {
+                    self.emitir_endereco_rbp_rax(deslocamento);
+                } else if self.globais.contains_key(nome) {
+                    self.emitir_endereco_global_rax(nome);
+                } else {
+                    return Err(format!("Referência nativa exige variável local ou global viva: '{nome}'."));
+                }
                 self.mov_rdx(0);
             }
             ExpressaoIr::Desreferencia(referencia) => {
@@ -2498,6 +2502,13 @@ impl Emissor {
         self.escopos.iter().rev().find_map(|escopo| escopo.get(nome).copied())
     }
 
+    fn emitir_endereco_global_rax(&mut self, nome: &str) {
+        self.codigo.extend_from_slice(&[0x48, 0x8D, 0x05]); // lea rax, [rip + disp32]
+        let posicao = self.codigo.len();
+        self.codigo.extend_from_slice(&[0; 4]);
+        self.referencias_globais.push((posicao, nome.to_owned(), 0));
+    }
+
     fn carregar_global(&mut self, nome: &str) {
         self.codigo.extend_from_slice(&[0x48, 0x8B, 0x05]); // mov rax, [rip + disp32]
         let posicao = self.codigo.len();
@@ -3906,6 +3917,42 @@ mod testes {
     }
 
     #[cfg(target_os = "linux")]
+    #[test]
+    fn executa_referencia_compartilhada_a_variavel_global_no_elf() {
+        let tipo_referencia = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: false,
+        };
+        let programa = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar {
+                    nome: "valorGlobal".into(),
+                    tipo: Tipo::Inteiro,
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(42)),
+                    constante: false,
+                },
+                InstrucaoIr::Declarar {
+                    nome: "referencia".into(),
+                    tipo: tipo_referencia,
+                    valor: ExpressaoIr::Referencia {
+                        nome: "valorGlobal".into(),
+                        mutavel: false,
+                        tipo: Tipo::Inteiro,
+                    },
+                    constante: false,
+                },
+                InstrucaoIr::Devolver(Some(ExpressaoIr::Desreferencia(Box::new(
+                    ExpressaoIr::Variavel("referencia".into()),
+                )))),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        };
+        let elf = compilar_elf(&programa).expect("referência global deve ser emitida");
+        assert!(!elf.is_empty());
+    }
+
     #[test]
     fn executa_referencia_compartilhada_e_desreferencia_no_elf() {
         let mut programa = programa_com_retorno(0);
