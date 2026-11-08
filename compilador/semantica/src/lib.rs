@@ -2216,13 +2216,10 @@ impl<'a> Analisador<'a> {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Divide => {
                 if Self::numerico(a) && Self::numerico(b) {
-                    if Self::inteiro(a) && Self::inteiro(b) {
-                        if Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
-                            self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
-                            Tipo::Desconhecido
-                        } else {
-                            Tipo::Decimal64
-                        }
+                    if Self::inteiro(a) && Self::inteiro(b)
+                        && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        Tipo::Desconhecido
                     } else {
                         Self::promover_numerico(a, b)
                     }
