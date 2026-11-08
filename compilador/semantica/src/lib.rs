@@ -995,10 +995,22 @@ impl<'a> Analisador<'a> {
                 } else {
                     Tipo::Vazio
                 };
-                if matches!(esperado, Some(Tipo::Referencia { .. }))
-                    && valor.as_ref().is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
-                {
-                    self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa sobreviver à chamada.");
+                if matches!(esperado, Some(Tipo::Referencia { .. })) {
+                    let origem = valor.as_ref().and_then(|expressao| self.origem_retorno_referencia(expressao));
+                    if let Some(origem) = origem {
+                        if let Some(funcao) = self.funcao_atual.clone() {
+                            match self.origens_retorno_funcoes.get(&funcao) {
+                                None => { self.origens_retorno_funcoes.insert(funcao, origem); }
+                                Some(anterior) if anterior == &origem => {}
+                                Some(_) => { self.origens_retorno_funcoes.insert(funcao, OrigemRetornoReferencia::Invalida); }
+                            }
+                        }
+                    } else {
+                        self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa sobreviver à chamada.");
+                        if let Some(funcao) = self.funcao_atual.clone() {
+                            self.origens_retorno_funcoes.insert(funcao, OrigemRetornoReferencia::Invalida);
+                        }
+                    }
                 }
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
@@ -2999,23 +3011,56 @@ impl<'a> Analisador<'a> {
                         })
                 })
             }
+            Expressao::ArgumentoNomeado { valor, .. } => self.vida_util_referencia(valor),
+            Expressao::Chamada { alvo, argumentos, .. } => {
+                let Expressao::Nome(nome) = alvo.as_ref() else { return None; };
+                self.vidas_retorno_chamadas.iter().rev()
+                    .find(|(nome_chamada, argumentos_chamada, _, _)| {
+                        nome_chamada == nome && argumentos_chamada == argumentos
+                    })
+                    .map(|(_, _, vida, _)| *vida)
+            }
             _ => None,
         }
     }
 
-    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
-        if let Some(parametros) = self.parametros_funcao.last() {
-            if let Expressao::Nome(nome) = expressao {
-                if parametros
-                    .get(nome)
-                    .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }))
-                {
-                    return true;
-                }
+    fn lugar_origem_referencia(&self, expressao: &Expressao) -> Option<Lugar> {
+        match expressao {
+            Expressao::Unaria {
+                operador: TipoToken::EBit | TipoToken::Mutavel,
+                valor,
+            } => self.lugar_de_expressao(valor),
+            Expressao::Nome(nome) => {
+                let indice = self.indice_escopo_nome(nome)?;
+                self.origens_referencia_lugares.get(&format!("{nome}@{indice}")).cloned()
             }
+            Expressao::ArgumentoNomeado { valor, .. } => self.lugar_origem_referencia(valor),
+            Expressao::Chamada { alvo, argumentos, .. } => {
+                let Expressao::Nome(nome) = alvo.as_ref() else { return None; };
+                self.vidas_retorno_chamadas.iter().rev()
+                    .find(|(nome_chamada, argumentos_chamada, _, _)| {
+                        nome_chamada == nome && argumentos_chamada == argumentos
+                    })
+                    .and_then(|(_, _, _, lugar)| lugar.clone())
+            }
+            _ => None,
         }
-        self.vida_util_referencia(expressao)
-            .is_some_and(|vida| vida.parametro_origem.is_some() || vida.escopo_proprietario == 0)
+    }
+
+    fn origem_retorno_referencia(&self, expressao: &Expressao) -> Option<OrigemRetornoReferencia> {
+        let vida = self.vida_util_referencia(expressao)?;
+        if let Some(indice) = vida.parametro_origem {
+            return Some(OrigemRetornoReferencia::Parametro(indice));
+        }
+        if vida.escopo_proprietario == 0 {
+            return self.lugar_origem_referencia(expressao)
+                .map(OrigemRetornoReferencia::Global);
+        }
+        None
+    }
+
+    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
+        self.origem_retorno_referencia(expressao).is_some()
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
