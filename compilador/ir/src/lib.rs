@@ -2170,12 +2170,28 @@ impl Maquina<'_, '_> {
             }
             Ok(fluxo)
         })();
+        let erro_promocao = match &resultado {
+            Ok(Fluxo::Retorno(ValorIr::Referencia { nome, escopo, .. })) => {
+                match self.contexto.identificador_escopo_anterior() {
+                    Some(escopo_destino) => self.contexto
+                        .promover_emprestimo_referenciado_para_escopo(*escopo, nome, escopo_destino)
+                        .err()
+                        .map(formatar_erro_runtime),
+                    None => Some("Não existe escopo ancestral para a referência retornada.".into()),
+                }
+            }
+            _ => None,
+        };
         let fechamento = self.contexto.fechar_escopo().map_err(formatar_erro_runtime);
-        match (resultado, fechamento) {
-            (Err(erro), _) => Err(erro),
-            (Ok(_), Err(erro)) => Err(erro),
-            (Ok(fluxo), Ok(())) => Ok(fluxo),
+        let fluxo = match (resultado, fechamento) {
+            (Err(erro), _) => return Err(erro),
+            (Ok(_), Err(erro)) => return Err(erro),
+            (Ok(fluxo), Ok(())) => fluxo,
+        };
+        if let Some(erro) = erro_promocao {
+            return Err(erro);
         }
+        Ok(fluxo)
     }
 
     fn instrucao(&mut self, item: &InstrucaoIr) -> Result<Fluxo, String> {
