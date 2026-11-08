@@ -4,7 +4,7 @@
 //! Ele não acessa memória diretamente: opera sobre lugares abstratos e deve ser
 //! alimentado pelo lowering/CFG do compilador.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Projeção de um lugar: campo, índice conhecido ou índice dinâmico.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -128,12 +128,13 @@ pub enum ErroPropriedade {
     ReferenciaEscapaVidaUtil { lugar: Lugar, escopo_proprietario: usize, escopo_destino: usize },
     EscopoGlobal,
     OperacaoInseguraForaDeBloco,
+    BlocoFluxoInexistente(usize),
     BlocoInseguroNaoAberto,
     ContextoInseguroIncompativel { operacao: OperacaoInsegura, contexto: Option<ContextoInseguro> },
     ObrigacaoInseguraNaoComprovada { operacao: OperacaoInsegura, obrigacao: &'static str },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct VariavelPropriedade {
     escopo: usize,
     ordem: u64,
@@ -162,7 +163,7 @@ impl VidaUtil {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct EmprestimoAtivo {
     lugar: Lugar,
     tipo: TipoEmprestimo,
@@ -179,7 +180,7 @@ pub struct AcaoDestruicao {
 }
 
 /// Estado do verificador para um fluxo de controle.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AnalisadorPropriedade {
     escopo: usize,
     proximo_ordem: u64,
@@ -569,9 +570,206 @@ impl AnalisadorPropriedade {
     pub fn quantidade_emprestimos(&self) -> usize { self.emprestimos.len() }
 }
 
+
+/// Operações que o analisador de fluxo de controle propaga entre blocos.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OperacaoFluxoPropriedade {
+    Ler(Lugar),
+    Mover(Lugar),
+    Atribuir(Lugar),
+    Emprestar { identificador: u64, lugar: Lugar, tipo: TipoEmprestimo },
+    EncerrarEmprestimo(u64),
+}
+
+/// Bloco básico do grafo de fluxo de controle.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BlocoFluxoPropriedade {
+    pub operacoes: Vec<OperacaoFluxoPropriedade>,
+    pub sucessores: Vec<usize>,
+}
+
+/// Diagnóstico associado à operação e ao bloco que o produziu.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ErroFluxoPropriedade {
+    pub bloco: usize,
+    pub operacao: usize,
+    pub erro: ErroPropriedade,
+}
+
+/// Estados de entrada/saída e erros encontrados na análise do CFG.
+#[derive(Clone, Debug)]
+pub struct ResultadoFluxoPropriedade {
+    pub entradas: Vec<Option<AnalisadorPropriedade>>,
+    pub saidas: Vec<Option<AnalisadorPropriedade>>,
+    pub erros: Vec<ErroFluxoPropriedade>,
+}
+
+/// Analisa movimentos e empréstimos em todos os caminhos alcançáveis do CFG.
+///
+/// A junção é conservadora: um movimento ou empréstimo presente em qualquer
+/// predecessor permanece ativo no bloco sucessor. O algoritmo usa uma fila
+/// de trabalho e reprocessa blocos até que os estados de entrada estabilizem,
+/// inclusive em ciclos. Blocos inalcançáveis não são analisados.
+pub fn analisar_fluxo_controle_propriedade(
+    inicial: &AnalisadorPropriedade,
+    blocos: &[BlocoFluxoPropriedade],
+    entrada: usize,
+) -> Result<ResultadoFluxoPropriedade, ErroPropriedade> {
+    if entrada >= blocos.len() {
+        return Err(ErroPropriedade::BlocoFluxoInexistente(entrada));
+    }
+    for bloco in blocos {
+        for sucessor in &bloco.sucessores {
+            if *sucessor >= blocos.len() {
+                return Err(ErroPropriedade::BlocoFluxoInexistente(*sucessor));
+            }
+        }
+    }
+
+    let mut entradas = vec![None; blocos.len()];
+    let mut saidas = vec![None; blocos.len()];
+    let mut erros = Vec::new();
+    let mut fila = VecDeque::new();
+    let mut enfileirados = HashSet::new();
+
+    entradas[entrada] = Some(inicial.clone());
+    fila.push_back(entrada);
+    enfileirados.insert(entrada);
+
+    while let Some(indice) = fila.pop_front() {
+        enfileirados.remove(&indice);
+        let Some(mut estado) = entradas[indice].clone() else {
+            continue;
+        };
+
+        for (indice_operacao, operacao) in blocos[indice].operacoes.iter().enumerate() {
+            let resultado = match operacao {
+                OperacaoFluxoPropriedade::Ler(lugar) => estado.ler(lugar),
+                OperacaoFluxoPropriedade::Mover(lugar) => estado.mover(lugar),
+                OperacaoFluxoPropriedade::Atribuir(lugar) => estado.atribuir(lugar),
+                OperacaoFluxoPropriedade::Emprestar { identificador, lugar, tipo } => {
+                    estado.emprestar(*identificador, lugar.clone(), *tipo)
+                }
+                OperacaoFluxoPropriedade::EncerrarEmprestimo(identificador) => {
+                    estado.encerrar_emprestimo(*identificador)
+                }
+            };
+            if let Err(erro) = resultado {
+                let diagnostico = ErroFluxoPropriedade {
+                    bloco: indice,
+                    operacao: indice_operacao,
+                    erro,
+                };
+                if !erros.contains(&diagnostico) {
+                    erros.push(diagnostico);
+                }
+            }
+        }
+
+        saidas[indice] = Some(estado.clone());
+        for sucessor in &blocos[indice].sucessores {
+            let mudou = match entradas[*sucessor].as_mut() {
+                None => {
+                    entradas[*sucessor] = Some(estado.clone());
+                    true
+                }
+                Some(estado_entrada) => {
+                    let anterior = estado_entrada.clone();
+                    estado_entrada.mesclar_caminhos(&[estado.clone()])?;
+                    *estado_entrada != anterior
+                }
+            };
+            if mudou && enfileirados.insert(*sucessor) {
+                fila.push_back(*sucessor);
+            }
+        }
+    }
+
+    Ok(ResultadoFluxoPropriedade { entradas, saidas, erros })
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;
+
+
+    #[test]
+    fn cfg_junta_movimento_de_um_ramo_e_rejeita_leitura_posterior() {
+        let mut inicial = AnalisadorPropriedade::novo();
+        inicial.declarar("recurso").unwrap();
+        let blocos = vec![
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1, 2] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Mover(Lugar::novo("recurso"))],
+                sucessores: vec![3],
+            },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![3] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Ler(Lugar::novo("recurso"))],
+                sucessores: vec![],
+            },
+        ];
+        let resultado = analisar_fluxo_controle_propriedade(&inicial, &blocos, 0).unwrap();
+        assert!(resultado.erros.iter().any(|erro|
+            erro.bloco == 3 && matches!(erro.erro, ErroPropriedade::UsoAposMovimento(_))
+        ));
+    }
+
+    #[test]
+    fn cfg_junta_emprestimo_de_um_ramo_e_bloqueia_movimento() {
+        let mut inicial = AnalisadorPropriedade::novo();
+        inicial.declarar("valor").unwrap();
+        let blocos = vec![
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1, 2] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Emprestar {
+                    identificador: 91,
+                    lugar: Lugar::novo("valor"),
+                    tipo: TipoEmprestimo::Compartilhado,
+                }],
+                sucessores: vec![3],
+            },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![3] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Mover(Lugar::novo("valor"))],
+                sucessores: vec![],
+            },
+        ];
+        let resultado = analisar_fluxo_controle_propriedade(&inicial, &blocos, 0).unwrap();
+        assert!(resultado.erros.iter().any(|erro|
+            erro.bloco == 3 && matches!(erro.erro, ErroPropriedade::MovimentoDuranteEmprestimo(_))
+        ));
+    }
+
+    #[test]
+    fn cfg_processa_ciclo_ate_estabilizar_e_ignora_bloco_inalcancavel() {
+        let mut inicial = AnalisadorPropriedade::novo();
+        inicial.declarar("contador").unwrap();
+        let blocos = vec![
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1] },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1, 2] },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Ler(Lugar::novo("nao_alcancavel"))],
+                sucessores: vec![],
+            },
+        ];
+        let resultado = analisar_fluxo_controle_propriedade(&inicial, &blocos, 0).unwrap();
+        assert!(resultado.entradas[1].is_some());
+        assert!(resultado.entradas[2].is_some());
+        assert!(resultado.entradas[3].is_none());
+        assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_rejeita_aresta_para_bloco_inexistente() {
+        let blocos = vec![BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![4] }];
+        assert_eq!(
+            analisar_fluxo_controle_propriedade(&AnalisadorPropriedade::novo(), &blocos, 0)
+                .unwrap_err(),
+            ErroPropriedade::BlocoFluxoInexistente(4)
+        );
+    }
 
     #[test]
     fn campos_independentes_nao_sobrepoem_mas_agregado_contem_campos() {
