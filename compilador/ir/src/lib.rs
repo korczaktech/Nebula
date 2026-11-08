@@ -1044,7 +1044,32 @@ impl Lowerer {
                 }
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
-                let args = argumentos.iter().map(|a| self.expressao(a)).collect::<Option<Vec<_>>>()?;
+                let assinatura = match alvo.as_ref() {
+                    Expressao::Nome(nome) if nome != "copiar" =>
+                        self.assinaturas_funcoes.get(nome).map(|(parametros, _)| {
+                            parametros.iter().map(|tipo| self.tipo(tipo)).collect::<Vec<_>>()
+                        }),
+                    _ => match self.inferir_tipo_ast(alvo) {
+                        Tipo::Funcao(parametros, _) => Some(parametros),
+                        _ => None,
+                    },
+                };
+                let mut args = Vec::with_capacity(argumentos.len());
+                for (indice, argumento) in argumentos.iter().enumerate() {
+                    let valor = if let Expressao::ArgumentoNomeado { valor, .. } = argumento {
+                        valor.as_ref()
+                    } else {
+                        argumento
+                    };
+                    let consome = assinatura.as_ref()
+                        .and_then(|parametros| parametros.get(indice))
+                        .is_some_and(|tipo| !self.tipo_copiavel(tipo));
+                    args.push(if consome {
+                        self.expressao_consumida(valor)?
+                    } else {
+                        self.expressao(valor)?
+                    });
+                }
                 match alvo.as_ref() {
                     Expressao::Nome(nome) => {
                         if nome == "copiar" {
