@@ -67,6 +67,13 @@ enum LiteralNumerico { Inteiro(i128), InteiroSemSinal(u128), Decimal(f64) }
 #[derive(Debug, Clone)]
 struct Funcao { genericos: Vec<String>, parametros: Vec<Tipo>, nomes_parametros: Vec<String>, parametros_padrao: Vec<Option<Expressao>>, retorno: Tipo }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OrigemRetornoReferencia {
+    Global(Lugar),
+    Parametro(usize),
+    Invalida,
+}
+
 struct Analisador<'a> {
     escopos: Vec<HashMap<String, Simbolo>>,
     funcoes: HashMap<String, Funcao>,
@@ -91,6 +98,10 @@ struct Analisador<'a> {
     classe_atual: Option<String>,
     propriedade: AnalisadorPropriedade,
     origens_referencia: HashMap<String, VidaUtil>,
+    origens_referencia_lugares: HashMap<String, Lugar>,
+    origens_retorno_funcoes: HashMap<String, OrigemRetornoReferencia>,
+    vidas_retorno_chamadas: Vec<(String, Vec<Expressao>, VidaUtil)>,
+    funcao_atual: Option<String>,
     proximo_emprestimo: u64,
     contextos_inseguros: Vec<String>,
     parametros_funcao: Vec<HashMap<String, Tipo>>,
@@ -122,6 +133,10 @@ impl<'a> Analisador<'a> {
             classe_atual: None,
             propriedade: AnalisadorPropriedade::novo(),
             origens_referencia: HashMap::new(),
+            origens_referencia_lugares: HashMap::new(),
+            origens_retorno_funcoes: HashMap::new(),
+            vidas_retorno_chamadas: Vec::new(),
+            funcao_atual: None,
             proximo_emprestimo: 1,
             contextos_inseguros: Vec::new(),
             parametros_funcao: Vec::new(),
