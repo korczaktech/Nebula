@@ -555,6 +555,7 @@ impl<'a> Analisador<'a> {
                                 escopo_proprietario: indice_escopo,
                                 escopo_referencia: indice_escopo,
                                 origem_parametro: true,
+                                emprestimo: None,
                             },
                         );
                     }
@@ -974,7 +975,21 @@ impl<'a> Analisador<'a> {
                 if matches!(esperado, Some(Tipo::Referencia { .. }))
                     && valor.as_ref().is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
                 {
-                    self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa ser um parâmetro válido da função.");
+                    self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa sobreviver à chamada.");
+                } else if matches!(esperado, Some(Tipo::Referencia { .. })) {
+                    if let Some(expressao) = valor.as_ref() {
+                        if let Some(vida) = self.vida_util_referencia(expressao) {
+                            if vida.escopo_proprietario == 0 {
+                                if let Some(identificador) = vida.emprestimo {
+                                    if let Err(erro) = self.propriedade
+                                        .estender_vida_util_emprestimo(identificador, 0)
+                                    {
+                                        self.erro("N3101", format!("Não foi possível prolongar o empréstimo retornado: {erro:?}."));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
@@ -1299,17 +1314,27 @@ impl<'a> Analisador<'a> {
                     if vida.is_none() {
                         self.erro("N3105", "A origem da referência atribuída não possui vida útil comprovável.");
                     }
-                    if let (Some(vida), Expressao::Nome(nome_destino)) = (vida, destino.as_ref()) {
+                    if let (Some(mut vida), Expressao::Nome(nome_destino)) = (vida, destino.as_ref()) {
                         if let Some(indice_destino) = self.indice_escopo_nome(nome_destino) {
                             if !vida.pode_ser_armazenada_em(indice_destino) {
                                 self.erro(
                                     "N3105",
                                     format!("A referência não pode escapar da vida útil de seu proprietário (escopo {}, destino {}).", vida.escopo_proprietario, indice_destino),
                                 );
+                            } else if let Some(identificador) = vida.emprestimo {
+                                if let Err(erro) = self.propriedade
+                                    .estender_vida_util_emprestimo(identificador, indice_destino)
+                                {
+                                    self.erro("N3105", format!("Não foi possível estender a vida útil do empréstimo: {erro:?}."));
+                                } else {
+                                    vida.escopo_referencia = vida.escopo_referencia.min(indice_destino);
+                                }
                             }
                         }
+                        Some(vida)
+                    } else {
+                        vida
                     }
-                    vida
                 } else {
                     None
                 };
@@ -2950,6 +2975,7 @@ impl<'a> Analisador<'a> {
                             escopo_proprietario: indice,
                             escopo_referencia: indice,
                             origem_parametro: false,
+                            emprestimo: None,
                         })
                 })
             }
