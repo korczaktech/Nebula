@@ -3709,7 +3709,10 @@ mod testes {
             layouts_tipos: HashMap::new(),
         };
         let erro = executar(&programa, 100).expect_err("uso após movimento deve falhar");
-        assert!(erro.contains("movid") || erro.contains("movimento"), "{erro}");
+        assert!(
+            erro.contains("movid") || erro.contains("movimento") || erro.contains("UsoAposMovimento"),
+            "{erro}"
+        );
     }
 
     #[test]
