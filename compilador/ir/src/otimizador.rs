@@ -575,6 +575,21 @@ mod testes {
     }
 
     #[test]
+    fn movimento_invalida_constante_no_propagador() {
+        let mut constantes = HashMap::from([("recurso".to_owned(), ValorIr::Texto("antigo".into()))]);
+        let mut relatorio = RelatorioOtimizacao::default();
+        let mut movimento = ExpressaoIr::Mover {
+            nome: "recurso".into(),
+            tipo: nebula_semantica::Tipo::Texto,
+        };
+        propagar_constantes_expressao(&mut movimento, &mut constantes, &mut relatorio);
+        assert!(!constantes.contains_key("recurso"));
+        let mut leitura = ExpressaoIr::Variavel("recurso".into());
+        propagar_constantes_expressao(&mut leitura, &mut constantes, &mut relatorio);
+        assert!(matches!(leitura, ExpressaoIr::Variavel(ref nome) if nome == "recurso"));
+    }
+
+    #[test]
     fn o2_propaga_constante_imutavel_em_fluxo_sequencial() {
         let mut ir = ProgramaIr {
             instrucoes: vec![
