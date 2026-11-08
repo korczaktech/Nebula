@@ -3774,6 +3774,62 @@ mod testes {
     }
 
     #[test]
+    fn atribuicao_de_referencia_promove_emprestimo_ao_escopo_de_destino() {
+        let tipo_referencia = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: false,
+        };
+        let programa = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar {
+                    nome: "origem".into(),
+                    tipo: Tipo::Inteiro,
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                    constante: false,
+                },
+                InstrucaoIr::Declarar {
+                    nome: "alvo".into(),
+                    tipo: Tipo::Inteiro,
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(2)),
+                    constante: false,
+                },
+                InstrucaoIr::Declarar {
+                    nome: "referencia".into(),
+                    tipo: tipo_referencia.clone(),
+                    valor: ExpressaoIr::Referencia {
+                        nome: "origem".into(),
+                        mutavel: false,
+                        tipo: Tipo::Inteiro,
+                    },
+                    constante: false,
+                },
+                InstrucaoIr::Bloco(vec![
+                    InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                        nome: "referencia".into(),
+                        valor: Box::new(ExpressaoIr::Referencia {
+                            nome: "alvo".into(),
+                            mutavel: false,
+                            tipo: Tipo::Inteiro,
+                        }),
+                        tipo: tipo_referencia,
+                    }),
+                ]),
+                InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                    nome: "alvo".into(),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(3))),
+                    tipo: Tipo::Inteiro,
+                }),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        };
+        let erro = executar(&programa, 100)
+            .expect_err("o empréstimo promovido deve continuar protegendo o proprietário");
+        assert!(erro.contains("EmprestimoConflitante"), "{erro}");
+    }
+
+    #[test]
     fn normalizacao_da_ir_rejeita_valores_de_tipo_incompativel() {
         assert!(normalizar_valor(&Tipo::Inteiro, ValorIr::Texto("42".into())).is_err());
         assert!(normalizar_valor(&Tipo::Logico, ValorIr::Inteiro(1)).is_err());
