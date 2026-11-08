@@ -351,7 +351,7 @@ mod testes {
     #[test]
     fn resolve_aliases_curto_de_inteiros_sem_sinal_em_campos() {
         let ast = programa(
-            "estrutura Cabecalho: {\\n    a: u8\\n    b: u16\\n    c: u32\\n    d: u64\\n    e: u128\\n}",
+            "estrutura Cabecalho: {\n    a: u8\n    b: u16\n    c: u32\n    d: u64\n    e: u128\n}",
         );
         let tipo = Tipo::Estrutura("Cabecalho".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
