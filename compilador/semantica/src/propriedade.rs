@@ -593,6 +593,7 @@ pub enum OperacaoFluxoPropriedade {
     Atribuir(Lugar),
     Emprestar { identificador: u64, lugar: Lugar, tipo: TipoEmprestimo },
     EncerrarEmprestimo(u64),
+    EstenderVidaUtilEmprestimo { identificador: u64, escopo_destino: usize },
     EntrarEscopo,
     Declarar(String),
     SairEscopo,
@@ -679,6 +680,9 @@ pub fn analisar_fluxo_controle_propriedade(
                 }
                 OperacaoFluxoPropriedade::EncerrarEmprestimo(identificador) => {
                     estado.encerrar_emprestimo(*identificador).map(|_| Vec::new())
+                }
+                OperacaoFluxoPropriedade::EstenderVidaUtilEmprestimo { identificador, escopo_destino } => {
+                    estado.estender_vida_util_emprestimo(*identificador, *escopo_destino).map(|_| Vec::new())
                 }
                 OperacaoFluxoPropriedade::EntrarEscopo => {
                     estado.entrar_escopo();
@@ -833,7 +837,7 @@ mod testes {
     }
 
     #[test]
-    fn cfg_rejeita_referencia_que_sobrevive_ao_escopo_do_proprietario() {
+    fn cfg_rejeita_referencia_que_escapa_da_vida_util_do_proprietario() {
         let blocos = vec![BlocoFluxoPropriedade {
             operacoes: vec![
                 OperacaoFluxoPropriedade::EntrarEscopo,
@@ -842,6 +846,10 @@ mod testes {
                     identificador: 501,
                     lugar: Lugar::novo("local"),
                     tipo: TipoEmprestimo::Compartilhado,
+                },
+                OperacaoFluxoPropriedade::EstenderVidaUtilEmprestimo {
+                    identificador: 501,
+                    escopo_destino: 0,
                 },
                 OperacaoFluxoPropriedade::SairEscopo,
             ],
@@ -852,7 +860,7 @@ mod testes {
         ).unwrap();
         assert!(resultado.erros.iter().any(|erro|
             erro.operacao == 3
-                && matches!(erro.erro, ErroPropriedade::EmprestimoVivoAoDestruir(_))
+                && matches!(erro.erro, ErroPropriedade::ReferenciaEscapaVidaUtil { .. })
         ));
     }
 
