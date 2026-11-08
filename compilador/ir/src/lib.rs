@@ -3384,6 +3384,20 @@ mod testes {
         saida.join("\n")
     }
     
+    #[test]
+    fn inicializacao_de_tipo_move_only_emite_operacao_mover() {
+        let ir = compilar(
+            "variavel original: texto = \"valor\"\nvariavel destino: texto = original",
+        );
+        assert!(matches!(
+            &ir.instrucoes[1],
+            InstrucaoIr::Declarar {
+                valor: ExpressaoIr::Mover { nome, tipo: Tipo::Texto },
+                ..
+            } if nome == "original"
+        ));
+    }
+
     fn compilar(codigo: &str) -> ProgramaIr {
         let codigo = normalizar_blocos_indentados(codigo);
         let fonte = ArquivoFonte::novo("teste.nbx", &codigo);
