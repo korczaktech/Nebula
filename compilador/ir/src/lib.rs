@@ -941,14 +941,14 @@ impl Lowerer {
             Expressao::Literal(valor) => Some(ExpressaoIr::Constante(literal(valor)?)),
             Expressao::ArgumentoNomeado { valor, .. } => self.expressao(valor),
             Expressao::Lista(valores) => Some(ExpressaoIr::Lista(
-                valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
+                valores.iter().map(|v| self.expressao_consumida(v)).collect::<Option<Vec<_>>>()?,
             )),
             Expressao::Tupla(valores) => Some(ExpressaoIr::Tupla(
-                valores.iter().map(|v| self.expressao(v)).collect::<Option<Vec<_>>>()?,
+                valores.iter().map(|v| self.expressao_consumida(v)).collect::<Option<Vec<_>>>()?,
             )),
             Expressao::ConstrucaoEstrutura { nome, campos } => Some(ExpressaoIr::ConstrucaoEstrutura {
                 nome: nome.clone(),
-                campos: campos.iter().map(|(campo, valor)| Some((campo.clone(), self.expressao(valor)?))).collect::<Option<Vec<_>>>()?,
+                campos: campos.iter().map(|(campo, valor)| Some((campo.clone(), self.expressao_consumida(valor)?))).collect::<Option<Vec<_>>>()?,
             }),
             Expressao::Unaria { operador, valor } => {
                 match operador {
@@ -1044,6 +1044,13 @@ impl Lowerer {
                 }
             }
             Expressao::Chamada { alvo, argumentos, .. } => {
+                let construtor_algebrico = matches!(
+                    alvo.as_ref(),
+                    Expressao::Membro { alvo: tipo, operador: TipoToken::Escopo, .. }
+                        if matches!(tipo.as_ref(), Expressao::Nome(nome)
+                            if self.variantes_enumeracoes.contains_key(nome)
+                                || matches!(nome.as_str(), "Opcional" | "opcional" | "Resultado" | "resultado"))
+                );
                 let assinatura = match alvo.as_ref() {
                     Expressao::Nome(nome) if nome != "copiar" =>
                         self.assinaturas_funcoes.get(nome).map(|(parametros, _)| {
@@ -1061,9 +1068,10 @@ impl Lowerer {
                     } else {
                         argumento
                     };
-                    let consome = assinatura.as_ref()
-                        .and_then(|parametros| parametros.get(indice))
-                        .is_some_and(|tipo| !self.tipo_copiavel(tipo));
+                    let consome = construtor_algebrico
+                        || assinatura.as_ref()
+                            .and_then(|parametros| parametros.get(indice))
+                            .is_some_and(|tipo| !self.tipo_copiavel(tipo));
                     args.push(if consome {
                         self.expressao_consumida(valor)?
                     } else {
