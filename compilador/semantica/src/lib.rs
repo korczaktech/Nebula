@@ -3478,7 +3478,9 @@ impl<'a> Analisador<'a> {
 
         for chave in chaves {
             match (ramo_a.get(&chave), ramo_b.get(&chave)) {
-                (Some(a), Some(b)) if a == b => {
+                (Some(a), Some(b)) if a == b
+                    && !invalidas_a.contains(&chave)
+                    && !invalidas_b.contains(&chave) => {
                     self.origens_referencia.insert(chave.clone(), *a);
                     self.origens_referencia_invalidas.remove(&chave);
                 }
@@ -5258,6 +5260,41 @@ funcao sem_retorno(): vazio
     fn rejeita_lambda_sem_tipo_contextual_para_parametros() {
         let resultado = analisar_codigo("variavel dobrar = lambda valor: valor + 1");
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3088"));
+    }
+
+    #[test]
+    fn junção_de_ramos_invalida_origem_de_referencia_quando_as_origens_divergem() {
+        let fonte = ArquivoFonte::novo("teste.nbx", "");
+        let programa = analisar(&fonte).programa;
+        let modulos = ModulosDisponiveis::new();
+        let mut analisador = Analisador::novo(&modulos, &programa);
+        let chave = "referencia@1".to_owned();
+        let vida_a = VidaUtil {
+            escopo_proprietario: 0,
+            escopo_referencia: 1,
+            parametro_origem: None,
+            emprestimo: Some(1),
+        };
+        let vida_b = VidaUtil {
+            escopo_proprietario: 1,
+            escopo_referencia: 1,
+            parametro_origem: None,
+            emprestimo: Some(2),
+        };
+        let antes = HashMap::new();
+        let invalidas = HashSet::new();
+        let ramo_a = HashMap::from([(chave.clone(), vida_a)]);
+        let ramo_b = HashMap::from([(chave.clone(), vida_b)]);
+        let lugares = HashMap::new();
+
+        analisador.mesclar_origens_referencia(
+            &antes, &invalidas,
+            &ramo_a, &invalidas, &lugares,
+            &ramo_b, &invalidas, &lugares,
+        );
+
+        assert!(analisador.origens_referencia_invalidas.contains(&chave));
+        assert!(!analisador.origens_referencia.contains_key(&chave));
     }
 
     #[test]
