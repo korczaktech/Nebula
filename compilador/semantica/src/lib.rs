@@ -1483,7 +1483,8 @@ impl<'a> Analisador<'a> {
                     let tipo_objeto = self.expressao(objeto);
                     if let Tipo::Estrutura(classe) = tipo_objeto {
                         if let Some(funcao) = self.buscar_metodo_classe(&classe, metodo) {
-                            return self.analisar_chamada_funcao(argumentos, &funcao, metodo);
+                            let chave = format!("{classe}::{metodo}");
+                            return self.analisar_chamada_funcao(argumentos, &funcao, &chave);
                         }
                     }
                 }
