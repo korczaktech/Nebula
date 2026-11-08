@@ -563,7 +563,14 @@ impl Memoria {
         if escopo.contains_key(&nome) {
             return Err(ErroRuntime::NomeDuplicado(nome));
         }
-        escopo.insert(nome.clone(), Celula { valor, mutavel, movida: false });
+        escopo.insert(
+            nome.clone(),
+            Celula {
+                valor,
+                mutavel,
+                movida: false,
+            },
+        );
         self.ordem_variaveis
             .last_mut()
             .expect("ordem do escopo global sempre existe")
@@ -578,8 +585,11 @@ impl Memoria {
             .rev()
             .find_map(|escopo| escopo.get(nome))
             .map(|celula| {
-                if celula.movida { Err(ErroRuntime::UsoAposMovimento(nome.to_owned())) }
-                else { Ok(celula.valor.clone()) }
+                if celula.movida {
+                    Err(ErroRuntime::UsoAposMovimento(nome.to_owned()))
+                } else {
+                    Ok(celula.valor.clone())
+                }
             })
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?
     }
@@ -738,7 +748,9 @@ impl Memoria {
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
-        if celula.movida { return Err(ErroRuntime::UsoAposMovimento(nome.to_owned())); }
+        if celula.movida {
+            return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
+        }
 
         let Valor::Lista(lista) = &celula.valor else {
             return Err(ErroRuntime::TipoIncompativel(
