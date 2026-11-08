@@ -778,6 +778,9 @@ impl Memoria {
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
         }
+        if celula.movida {
+            return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
+        }
         let Valor::Lista(lista) = &celula.valor else {
             return Err(ErroRuntime::TipoIncompativel(
                 "a variável não contém uma lista",
@@ -800,6 +803,9 @@ impl Memoria {
             .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome.to_owned()))?;
         if !celula.mutavel {
             return Err(ErroRuntime::VariavelImutavel(nome.to_owned()));
+        }
+        if celula.movida {
+            return Err(ErroRuntime::UsoAposMovimento(nome.to_owned()));
         }
         let Valor::Lista(lista) = &celula.valor else {
             return Err(ErroRuntime::TipoIncompativel(
