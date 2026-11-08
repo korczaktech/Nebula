@@ -1030,6 +1030,10 @@ impl Emissor {
                 self.mov_rax(0);
                 self.mov_rdx(0);
             }
+            ExpressaoIr::Mover { nome, tipo } => {
+                self.validar_tipo_abi(tipo)?;
+                self.expressao(&ExpressaoIr::Variavel(nome.clone()))?;
+            }
             ExpressaoIr::Variavel(nome) => {
                 if let Some(deslocamento) = self.buscar_local(nome) {
                     self.carregar_rax(deslocamento);
