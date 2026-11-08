@@ -4695,6 +4695,18 @@ funcao inverter(par: Tupla<inteiro64, inteiro64>): Tupla<inteiro64, inteiro64>
         );
     }
 
+    #[test]
+    fn aceita_dois_pontos_no_retorno_de_tipo_de_funcao() {
+        let resultado = analisar(&fonte_bruta(
+            "variavel operacao: funcao(inteiro): inteiro = dobrar",
+        ));
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "tipo de função deve seguir a gramática normativa: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
 }
 
 }
