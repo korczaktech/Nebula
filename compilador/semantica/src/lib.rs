@@ -2246,12 +2246,16 @@ impl<'a> Analisador<'a> {
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
             "byte" => Tipo::Byte,
+            _ if nome.strip_prefix("&mutavel ").is_some_and(|interno| !interno.trim().is_empty()) => Tipo::Referencia {
+                interno: Box::new(self.resolver_tipo_interno(nome.strip_prefix("&mutavel ").expect("prefixo validado"), aliases_visitados)),
+                mutavel: true,
+            },
             _ if nome.starts_with("&mutavel<") && nome.ends_with('>') => Tipo::Referencia {
                 interno: Box::new(self.resolver_tipo_interno(&nome[9..nome.len() - 1], aliases_visitados)),
                 mutavel: true,
             },
-            _ if nome.starts_with("&<") && nome.ends_with('>') => Tipo::Referencia {
-                interno: Box::new(self.resolver_tipo_interno(&nome[2..nome.len() - 1], aliases_visitados)),
+            _ if nome.strip_prefix('&').is_some_and(|interno| !interno.trim().is_empty()) => Tipo::Referencia {
+                interno: Box::new(self.resolver_tipo_interno(nome.strip_prefix('&').expect("prefixo validado"), aliases_visitados)),
                 mutavel: false,
             },
             _ if nome.starts_with('(') && nome.ends_with(')') => {
