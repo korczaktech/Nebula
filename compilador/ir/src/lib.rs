@@ -2998,7 +2998,10 @@ impl Maquina<'_, '_> {
                     .declarar(parametro.clone(), converter_para_runtime(valor), true)
                     .map_err(formatar_erro_runtime)?;
             }
-            self.bloco(&funcao.corpo)
+            // O escopo aberto para a chamada já é o escopo léxico da função.
+            // Abrir outro bloco aqui encerraria empréstimos retornados antes
+            // que pudessem ser promovidos ao escopo do chamador.
+            self.bloco_raiz(&funcao.corpo)
         })();
         let erro_promocao = match (&fluxo, &funcao.retorno) {
             (Ok(Fluxo::Retorno(ValorIr::Referencia { nome, escopo, .. })), Tipo::Referencia { .. }) => {
