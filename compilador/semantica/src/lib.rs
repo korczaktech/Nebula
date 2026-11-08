@@ -100,7 +100,7 @@ struct Analisador<'a> {
     origens_referencia: HashMap<String, VidaUtil>,
     origens_referencia_lugares: HashMap<String, Lugar>,
     origens_retorno_funcoes: HashMap<String, OrigemRetornoReferencia>,
-    vidas_retorno_chamadas: Vec<(String, Vec<Expressao>, VidaUtil)>,
+    vidas_retorno_chamadas: Vec<(String, Vec<Expressao>, VidaUtil, Option<Lugar>)>,
     funcao_atual: Option<String>,
     proximo_emprestimo: u64,
     contextos_inseguros: Vec<String>,
@@ -2983,7 +2983,7 @@ impl<'a> Analisador<'a> {
                         .then_some(VidaUtil {
                             escopo_proprietario: indice,
                             escopo_referencia: indice,
-                            origem_parametro: false,
+                            parametro_origem: None,
                             emprestimo: None,
                         })
                 })
@@ -3004,7 +3004,7 @@ impl<'a> Analisador<'a> {
             }
         }
         self.vida_util_referencia(expressao)
-            .is_some_and(|vida| vida.origem_parametro || vida.escopo_proprietario == 0)
+            .is_some_and(|vida| vida.parametro_origem.is_some() || vida.escopo_proprietario == 0)
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
