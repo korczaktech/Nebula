@@ -5590,6 +5590,18 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
+    fn rejeita_retorno_quando_origem_da_referencia_diverge_entre_ramos() {
+        let resultado = analisar_codigo(
+            "variavel global: inteiro = 1\nfuncao escolher(valor: &inteiro, condicao: logico): &inteiro\n    variavel referencia: &inteiro = valor\n    quando condicao\n        referencia = &global\n    senao\n        passar\n    devolver referencia",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
+            "A origem deve ser válida em todos os caminhos de retorno: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
     fn propaga_vida_util_de_referencia_global_retornada_por_funcao() {
         let resultado = analisar_codigo(
             "variavel valorGlobal: inteiro = 11\nfuncao buscarGlobal(): &inteiro\n    devolver &valorGlobal\nvariavel referencia: &inteiro = buscarGlobal()\nvalorGlobal = 12",
