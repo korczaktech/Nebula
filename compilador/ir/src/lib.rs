@@ -353,7 +353,7 @@ impl Lowerer {
                     .clone()
                     .unwrap_or_else(|| self.inferir_tipo_ast(valor));
                 let mut valor = if let Some(esperado) = tipo_declarado.as_ref() {
-                    if !self.tipo_copiavel(esperado) {
+                    if !self.tipo_copiavel(esperado) && matches!(valor, Expressao::Nome(_)) {
                         self.expressao_consumida(valor)?
                     } else {
                         self.expressao_com_tipo_esperado(valor, esperado)?
@@ -455,10 +455,10 @@ impl Lowerer {
                         .find_map(|escopo| escopo.get("\0nebula_retorno"))
                         .cloned();
                     Some(if let Some(esperado) = esperado {
-                        if self.tipo_copiavel(&esperado) {
-                            self.expressao_com_tipo_esperado(valor, &esperado)?
-                        } else {
+                        if !self.tipo_copiavel(&esperado) && matches!(valor, Expressao::Nome(_)) {
                             self.expressao_consumida(valor)?
+                        } else {
+                            self.expressao_com_tipo_esperado(valor, &esperado)?
                         }
                     } else {
                         self.expressao_consumida(valor)?
