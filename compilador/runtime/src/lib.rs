@@ -1566,6 +1566,14 @@ mod ciclo_vida {
             Ok(())
         }
 
+        /// Identificador estável do escopo chamador do escopo atual.
+        #[must_use]
+        pub fn identificador_escopo_anterior(&self) -> Option<u64> {
+            self.memoria.identificadores_escopos
+                .get(self.memoria.identificadores_escopos.len().checked_sub(2)?)
+                .copied()
+        }
+
         /// Transfere o finalizador de um empréstimo para o escopo da variável
         /// que recebeu a referência, preservando o empréstimo após a saída do
         /// escopo em que a referência foi criada.
