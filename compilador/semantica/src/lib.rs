@@ -1318,6 +1318,11 @@ impl<'a> Analisador<'a> {
                 // Uma referência armazenada em variável de escopo externo não
                 // pode receber um empréstimo criado em um escopo interno:
                 // o empréstimo seria encerrado antes da referência armazenada.
+                let lugar_origem_atribuida = if matches!(&tipo_valor, Tipo::Referencia { .. }) {
+                    self.lugar_origem_referencia(valor)
+                } else {
+                    None
+                };
                 let vida_util_atribuida = if matches!(tipo_valor, Tipo::Referencia { .. }) {
                     let vida = self.vida_util_referencia(valor);
                     if vida.is_none() {
@@ -1356,7 +1361,13 @@ impl<'a> Analisador<'a> {
                     Expressao::Nome(nome) => {
                         if let Some(vida_util) = vida_util_atribuida {
                             if let Some(indice) = self.indice_escopo_nome(nome) {
-                                self.origens_referencia.insert(format!("{nome}@{indice}"), vida_util);
+                                let chave = format!("{nome}@{indice}");
+                                self.origens_referencia.insert(chave.clone(), vida_util);
+                                if let Some(lugar_origem) = lugar_origem_atribuida.clone() {
+                                    self.origens_referencia_lugares.insert(chave, lugar_origem);
+                                } else {
+                                    self.origens_referencia_lugares.remove(&chave);
+                                }
                             }
                         }
                         if let Some(simbolo) = self.buscar(nome).cloned() {
@@ -3231,6 +3242,7 @@ impl<'a> Analisador<'a> {
             let indice_escopo = self.escopos.len().saturating_sub(1);
             let sufixo = format!("@{indice_escopo}");
             self.origens_referencia.retain(|nome, _| !nome.ends_with(&sufixo));
+            self.origens_referencia_lugares.retain(|nome, _| !nome.ends_with(&sufixo));
             self.escopos.pop();
             if let Err(erro) = self.propriedade.sair_escopo() {
                 self.erro("N3095", format!("Falha ao encerrar vida útil do escopo: {erro:?}."));
