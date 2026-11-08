@@ -1064,8 +1064,8 @@ fn qualificar_expressao_modulo(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { qualificar_expressao_modulo(valor, caminho, funcoes, caminhos_canonicos); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::Referencia { .. }
-        | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::Mover { .. }
+        | ExpressaoIr::Referencia { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
     if let Some(nome) = chamada_local {
         let ExpressaoIr::Chamada { argumentos, .. } = expressao else {
