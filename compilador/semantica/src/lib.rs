@@ -99,6 +99,7 @@ struct Analisador<'a> {
     propriedade: AnalisadorPropriedade,
     origens_referencia: HashMap<String, VidaUtil>,
     origens_referencia_lugares: HashMap<String, Lugar>,
+    origens_referencia_invalidas: HashSet<String>,
     origens_retorno_funcoes: HashMap<String, OrigemRetornoReferencia>,
     vidas_retorno_chamadas: Vec<(String, Vec<Expressao>, VidaUtil, Option<Lugar>)>,
     funcao_atual: Option<String>,
@@ -134,6 +135,7 @@ impl<'a> Analisador<'a> {
             propriedade: AnalisadorPropriedade::novo(),
             origens_referencia: HashMap::new(),
             origens_referencia_lugares: HashMap::new(),
+            origens_referencia_invalidas: HashSet::new(),
             origens_retorno_funcoes: HashMap::new(),
             vidas_retorno_chamadas: Vec::new(),
             funcao_atual: None,
@@ -540,6 +542,9 @@ impl<'a> Analisador<'a> {
                 let chave_referencia = format!("{nome}@{indice_escopo}");
                 if let Some(vida_util) = vida_util {
                     self.origens_referencia.insert(chave_referencia.clone(), vida_util);
+                    self.origens_referencia_invalidas.remove(&chave_referencia);
+                } else if referencia {
+                    self.origens_referencia_invalidas.insert(chave_referencia.clone());
                 }
                 if let Some(lugar_origem) = lugar_origem {
                     self.origens_referencia_lugares.insert(chave_referencia, lugar_origem);
@@ -798,15 +803,32 @@ impl<'a> Analisador<'a> {
                 // considerado movido se qualquer caminho possível o moveu.
                 let antes = self.snapshot_movidos();
                 let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.origens_referencia.clone();
+                let invalidas_antes = self.origens_referencia_invalidas.clone();
+                let lugares_antes = self.origens_referencia_lugares.clone();
                 self.bloco(entao);
                 let depois_entao = self.snapshot_movidos();
                 let propriedade_entao = self.propriedade.clone();
+                let origens_entao = self.origens_referencia.clone();
+                let invalidas_entao = self.origens_referencia_invalidas.clone();
+                let lugares_entao = self.origens_referencia_lugares.clone();
                 self.restaurar_movidos(&antes);
                 self.propriedade = propriedade_antes.clone();
+                self.origens_referencia = origens_antes.clone();
+                self.origens_referencia_invalidas = invalidas_antes.clone();
+                self.origens_referencia_lugares = lugares_antes.clone();
                 self.bloco(senao);
                 let depois_senao = self.snapshot_movidos();
                 let propriedade_senao = self.propriedade.clone();
+                let origens_senao = self.origens_referencia.clone();
+                let invalidas_senao = self.origens_referencia_invalidas.clone();
+                let lugares_senao = self.origens_referencia_lugares.clone();
                 self.mesclar_movidos(&depois_entao, &depois_senao);
+                self.mesclar_origens_referencia(
+                    &origens_antes, &invalidas_antes,
+                    &origens_entao, &invalidas_entao, &lugares_entao,
+                    &origens_senao, &invalidas_senao, &lugares_senao,
+                );
                 self.propriedade = propriedade_antes;
                 if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_entao, propriedade_senao]) {
                     self.erro("N3104", format!("Não foi possível unir empréstimos dos ramos: {erro:?}."));
@@ -1316,19 +1338,36 @@ impl<'a> Analisador<'a> {
                 // movimentos ou empréstimos produzidos pelo outro.
                 let antes_movidos = self.snapshot_movidos();
                 let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.origens_referencia.clone();
+                let invalidas_antes = self.origens_referencia_invalidas.clone();
+                let lugares_antes = self.origens_referencia_lugares.clone();
 
                 let tipo_entao = self.expressao(entao);
                 let movidos_entao = self.snapshot_movidos();
                 let propriedade_entao = self.propriedade.clone();
+                let origens_entao = self.origens_referencia.clone();
+                let invalidas_entao = self.origens_referencia_invalidas.clone();
+                let lugares_entao = self.origens_referencia_lugares.clone();
 
                 self.restaurar_movidos(&antes_movidos);
                 self.propriedade = propriedade_antes.clone();
+                self.origens_referencia = origens_antes.clone();
+                self.origens_referencia_invalidas = invalidas_antes.clone();
+                self.origens_referencia_lugares = lugares_antes.clone();
 
                 let tipo_senao = self.expressao(senao);
                 let movidos_senao = self.snapshot_movidos();
                 let propriedade_senao = self.propriedade.clone();
+                let origens_senao = self.origens_referencia.clone();
+                let invalidas_senao = self.origens_referencia_invalidas.clone();
+                let lugares_senao = self.origens_referencia_lugares.clone();
 
                 self.mesclar_movidos(&movidos_entao, &movidos_senao);
+                self.mesclar_origens_referencia(
+                    &origens_antes, &invalidas_antes,
+                    &origens_entao, &invalidas_entao, &lugares_entao,
+                    &origens_senao, &invalidas_senao, &lugares_senao,
+                );
                 self.propriedade = propriedade_antes;
                 if let Err(erro) = self.propriedade.mesclar_caminhos(&[
                     propriedade_entao,
@@ -1402,6 +1441,7 @@ impl<'a> Analisador<'a> {
                             if let Some(indice) = self.indice_escopo_nome(nome) {
                                 let chave = format!("{nome}@{indice}");
                                 self.origens_referencia.insert(chave.clone(), vida_util);
+                                self.origens_referencia_invalidas.remove(&chave);
                                 if let Some(lugar_origem) = lugar_origem_atribuida.clone() {
                                     self.origens_referencia_lugares.insert(chave, lugar_origem);
                                 } else {
@@ -3149,6 +3189,7 @@ impl<'a> Analisador<'a> {
             Expressao::Nome(nome) => {
                 let indice = self.indice_escopo_nome(nome)?;
                 let chave = format!("{nome}@{indice}");
+                if self.origens_referencia_invalidas.contains(&chave) { return None; }
                 self.origens_referencia.get(&chave).copied().or_else(|| {
                     self.buscar(nome)
                         .is_some_and(|simbolo| matches!(&simbolo.tipo, Tipo::Referencia { .. }))
@@ -3181,7 +3222,9 @@ impl<'a> Analisador<'a> {
             } => self.lugar_de_expressao(valor),
             Expressao::Nome(nome) => {
                 let indice = self.indice_escopo_nome(nome)?;
-                self.origens_referencia_lugares.get(&format!("{nome}@{indice}")).cloned()
+                let chave = format!("{nome}@{indice}");
+                if self.origens_referencia_invalidas.contains(&chave) { return None; }
+                self.origens_referencia_lugares.get(&chave).cloned()
             }
             Expressao::ArgumentoNomeado { valor, .. } => self.lugar_origem_referencia(valor),
             Expressao::Chamada { alvo, argumentos, .. } => {
@@ -3414,6 +3457,48 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn mesclar_origens_referencia(
+        &mut self,
+        antes: &HashMap<String, VidaUtil>,
+        antes_invalidas: &HashSet<String>,
+        ramo_a: &HashMap<String, VidaUtil>,
+        invalidas_a: &HashSet<String>,
+        lugares_a: &HashMap<String, Lugar>,
+        ramo_b: &HashMap<String, VidaUtil>,
+        invalidas_b: &HashSet<String>,
+        lugares_b: &HashMap<String, Lugar>,
+    ) {
+        let mut chaves = HashSet::new();
+        chaves.extend(antes.keys().cloned());
+        chaves.extend(antes_invalidas.iter().cloned());
+        chaves.extend(ramo_a.keys().cloned());
+        chaves.extend(invalidas_a.iter().cloned());
+        chaves.extend(ramo_b.keys().cloned());
+        chaves.extend(invalidas_b.iter().cloned());
+
+        for chave in chaves {
+            match (ramo_a.get(&chave), ramo_b.get(&chave)) {
+                (Some(a), Some(b)) if a == b => {
+                    self.origens_referencia.insert(chave.clone(), *a);
+                    self.origens_referencia_invalidas.remove(&chave);
+                }
+                _ => {
+                    self.origens_referencia.remove(&chave);
+                    self.origens_referencia_invalidas.insert(chave.clone());
+                }
+            }
+
+            match (lugares_a.get(&chave), lugares_b.get(&chave)) {
+                (Some(a), Some(b)) if a == b => {
+                    self.origens_referencia_lugares.insert(chave.clone(), a.clone());
+                }
+                _ => {
+                    self.origens_referencia_lugares.remove(&chave);
+                }
+            }
+        }
+    }
+
     fn mesclar_movidos(
         &mut self,
         primeiro: &HashSet<(usize, String, String)>,
@@ -3433,6 +3518,7 @@ impl<'a> Analisador<'a> {
             let sufixo = format!("@{indice_escopo}");
             self.origens_referencia.retain(|nome, _| !nome.ends_with(&sufixo));
             self.origens_referencia_lugares.retain(|nome, _| !nome.ends_with(&sufixo));
+            self.origens_referencia_invalidas.retain(|nome| !nome.ends_with(&sufixo));
             self.escopos.pop();
             if let Err(erro) = self.propriedade.sair_escopo() {
                 self.erro("N3095", format!("Falha ao encerrar vida útil do escopo: {erro:?}."));
