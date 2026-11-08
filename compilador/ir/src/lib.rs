@@ -304,6 +304,22 @@ impl Lowerer {
             "decimal32" => Tipo::Decimal32,
             "texto" => Tipo::Texto,
             "caractere" => Tipo::Caractere,
+            _ if nome.strip_prefix("&mutavel ").is_some_and(|interno| !interno.trim().is_empty()) => {
+                Tipo::Referencia {
+                    interno: Box::new(self.tipo(nome.strip_prefix("&mutavel ").expect("prefixo validado"))),
+                    mutavel: true,
+                }
+            }
+            _ if nome.starts_with("&mutavel<") && nome.ends_with('>') => Tipo::Referencia {
+                interno: Box::new(self.tipo(&nome[9..nome.len() - 1])),
+                mutavel: true,
+            },
+            _ if nome.strip_prefix('&').is_some_and(|interno| !interno.trim().is_empty()) => {
+                Tipo::Referencia {
+                    interno: Box::new(self.tipo(nome.strip_prefix('&').expect("prefixo validado"))),
+                    mutavel: false,
+                }
+            }
             _ if nome.starts_with('(') && nome.ends_with(')') => {
                 match TipoAst::analisar(nome) {
                     TipoAst::Tupla(elementos) => Tipo::Tupla(
