@@ -353,9 +353,13 @@ impl Lowerer {
                     .clone()
                     .unwrap_or_else(|| self.inferir_tipo_ast(valor));
                 let mut valor = if let Some(esperado) = tipo_declarado.as_ref() {
-                    self.expressao_com_tipo_esperado(valor, esperado)?
+                    if !self.tipo_copiavel(esperado) {
+                        self.expressao_consumida(valor)?
+                    } else {
+                        self.expressao_com_tipo_esperado(valor, esperado)?
+                    }
                 } else {
-                    self.expressao(valor)?
+                    self.expressao_consumida(valor)?
                 };
                 if matches!(tipo,
                     Tipo::Inteiro128 | Tipo::InteiroU128 | Tipo::Estrutura(_) | Tipo::Tupla(_)
@@ -451,9 +455,13 @@ impl Lowerer {
                         .find_map(|escopo| escopo.get("\0nebula_retorno"))
                         .cloned();
                     Some(if let Some(esperado) = esperado {
-                        self.expressao_com_tipo_esperado(valor, &esperado)?
+                        if self.tipo_copiavel(&esperado) {
+                            self.expressao_com_tipo_esperado(valor, &esperado)?
+                        } else {
+                            self.expressao_consumida(valor)?
+                        }
                     } else {
-                        self.expressao(valor)?
+                        self.expressao_consumida(valor)?
                     })
                 } else {
                     None
@@ -830,6 +838,62 @@ impl Lowerer {
             };
         }
         self.tipo(esperado) == *obtido
+    }
+
+    fn tipo_copiavel(&self, tipo: &Tipo) -> bool {
+        self.tipo_copiavel_interno(tipo, &mut std::collections::HashSet::new())
+    }
+
+    fn tipo_copiavel_interno(
+        &self,
+        tipo: &Tipo,
+        ativos: &mut std::collections::HashSet<String>,
+    ) -> bool {
+        match tipo {
+            Tipo::Vazio | Tipo::Funcao(_, _) | Tipo::Referencia { mutavel: false, .. }
+            | Tipo::Logico | Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+            | Tipo::Inteiro32 | Tipo::Inteiro64 | Tipo::Inteiro128 | Tipo::InteiroU8
+            | Tipo::InteiroU16 | Tipo::InteiroU32 | Tipo::InteiroU64 | Tipo::InteiroU128
+            | Tipo::Decimal | Tipo::Decimal32 | Tipo::Decimal64 | Tipo::Caractere | Tipo::Byte => true,
+            Tipo::Tupla(elementos) => elementos.iter().all(|item| self.tipo_copiavel_interno(item, ativos)),
+            Tipo::Opcional(item) | Tipo::Intervalo(item) =>
+                self.tipo_copiavel_interno(item, ativos),
+            Tipo::Resultado(ok, erro) =>
+                self.tipo_copiavel_interno(ok, ativos) && self.tipo_copiavel_interno(erro, ativos),
+            Tipo::Estrutura(nome) => {
+                let chave = format!("estrutura:{nome}");
+                if !ativos.insert(chave.clone()) { return false; }
+                let copiavel = self.campos_estruturas.get(nome).is_some_and(|campos| {
+                    campos.values().all(|tipo| self.tipo_copiavel_interno(&self.tipo(tipo), ativos))
+                });
+                ativos.remove(&chave);
+                copiavel
+            }
+            Tipo::Enumeracao(nome) => {
+                let chave = format!("enumeracao:{nome}");
+                if !ativos.insert(chave.clone()) { return false; }
+                let copiavel = self.variantes_enumeracoes.get(nome).is_some_and(|variantes| {
+                    variantes.values().flatten().all(|tipo| {
+                        self.tipo_copiavel_interno(&self.tipo(tipo), ativos)
+                    })
+                });
+                ativos.remove(&chave);
+                copiavel
+            }
+            _ => false,
+        }
+    }
+
+    /// Gera uma operação de movimento quando o contexto consome um valor nomeado
+    /// cujo tipo não implementa a semântica Copy.
+    fn expressao_consumida(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
+        let tipo = self.inferir_tipo_ast(expressao);
+        if !self.tipo_copiavel(&tipo) {
+            if let Expressao::Nome(nome) = expressao {
+                return Some(ExpressaoIr::Mover { nome: nome.clone(), tipo });
+            }
+        }
+        self.expressao(expressao)
     }
 
     fn expressao(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
