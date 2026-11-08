@@ -1266,13 +1266,18 @@ impl<'a> Analisador<'a> {
                 // pode receber um empréstimo criado em um escopo interno:
                 // o empréstimo seria encerrado antes da referência armazenada.
                 if matches!(tipo_valor, Tipo::Referencia { .. }) {
-                    if let Expressao::Nome(nome_destino) = destino.as_ref() {
-                        if let Some(indice_destino) = self.indice_escopo_nome(nome_destino) {
-                            if indice_destino < self.escopos.len().saturating_sub(1) {
-                                self.erro(
-                                    "N3105",
-                                    "Uma referência criada ou copiada em um escopo interno não pode escapar para uma variável de escopo externo.",
-                                );
+                    if let (Expressao::Nome(nome_destino), Expressao::Unaria {
+                        operador: TipoToken::EBit | TipoToken::Mutavel,
+                        valor: origem,
+                    }) = (destino.as_ref(), valor.as_ref()) {
+                        if let (Some(indice_destino), Some(lugar_origem)) = (
+                            self.indice_escopo_nome(nome_destino),
+                            self.lugar_de_expressao(origem),
+                        ) {
+                            if let Err(erro) = self.propriedade
+                                .validar_destino_referencia(&lugar_origem, indice_destino)
+                            {
+                                self.erro("N3105", format!("A referência não pode escapar da vida útil de seu proprietário: {erro:?}."));
                             }
                         }
                     }
@@ -2896,14 +2901,22 @@ impl<'a> Analisador<'a> {
         let Some(parametros) = self.parametros_funcao.last() else {
             return false;
         };
-        let Expressao::Nome(nome) = expressao else {
-            // Emprestar o próprio parâmetro cria uma referência ao slot local
-            // do parâmetro, não uma referência cuja vida útil pertença ao chamador.
-            return false;
-        };
-        parametros
-            .get(nome)
-            .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }))
+        if let Expressao::Nome(nome) = expressao {
+            return parametros
+                .get(nome)
+                .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }));
+        }
+        if let Expressao::Unaria {
+            operador: TipoToken::EBit | TipoToken::Mutavel,
+            valor: origem,
+        } = expressao {
+            if let Some(lugar) = self.lugar_de_expressao(origem) {
+                return self.propriedade.escopo_do_lugar(&lugar) == Some(0);
+            }
+        }
+        // Criar uma referência ao slot local de um parâmetro não prolonga
+        // a vida útil do valor para além da chamada.
+        false
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
