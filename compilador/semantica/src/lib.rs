@@ -865,8 +865,15 @@ impl<'a> Analisador<'a> {
                 let mut cobertas = HashSet::new();
                 let mut possui_curinga = false;
                 let antes = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.estado_origens_referencia();
                 let mut estados = Vec::new();
+                let mut estados_propriedade = Vec::new();
+                let mut estados_origens = Vec::new();
                 for (indice_caso, caso) in casos.iter().enumerate() {
+                    self.restaurar_movidos(&antes);
+                    self.propriedade = propriedade_antes.clone();
+                    self.restaurar_estado_origens_referencia(&origens_antes);
                     self.abrir_escopo();
                     match (&caso.enumeracao, &caso.variante) {
                         (Some(enum_caso), Some(variante)) => {
@@ -897,10 +904,11 @@ impl<'a> Analisador<'a> {
                             possui_curinga = true;
                         }
                     }
-                    self.restaurar_movidos(&antes);
                     for instrucao in &caso.corpo { self.item(instrucao); }
                     estados.push(self.snapshot_movidos());
                     self.fechar_escopo();
+                    estados_propriedade.push(self.propriedade.clone());
+                    estados_origens.push(self.estado_origens_referencia());
                 }
                 if !possui_curinga {
                     for variante in variantes.keys() {
@@ -915,6 +923,24 @@ impl<'a> Analisador<'a> {
                         combinado.extend(estado.iter().cloned());
                     }
                     self.mesclar_movidos(&antes, &combinado);
+                }
+                if !estados_propriedade.is_empty() {
+                    self.propriedade = propriedade_antes.clone();
+                    if let Err(erro) = self.propriedade.mesclar_caminhos(&estados_propriedade) {
+                        self.erro("N3104", format!("Não foi possível unir os estados dos casos de 'escolha': {erro:?}."));
+                    }
+                    if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                        self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                    }
+                }
+                if let Some(primeiro) = estados_origens.first() {
+                    let mut combinado = primeiro.clone();
+                    for estado in estados_origens.iter().skip(1) {
+                        self.restaurar_estado_origens_referencia(&origens_antes);
+                        self.mesclar_origens_referencia(&origens_antes, &combinado, estado);
+                        combinado = self.estado_origens_referencia();
+                    }
+                    self.restaurar_estado_origens_referencia(&combinado);
                 }
             }
             NoAst::Enquanto { condicao, corpo } => {
