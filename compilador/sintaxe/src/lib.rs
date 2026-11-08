@@ -986,7 +986,9 @@ impl Parser {
                 }
             }
             self.esperar(TipoToken::FechaPar, "Esperado ')' após parâmetros do tipo de função.");
-            let retorno = if self.corresponde(TipoToken::Seta) {
+            let retorno = if self.corresponde(TipoToken::DoisPontos)
+                || self.corresponde(TipoToken::Seta)
+            {
                 self.caminho_tipo()?
             } else {
                 "vazio".into()
