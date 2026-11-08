@@ -147,6 +147,8 @@ pub struct VidaUtil {
     pub escopo_proprietario: usize,
     /// Escopo no qual a referência foi criada.
     pub escopo_referencia: usize,
+    /// Indica que a origem é uma referência recebida como parâmetro.
+    pub origem_parametro: bool,
 }
 
 impl VidaUtil {
@@ -275,6 +277,7 @@ impl AnalisadorPropriedade {
         let vida_util = VidaUtil {
             escopo_proprietario,
             escopo_referencia: self.escopo,
+            origem_parametro: false,
         };
         if !vida_util.pode_ser_armazenada_em(escopo_destino) {
             return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
@@ -594,7 +597,7 @@ mod testes {
         fluxo.emprestar(42, Lugar::novo("global"), TipoEmprestimo::Compartilhado).unwrap();
         assert_eq!(
             fluxo.vida_util_emprestimo(42),
-            Some(VidaUtil { escopo_proprietario: 0, escopo_referencia: 1 })
+            Some(VidaUtil { escopo_proprietario: 0, escopo_referencia: 1, origem_parametro: false })
         );
     }
 
