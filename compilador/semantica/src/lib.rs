@@ -3040,6 +3040,22 @@ impl<'a> Analisador<'a> {
         }
     }
 
+    fn nome_funcao_chamada(&self, alvo: &Expressao) -> Option<String> {
+        match alvo {
+            Expressao::Nome(nome) => Some(nome.clone()),
+            Expressao::Membro {
+                alvo: objeto,
+                operador: TipoToken::Ponto,
+                nome: metodo,
+            } => {
+                let Expressao::Nome(nome_objeto) = objeto.as_ref() else { return None; };
+                let Tipo::Estrutura(classe) = &self.buscar(nome_objeto)?.tipo else { return None; };
+                Some(format!("{classe}::{metodo}"))
+            }
+            _ => None,
+        }
+    }
+
     fn vida_util_referencia(&self, expressao: &Expressao) -> Option<VidaUtil> {
         match expressao {
             Expressao::Unaria {
@@ -3063,10 +3079,10 @@ impl<'a> Analisador<'a> {
             }
             Expressao::ArgumentoNomeado { valor, .. } => self.vida_util_referencia(valor),
             Expressao::Chamada { alvo, argumentos, .. } => {
-                let Expressao::Nome(nome) = alvo.as_ref() else { return None; };
+                let nome = self.nome_funcao_chamada(alvo)?;
                 self.vidas_retorno_chamadas.iter().rev()
                     .find(|(nome_chamada, argumentos_chamada, _, _)| {
-                        nome_chamada == nome && argumentos_chamada == argumentos
+                        nome_chamada == &nome && argumentos_chamada == argumentos
                     })
                     .map(|(_, _, vida, _)| *vida)
             }
@@ -3086,10 +3102,10 @@ impl<'a> Analisador<'a> {
             }
             Expressao::ArgumentoNomeado { valor, .. } => self.lugar_origem_referencia(valor),
             Expressao::Chamada { alvo, argumentos, .. } => {
-                let Expressao::Nome(nome) = alvo.as_ref() else { return None; };
+                let nome = self.nome_funcao_chamada(alvo)?;
                 self.vidas_retorno_chamadas.iter().rev()
                     .find(|(nome_chamada, argumentos_chamada, _, _)| {
-                        nome_chamada == nome && argumentos_chamada == argumentos
+                        nome_chamada == &nome && argumentos_chamada == argumentos
                     })
                     .and_then(|(_, _, _, lugar)| lugar.clone())
             }
