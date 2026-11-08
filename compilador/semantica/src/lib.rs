@@ -1485,9 +1485,9 @@ impl<'a> Analisador<'a> {
                 }
                 match destino.as_ref() {
                     Expressao::Nome(nome) => {
-                        if let Some(vida_util) = vida_util_atribuida {
-                            if let Some(indice) = self.indice_escopo_nome(nome) {
-                                let chave = format!("{nome}@{indice}");
+                        if let Some(indice) = self.indice_escopo_nome(nome) {
+                            let chave = format!("{nome}@{indice}");
+                            if let Some(vida_util) = vida_util_atribuida {
                                 self.origens_referencia.insert(chave.clone(), vida_util);
                                 self.origens_referencia_invalidas.remove(&chave);
                                 if let Some(lugar_origem) = lugar_origem_atribuida.clone() {
@@ -1495,6 +1495,10 @@ impl<'a> Analisador<'a> {
                                 } else {
                                     self.origens_referencia_lugares.remove(&chave);
                                 }
+                            } else if matches!(tipo_valor, Tipo::Referencia { .. }) {
+                                self.origens_referencia.remove(&chave);
+                                self.origens_referencia_lugares.remove(&chave);
+                                self.origens_referencia_invalidas.insert(chave);
                             }
                         }
                         if let Some(simbolo) = self.buscar(nome).cloned() {
