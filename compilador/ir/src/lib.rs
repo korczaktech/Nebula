@@ -3736,7 +3736,7 @@ mod testes {
     #[test]
     fn aceita_aliases_curto_de_inteiros_sem_sinal() {
         let ir = compilar(
-            "variavel a: u8 = 255\nvariavel b: u16 = 65535\nvariavel c: u32 = 42\nvariavel d: u64 = 42\nvariavel e: u128 = 42\nvariavel convertido = u64(u32(42))\nexibir(a)\nexibir(b)\nexibir(c)\nexibir(d)\nexibir(e)\nexibir(convertido)",
+            "variavel valorA: u8 = 255\nvariavel valorB: u16 = 65535\nvariavel valorC: u32 = 42\nvariavel valorD: u64 = 42\nvariavel valorE: u128 = 42\nvariavel conversaoAlias = u64(u32(42))\nexibir(valorA)\nexibir(valorB)\nexibir(valorC)\nexibir(valorD)\nexibir(valorE)\nexibir(conversaoAlias)",
         );
         let resultado = executar(&ir, 200).expect("aliases curtos de inteiros sem sinal");
         assert_eq!(resultado.saida, vec!["255", "65535", "42", "42", "42", "42"]);
