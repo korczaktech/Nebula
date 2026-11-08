@@ -316,7 +316,7 @@ impl AnalisadorPropriedade {
         let vida_util = VidaUtil {
             escopo_proprietario,
             escopo_referencia: self.escopo,
-            origem_parametro: false,
+            parametro_origem: None,
             emprestimo: Some(identificador),
         };
         if !vida_util.pode_ser_armazenada_em(self.escopo) {
