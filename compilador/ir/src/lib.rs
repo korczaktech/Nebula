@@ -1027,7 +1027,7 @@ impl Lowerer {
             Expressao::Lambda { .. } | Expressao::LambdaBloco { .. } | Expressao::Condicional { .. } => None,
             Expressao::Atribuicao { destino, valor } => {
                 let tipo = self.inferir_tipo_ast(destino);
-                let valor = Box::new(self.expressao(valor)?);
+                let valor = Box::new(self.expressao_consumida(valor)?);
                 if let Expressao::Nome(nome) = destino.as_ref() {
                     Some(ExpressaoIr::Atribuicao { nome: nome.clone(), valor, tipo })
                 } else if let Expressao::Unaria { operador: TipoToken::Vezes, valor: referencia } = destino.as_ref() {
