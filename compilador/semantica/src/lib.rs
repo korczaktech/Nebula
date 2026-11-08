@@ -1024,7 +1024,6 @@ impl<'a> Analisador<'a> {
                 self.profundidade_laco -= 1;
                 if let Some(atualizacao) = atualizacao { self.expressao(atualizacao); }
                 let depois_corpo = self.snapshot_movidos();
-                self.fechar_escopo();
                 let propriedade_depois = self.propriedade.clone();
                 let origens_depois = self.estado_origens_referencia();
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
@@ -1036,6 +1035,7 @@ impl<'a> Analisador<'a> {
                 if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
                     self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
                 }
+                self.fechar_escopo();
             }
             NoAst::Devolver(valor) => {
                 let esperado = self.retorno_atual.clone();
