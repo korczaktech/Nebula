@@ -1902,6 +1902,25 @@ mod ciclo_vida {
         }
 
         #[test]
+        fn lista_movida_nao_aceita_mutacoes_ate_reinicializacao() {
+            let mut memoria = Memoria::nova();
+            memoria.declarar("itens", Valor::Lista(Arc::new(RwLock::new(vec![Valor::Inteiro(1)]))), true).unwrap();
+            memoria.mover("itens").unwrap();
+            assert_eq!(memoria.adicionar_elemento_lista("itens", Valor::Inteiro(2)), Err(ErroRuntime::UsoAposMovimento("itens".into())));
+            assert_eq!(memoria.remover_elemento_lista("itens", 0), Err(ErroRuntime::UsoAposMovimento("itens".into())));
+        }
+
+        #[test]
+        fn escrita_por_referencia_reinicializa_celula_movida() {
+            let mut memoria = Memoria::nova();
+            memoria.declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = memoria.identificador_escopo_da_variavel("valor").unwrap();
+            memoria.mover("valor").unwrap();
+            memoria.atribuir_referenciado(escopo, "valor", Valor::Inteiro(9), true).unwrap();
+            assert_eq!(memoria.obter("valor"), Ok(Valor::Inteiro(9)));
+        }
+
+        #[test]
         fn movimento_por_referencia_tambem_impede_dereferencia() {
             let mut memoria = Memoria::nova();
             memoria.declarar("recurso", Valor::Inteiro(7), true).unwrap();
