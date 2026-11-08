@@ -2457,6 +2457,15 @@ impl Maquina<'_, '_> {
                     return Err("Atribuição por referência exige referência exclusiva e mutável.".into());
                 };
                 let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
+                if let ValorIr::Referencia { nome: nome_origem, escopo: escopo_origem, .. } = &valor {
+                    self.contexto
+                        .promover_emprestimo_referenciado_para_escopo(
+                            *escopo_origem,
+                            nome_origem,
+                            escopo,
+                        )
+                        .map_err(formatar_erro_runtime)?;
+                }
                 self.memoria_mutavel()?.atribuir_referenciado(
                     escopo,
                     &nome,
@@ -2518,6 +2527,11 @@ impl Maquina<'_, '_> {
                 self.contexto.validar_escrita_referenciada(escopo, nome)
                     .map_err(formatar_erro_runtime)?;
                 let valor = normalizar_valor(tipo, self.expressao(valor)?)?;
+                if let ValorIr::Referencia { nome: nome_origem, escopo, .. } = &valor {
+                    self.contexto
+                        .promover_emprestimo_referenciado(*escopo, nome_origem, nome)
+                        .map_err(formatar_erro_runtime)?;
+                }
                 self.memoria_mutavel()?
                     .atribuir(nome, converter_para_runtime(valor.clone()))
                     .map_err(formatar_erro_runtime)?;
