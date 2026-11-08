@@ -4601,6 +4601,30 @@ mod testes {
     }
 
     #[test]
+    fn runtime_bloqueia_leitura_direta_durante_emprestimo_exclusivo() {
+        let programa = compilar(
+            "variavel valor: inteiro = 4\nvariavel referencia: &mutavel inteiro = &mutavel valor\nvariavel obtido = valor",
+        );
+        let resultado = executar(&programa, 100);
+        assert!(
+            resultado.as_ref().is_err_and(|erro| erro.contains("EmprestimoConflitante")),
+            "A leitura direta do proprietário deve falhar durante empréstimo exclusivo: {resultado:?}"
+        );
+    }
+
+    #[test]
+    fn runtime_bloqueia_escrita_direta_durante_emprestimo_compartilhado() {
+        let programa = compilar(
+            "variavel valor: inteiro = 4\nvariavel referencia: &inteiro = &valor\nvalor = 5",
+        );
+        let resultado = executar(&programa, 100);
+        assert!(
+            resultado.as_ref().is_err_and(|erro| erro.contains("EmprestimoConflitante")),
+            "A escrita direta do proprietário deve falhar durante empréstimo compartilhado: {resultado:?}"
+        );
+    }
+
+    #[test]
     fn rejeita_referencia_runtime_apos_escopo_de_origem_encerrado() {
         let mut memoria = nebula_runtime::Memoria::nova();
         memoria.abrir_escopo();
