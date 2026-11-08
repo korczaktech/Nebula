@@ -48,6 +48,7 @@ pub enum ExpressaoIr {
     ReferenciaFuncaoQualificada { modulo: String, nome: String, tipo: Tipo },
     ChamadaIndireta { alvo: Box<ExpressaoIr>, argumentos: Vec<ExpressaoIr> },
     Variavel(String),
+    Mover { nome: String, tipo: Tipo },
     Lista(Vec<ExpressaoIr>), Tupla(Vec<ExpressaoIr>),
     Unaria { operador: OperadorIr, valor: Box<ExpressaoIr> },
     Referencia { nome: String, mutavel: bool, tipo: Tipo },
@@ -1337,7 +1338,8 @@ fn inferir_tipo(expressao: &ExpressaoIr) -> Tipo {
         ExpressaoIr::Constante(ValorIr::Logico(_)) => Tipo::Logico,
         ExpressaoIr::Constante(ValorIr::Texto(_)) => Tipo::Texto,
         ExpressaoIr::Constante(ValorIr::Caractere(_)) => Tipo::Caractere,
-        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. } => tipo.clone(),
+        ExpressaoIr::Normalizar { tipo, .. } | ExpressaoIr::Conversao { tipo, .. }
+        | ExpressaoIr::Mover { tipo, .. } => tipo.clone(),
         ExpressaoIr::ReferenciaFuncao { tipo, .. } | ExpressaoIr::ReferenciaFuncaoQualificada { tipo, .. } => tipo.clone(),
         ExpressaoIr::ChamadaIndireta { alvo, .. } => match inferir_tipo(alvo) {
             Tipo::Funcao(_, retorno) => *retorno,
@@ -2296,6 +2298,11 @@ impl Maquina<'_, '_> {
                     .map_err(formatar_erro_runtime)?;
                 self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))
             },
+            ExpressaoIr::Mover { nome, .. } => {
+                let valor = self.memoria_mutavel()?.mover(nome)
+                    .map_err(formatar_erro_runtime)?;
+                converter_para_ir(valor)
+            }
             ExpressaoIr::Referencia { nome, mutavel, .. } => {
                 let escopo = self.contexto.memoria().identificador_escopo_da_variavel(nome)
                     .ok_or_else(|| format!("Variável '{nome}' não encontrada para criação de referência."))?;
@@ -3553,6 +3560,58 @@ mod testes {
         );
         let resultado = executar(&ir, 100).expect("operações decimal32 válidas");
         assert_eq!(resultado.saida, vec!["16777216"]);
+    }
+
+    #[test]
+    fn ir_move_valor_e_rejeita_uso_posterior() {
+        let programa = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar {
+                    nome: "recurso".into(),
+                    tipo: Tipo::Texto,
+                    valor: ExpressaoIr::Constante(ValorIr::Texto("dado".into())),
+                    constante: false,
+                },
+                InstrucaoIr::Expressao(ExpressaoIr::Mover {
+                    nome: "recurso".into(),
+                    tipo: Tipo::Texto,
+                }),
+                InstrucaoIr::Expressao(ExpressaoIr::Variavel("recurso".into())),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        };
+        let erro = executar(&programa, 100).expect_err("uso após movimento deve falhar");
+        assert!(erro.contains("movid") || erro.contains("movimento"), "{erro}");
+    }
+
+    #[test]
+    fn ir_permite_reinicializar_variavel_apos_movimento() {
+        let programa = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar {
+                    nome: "recurso".into(),
+                    tipo: Tipo::Texto,
+                    valor: ExpressaoIr::Constante(ValorIr::Texto("antigo".into())),
+                    constante: false,
+                },
+                InstrucaoIr::Expressao(ExpressaoIr::Mover {
+                    nome: "recurso".into(),
+                    tipo: Tipo::Texto,
+                }),
+                InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                    nome: "recurso".into(),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Texto("novo".into()))),
+                    tipo: Tipo::Texto,
+                }),
+                InstrucaoIr::Expressao(ExpressaoIr::Variavel("recurso".into())),
+            ],
+            funcoes: HashMap::new(),
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        };
+        assert!(executar(&programa, 100).is_ok());
     }
 
     #[test]
