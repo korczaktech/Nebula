@@ -2214,7 +2214,24 @@ impl<'a> Analisador<'a> {
         use TipoToken::{Diferente, Divide, DivideInteira, E, EBit, Igual, Intervalo, Maior, MaiorIgual, Menor, MenorIgual, Menos, Mais, Ou, OuBit, Potencia, Resto, Vezes, XorBit, DeslocaEsquerda, DeslocaDireita, DeslocaDireitaSemSinal};
         match op {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
-            Mais | Menos | Vezes | Divide | Resto | Potencia => {
+            Divide => {
+                if Self::numerico(a) && Self::numerico(b) {
+                    if Self::inteiro(a) && Self::inteiro(b) {
+                        if Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                            self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                            Tipo::Desconhecido
+                        } else {
+                            Tipo::Decimal64
+                        }
+                    } else {
+                        Self::promover_numerico(a, b)
+                    }
+                } else {
+                    self.erro("N3016", "Operação aritmética exige operandos numéricos compatíveis.");
+                    Tipo::Desconhecido
+                }
+            }
+            Mais | Menos | Vezes | Resto | Potencia => {
                 if Self::numerico(a) && Self::numerico(b) {
                     if Self::inteiro(a) && Self::inteiro(b)
                         && Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
