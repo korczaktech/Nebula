@@ -129,6 +129,8 @@ pub enum ErroPropriedade {
     EscopoGlobal,
     OperacaoInseguraForaDeBloco,
     BlocoFluxoInexistente(usize),
+    ProfundidadesEscopoDivergentes { atual: usize, alternativo: usize },
+    ContextosInsegurosDivergentes,
     BlocoInseguroNaoAberto,
     ContextoInseguroIncompativel { operacao: OperacaoInsegura, contexto: Option<ContextoInseguro> },
     ObrigacaoInseguraNaoComprovada { operacao: OperacaoInsegura, obrigacao: &'static str },
@@ -514,6 +516,18 @@ impl AnalisadorPropriedade {
     /// empréstimos distintos recebem identificadores novos para que nenhum
     /// deles desapareça na junção.
     pub fn mesclar_caminhos(&mut self, caminhos: &[Self]) -> Result<(), ErroPropriedade> {
+        for caminho in caminhos {
+            if caminho.escopo != self.escopo {
+                return Err(ErroPropriedade::ProfundidadesEscopoDivergentes {
+                    atual: self.escopo,
+                    alternativo: caminho.escopo,
+                });
+            }
+            if caminho.contextos_inseguros != self.contextos_inseguros {
+                return Err(ErroPropriedade::ContextosInsegurosDivergentes);
+            }
+        }
+
         for (nome, variavel) in &mut self.variaveis {
             for caminho in caminhos {
                 if let Some(outro) = caminho.variaveis.get(nome) {
@@ -1002,6 +1016,31 @@ mod testes {
         let acoes = fluxo.sair_escopo().unwrap();
         assert_eq!(acoes.iter().map(|a| a.lugar.raiz.as_str()).collect::<Vec<_>>(), vec!["segundo", "primeiro"]);
         assert_eq!(fluxo.quantidade_emprestimos(), 0);
+    }
+
+    #[test]
+    fn rejeita_juncao_de_fluxos_com_escopos_diferentes() {
+        let mut base = AnalisadorPropriedade::novo();
+        let mut alternativo = base.clone();
+        alternativo.entrar_escopo();
+        assert_eq!(
+            base.mesclar_caminhos(&[alternativo]),
+            Err(ErroPropriedade::ProfundidadesEscopoDivergentes {
+                atual: 0,
+                alternativo: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn rejeita_juncao_de_fluxos_com_contextos_inseguros_diferentes() {
+        let mut base = AnalisadorPropriedade::novo();
+        let mut alternativo = base.clone();
+        alternativo.entrar_contexto_inseguro(ContextoInseguro::Critico);
+        assert_eq!(
+            base.mesclar_caminhos(&[alternativo]),
+            Err(ErroPropriedade::ContextosInsegurosDivergentes)
+        );
     }
 
     #[test]
