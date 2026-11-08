@@ -521,7 +521,8 @@ impl<'a> Analisador<'a> {
                         format!("A variável '{nome}' não pode armazenar referências dentro de agregados ou campos de classe; use uma referência direta com vida útil verificável."),
                     );
                 }
-                let vida_util = if matches!(final_tipo, Tipo::Referencia { .. }) {
+                let referencia = matches!(&final_tipo, Tipo::Referencia { .. });
+                let vida_util = if referencia {
                     let vida = self.vida_util_referencia(valor);
                     if vida.is_none() {
                         self.erro(
@@ -533,10 +534,15 @@ impl<'a> Analisador<'a> {
                 } else {
                     None
                 };
+                let lugar_origem = if referencia { self.lugar_origem_referencia(valor) } else { None };
                 let indice_escopo = self.escopos.len().saturating_sub(1);
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
+                let chave_referencia = format!("{nome}@{indice_escopo}");
                 if let Some(vida_util) = vida_util {
-                    self.origens_referencia.insert(format!("{nome}@{indice_escopo}"), vida_util);
+                    self.origens_referencia.insert(chave_referencia.clone(), vida_util);
+                }
+                if let Some(lugar_origem) = lugar_origem {
+                    self.origens_referencia_lugares.insert(chave_referencia, lugar_origem);
                 }
             }
             NoAst::Funcao { nome, genericos, parametros, parametros_padrao, corpo, .. } => {
@@ -569,12 +575,13 @@ impl<'a> Analisador<'a> {
                             VidaUtil {
                                 escopo_proprietario: indice_escopo,
                                 escopo_referencia: indice_escopo,
-                                origem_parametro: true,
+                                parametro_origem: Some(indice),
                                 emprestimo: None,
                             },
                         );
                     }
                 }
+                let funcao_anterior = self.funcao_atual.replace(chave.clone());
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
                 self.profundidade_laco = 0;
@@ -584,6 +591,7 @@ impl<'a> Analisador<'a> {
                 }
                 self.profundidade_laco = laco_anterior;
                 self.retorno_atual = retorno_anterior;
+                self.funcao_atual = funcao_anterior;
                 self.fechar_escopo();
                 self.parametros_funcao.pop();
                 self.parametros_genericos = genericos_anteriores;
