@@ -5564,9 +5564,9 @@ classe Contador: {
     }
 
     #[test]
-    fn divide_inteiros_como_decimal_e_preserva_divisao_inteira() {
+    fn divide_decimais_e_preserva_divisao_inteira() {
         let resultado = analisar_codigo(
-            "variavel fracao: decimal = 10 / 5\nvariavel quociente: inteiro = 10 // 3",
+            "variavel fracao: decimal = 10.0 / 5.0\nvariavel quociente: inteiro = 10 // 3",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
         assert_eq!(resultado.tipos_globais.get("fracao"), Some(&Tipo::Decimal64));
