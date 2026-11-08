@@ -3879,11 +3879,13 @@ mod testes {
             nome: "buscar".into(),
             parametros: Vec::new(),
             retorno: tipo_referencia.clone(),
-            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Referencia {
-                nome: "origem".into(),
-                mutavel: false,
-                tipo: Tipo::Inteiro,
-            }))],
+            corpo: vec![InstrucaoIr::Bloco(vec![
+                InstrucaoIr::Devolver(Some(ExpressaoIr::Referencia {
+                    nome: "origem".into(),
+                    mutavel: false,
+                    tipo: Tipo::Inteiro,
+                })),
+            ])],
         };
         let mut funcoes = HashMap::new();
         funcoes.insert("buscar".into(), funcao);
