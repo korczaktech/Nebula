@@ -1118,6 +1118,67 @@ mod testes {
     }
 
     #[test]
+    fn todas_as_operacoes_inseguras_exigem_contexto_e_provas_especificos() {
+        let operacoes = [
+            (OperacaoInsegura::DesreferenciarPonteiroBruto, ContextoInseguro::Critico),
+            (OperacaoInsegura::CriarReferenciaDeEndereco, ContextoInseguro::Critico),
+            (OperacaoInsegura::AcessarMemoria, ContextoInseguro::Critico),
+            (OperacaoInsegura::ReinterpretarRepresentacao, ContextoInseguro::Critico),
+            (OperacaoInsegura::ChamarExternoNaoVerificado, ContextoInseguro::Critico),
+            (OperacaoInsegura::Montagem, ContextoInseguro::Montagem),
+            (OperacaoInsegura::OperacaoPrivilegiada, ContextoInseguro::Privilegio),
+            (OperacaoInsegura::LiberarAlocacao, ContextoInseguro::Critico),
+            (OperacaoInsegura::AcessarMemoriaMapeada, ContextoInseguro::Critico),
+        ];
+        let provas_completas = ProvasInseguras {
+            endereco_valido: true,
+            alinhamento_valido: true,
+            inicializacao_comprovada: true,
+            aliasing_controlado: true,
+            limites_comprovados: true,
+            abi_validada: true,
+            alvo_compativel: true,
+            autorizacao_sistema: true,
+        };
+
+        for (operacao, contexto) in operacoes {
+            let mut analisador = AnalisadorPropriedade::novo();
+            analisador.entrar_contexto_inseguro(contexto);
+            assert!(
+                analisador.validar_operacao_especifica(operacao, provas_completas).is_ok(),
+                "A operação {operacao:?} deve aceitar seu contexto e todas as provas"
+            );
+            assert!(
+                matches!(
+                    analisador.validar_operacao_especifica(operacao, ProvasInseguras::default()),
+                    Err(ErroPropriedade::ObrigacaoInseguraNaoComprovada { .. })
+                ),
+                "A operação {operacao:?} não pode aceitar provas ausentes"
+            );
+        }
+    }
+
+    #[test]
+    fn contexto_critico_nao_autoriza_operacao_privilegiada_ou_montagem() {
+        let mut analisador = AnalisadorPropriedade::novo();
+        analisador.entrar_contexto_inseguro(ContextoInseguro::Critico);
+        let provas = ProvasInseguras {
+            alvo_compativel: true,
+            abi_validada: true,
+            autorizacao_sistema: true,
+            ..ProvasInseguras::default()
+        };
+        assert!(matches!(
+            analisador.validar_operacao_especifica(OperacaoInsegura::OperacaoPrivilegiada, provas),
+            Err(ErroPropriedade::ContextoInseguroIncompativel { .. })
+        ));
+        assert!(matches!(
+            analisador.validar_operacao_especifica(OperacaoInsegura::Montagem, provas),
+            Err(ErroPropriedade::ContextoInseguroIncompativel { .. })
+        ));
+    }
+
+    #[test]
     fn operacao_insegura_exige_contexto_especifico_e_provas() {
         let mut fluxo = AnalisadorPropriedade::novo();
         fluxo.entrar_contexto_inseguro(ContextoInseguro::Critico);
