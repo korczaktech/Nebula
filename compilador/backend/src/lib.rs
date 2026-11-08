@@ -1514,6 +1514,28 @@ impl Emissor {
                 }
             }
             ExpressaoIr::Chamada { nome, argumentos } => {
+                if nome == "faixa" {
+                    let [inicio, fim] = argumentos.as_slice() else {
+                        return Err("'faixa' exige exatamente dois limites inteiros no backend nativo.".into());
+                    };
+                    let tipos_validos = [inicio, fim].iter().all(|argumento| {
+                        matches!(self.tipo_expressao_atual(argumento),
+                            Some(Tipo::Inteiro | Tipo::Inteiro8 | Tipo::Inteiro16
+                                | Tipo::Inteiro32 | Tipo::Inteiro64
+                                | Tipo::InteiroU8 | Tipo::InteiroU16 | Tipo::InteiroU32
+                                | Tipo::InteiroU64 | Tipo::Byte))
+                    });
+                    if !tipos_validos {
+                        return Err("'faixa' exige dois limites inteiros compatíveis com o backend ELF.".into());
+                    }
+                    let slot_inicio = self.reservar_agregado(8, 8)?;
+                    self.expressao(inicio)?;
+                    self.armazenar_rax(slot_inicio);
+                    self.expressao(fim)?;
+                    self.codigo.extend_from_slice(&[0x48, 0x89, 0xC2]);
+                    self.carregar_rax(slot_inicio);
+                    return Ok(());
+                }
                 if nome == "exibir" {
                     if argumentos.iter().any(|argumento| {
                         self.tipo_expressao_atual(argumento).as_ref() != Some(&Tipo::Texto)
@@ -2415,6 +2437,9 @@ impl Emissor {
             }
             ExpressaoIr::Chamada { nome, .. } if nome == "json_valido" => {
                 Some(Tipo::Logico)
+            }
+            ExpressaoIr::Chamada { nome, .. } if nome == "faixa" => {
+                Some(Tipo::Intervalo(Box::new(Tipo::Inteiro)))
             }
             ExpressaoIr::Chamada { nome, .. } => self.retornos_funcoes.get(nome).cloned(),
             ExpressaoIr::ChamadaQualificada { modulo, nome, .. } => {
@@ -3949,6 +3974,7 @@ mod testes {
         assert_eq!(executar_elf_de_teste(&programa), 42);
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn executa_referencia_compartilhada_e_desreferencia_no_elf() {
         let mut programa = programa_com_retorno(0);
