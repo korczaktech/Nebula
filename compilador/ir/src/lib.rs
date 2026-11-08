@@ -737,6 +737,9 @@ impl Lowerer {
             "receber" | "perguntar" | "ler_texto" => return Tipo::Texto,
             "dormir" | "aguardar" | "exibir" | "adicionar" => return Tipo::Vazio,
             "tempo" | "comprimento" => return Tipo::Inteiro,
+            "faixa" if argumentos.len() == 2 => {
+                return Tipo::Intervalo(Box::new(Tipo::Inteiro));
+            }
             _ => {}
         }
 
