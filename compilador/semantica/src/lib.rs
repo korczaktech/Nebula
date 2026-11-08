@@ -9,7 +9,7 @@ use nebula_diagnosticos::{Diagnostico, Severidade};
 use nebula_sintaxe::{Expressao, NoAst, Programa, TipoAst, TipoToken};
 use std::collections::{HashMap, HashSet};
 use nebula_fonte::IntervaloFonte;
-use super::{AnalisadorPropriedade, ContextoInseguro, Lugar, OperacaoInsegura, ProvasInseguras, TipoEmprestimo};
+use super::{AnalisadorPropriedade, ContextoInseguro, Lugar, OperacaoInsegura, ProvasInseguras, TipoEmprestimo, VidaUtil};
 
 /// Tipos estáticos disponíveis no subconjunto semântico inicial.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -90,6 +90,7 @@ struct Analisador<'a> {
     classes: HashMap<String, Option<String>>,
     classe_atual: Option<String>,
     propriedade: AnalisadorPropriedade,
+    origens_referencia: HashMap<String, VidaUtil>,
     proximo_emprestimo: u64,
     contextos_inseguros: Vec<String>,
     parametros_funcao: Vec<HashMap<String, Tipo>>,
@@ -120,6 +121,7 @@ impl<'a> Analisador<'a> {
             classes: HashMap::new(),
             classe_atual: None,
             propriedade: AnalisadorPropriedade::novo(),
+            origens_referencia: HashMap::new(),
             proximo_emprestimo: 1,
             contextos_inseguros: Vec::new(),
             parametros_funcao: Vec::new(),
@@ -504,7 +506,23 @@ impl<'a> Analisador<'a> {
                         format!("A variável '{nome}' não pode armazenar referências dentro de agregados ou campos de classe; use uma referência direta com vida útil verificável."),
                     );
                 }
+                let vida_util = if matches!(final_tipo, Tipo::Referencia { .. }) {
+                    let vida = self.vida_util_referencia(valor);
+                    if vida.is_none() {
+                        self.erro(
+                            "N3105",
+                            format!("A origem da referência '{nome}' não possui vida útil comprovável."),
+                        );
+                    }
+                    vida
+                } else {
+                    None
+                };
+                let indice_escopo = self.escopos.len().saturating_sub(1);
                 self.declarar(nome, Simbolo { tipo: final_tipo, mutavel: !constante, movido: false, campos_movidos: HashSet::new() });
+                if let Some(vida_util) = vida_util {
+                    self.origens_referencia.insert(format!("{nome}@{indice_escopo}"), vida_util);
+                }
             }
             NoAst::Funcao { nome, genericos, parametros, parametros_padrao, corpo, .. } => {
                 let chave = self.classe_atual.as_ref().map_or_else(|| nome.clone(), |classe| format!("{classe}::{nome}"));
@@ -529,6 +547,16 @@ impl<'a> Analisador<'a> {
                         self.exigir_expressao_tipo(padrao, &tipo_obtido, tipo, "valor padrão do parâmetro");
                     }
                     self.declarar(nome_parametro, Simbolo { tipo: tipo.clone(), mutavel: true, movido: false, campos_movidos: HashSet::new() });
+                    if matches!(tipo, Tipo::Referencia { .. }) {
+                        let indice_escopo = self.escopos.len().saturating_sub(1);
+                        self.origens_referencia.insert(
+                            format!("{nome_parametro}@{indice_escopo}"),
+                            VidaUtil {
+                                escopo_proprietario: indice_escopo,
+                                escopo_referencia: indice_escopo,
+                            },
+                        );
+                    }
                 }
                 let retorno_anterior = self.retorno_atual.replace(funcao.retorno.clone());
                 let laco_anterior = self.profundidade_laco;
@@ -1265,32 +1293,25 @@ impl<'a> Analisador<'a> {
                 // Uma referência armazenada em variável de escopo externo não
                 // pode receber um empréstimo criado em um escopo interno:
                 // o empréstimo seria encerrado antes da referência armazenada.
-                if matches!(tipo_valor, Tipo::Referencia { .. }) {
-                    if let (Expressao::Nome(nome_destino), Expressao::Unaria {
-                        operador: TipoToken::EBit | TipoToken::Mutavel,
-                        valor: origem,
-                    }) = (destino.as_ref(), valor.as_ref()) {
+                let vida_util_atribuida = if matches!(tipo_valor, Tipo::Referencia { .. }) {
+                    let vida = self.vida_util_referencia(valor);
+                    if vida.is_none() {
+                        self.erro("N3105", "A origem da referência atribuída não possui vida útil comprovável.");
+                    }
+                    if let (Some(vida), Expressao::Nome(nome_destino)) = (vida, destino.as_ref()) {
                         if let Some(indice_destino) = self.indice_escopo_nome(nome_destino) {
-                            if let Some(lugar_origem) = self.lugar_de_expressao(origem) {
-                                if let Err(erro) = self.propriedade
-                                    .validar_destino_referencia(&lugar_origem, indice_destino)
-                                {
-                                    self.erro("N3105", format!("A referência não pode escapar da vida útil de seu proprietário: {erro:?}."));
-                                }
+                            if !vida.pode_ser_armazenada_em(indice_destino) {
+                                self.erro(
+                                    "N3105",
+                                    format!("A referência não pode escapar da vida útil de seu proprietário (escopo {}, destino {}).", vida.escopo_proprietario, indice_destino),
+                                );
                             }
                         }
                     }
-                    else if let Expressao::Nome(nome_destino) = destino.as_ref() {
-                        if self.indice_escopo_nome(nome_destino)
-                            .is_some_and(|indice| indice < self.escopos.len().saturating_sub(1))
-                        {
-                            self.erro(
-                                "N3105",
-                                "Uma referência copiada não pode escapar para um escopo externo sem prova da vida útil de sua origem.",
-                            );
-                        }
-                    }
-                }
+                    vida
+                } else {
+                    None
+                };
                 if let Some(lugar) = self.lugar_de_expressao(destino) {
                     if let Err(erro) = self.propriedade.atribuir(&lugar) {
                         self.erro("N3100", format!("Atribuição conflita com empréstimo ativo: {erro:?}."));
@@ -1298,6 +1319,11 @@ impl<'a> Analisador<'a> {
                 }
                 match destino.as_ref() {
                     Expressao::Nome(nome) => {
+                        if let Some(vida_util) = vida_util_atribuida {
+                            if let Some(indice) = self.indice_escopo_nome(nome) {
+                                self.origens_referencia.insert(format!("{nome}@{indice}"), vida_util);
+                            }
+                        }
                         if let Some(simbolo) = self.buscar(nome).cloned() {
                             if !simbolo.mutavel {
                                 self.erro("N3009", format!("Não é permitido alterar a constante '{nome}'."));
@@ -2906,26 +2932,42 @@ impl<'a> Analisador<'a> {
         }
     }
 
-    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
-        let Some(parametros) = self.parametros_funcao.last() else {
-            return false;
-        };
-        if let Expressao::Nome(nome) = expressao {
-            return parametros
-                .get(nome)
-                .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }));
+    fn vida_util_referencia(&self, expressao: &Expressao) -> Option<VidaUtil> {
+        match expressao {
+            Expressao::Unaria {
+                operador: TipoToken::EBit | TipoToken::Mutavel,
+                ..
+            } => self.propriedade
+                .vida_util_emprestimo(self.proximo_emprestimo.saturating_sub(1)),
+            Expressao::Nome(nome) => {
+                let indice = self.indice_escopo_nome(nome)?;
+                let chave = format!("{nome}@{indice}");
+                self.origens_referencia.get(&chave).copied().or_else(|| {
+                    self.buscar(nome)
+                        .is_some_and(|simbolo| matches!(simbolo.tipo, Tipo::Referencia { .. }))
+                        .then_some(VidaUtil {
+                            escopo_proprietario: indice,
+                            escopo_referencia: indice,
+                        })
+                })
+            }
+            _ => None,
         }
-        if let Expressao::Unaria {
-            operador: TipoToken::EBit | TipoToken::Mutavel,
-            valor: origem,
-        } = expressao {
-            if let Some(lugar) = self.lugar_de_expressao(origem) {
-                return self.propriedade.escopo_do_lugar(&lugar) == Some(0);
+    }
+
+    fn referencia_origem_parametro(&self, expressao: &Expressao) -> bool {
+        if let Some(parametros) = self.parametros_funcao.last() {
+            if let Expressao::Nome(nome) = expressao {
+                if parametros
+                    .get(nome)
+                    .is_some_and(|tipo| matches!(&tipo, Tipo::Referencia { .. }))
+                {
+                    return true;
+                }
             }
         }
-        // Criar uma referência ao slot local de um parâmetro não prolonga
-        // a vida útil do valor para além da chamada.
-        false
+        self.vida_util_referencia(expressao)
+            .is_some_and(|vida| vida.escopo_proprietario == 0)
     }
 
     fn lugar_de_expressao(&self, expressao: &Expressao) -> Option<Lugar> {
@@ -3149,6 +3191,9 @@ impl<'a> Analisador<'a> {
     }
     fn fechar_escopo(&mut self) {
         if self.escopos.len() > 1 {
+            let indice_escopo = self.escopos.len().saturating_sub(1);
+            let sufixo = format!("@{indice_escopo}");
+            self.origens_referencia.retain(|nome, _| !nome.ends_with(&sufixo));
             self.escopos.pop();
             if let Err(erro) = self.propriedade.sair_escopo() {
                 self.erro("N3095", format!("Falha ao encerrar vida útil do escopo: {erro:?}."));
@@ -5119,6 +5164,30 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.is_empty(),
             "O proprietário global continua vivo no escopo de destino: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn propaga_vida_util_ao_copiar_referencia_compartilhada() {
+        let resultado = analisar_codigo(
+            "variavel global: inteiro = 1\nvariavel referencia: &inteiro = &global\nquando verdadeiro\n    variavel local: &inteiro = referencia\n    referencia = local",
+        );
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "Copiar uma referência não pode encurtar a vida útil do proprietário: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn rejeita_referencia_local_copiada_para_escopo_externo() {
+        let resultado = analisar_codigo(
+            "variavel origem: inteiro = 1\nvariavel referencia: &inteiro = &origem\nquando verdadeiro\n    variavel local: inteiro = 2\n    variavel local_ref: &inteiro = &local\n    referencia = local_ref",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3105"),
+            "A cópia não pode ocultar que a origem pertence ao escopo interno: {:?}",
             resultado.diagnosticos
         );
     }
