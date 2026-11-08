@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn preserva_linhas_e_conteudo_das_strings() {
-        let source = "funcao principal(): vazio\n    exibir(\"a  b\")  \nfim\n";
+        let source = "funcao principal(): {\n    exibir(\"a  b\")  \n}\n";
         let formatted = normalize_whitespace(source);
         assert!(formatted.contains("\"a  b\""));
         assert_eq!(formatted.matches('\n').count(), 3);
@@ -145,14 +145,14 @@ mod tests {
     }
     #[test]
     fn preserva_indentacao_canonica_em_blocos() {
-        let source = "funcao principal(): vazio\n    exibir(1)\n    quando verdadeiro\n        exibir(2)\n    fim\nfim\n";
+        let source = "funcao principal(): {\n    exibir(1)\n    quando verdadeiro: {\n        exibir(2)\n    }\n}\n";
         let formatted = normalize_whitespace(source);
         assert_eq!(formatted, source);
         assert_eq!(normalize_whitespace(&formatted), formatted);
     }
     #[test]
     fn preserva_chaves_em_strings_e_comentarios() {
-        let source = "funcao principal(): vazio\n    exibir(\"{ }\") // }\n    /* {\n     } */\n    exibir('}')\nfim\n";
+        let source = "funcao principal(): {\n    exibir(\"{ }\") // }\n    /* {\n     } */\n    exibir('}')\n}\n";
         let formatted = normalize_whitespace(source);
         assert_eq!(formatted, source);
     }
