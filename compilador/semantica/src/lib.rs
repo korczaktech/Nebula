@@ -5288,13 +5288,13 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
-    fn permite_retorno_de_referencia_para_proprietario_global() {
+    fn propaga_vida_util_de_referencia_global_retornada_por_funcao() {
         let resultado = analisar_codigo(
-            "variavel valorGlobal: inteiro = 11\nfuncao buscarGlobal(): &inteiro\n    devolver &valorGlobal",
+            "variavel valorGlobal: inteiro = 11\nfuncao buscarGlobal(): &inteiro\n    devolver &valorGlobal\nvariavel referencia: &inteiro = buscarGlobal()\nvalorGlobal = 12",
         );
         assert!(
-            resultado.diagnosticos.is_empty(),
-            "Uma referência a proprietário global pode sobreviver à função: {:?}",
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3100"),
+            "A referência retornada precisa manter o empréstimo ativo no chamador: {:?}",
             resultado.diagnosticos
         );
     }
@@ -5343,6 +5343,18 @@ funcao sem_retorno(): vazio
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3105"),
             "A cópia não pode ocultar que a origem pertence ao escopo interno: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn propaga_vida_util_de_referencia_de_parametro_retornada() {
+        let resultado = analisar_codigo(
+            "funcao identidade(valor: &inteiro): &inteiro\n    devolver valor\nvariavel alvo: inteiro = 7\nvariavel referencia: &inteiro = identidade(&alvo)\nalvo = 8",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3100"),
+            "A referência retornada deve preservar o empréstimo do argumento: {:?}",
             resultado.diagnosticos
         );
     }
