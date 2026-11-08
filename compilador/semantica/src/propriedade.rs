@@ -579,6 +579,9 @@ pub enum OperacaoFluxoPropriedade {
     Atribuir(Lugar),
     Emprestar { identificador: u64, lugar: Lugar, tipo: TipoEmprestimo },
     EncerrarEmprestimo(u64),
+    EntrarEscopo,
+    Declarar(String),
+    SairEscopo,
 }
 
 /// Bloco básico do grafo de fluxo de controle.
@@ -602,6 +605,15 @@ pub struct ResultadoFluxoPropriedade {
     pub entradas: Vec<Option<AnalisadorPropriedade>>,
     pub saidas: Vec<Option<AnalisadorPropriedade>>,
     pub erros: Vec<ErroFluxoPropriedade>,
+    pub destruicoes: Vec<DestruicaoFluxoPropriedade>,
+}
+
+/// Destruição lexical emitida por uma operação de saída de escopo no CFG.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DestruicaoFluxoPropriedade {
+    pub bloco: usize,
+    pub operacao: usize,
+    pub acao: AcaoDestruicao,
 }
 
 /// Analisa movimentos e empréstimos em todos os caminhos alcançáveis do CFG.
@@ -629,6 +641,7 @@ pub fn analisar_fluxo_controle_propriedade(
     let mut entradas = vec![None; blocos.len()];
     let mut saidas = vec![None; blocos.len()];
     let mut erros = Vec::new();
+    let mut destruicoes = Vec::new();
     let mut fila = VecDeque::new();
     let mut enfileirados = HashSet::new();
 
@@ -651,10 +664,31 @@ pub fn analisar_fluxo_controle_propriedade(
                     estado.emprestar(*identificador, lugar.clone(), *tipo)
                 }
                 OperacaoFluxoPropriedade::EncerrarEmprestimo(identificador) => {
-                    estado.encerrar_emprestimo(*identificador)
+                    estado.encerrar_emprestimo(*identificador).map(|_| Vec::new())
                 }
+                OperacaoFluxoPropriedade::EntrarEscopo => {
+                    estado.entrar_escopo();
+                    Ok(Vec::new())
+                }
+                OperacaoFluxoPropriedade::Declarar(nome) => {
+                    estado.declarar(nome.clone()).map(|_| Vec::new())
+                }
+                OperacaoFluxoPropriedade::SairEscopo => estado.sair_escopo(),
             };
-            if let Err(erro) = resultado {
+            match resultado {
+                Ok(acoes) => {
+                    for acao in acoes {
+                        let destruicao = DestruicaoFluxoPropriedade {
+                            bloco: indice,
+                            operacao: indice_operacao,
+                            acao,
+                        };
+                        if !destruicoes.contains(&destruicao) {
+                            destruicoes.push(destruicao);
+                        }
+                    }
+                }
+                Err(erro) => {
                 let diagnostico = ErroFluxoPropriedade {
                     bloco: indice,
                     operacao: indice_operacao,
@@ -662,6 +696,7 @@ pub fn analisar_fluxo_controle_propriedade(
                 };
                 if !erros.contains(&diagnostico) {
                     erros.push(diagnostico);
+                }
                 }
             }
         }
@@ -685,7 +720,8 @@ pub fn analisar_fluxo_controle_propriedade(
         }
     }
 
-    Ok(ResultadoFluxoPropriedade { entradas, saidas, erros })
+    destruicoes.sort_by_key(|item| (item.bloco, item.operacao));
+    Ok(ResultadoFluxoPropriedade { entradas, saidas, erros, destruicoes })
 }
 
 #[cfg(test)]
@@ -758,6 +794,69 @@ mod testes {
         assert!(resultado.entradas[1].is_some());
         assert!(resultado.entradas[2].is_some());
         assert!(resultado.entradas[3].is_none());
+        assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_emite_destruicao_lifo_ao_sair_de_escopo() {
+        let blocos = vec![BlocoFluxoPropriedade {
+            operacoes: vec![
+                OperacaoFluxoPropriedade::EntrarEscopo,
+                OperacaoFluxoPropriedade::Declarar("primeiro".into()),
+                OperacaoFluxoPropriedade::Declarar("segundo".into()),
+                OperacaoFluxoPropriedade::SairEscopo,
+            ],
+            sucessores: vec![],
+        }];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        let nomes = resultado.destruicoes.iter()
+            .map(|item| item.acao.lugar.raiz.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(nomes, vec!["segundo", "primeiro"]);
+        assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_rejeita_referencia_que_sobrevive_ao_escopo_do_proprietario() {
+        let blocos = vec![BlocoFluxoPropriedade {
+            operacoes: vec![
+                OperacaoFluxoPropriedade::EntrarEscopo,
+                OperacaoFluxoPropriedade::Declarar("local".into()),
+                OperacaoFluxoPropriedade::Emprestar {
+                    identificador: 501,
+                    lugar: Lugar::novo("local"),
+                    tipo: TipoEmprestimo::Compartilhado,
+                },
+                OperacaoFluxoPropriedade::SairEscopo,
+            ],
+            sucessores: vec![],
+        }];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        assert!(resultado.erros.iter().any(|erro|
+            erro.operacao == 3
+                && matches!(erro.erro, ErroPropriedade::EmprestimoVivoAoDestruir(_))
+        ));
+    }
+
+    #[test]
+    fn cfg_nao_emite_destruicao_para_valor_integralmente_movido() {
+        let blocos = vec![BlocoFluxoPropriedade {
+            operacoes: vec![
+                OperacaoFluxoPropriedade::EntrarEscopo,
+                OperacaoFluxoPropriedade::Declarar("recurso".into()),
+                OperacaoFluxoPropriedade::Mover(Lugar::novo("recurso")),
+                OperacaoFluxoPropriedade::SairEscopo,
+            ],
+            sucessores: vec![],
+        }];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        assert!(resultado.destruicoes.is_empty());
         assert!(resultado.erros.is_empty());
     }
 
