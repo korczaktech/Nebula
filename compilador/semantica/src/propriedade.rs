@@ -125,6 +125,7 @@ pub enum ErroPropriedade {
     IdentificadoresEmprestimoEsgotados,
     EmprestimoInexistente(u64),
     EmprestimoVivoAoDestruir(Lugar),
+    ReferenciaEscapaVidaUtil { lugar: Lugar, escopo_proprietario: usize, escopo_destino: usize },
     EscopoGlobal,
     OperacaoInseguraForaDeBloco,
     BlocoInseguroNaoAberto,
@@ -137,6 +138,24 @@ struct VariavelPropriedade {
     escopo: usize,
     ordem: u64,
     movidos: HashSet<Lugar>,
+}
+
+/// Região lexical inferida de uma referência.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VidaUtil {
+    /// Escopo no qual o valor proprietário foi inicializado.
+    pub escopo_proprietario: usize,
+    /// Escopo no qual a referência foi criada.
+    pub escopo_referencia: usize,
+}
+
+impl VidaUtil {
+    /// Uma referência pode ser armazenada no destino somente se o proprietário
+    /// continuar vivo durante todo o escopo de destino.
+    #[must_use]
+    pub fn pode_ser_armazenada_em(self, escopo_destino: usize) -> bool {
+        self.escopo_proprietario <= escopo_destino
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -237,6 +256,34 @@ impl AnalisadorPropriedade {
                 || !lugar.projecoes.iter().zip(&movido.projecoes).all(|(a, b)| a == b)
         });
         Ok(())
+    }
+
+    /// Retorna o escopo proprietário de um lugar registrado.
+    #[must_use]
+    pub fn escopo_do_lugar(&self, lugar: &Lugar) -> Option<usize> {
+        self.variaveis.get(&lugar.raiz).map(|variavel| variavel.escopo)
+    }
+
+    /// Verifica se a vida útil do proprietário cobre o escopo de destino.
+    pub fn validar_destino_referencia(
+        &self,
+        lugar: &Lugar,
+        escopo_destino: usize,
+    ) -> Result<VidaUtil, ErroPropriedade> {
+        let escopo_proprietario = self.escopo_do_lugar(lugar)
+            .ok_or_else(|| ErroPropriedade::VariavelNaoDeclarada(lugar.raiz.clone()))?;
+        let vida_util = VidaUtil {
+            escopo_proprietario,
+            escopo_referencia: self.escopo,
+        };
+        if !vida_util.pode_ser_armazenada_em(escopo_destino) {
+            return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
+                lugar: lugar.clone(),
+                escopo_proprietario,
+                escopo_destino,
+            });
+        }
+        Ok(vida_util)
     }
 
     /// Cria um empréstimo que permanece ativo até encerramento explícito ou saída do escopo.
@@ -516,6 +563,32 @@ mod testes {
         assert!(matches!(
             fluxo.ler(&Lugar::novo("pessoa")),
             Err(ErroPropriedade::UsoAposMovimento(_))
+        ));
+    }
+
+    #[test]
+    fn vida_util_permite_referencia_em_escopo_interno_de_proprietario_externo() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.declarar("global").unwrap();
+        fluxo.entrar_escopo();
+        let vida = fluxo.validar_destino_referencia(&Lugar::novo("global"), 1).unwrap();
+        assert_eq!(vida.escopo_proprietario, 0);
+        assert_eq!(vida.escopo_referencia, 1);
+        assert!(vida.pode_ser_armazenada_em(1));
+    }
+
+    #[test]
+    fn vida_util_rejeita_referencia_que_escapa_do_proprietario_local() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.entrar_escopo();
+        fluxo.declarar("local").unwrap();
+        assert!(matches!(
+            fluxo.validar_destino_referencia(&Lugar::novo("local"), 0),
+            Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
+                escopo_proprietario: 1,
+                escopo_destino: 0,
+                ..
+            })
         ));
     }
 
