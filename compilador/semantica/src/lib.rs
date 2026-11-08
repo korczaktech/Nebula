@@ -1629,6 +1629,22 @@ impl<'a> Analisador<'a> {
                         }
                         return Tipo::Texto;
                     }
+                    if nome == "faixa" {
+                        if argumentos.len() != 2 {
+                            self.erro("N3015", "'faixa' exige exatamente início e fim.");
+                            for argumento in argumentos { self.expressao(argumento); }
+                            return Tipo::Desconhecido;
+                        }
+                        let inicio = self.expressao(&argumentos[0]);
+                        let fim = self.expressao(&argumentos[1]);
+                        if !Self::inteiro(&inicio) && inicio != Tipo::Desconhecido {
+                            self.erro("N3016", "'faixa' exige limites inteiros.");
+                        }
+                        if !Self::inteiro(&fim) && fim != Tipo::Desconhecido {
+                            self.erro("N3016", "'faixa' exige limites inteiros.");
+                        }
+                        return Tipo::Intervalo(Box::new(Tipo::Inteiro));
+                    }
                     if nome == "comprimento" {
                         if argumentos.len() != 1 {
                             self.erro("N3015", "A função 'comprimento' exige um argumento.");
