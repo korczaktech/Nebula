@@ -2647,6 +2647,12 @@ impl Maquina<'_, '_> {
                     }
                     return Err("'json_canonico' exige exatamente um texto.".into());
                 }
+                if nome == "faixa" {
+                    let [ValorIr::Inteiro(inicio), ValorIr::Inteiro(fim)] = valores.as_slice() else {
+                        return Err("'faixa' exige exatamente dois limites inteiros.".into());
+                    };
+                    return Ok(ValorIr::Intervalo(*inicio, *fim));
+                }
                 if nome == "comprimento" {
                     let Some(valor) = valores.first() else {
                         return Err("'comprimento' exige um argumento.".into());
