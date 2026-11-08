@@ -966,9 +966,9 @@ impl Parser {
             let exclusiva = self.corresponde(TipoToken::Mutavel);
             let interno = self.caminho_tipo_interno()?;
             return Some(if exclusiva {
-                format!("&mutavel<{interno}>")
+                format!("&mutavel {interno}")
             } else {
-                format!("&<{interno}>")
+                format!("&{interno}")
             });
         }
         if self.corresponde(TipoToken::Vazio) {
@@ -4645,7 +4645,7 @@ funcao inverter(par: Tupla<inteiro64, inteiro64>): Tupla<inteiro64, inteiro64>
         assert!(resultado.programa.itens.iter().any(|no| matches!(
             no,
             NoAst::Variavel { nome, tipo: Some(tipo), valor: Expressao::Unaria { operador: TipoToken::Mutavel, .. }, .. }
-                if nome == "referencia" && tipo == "&mutavel<inteiro>"
+                if nome == "referencia" && tipo == "&mutavel inteiro"
         )));
         assert!(resultado.programa.itens.iter().any(|no| matches!(
             no,
