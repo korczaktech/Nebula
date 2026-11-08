@@ -1724,6 +1724,44 @@ mod ciclo_vida {
         use std::sync::{Arc, Mutex};
     
         #[test]
+        fn emprestimo_transferido_para_variavel_externa_sobrevive_ao_escopo_criador() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("origem", Valor::Inteiro(1), true).unwrap();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("destino", Valor::Vazio, true).unwrap();
+            let escopo_origem = contexto.memoria().identificador_escopo_da_variavel("origem").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo_origem, "origem", false).unwrap();
+            contexto.promover_emprestimo_referenciado(escopo_origem, "origem", "destino").unwrap();
+
+            contexto.fechar_escopo().unwrap();
+            assert_eq!(
+                contexto.validar_escrita_referenciada(escopo_origem, "origem"),
+                Err(ErroRuntime::EmprestimoConflitante),
+                "o empréstimo deve continuar ativo no escopo de destino"
+            );
+            contexto.finalizar().unwrap();
+            assert!(contexto.recursos_emprestimo.lock().unwrap().is_empty());
+        }
+
+        #[test]
+        fn rejeita_promocao_de_referencia_quando_proprietario_morre_antes_do_destino() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("destino", Valor::Vazio, true).unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.memoria_mutavel().unwrap()
+                .declarar("origemLocal", Valor::Inteiro(1), true).unwrap();
+            let escopo_origem = contexto.memoria().identificador_escopo_da_variavel("origemLocal").unwrap();
+            assert!(matches!(
+                contexto.promover_emprestimo_referenciado(escopo_origem, "origemLocal", "destino"),
+                Err(ErroRuntime::ReferenciaInvalida)
+            ));
+            contexto.fechar_escopo().unwrap();
+        }
+
+        #[test]
         fn identidade_do_recurso_e_removida_apos_ultimo_emprestimo() {
             let mut contexto = ContextoRuntime::novo();
             contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
