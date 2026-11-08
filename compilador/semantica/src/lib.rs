@@ -976,20 +976,6 @@ impl<'a> Analisador<'a> {
                     && valor.as_ref().is_some_and(|expressao| !self.referencia_origem_parametro(expressao))
                 {
                     self.erro("N3101", "Uma referência retornada não pode apontar para uma variável local; a origem precisa sobreviver à chamada.");
-                } else if matches!(esperado, Some(Tipo::Referencia { .. })) {
-                    if let Some(expressao) = valor.as_ref() {
-                        if let Some(vida) = self.vida_util_referencia(expressao) {
-                            if vida.escopo_proprietario == 0 {
-                                if let Some(identificador) = vida.emprestimo {
-                                    if let Err(erro) = self.propriedade
-                                        .estender_vida_util_emprestimo(identificador, 0)
-                                    {
-                                        self.erro("N3101", format!("Não foi possível prolongar o empréstimo retornado: {erro:?}."));
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 if let Some(esperado) = esperado {
                     if let Some(valor) = valor {
