@@ -2399,6 +2399,11 @@ impl Maquina<'_, '_> {
                 self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))
             },
             ExpressaoIr::Mover { nome, .. } => {
+                let escopo = self.contexto.memoria()
+                    .identificador_escopo_da_variavel(nome)
+                    .ok_or_else(|| format!("Variável '{nome}' não encontrada para movimentação."))?;
+                self.contexto.validar_escrita_referenciada(escopo, nome)
+                    .map_err(formatar_erro_runtime)?;
                 let valor = self.memoria_mutavel()?.mover(nome)
                     .map_err(formatar_erro_runtime)?;
                 converter_para_ir(valor)
