@@ -5175,7 +5175,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn permite_retorno_de_referencia_para_proprietario_global() {
         let resultado = analisar_codigo(
-            "variavel global: inteiro = 11\nfuncao obter(): &inteiro\n    devolver &global",
+            "variavel valorGlobal: inteiro = 11\nfuncao buscarGlobal(): &inteiro\n    devolver &valorGlobal",
         );
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -5187,7 +5187,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn permite_armazenar_referencia_global_em_variavel_externa() {
         let resultado = analisar_codigo(
-            "variavel global: inteiro = 1\nvariavel referencia: &inteiro = &global\nquando verdadeiro\n    referencia = &global",
+            "variavel valorGlobal: inteiro = 1\nvariavel referencia: &inteiro = &valorGlobal\nquando verdadeiro\n    referencia = &valorGlobal",
         );
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -5199,7 +5199,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn propaga_vida_util_ao_copiar_referencia_compartilhada() {
         let resultado = analisar_codigo(
-            "variavel global: inteiro = 1\nvariavel referencia: &inteiro = &global\nquando verdadeiro\n    variavel local: &inteiro = referencia\n    referencia = local",
+            "variavel valorGlobal: inteiro = 1\nvariavel referencia: &inteiro = &valorGlobal\nquando verdadeiro\n    variavel local: &inteiro = referencia\n    referencia = local",
         );
         assert!(
             resultado.diagnosticos.is_empty(),
