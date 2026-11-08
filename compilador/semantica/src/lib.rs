@@ -5596,7 +5596,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn rejeita_retorno_quando_origem_da_referencia_diverge_entre_ramos() {
         let resultado = analisar_codigo(
-            "variavel global: inteiro = 1\nfuncao escolher(valor: &inteiro, condicao: logico): &inteiro\n    variavel referencia: &inteiro = valor\n    quando condicao\n        referencia = &global\n    senao\n        passar\n    devolver referencia",
+            "variavel valorGlobal: inteiro = 1\nfuncao escolher(valor: &inteiro, condicao: logico): &inteiro\n    variavel referencia: &inteiro = valor\n    quando condicao\n        referencia = &valorGlobal\n    senao\n        passar\n    devolver referencia",
         );
         assert!(
             resultado.diagnosticos.iter().any(|d| d.codigo == "N3101"),
