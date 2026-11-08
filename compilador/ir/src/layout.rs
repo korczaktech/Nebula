@@ -356,7 +356,14 @@ mod testes {
         let tipo = Tipo::Estrutura("Cabecalho".into());
         let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
         assert_eq!(layout.campos.len(), 5);
-        assert_eq!(layout.campos.iter().map(|campo| campo.tamanho).collect::<Vec<_>>(), vec![1, 2, 4, 8, 16]);
+        assert_eq!(
+            layout
+                .campos
+                .iter()
+                .map(|campo| campo.tamanho)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 4, 8, 16]
+        );
     }
 
     #[test]
