@@ -386,7 +386,7 @@ impl Lowerer {
                 senao: self.bloco(senao),
             }),
             NoAst::Escolha { valor, casos } => Some(InstrucaoIr::Escolha {
-                valor: self.expressao(valor)?,
+                valor: self.expressao_consumida(valor)?,
                 casos: {
                     let tipo_escolhido = self.inferir_tipo_ast(valor);
                     casos.iter().map(|caso: &CasoEscolha| {
@@ -888,7 +888,7 @@ impl Lowerer {
     /// cujo tipo não implementa a semântica Copy.
     fn expressao_consumida(&mut self, expressao: &Expressao) -> Option<ExpressaoIr> {
         let tipo = self.inferir_tipo_ast(expressao);
-        if !self.tipo_copiavel(&tipo) {
+        if tipo != Tipo::Desconhecido && !self.tipo_copiavel(&tipo) {
             if let Expressao::Nome(nome) = expressao {
                 return Some(ExpressaoIr::Mover { nome: nome.clone(), tipo });
             }
@@ -1068,10 +1068,13 @@ impl Lowerer {
                     } else {
                         argumento
                     };
-                    let consome = construtor_algebrico
-                        || assinatura.as_ref()
-                            .and_then(|parametros| parametros.get(indice))
-                            .is_some_and(|tipo| !self.tipo_copiavel(tipo));
+                    let tipo_argumento = assinatura.as_ref()
+                        .and_then(|parametros| parametros.get(indice))
+                        .filter(|tipo| **tipo != Tipo::Desconhecido)
+                        .cloned()
+                        .unwrap_or_else(|| self.inferir_tipo_ast(valor));
+                    let consome = tipo_argumento != Tipo::Desconhecido
+                        && (construtor_algebrico || !self.tipo_copiavel(&tipo_argumento));
                     args.push(if consome {
                         self.expressao_consumida(valor)?
                     } else {
