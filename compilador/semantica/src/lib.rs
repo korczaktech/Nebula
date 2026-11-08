@@ -922,14 +922,17 @@ impl<'a> Analisador<'a> {
                 self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'enquanto'");
                 let antes_corpo = self.snapshot_movidos();
                 let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.estado_origens_referencia();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
                 let depois_corpo = self.snapshot_movidos();
                 let propriedade_depois = self.propriedade.clone();
-                // O laço pode executar zero vezes; preserva qualquer move
-                // ou empréstimo que possa ocorrer em uma iteração.
+                let origens_depois = self.estado_origens_referencia();
+                // O laço pode executar zero vezes; preserva qualquer move,
+                // empréstimo ou origem de referência que possa surgir.
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
+                self.mesclar_origens_referencia(&origens_antes, &origens_antes, &origens_depois);
                 self.propriedade = propriedade_antes.clone();
                 if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_depois]) {
                     self.erro("N3104", format!("Não foi possível unir empréstimos do laço: {erro:?}."));
@@ -950,6 +953,8 @@ impl<'a> Analisador<'a> {
                     }
                 };
                 let antes_corpo = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.estado_origens_referencia();
                 self.abrir_escopo();
                 self.declarar(nome, Simbolo {
                     tipo: tipo_elemento,
@@ -962,7 +967,17 @@ impl<'a> Analisador<'a> {
                 self.profundidade_laco -= 1;
                 self.fechar_escopo();
                 let depois_corpo = self.snapshot_movidos();
+                let propriedade_depois = self.propriedade.clone();
+                let origens_depois = self.estado_origens_referencia();
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
+                self.mesclar_origens_referencia(&origens_antes, &origens_antes, &origens_depois);
+                self.propriedade = propriedade_antes;
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_depois]) {
+                    self.erro("N3104", format!("Não foi possível unir empréstimos de 'cada': {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
             }
             NoAst::Pulso { intervalo, corpo } => {
                 let tipo = self.expressao(intervalo);
@@ -976,11 +991,23 @@ impl<'a> Analisador<'a> {
                     self.erro("N3059", "'pulso' exige intervalo inteiro em milissegundos.");
                 }
                 let antes_corpo = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.estado_origens_referencia();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
                 let depois_corpo = self.snapshot_movidos();
+                let propriedade_depois = self.propriedade.clone();
+                let origens_depois = self.estado_origens_referencia();
                 self.mesclar_movidos(&antes_corpo, &depois_corpo);
+                self.mesclar_origens_referencia(&origens_antes, &origens_antes, &origens_depois);
+                self.propriedade = propriedade_antes;
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_depois]) {
+                    self.erro("N3104", format!("Não foi possível unir empréstimos de 'pulso': {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
             }
             NoAst::Para { inicial, condicao, atualizacao, corpo } => {
                 self.abrir_escopo();
@@ -990,13 +1017,25 @@ impl<'a> Analisador<'a> {
                     self.exigir_tipo(&tipo, &Tipo::Logico, "condição de 'para'");
                 }
                 let antes_corpo = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
+                let origens_antes = self.estado_origens_referencia();
                 self.profundidade_laco += 1;
                 self.bloco(corpo);
                 self.profundidade_laco -= 1;
                 if let Some(atualizacao) = atualizacao { self.expressao(atualizacao); }
                 let depois_corpo = self.snapshot_movidos();
-                self.mesclar_movidos(&antes_corpo, &depois_corpo);
                 self.fechar_escopo();
+                let propriedade_depois = self.propriedade.clone();
+                let origens_depois = self.estado_origens_referencia();
+                self.mesclar_movidos(&antes_corpo, &depois_corpo);
+                self.mesclar_origens_referencia(&origens_antes, &origens_antes, &origens_depois);
+                self.propriedade = propriedade_antes;
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[propriedade_depois]) {
+                    self.erro("N3104", format!("Não foi possível unir empréstimos de 'para': {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
             }
             NoAst::Devolver(valor) => {
                 let esperado = self.retorno_atual.clone();
