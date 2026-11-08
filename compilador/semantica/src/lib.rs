@@ -1311,8 +1311,35 @@ impl<'a> Analisador<'a> {
             Expressao::Condicional { condicao, entao, senao } => {
                 let tipo_condicao = self.expressao(condicao);
                 self.exigir_tipo(&tipo_condicao, &Tipo::Logico, "condição ternária");
+
+                // Os dois ramos são caminhos alternativos: nenhum pode herdar
+                // movimentos ou empréstimos produzidos pelo outro.
+                let antes_movidos = self.snapshot_movidos();
+                let propriedade_antes = self.propriedade.clone();
+
                 let tipo_entao = self.expressao(entao);
+                let movidos_entao = self.snapshot_movidos();
+                let propriedade_entao = self.propriedade.clone();
+
+                self.restaurar_movidos(&antes_movidos);
+                self.propriedade = propriedade_antes.clone();
+
                 let tipo_senao = self.expressao(senao);
+                let movidos_senao = self.snapshot_movidos();
+                let propriedade_senao = self.propriedade.clone();
+
+                self.mesclar_movidos(&movidos_entao, &movidos_senao);
+                self.propriedade = propriedade_antes;
+                if let Err(erro) = self.propriedade.mesclar_caminhos(&[
+                    propriedade_entao,
+                    propriedade_senao,
+                ]) {
+                    self.erro("N3104", format!("Não foi possível unir os estados da expressão condicional: {erro:?}."));
+                }
+                if let Some(proximo) = self.propriedade.proximo_identificador_emprestimo() {
+                    self.proximo_emprestimo = self.proximo_emprestimo.max(proximo);
+                }
+
                 if Self::tipos_compativeis(&tipo_entao, &tipo_senao) {
                     if tipo_entao == Tipo::Desconhecido { tipo_senao } else { tipo_entao }
                 } else {
@@ -5145,6 +5172,30 @@ funcao sem_retorno(): vazio
     fn rejeita_lambda_sem_tipo_contextual_para_parametros() {
         let resultado = analisar_codigo("variavel dobrar = lambda valor: valor + 1");
         assert!(resultado.diagnosticos.iter().any(|d| d.codigo == "N3088"));
+    }
+
+    #[test]
+    fn ramos_condicionais_nao_compartilham_movimentos_durante_a_analise() {
+        let resultado = analisar_codigo(
+            "funcao consumir(valor: texto): texto\n    devolver valor\n             variavel original = \"Nebula\"\n             variavel resultado = verdadeiro ? consumir(original) : consumir(original)",
+        );
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "Os ramos são alternativos e devem partir do mesmo estado: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn movimento_em_qualquer_ramo_condicional_e_preservado_apos_a_juncao() {
+        let resultado = analisar_codigo(
+            "funcao consumir(valor: texto): texto\n    devolver valor\n             variavel original = \"Nebula\"\n             variavel resultado = verdadeiro ? consumir(original) : consumir(original)\n             variavel depois = original",
+        );
+        assert!(
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3081" || d.codigo == "N3082" || d.codigo == "N3092"),
+            "O movimento possível nos ramos deve impedir o uso posterior: {:?}",
+            resultado.diagnosticos
+        );
     }
 
     #[test]
