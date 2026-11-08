@@ -1393,7 +1393,7 @@ mod ciclo_vida {
         memoria: Memoria,
         alocador: Alocador,
         emprestimos: TabelaEmprestimos,
-        recursos_emprestimo: HashMap<(u64, String), u64>,
+        recursos_emprestimo: Arc<Mutex<HashMap<(u64, String), u64>>>,
         proximo_recurso_emprestimo: u64,
         finalizadores: Vec<Vec<AcaoFinalizacao>>,
         estado: EstadoRuntime,
@@ -1419,7 +1419,7 @@ mod ciclo_vida {
                 memoria: Memoria::nova(),
                 alocador: Alocador::default(),
                 emprestimos: TabelaEmprestimos::nova(),
-                recursos_emprestimo: HashMap::new(),
+                recursos_emprestimo: Arc::new(Mutex::new(HashMap::new())),
                 proximo_recurso_emprestimo: 1,
                 finalizadores: vec![Vec::new()],
                 estado: EstadoRuntime::Ativo,
@@ -1475,42 +1475,57 @@ mod ciclo_vida {
                 return Err(ErroRuntime::RuntimeFinalizado);
             }
             let chave = (escopo, nome.to_owned());
-            let recurso = if let Some(recurso) = self.recursos_emprestimo.get(&chave) {
-                *recurso
-            } else {
-                let recurso = self.proximo_recurso_emprestimo;
-                self.proximo_recurso_emprestimo = self.proximo_recurso_emprestimo
-                    .checked_add(1)
-                    .ok_or(ErroRuntime::Overflow)?;
-                self.recursos_emprestimo.insert(chave, recurso);
-                recurso
+            let recurso = {
+                let mut recursos = self.recursos_emprestimo.lock()
+                    .map_err(|_| ErroRuntime::MemoriaCorrompida)?;
+                if let Some(recurso) = recursos.get(&chave) {
+                    *recurso
+                } else {
+                    let recurso = self.proximo_recurso_emprestimo;
+                    self.proximo_recurso_emprestimo = self.proximo_recurso_emprestimo
+                        .checked_add(1)
+                        .ok_or(ErroRuntime::Overflow)?;
+                    recursos.insert(chave.clone(), recurso);
+                    recurso
+                }
             };
             let guarda = if mutavel {
                 self.emprestimos.exclusivo(recurso)
             } else {
                 self.emprestimos.compartilhar(recurso)
             }.map_err(|_| ErroRuntime::EmprestimoConflitante)?;
+            let tabela = self.emprestimos.clone();
+            let recursos = Arc::clone(&self.recursos_emprestimo);
             self.registrar_finalizador(move || {
                 drop(guarda);
+                if tabela.quantidade_ativos(recurso).map_err(|_| ErroRuntime::MemoriaCorrompida)? == 0 {
+                    recursos.lock()
+                        .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+                        .remove(&chave);
+                }
                 Ok(())
             })
         }
 
         /// Impede leitura direta do proprietário enquanto houver empréstimo exclusivo.
         pub fn validar_leitura_referenciada(&self, escopo: u64, nome: &str) -> Resultado<()> {
-            let Some(recurso) = self.recursos_emprestimo.get(&(escopo, nome.to_owned())) else {
-                return Ok(());
-            };
-            self.emprestimos.validar_leitura(*recurso)
+            let recurso = self.recursos_emprestimo.lock()
+                .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+                .get(&(escopo, nome.to_owned()))
+                .copied();
+            let Some(recurso) = recurso else { return Ok(()); };
+            self.emprestimos.validar_leitura(recurso)
                 .map_err(|_| ErroRuntime::EmprestimoConflitante)
         }
 
         /// Impede escrita direta do proprietário enquanto qualquer empréstimo estiver ativo.
         pub fn validar_escrita_referenciada(&self, escopo: u64, nome: &str) -> Resultado<()> {
-            let Some(recurso) = self.recursos_emprestimo.get(&(escopo, nome.to_owned())) else {
-                return Ok(());
-            };
-            self.emprestimos.validar_escrita(*recurso)
+            let recurso = self.recursos_emprestimo.lock()
+                .map_err(|_| ErroRuntime::MemoriaCorrompida)?
+                .get(&(escopo, nome.to_owned()))
+                .copied();
+            let Some(recurso) = recurso else { return Ok(()); };
+            self.emprestimos.validar_escrita(recurso)
                 .map_err(|_| ErroRuntime::EmprestimoConflitante)
         }
 
@@ -1596,6 +1611,31 @@ mod ciclo_vida {
         use super::*;
         use std::sync::{Arc, Mutex};
     
+        #[test]
+        fn identidade_do_recurso_e_removida_apos_ultimo_emprestimo() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", false).unwrap();
+            assert_eq!(contexto.recursos_emprestimo.lock().unwrap().len(), 1);
+            contexto.fechar_escopo().unwrap();
+            assert!(contexto.recursos_emprestimo.lock().unwrap().is_empty());
+        }
+
+        #[test]
+        fn emprestimos_compartilhados_preservam_identidade_ate_o_ultimo_guard() {
+            let mut contexto = ContextoRuntime::novo();
+            contexto.memoria_mutavel().unwrap().declarar("valor", Valor::Inteiro(1), true).unwrap();
+            let escopo = contexto.memoria().identificador_escopo_da_variavel("valor").unwrap();
+            contexto.abrir_escopo().unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", false).unwrap();
+            contexto.emprestar_referenciado(escopo, "valor", false).unwrap();
+            assert_eq!(contexto.recursos_emprestimo.lock().unwrap().len(), 1);
+            contexto.fechar_escopo().unwrap();
+            assert!(contexto.recursos_emprestimo.lock().unwrap().is_empty());
+        }
+
         #[test]
         fn emprestimo_compartilhado_e_liberado_ao_fechar_escopo() {
             let mut contexto = ContextoRuntime::novo();
