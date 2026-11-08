@@ -162,7 +162,7 @@ impl VidaUtil {
 struct EmprestimoAtivo {
     lugar: Lugar,
     tipo: TipoEmprestimo,
-    escopo: usize,
+    vida_util: VidaUtil,
 }
 
 /// Ação de destruição determinística emitida ao sair de um escopo.
@@ -305,10 +305,29 @@ impl AnalisadorPropriedade {
                 lugar, existente: existente.tipo, solicitado: tipo,
             });
         }
+        let escopo_proprietario = self.escopo_do_lugar(&lugar)
+            .ok_or_else(|| ErroPropriedade::VariavelNaoDeclarada(lugar.raiz.clone()))?;
+        let vida_util = VidaUtil {
+            escopo_proprietario,
+            escopo_referencia: self.escopo,
+        };
+        if !vida_util.pode_ser_armazenada_em(self.escopo) {
+            return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
+                lugar,
+                escopo_proprietario,
+                escopo_destino: self.escopo,
+            });
+        }
         self.emprestimos.insert(identificador, EmprestimoAtivo {
-            lugar, tipo, escopo: self.escopo,
+            lugar, tipo, vida_util,
         });
         Ok(())
+    }
+
+    /// Região de vida útil associada ao empréstimo ativo.
+    #[must_use]
+    pub fn vida_util_emprestimo(&self, identificador: u64) -> Option<VidaUtil> {
+        self.emprestimos.get(&identificador).map(|emprestimo| emprestimo.vida_util)
     }
 
     /// Encerra um empréstimo identificado.
@@ -334,7 +353,8 @@ impl AnalisadorPropriedade {
             .map(|(nome, _)| nome.clone())
             .collect();
         if let Some(emprestimo) = self.emprestimos.values().find(|emprestimo| {
-            locais.contains(&emprestimo.lugar.raiz) && emprestimo.escopo < nivel
+            locais.contains(&emprestimo.lugar.raiz)
+                && emprestimo.vida_util.escopo_referencia < nivel
         }) {
             return Err(ErroPropriedade::EmprestimoVivoAoDestruir(emprestimo.lugar.clone()));
         }
@@ -490,7 +510,7 @@ impl AnalisadorPropriedade {
                     Some(existente)
                         if existente.lugar == emprestimo.lugar
                             && existente.tipo == emprestimo.tipo
-                            && existente.escopo == emprestimo.escopo => {}
+                            && existente.vida_util == emprestimo.vida_util => {}
                     Some(_) => {
                         let novo = loop {
                             let candidato = proximo.ok_or(ErroPropriedade::IdentificadoresEmprestimoEsgotados)?;
@@ -564,6 +584,18 @@ mod testes {
             fluxo.ler(&Lugar::novo("pessoa")),
             Err(ErroPropriedade::UsoAposMovimento(_))
         ));
+    }
+
+    #[test]
+    fn emprestimo_registra_regiao_de_vida_util_do_proprietario() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.declarar("global").unwrap();
+        fluxo.entrar_escopo();
+        fluxo.emprestar(42, Lugar::novo("global"), TipoEmprestimo::Compartilhado).unwrap();
+        assert_eq!(
+            fluxo.vida_util_emprestimo(42),
+            Some(VidaUtil { escopo_proprietario: 0, escopo_referencia: 1 })
+        );
     }
 
     #[test]
