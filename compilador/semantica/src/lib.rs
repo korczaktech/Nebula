@@ -999,9 +999,9 @@ impl<'a> Analisador<'a> {
                     let origem = valor.as_ref().and_then(|expressao| self.origem_retorno_referencia(expressao));
                     if let Some(origem) = origem {
                         if let Some(funcao) = self.funcao_atual.clone() {
-                            match self.origens_retorno_funcoes.get(&funcao) {
+                            match self.origens_retorno_funcoes.get(&funcao).cloned() {
                                 None => { self.origens_retorno_funcoes.insert(funcao, origem); }
-                                Some(anterior) if anterior == &origem => {}
+                                Some(anterior) if anterior == origem => {}
                                 Some(_) => { self.origens_retorno_funcoes.insert(funcao, OrigemRetornoReferencia::Invalida); }
                             }
                         }
@@ -2089,12 +2089,12 @@ impl<'a> Analisador<'a> {
             }
         }
         let retorno = Self::substituir_genericos(&funcao.retorno, &inferidos);
-        if matches!(retorno, Tipo::Referencia { .. }) {
+        if matches!(&retorno, Tipo::Referencia { .. }) {
             match self.origens_retorno_funcoes.get(nome).cloned() {
                 Some(OrigemRetornoReferencia::Global(lugar)) => {
                     let identificador = self.proximo_emprestimo;
                     self.proximo_emprestimo = self.proximo_emprestimo.saturating_add(1);
-                    let tipo_emprestimo = if matches!(retorno, Tipo::Referencia { mutavel: true, .. }) {
+                    let tipo_emprestimo = if matches!(&retorno, Tipo::Referencia { mutavel: true, .. }) {
                         TipoEmprestimo::Exclusivo
                     } else {
                         TipoEmprestimo::Compartilhado
