@@ -1442,7 +1442,7 @@ mod ciclo_vida {
         emprestimos: TabelaEmprestimos,
         recursos_emprestimo: Arc<Mutex<HashMap<(u64, String), u64>>>,
         proximo_recurso_emprestimo: u64,
-        finalizadores: Vec<Vec<AcaoFinalizacao>>,
+        finalizadores: Vec<Vec<FinalizadorRegistrado>>,
         estado: EstadoRuntime,
     }
     
@@ -1543,6 +1543,7 @@ mod ciclo_vida {
             }.map_err(|_| ErroRuntime::EmprestimoConflitante)?;
             let tabela = self.emprestimos.clone();
             let recursos = Arc::clone(&self.recursos_emprestimo);
+            let chave_finalizador = chave.clone();
             self.registrar_finalizador(move || {
                 drop(guarda);
                 if tabela.quantidade_ativos(recurso).map_err(|_| ErroRuntime::MemoriaCorrompida)? == 0 {
@@ -1551,7 +1552,68 @@ mod ciclo_vida {
                         .remove(&chave);
                 }
                 Ok(())
-            })
+            })?;
+            if let Some(finalizador) = self.finalizadores.last_mut()
+                .and_then(|finalizadores| finalizadores.last_mut())
+            {
+                finalizador.emprestimo = Some(chave_finalizador);
+            }
+            Ok(())
+        }
+
+        /// Transfere o finalizador de um empréstimo para o escopo da variável
+        /// que recebeu a referência, preservando o empréstimo após a saída do
+        /// escopo em que a referência foi criada.
+        pub fn promover_emprestimo_referenciado(
+            &mut self,
+            escopo_origem: u64,
+            nome_origem: &str,
+            nome_destino: &str,
+        ) -> Resultado<()> {
+            let escopo_destino = self.memoria
+                .identificador_escopo_da_variavel(nome_destino)
+                .ok_or_else(|| ErroRuntime::NomeNaoEncontrado(nome_destino.to_owned()))?;
+            self.promover_emprestimo_referenciado_para_escopo(
+                escopo_origem,
+                nome_origem,
+                escopo_destino,
+            )
+        }
+
+        /// Variante que recebe diretamente o identificador estável do escopo
+        /// de destino, usada em atribuições através de referências.
+        pub fn promover_emprestimo_referenciado_para_escopo(
+            &mut self,
+            escopo_origem: u64,
+            nome_origem: &str,
+            escopo_destino: u64,
+        ) -> Resultado<()> {
+            if self.estado != EstadoRuntime::Ativo {
+                return Err(ErroRuntime::RuntimeFinalizado);
+            }
+            let indice_origem = self.memoria.identificadores_escopos
+                .iter()
+                .position(|id| *id == escopo_origem)
+                .ok_or(ErroRuntime::ReferenciaInvalida)?;
+            let indice_destino = self.memoria.identificadores_escopos
+                .iter()
+                .position(|id| *id == escopo_destino)
+                .ok_or(ErroRuntime::ReferenciaInvalida)?;
+            if indice_origem > indice_destino {
+                return Err(ErroRuntime::ReferenciaInvalida);
+            }
+            let chave = (escopo_origem, nome_origem.to_owned());
+            let origem = self.finalizadores.iter().enumerate().find_map(|(indice, finalizadores)| {
+                finalizadores.iter().position(|finalizador| {
+                    finalizador.emprestimo.as_ref() == Some(&chave)
+                }).map(|posicao| (indice, posicao))
+            }).ok_or(ErroRuntime::ReferenciaInvalida)?;
+            let (indice_atual, posicao) = origem;
+            if indice_destino < indice_atual {
+                let finalizador = self.finalizadores[indice_atual].remove(posicao);
+                self.finalizadores[indice_destino].push(finalizador);
+            }
+            Ok(())
         }
 
         /// Impede leitura direta do proprietário enquanto houver empréstimo exclusivo.
@@ -1584,7 +1646,10 @@ mod ciclo_vida {
             if self.estado != EstadoRuntime::Ativo {
                 return Err(ErroRuntime::RuntimeFinalizado);
             }
-            self.finalizadores.last_mut().expect("escopo global sempre presente").push(Box::new(acao));
+            self.finalizadores.last_mut().expect("escopo global sempre presente").push(FinalizadorRegistrado {
+                emprestimo: None,
+                acao: Box::new(acao),
+            });
             Ok(())
         }
     
@@ -1614,10 +1679,10 @@ mod ciclo_vida {
             resultado
         }
 
-        fn executar_finalizadores(mut finalizadores: Vec<AcaoFinalizacao>) -> Resultado<()> {
+        fn executar_finalizadores(mut finalizadores: Vec<FinalizadorRegistrado>) -> Resultado<()> {
             let mut primeiro_erro = None;
             while let Some(finalizador) = finalizadores.pop() {
-                let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(finalizador));
+                let resultado = std::panic::catch_unwind(std::panic::AssertUnwindSafe(finalizador.acao));
                 let erro = match resultado {
                     Ok(Ok(())) => None,
                     Ok(Err(erro)) => Some(erro),
