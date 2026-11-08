@@ -47,8 +47,14 @@ impl TipoAst {
             }
             return Self::Desconhecido(texto.to_owned());
         }
-        if let Some(conteudo) = texto.strip_prefix("&mutavel<").and_then(|s| s.strip_suffix('>')) {
-            return Self::Referencia { interno: Box::new(Self::analisar(conteudo)), mutavel: true };
+        if let Some(conteudo) = texto
+            .strip_prefix("&mutavel<")
+            .and_then(|s| s.strip_suffix('>'))
+        {
+            return Self::Referencia {
+                interno: Box::new(Self::analisar(conteudo)),
+                mutavel: true,
+            };
         }
         if let Some(conteudo) = texto.strip_prefix('&') {
             if !conteudo.trim().is_empty() {
