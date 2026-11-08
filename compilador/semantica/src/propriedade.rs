@@ -358,7 +358,7 @@ impl AnalisadorPropriedade {
         }) {
             return Err(ErroPropriedade::EmprestimoVivoAoDestruir(emprestimo.lugar.clone()));
         }
-        self.emprestimos.retain(|_, emprestimo| emprestimo.escopo != nivel);
+        self.emprestimos.retain(|_, emprestimo| emprestimo.vida_util.escopo_referencia != nivel);
         let mut destruicoes: Vec<_> = self.variaveis.iter()
             .filter(|(_, variavel)| variavel.escopo == nivel)
             .filter_map(|(nome, variavel)| {
