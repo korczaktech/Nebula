@@ -5177,7 +5177,7 @@ funcao sem_retorno(): vazio
     #[test]
     fn ramos_condicionais_nao_compartilham_movimentos_durante_a_analise() {
         let resultado = analisar_codigo(
-            "funcao consumir(valor: texto): texto\n    devolver valor\n             variavel original = \"Nebula\"\n             variavel resultado = verdadeiro ? consumir(original) : consumir(original)",
+            "funcao consumir(valor: texto): texto\n    devolver valor\nvariavel original = \"Nebula\"\nvariavel resultado = verdadeiro ? consumir(original) : consumir(original)",
         );
         assert!(
             resultado.diagnosticos.is_empty(),
@@ -5189,10 +5189,10 @@ funcao sem_retorno(): vazio
     #[test]
     fn movimento_em_qualquer_ramo_condicional_e_preservado_apos_a_juncao() {
         let resultado = analisar_codigo(
-            "funcao consumir(valor: texto): texto\n    devolver valor\n             variavel original = \"Nebula\"\n             variavel resultado = verdadeiro ? consumir(original) : consumir(original)\n             variavel depois = original",
+            "funcao consumir(valor: texto): texto\n    devolver valor\nvariavel original = \"Nebula\"\nvariavel resultado = verdadeiro ? consumir(original) : consumir(original)\nvariavel depois = original",
         );
         assert!(
-            resultado.diagnosticos.iter().any(|d| d.codigo == "N3081" || d.codigo == "N3082" || d.codigo == "N3092"),
+            resultado.diagnosticos.iter().any(|d| d.codigo == "N3030"),
             "O movimento possível nos ramos deve impedir o uso posterior: {:?}",
             resultado.diagnosticos
         );
