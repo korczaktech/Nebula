@@ -3854,6 +3854,56 @@ mod testes {
     }
 
     #[test]
+    fn retorno_de_referencia_global_preserva_emprestimo_no_chamador() {
+        let tipo_referencia = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: false,
+        };
+        let funcao = FuncaoIr {
+            nome: "buscar".into(),
+            parametros: Vec::new(),
+            retorno: tipo_referencia.clone(),
+            corpo: vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Referencia {
+                nome: "origem".into(),
+                mutavel: false,
+                tipo: Tipo::Inteiro,
+            }))],
+        };
+        let mut funcoes = HashMap::new();
+        funcoes.insert("buscar".into(), funcao);
+        let programa = ProgramaIr {
+            instrucoes: vec![
+                InstrucaoIr::Declarar {
+                    nome: "origem".into(),
+                    tipo: Tipo::Inteiro,
+                    valor: ExpressaoIr::Constante(ValorIr::Inteiro(1)),
+                    constante: false,
+                },
+                InstrucaoIr::Declarar {
+                    nome: "referencia".into(),
+                    tipo: tipo_referencia,
+                    valor: ExpressaoIr::Chamada {
+                        nome: "buscar".into(),
+                        argumentos: Vec::new(),
+                    },
+                    constante: false,
+                },
+                InstrucaoIr::Expressao(ExpressaoIr::Atribuicao {
+                    nome: "origem".into(),
+                    valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(2))),
+                    tipo: Tipo::Inteiro,
+                }),
+            ],
+            funcoes,
+            modulos: HashMap::new(),
+            layouts_tipos: HashMap::new(),
+        };
+        let erro = executar(&programa, 100)
+            .expect_err("o retorno deve preservar o empréstimo no escopo chamador");
+        assert!(erro.contains("EmprestimoConflitante"), "{erro}");
+    }
+
+    #[test]
     fn normalizacao_da_ir_rejeita_valores_de_tipo_incompativel() {
         assert!(normalizar_valor(&Tipo::Inteiro, ValorIr::Texto("42".into())).is_err());
         assert!(normalizar_valor(&Tipo::Logico, ValorIr::Inteiro(1)).is_err());
