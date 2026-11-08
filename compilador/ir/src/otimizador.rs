@@ -266,6 +266,9 @@ fn propagar_constantes_expressao(
             propagar_constantes_expressao(valor, constantes, relatorio);
             constantes.remove(nome);
         }
+        ExpressaoIr::Mover { nome, .. } => {
+            constantes.remove(nome);
+        }
         ExpressaoIr::Referencia { .. } => {}
         ExpressaoIr::Desreferencia(referencia) => {
             propagar_constantes_expressao(referencia, constantes, relatorio);
@@ -298,7 +301,9 @@ fn propagar_constantes_expressao(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { propagar_constantes_expressao(valor, constantes, relatorio); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
+        ExpressaoIr::Mover { .. } | ExpressaoIr::Constante(_)
+        | ExpressaoIr::ReferenciaFuncao { .. }
+        | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 }
 
@@ -388,7 +393,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
             otimizar_expressao(direita, relatorio);
         }
         ExpressaoIr::Atribuicao { valor, .. } | ExpressaoIr::AtribuicaoCampo { valor, .. } => otimizar_expressao(valor, relatorio),
-        ExpressaoIr::Referencia { .. } => {}
+        ExpressaoIr::Mover { .. } | ExpressaoIr::Referencia { .. } => {}
         ExpressaoIr::Desreferencia(referencia) => otimizar_expressao(referencia, relatorio),
         ExpressaoIr::AtribuicaoReferencia { referencia, valor, .. } => {
             otimizar_expressao(referencia, relatorio);
@@ -413,7 +418,8 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { otimizar_expressao(valor, relatorio); }
         }
-        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_) | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
+        ExpressaoIr::Mover { .. } | ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_)
+        | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 
     let dobrada = match expressao {
