@@ -5509,6 +5509,45 @@ funcao sem_retorno(): vazio
     }
 
     #[test]
+    fn valida_trechos_que_geravam_diagnosticos_no_nebula_completo() {
+        let codigo = r#"
+variavel ativo: logico = sim
+variavel adicao: inteiro = 10 + 5
+variavel bitE: inteiro = 6 & 3
+variavel bitOu: inteiro = 6 | 3
+variavel bitXor: inteiro = 6 ^ 3
+variavel deslocamentoEsquerda: inteiro = 1 << 2
+variavel deslocamentoDireita: inteiro = 8 >> 1
+variavel duplicar: funcao(inteiro): inteiro = valor -> valor * 2
+variavel incrementar: funcao(inteiro): inteiro = lambda valor: valor + 1
+variavel operacao: funcao(inteiro): inteiro = duplicar
+classe Contador: {
+    variavel valor: inteiro = 0
+    funcao construtor(): {
+        alterar isto.valor = 0
+    }
+    publico funcao incrementar() -> inteiro: {
+        alterar isto.valor += 1
+        retorne isto.valor
+    }
+}
+"#;
+        let fonte = ArquivoFonte::novo("Nebula-Completo.nbx", codigo);
+        let sintaxe = analisar(&fonte);
+        assert!(
+            sintaxe.diagnosticos.is_empty(),
+            "parser rejeitou os trechos de regressão: {:#?}",
+            sintaxe.diagnosticos
+        );
+        let semantica = analisar_semantica(&sintaxe.programa);
+        assert!(
+            semantica.diagnosticos.is_empty(),
+            "análise semântica rejeitou os trechos de regressão: {:#?}",
+            semantica.diagnosticos
+        );
+    }
+
+    #[test]
     fn reconhece_sim_como_literal_logico() {
         let resultado = analisar_codigo("variavel ativo: logico = sim");
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
