@@ -261,11 +261,11 @@ fn resolver_tipo_declarado(
         "inteiro32" => Tipo::Inteiro32,
         "inteiro64" => Tipo::Inteiro64,
         "inteiro128" => Tipo::Inteiro128,
-        "inteiro_u8" => Tipo::InteiroU8,
-        "inteiro_u16" => Tipo::InteiroU16,
-        "inteiro_u32" => Tipo::InteiroU32,
-        "inteiro_u64" => Tipo::InteiroU64,
-        "inteiro_u128" => Tipo::InteiroU128,
+        "u8" | "inteiro_u8" => Tipo::InteiroU8,
+        "u16" | "inteiro_u16" => Tipo::InteiroU16,
+        "u32" | "inteiro_u32" => Tipo::InteiroU32,
+        "u64" | "inteiro_u64" => Tipo::InteiroU64,
+        "u128" | "inteiro_u128" => Tipo::InteiroU128,
         "decimal" | "decimal64" => Tipo::Decimal64,
         "decimal32" => Tipo::Decimal32,
         "texto" => Tipo::Texto,
@@ -346,6 +346,17 @@ mod testes {
         let runtime = converter_tipo(&ast, &tipo).unwrap();
         assert!(matches!(runtime, TipoRuntime::Resultado(_, _)));
         assert!(calcular_layout_tipo(&ast, &tipo).unwrap().tamanho > 0);
+    }
+
+    #[test]
+    fn resolve_aliases_curto_de_inteiros_sem_sinal_em_campos() {
+        let ast = programa(
+            "estrutura Cabecalho: {\\n    a: u8\\n    b: u16\\n    c: u32\\n    d: u64\\n    e: u128\\n}",
+        );
+        let tipo = Tipo::Estrutura("Cabecalho".into());
+        let layout = calcular_layout_tipo(&ast, &tipo).unwrap();
+        assert_eq!(layout.campos.len(), 5);
+        assert_eq!(layout.campos.iter().map(|campo| campo.tamanho).collect::<Vec<_>>(), vec![1, 2, 4, 8, 16]);
     }
 
     #[test]
