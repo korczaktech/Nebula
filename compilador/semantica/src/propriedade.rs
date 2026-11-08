@@ -638,6 +638,23 @@ mod testes {
     }
 
     #[test]
+    fn emprestimo_estendido_sobrevive_ao_escopo_de_criacao() {
+        let mut fluxo = AnalisadorPropriedade::novo();
+        fluxo.declarar("global").unwrap();
+        fluxo.entrar_escopo();
+        fluxo.emprestar(77, Lugar::novo("global"), TipoEmprestimo::Compartilhado).unwrap();
+        fluxo.estender_vida_util_emprestimo(77, 0).unwrap();
+        fluxo.sair_escopo().unwrap();
+        assert_eq!(fluxo.quantidade_emprestimos(), 1);
+        assert!(matches!(
+            fluxo.mover(&Lugar::novo("global")),
+            Err(ErroPropriedade::MovimentoDuranteEmprestimo(_))
+        ));
+        fluxo.encerrar_emprestimo(77).unwrap();
+        assert!(fluxo.mover(&Lugar::novo("global")).is_ok());
+    }
+
+    #[test]
     fn vida_util_rejeita_referencia_que_escapa_do_proprietario_local() {
         let mut fluxo = AnalisadorPropriedade::novo();
         fluxo.entrar_escopo();
