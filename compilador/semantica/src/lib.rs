@@ -5508,6 +5508,42 @@ funcao sem_retorno(): vazio
         assert!(diagnostico.intervalo.is_some(), "diagnóstico precisa apontar para a origem: {diagnostico:?}");
     }
 
+    #[test]
+    fn reconhece_sim_como_literal_logico() {
+        let resultado = analisar_codigo("variavel ativo: logico = sim");
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(resultado.tipos_globais.get("ativo"), Some(&Tipo::Logico));
+    }
+
+    #[test]
+    fn aceita_tipo_de_funcao_com_dois_pontos_e_inferencia_de_lambda() {
+        let resultado = analisar_codigo(
+            "variavel dobrar: funcao(inteiro): inteiro = valor -> valor * 2",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(
+            resultado.tipos_globais.get("dobrar"),
+            Some(&Tipo::Funcao(vec![Tipo::Inteiro], Box::new(Tipo::Inteiro)))
+        );
+    }
+
+    #[test]
+    fn divide_inteiros_como_decimal_e_preserva_divisao_inteira() {
+        let resultado = analisar_codigo(
+            "variavel fracao: decimal = 10 / 5\nvariavel quociente: inteiro = 10 // 3",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+        assert_eq!(resultado.tipos_globais.get("fracao"), Some(&Tipo::Decimal64));
+        assert_eq!(resultado.tipos_globais.get("quociente"), Some(&Tipo::Inteiro));
+    }
+
+    #[test]
+    fn aceita_operadores_bit_a_bit_e_deslocamentos_com_inteiros() {
+        let resultado = analisar_codigo(
+            "variavel mascara: inteiro = 6 & 3\nvariavel combinacao: inteiro = 6 | 3\nvariavel exclusivo: inteiro = 6 ^ 3\nvariavel esquerda: inteiro = 1 << 2\nvariavel direita: inteiro = 8 >> 1",
+        );
+        assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
 
 }
 
