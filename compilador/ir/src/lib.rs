@@ -4844,6 +4844,21 @@ mod testes {
     }
 
     #[test]
+    fn runtime_bloqueia_movimento_durante_emprestimo_compartilhado() {
+        let mut programa = programa_com_emprestimo(false, false);
+        programa.instrucoes.pop();
+        programa.instrucoes.push(InstrucaoIr::Expressao(ExpressaoIr::Mover {
+            nome: "valor".into(),
+            tipo: Tipo::Inteiro,
+        }));
+        let resultado = executar(&programa, 100);
+        assert!(
+            resultado.as_ref().is_err_and(|erro| erro.contains("EmprestimoConflitante")),
+            "O movimento do proprietário deve falhar enquanto há empréstimo ativo: {resultado:?}"
+        );
+    }
+
+    #[test]
     fn rejeita_referencia_runtime_apos_escopo_de_origem_encerrado() {
         let mut memoria = nebula_runtime::Memoria::nova();
         memoria.abrir_escopo();
