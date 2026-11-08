@@ -597,6 +597,9 @@ pub enum OperacaoFluxoPropriedade {
     EntrarEscopo,
     Declarar(String),
     SairEscopo,
+    EntrarContextoInseguro(ContextoInseguro),
+    SairContextoInseguro,
+    ValidarOperacaoInsegura { operacao: OperacaoInsegura, provas: ProvasInseguras },
 }
 
 /// Bloco básico do grafo de fluxo de controle.
@@ -692,6 +695,16 @@ pub fn analisar_fluxo_controle_propriedade(
                     estado.declarar(nome.clone()).map(|_| Vec::new())
                 }
                 OperacaoFluxoPropriedade::SairEscopo => estado.sair_escopo(),
+                OperacaoFluxoPropriedade::EntrarContextoInseguro(contexto) => {
+                    estado.entrar_contexto_inseguro(*contexto);
+                    Ok(Vec::new())
+                }
+                OperacaoFluxoPropriedade::SairContextoInseguro => {
+                    estado.sair_inseguro().map(|_| Vec::new())
+                }
+                OperacaoFluxoPropriedade::ValidarOperacaoInsegura { operacao, provas } => {
+                    estado.validar_operacao_especifica(*operacao, *provas).map(|_| Vec::new())
+                }
             };
             match resultado {
                 Ok(acoes) => {
@@ -813,6 +826,63 @@ mod testes {
         assert!(resultado.entradas[2].is_some());
         assert!(resultado.entradas[3].is_none());
         assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_valida_operacao_unsafe_dentro_de_contexto_explicito() {
+        let provas = ProvasInseguras {
+            endereco_valido: true,
+            alinhamento_valido: true,
+            inicializacao_comprovada: true,
+            aliasing_controlado: true,
+            ..ProvasInseguras::default()
+        };
+        let blocos = vec![BlocoFluxoPropriedade {
+            operacoes: vec![
+                OperacaoFluxoPropriedade::EntrarContextoInseguro(ContextoInseguro::Critico),
+                OperacaoFluxoPropriedade::ValidarOperacaoInsegura {
+                    operacao: OperacaoInsegura::DesreferenciarPonteiroBruto,
+                    provas,
+                },
+                OperacaoFluxoPropriedade::SairContextoInseguro,
+            ],
+            sucessores: vec![],
+        }];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_bloqueia_unsafe_herdado_dentro_de_bloco_seguro() {
+        let provas = ProvasInseguras {
+            endereco_valido: true,
+            alinhamento_valido: true,
+            inicializacao_comprovada: true,
+            aliasing_controlado: true,
+            ..ProvasInseguras::default()
+        };
+        let blocos = vec![BlocoFluxoPropriedade {
+            operacoes: vec![
+                OperacaoFluxoPropriedade::EntrarContextoInseguro(ContextoInseguro::Critico),
+                OperacaoFluxoPropriedade::EntrarContextoInseguro(ContextoInseguro::Seguro),
+                OperacaoFluxoPropriedade::ValidarOperacaoInsegura {
+                    operacao: OperacaoInsegura::DesreferenciarPonteiroBruto,
+                    provas,
+                },
+                OperacaoFluxoPropriedade::SairContextoInseguro,
+                OperacaoFluxoPropriedade::SairContextoInseguro,
+            ],
+            sucessores: vec![],
+        }];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        assert!(resultado.erros.iter().any(|erro|
+            erro.operacao == 2
+                && matches!(erro.erro, ErroPropriedade::ContextoInseguroIncompativel { .. })
+        ));
     }
 
     #[test]
