@@ -16,6 +16,10 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 
 - A análise semântica acompanha movimentações de valores não copiáveis e rejeita uso após move.
 - A movimentação é propagada de forma conservadora na junção de ramos condicionais e em laços que podem executar zero vezes.
+- A IR representa movimentos nomeados por uma operação explícita `Mover`; a geração automática já cobre inicializações, retornos, atribuições, argumentos de chamadas com assinatura conhecida, agregados e valores consumidos por `escolha`.
+- O backend nativo reconhece a operação de movimento e carrega a representação do valor; a validação estática continua responsável por impedir reutilização indevida no caminho compilado.
+- O runtime rejeita movimento enquanto há empréstimo ativo, rejeita leituras após movimento e permite reinicialização por atribuição compatível.
+- A propagação de constantes da IR invalida a constante de uma variável movida, evitando substituir leituras posteriores pelo valor antigo.
 - Atribuição compatível reinicializa uma variável anteriormente movida.
 - Junções de fluxo preservam todos os empréstimos ativos de ramos alternativos, inclusive quando identificadores provisórios colidem em ramos clonados; identificadores são remapeados sem descartar empréstimos distintos.
 - O plano semântico de destruição omite valores integralmente movidos e registra projeções parcialmente movidas para impedir destruição dupla. A execução dessas exclusões ainda depende da integração explícita da IR/runtime.
