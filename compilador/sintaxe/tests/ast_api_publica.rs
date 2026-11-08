@@ -12,7 +12,7 @@ use std::path::Path;
 fn api_publica_integrada_ao_parser_preserva_ast_e_localizacoes() {
     let fonte = ArquivoFonte::novo(
         "consumidor.nbx",
-        "funcao principal(): {\n    variavel nome: texto = \"Nebula\"\n    devolver nome\n    fim\n}\nfim",
+        "funcao principal(): {\n    variavel nome: texto = \"Nebula\"\n    devolver nome\n    variavel fim = 42\n}",
     );
 
     let resultado: ResultadoSintatico = analisar(&fonte);
