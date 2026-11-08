@@ -2053,9 +2053,16 @@ impl<'a> Analisador<'a> {
 
     fn analisar_chamada_funcao(&mut self, argumentos: &[Expressao], funcao: &Funcao, nome: &str) -> Tipo {
         let mapeados = self.mapear_argumentos_funcao(argumentos, funcao, nome);
-        let tipos_obtidos: Vec<Tipo> = mapeados.iter()
-            .map(|argumento| argumento.map_or(Tipo::Desconhecido, |valor| self.expressao(valor)))
-            .collect();
+        let mut tipos_obtidos = vec![Tipo::Desconhecido; mapeados.len()];
+        let mut vidas_argumentos = vec![None; mapeados.len()];
+        let mut lugares_argumentos = vec![None; mapeados.len()];
+        for (indice, argumento) in mapeados.iter().enumerate() {
+            if let Some(valor) = argumento {
+                tipos_obtidos[indice] = self.expressao(valor);
+                vidas_argumentos[indice] = self.vida_util_referencia(valor);
+                lugares_argumentos[indice] = self.lugar_origem_referencia(valor);
+            }
+        }
         let inferidos = if funcao.genericos.is_empty() {
             HashMap::new()
         } else {
@@ -2081,7 +2088,49 @@ impl<'a> Analisador<'a> {
                 }
             }
         }
-        Self::substituir_genericos(&funcao.retorno, &inferidos)
+        let retorno = Self::substituir_genericos(&funcao.retorno, &inferidos);
+        if matches!(retorno, Tipo::Referencia { .. }) {
+            match self.origens_retorno_funcoes.get(nome).cloned() {
+                Some(OrigemRetornoReferencia::Global(lugar)) => {
+                    let identificador = self.proximo_emprestimo;
+                    self.proximo_emprestimo = self.proximo_emprestimo.saturating_add(1);
+                    let tipo_emprestimo = if matches!(retorno, Tipo::Referencia { mutavel: true, .. }) {
+                        TipoEmprestimo::Exclusivo
+                    } else {
+                        TipoEmprestimo::Compartilhado
+                    };
+                    match self.propriedade.emprestar(identificador, lugar.clone(), tipo_emprestimo) {
+                        Ok(()) => {
+                            if let Some(vida) = self.propriedade.vida_util_emprestimo(identificador) {
+                                self.vidas_retorno_chamadas.push((
+                                    nome.to_owned(),
+                                    argumentos.to_vec(),
+                                    vida,
+                                    Some(lugar),
+                                ));
+                            }
+                        }
+                        Err(erro) => self.erro("N3092", format!("Empréstimo retornado por '{nome}' inválido: {erro:?}.")),
+                    }
+                }
+                Some(OrigemRetornoReferencia::Parametro(indice)) => {
+                    if let Some(Some(vida)) = vidas_argumentos.get(indice).copied() {
+                        self.vidas_retorno_chamadas.push((
+                            nome.to_owned(),
+                            argumentos.to_vec(),
+                            vida,
+                            lugares_argumentos.get(indice).cloned().flatten(),
+                        ));
+                    } else {
+                        self.erro("N3105", format!("Não foi possível propagar a vida útil do parâmetro retornado por '{nome}'."));
+                    }
+                }
+                Some(OrigemRetornoReferencia::Invalida) | None => {
+                    self.erro("N3105", format!("A função '{nome}' não possui uma origem de referência comprovada para seu retorno."));
+                }
+            }
+        }
+        retorno
     }
 
     fn mapear_argumentos_funcao<'b>(&mut self, argumentos: &'b [Expressao], funcao: &Funcao, nome: &str) -> Vec<Option<&'b Expressao>> {
