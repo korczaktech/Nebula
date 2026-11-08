@@ -149,6 +149,8 @@ pub struct VidaUtil {
     pub escopo_referencia: usize,
     /// Indica que a origem é uma referência recebida como parâmetro.
     pub origem_parametro: bool,
+    /// Identificador do empréstimo que sustenta a referência, quando criado localmente.
+    pub emprestimo: Option<u64>,
 }
 
 impl VidaUtil {
@@ -278,6 +280,7 @@ impl AnalisadorPropriedade {
             escopo_proprietario,
             escopo_referencia: self.escopo,
             origem_parametro: false,
+            emprestimo: None,
         };
         if !vida_util.pode_ser_armazenada_em(escopo_destino) {
             return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
@@ -314,6 +317,7 @@ impl AnalisadorPropriedade {
             escopo_proprietario,
             escopo_referencia: self.escopo,
             origem_parametro: false,
+            emprestimo: Some(identificador),
         };
         if !vida_util.pode_ser_armazenada_em(self.escopo) {
             return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
@@ -325,6 +329,26 @@ impl AnalisadorPropriedade {
         self.emprestimos.insert(identificador, EmprestimoAtivo {
             lugar, tipo, vida_util,
         });
+        Ok(())
+    }
+
+    /// Estende a região de um empréstimo até o escopo de destino da referência.
+    pub fn estender_vida_util_emprestimo(
+        &mut self,
+        identificador: u64,
+        escopo_destino: usize,
+    ) -> Result<(), ErroPropriedade> {
+        let emprestimo = self.emprestimos.get_mut(&identificador)
+            .ok_or(ErroPropriedade::EmprestimoInexistente(identificador))?;
+        if !emprestimo.vida_util.pode_ser_armazenada_em(escopo_destino) {
+            return Err(ErroPropriedade::ReferenciaEscapaVidaUtil {
+                lugar: emprestimo.lugar.clone(),
+                escopo_proprietario: emprestimo.vida_util.escopo_proprietario,
+                escopo_destino,
+            });
+        }
+        emprestimo.vida_util.escopo_referencia =
+            emprestimo.vida_util.escopo_referencia.min(escopo_destino);
         Ok(())
     }
 
@@ -598,7 +622,7 @@ mod testes {
         fluxo.emprestar(42, Lugar::novo("global"), TipoEmprestimo::Compartilhado).unwrap();
         assert_eq!(
             fluxo.vida_util_emprestimo(42),
-            Some(VidaUtil { escopo_proprietario: 0, escopo_referencia: 1, origem_parametro: false })
+            Some(VidaUtil { escopo_proprietario: 0, escopo_referencia: 1, origem_parametro: false, emprestimo: Some(42) })
         );
     }
 
