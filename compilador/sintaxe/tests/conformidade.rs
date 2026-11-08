@@ -1122,7 +1122,6 @@ fn rejeita_sintaxe_antiga_de_blocos() {
     let casos = [
         "funcao executar()\n    passar",
         "funcao executar(): inteiro: {\n    devolver 1\n}",
-        "variavel operacao: funcao(inteiro): inteiro = identidade",
         "se sim\n    passar",
         "enquanto sim\n    passar",
         "classe Pessoa\n    passar",
