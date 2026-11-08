@@ -1068,13 +1068,22 @@ impl Lowerer {
                     } else {
                         argumento
                     };
-                    let tipo_argumento = assinatura.as_ref()
+                    let tipo_argumento = self.inferir_tipo_ast(valor);
+                    let tipo_parametro = assinatura.as_ref()
                         .and_then(|parametros| parametros.get(indice))
-                        .filter(|tipo| **tipo != Tipo::Desconhecido)
-                        .cloned()
-                        .unwrap_or_else(|| self.inferir_tipo_ast(valor));
-                    let consome = tipo_argumento != Tipo::Desconhecido
-                        && (construtor_algebrico || !self.tipo_copiavel(&tipo_argumento));
+                        .cloned();
+                    let consome = if construtor_algebrico {
+                        tipo_argumento != Tipo::Desconhecido && !self.tipo_copiavel(&tipo_argumento)
+                    } else if let Some(tipo_parametro) = tipo_parametro {
+                        let tipo_efetivo = if tipo_parametro == Tipo::Desconhecido {
+                            tipo_argumento
+                        } else {
+                            tipo_parametro
+                        };
+                        tipo_efetivo != Tipo::Desconhecido && !self.tipo_copiavel(&tipo_efetivo)
+                    } else {
+                        false
+                    };
                     args.push(if consome {
                         self.expressao_consumida(valor)?
                     } else {
@@ -2396,7 +2405,9 @@ impl Maquina<'_, '_> {
                     .ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))?;
                 self.contexto.validar_leitura_referenciada(escopo, nome)
                     .map_err(formatar_erro_runtime)?;
-                self.buscar(nome).ok_or_else(|| format!("Variável '{nome}' não encontrada na IR."))
+                self.contexto.memoria().obter(nome)
+                    .map_err(formatar_erro_runtime)
+                    .and_then(converter_para_ir)
             },
             ExpressaoIr::Mover { nome, .. } => {
                 let escopo = self.contexto.memoria()
