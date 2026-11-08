@@ -1270,15 +1270,24 @@ impl<'a> Analisador<'a> {
                         operador: TipoToken::EBit | TipoToken::Mutavel,
                         valor: origem,
                     }) = (destino.as_ref(), valor.as_ref()) {
-                        if let (Some(indice_destino), Some(lugar_origem)) = (
-                            self.indice_escopo_nome(nome_destino),
-                            self.lugar_de_expressao(origem),
-                        ) {
-                            if let Err(erro) = self.propriedade
-                                .validar_destino_referencia(&lugar_origem, indice_destino)
-                            {
-                                self.erro("N3105", format!("A referência não pode escapar da vida útil de seu proprietário: {erro:?}."));
+                        if let Some(indice_destino) = self.indice_escopo_nome(nome_destino) {
+                            if let Some(lugar_origem) = self.lugar_de_expressao(origem) {
+                                if let Err(erro) = self.propriedade
+                                    .validar_destino_referencia(&lugar_origem, indice_destino)
+                                {
+                                    self.erro("N3105", format!("A referência não pode escapar da vida útil de seu proprietário: {erro:?}."));
+                                }
                             }
+                        }
+                    }
+                    else if let Expressao::Nome(nome_destino) = destino.as_ref() {
+                        if self.indice_escopo_nome(nome_destino)
+                            .is_some_and(|indice| indice < self.escopos.len().saturating_sub(1))
+                        {
+                            self.erro(
+                                "N3105",
+                                "Uma referência copiada não pode escapar para um escopo externo sem prova da vida útil de sua origem.",
+                            );
                         }
                     }
                 }
@@ -5088,6 +5097,30 @@ funcao sem_retorno(): vazio
             "funcao identidade(valor: &inteiro): &inteiro\n    devolver valor",
         );
         assert!(resultado.diagnosticos.is_empty(), "{:?}", resultado.diagnosticos);
+    }
+
+    #[test]
+    fn permite_retorno_de_referencia_para_proprietario_global() {
+        let resultado = analisar_codigo(
+            "variavel global: inteiro = 11\nfuncao obter(): &inteiro\n    devolver &global",
+        );
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "Uma referência a proprietário global pode sobreviver à função: {:?}",
+            resultado.diagnosticos
+        );
+    }
+
+    #[test]
+    fn permite_armazenar_referencia_global_em_variavel_externa() {
+        let resultado = analisar_codigo(
+            "variavel global: inteiro = 1\nvariavel referencia: &inteiro = &global\nquando verdadeiro\n    referencia = &global",
+        );
+        assert!(
+            resultado.diagnosticos.is_empty(),
+            "O proprietário global continua vivo no escopo de destino: {:?}",
+            resultado.diagnosticos
+        );
     }
 
     #[test]
