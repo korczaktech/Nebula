@@ -21,8 +21,9 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 - O runtime rejeita movimento enquanto há empréstimo ativo, rejeita leituras após movimento e permite reinicialização por atribuição compatível.
 - A propagação de constantes da IR invalida a constante de uma variável movida, evitando substituir leituras posteriores pelo valor antigo.
 - Atribuição compatível reinicializa uma variável anteriormente movida.
-- Junções de fluxo preservam todos os empréstimos ativos de ramos alternativos, inclusive quando identificadores provisórios colidem em ramos clonados; identificadores são remapeados sem descartar empréstimos distintos.
-- O plano semântico de destruição omite valores integralmente movidos e registra projeções parcialmente movidas para impedir destruição dupla. A execução dessas exclusões ainda depende da integração explícita da IR/runtime.
+- Junções de fluxo preservam todos os empréstimos ativos de ramos alternativos, inclusive quando identificadores provisórios colidem em ramos clonados; identificadores são remapeados sem descartar empréstimos distintos. A análise de proveniência de referências também une os caminhos de `quando`, expressões condicionais, `escolha` e laços; origens divergentes são invalidadas conservadoramente.
+- O módulo de semântica contém um analisador de CFG por fila de trabalho, com convergência em ciclos, operações explícitas de escopo, validação de contexto inseguro e emissão de planos de destruição LIFO. Declarações e empréstimos usam identidades estáveis durante reprocessamentos do CFG.
+- O plano semântico de destruição omite valores integralmente movidos e registra projeções parcialmente movidas para impedir destruição dupla. A IR/runtime ainda não consome esse plano para destruição parcial; o runtime fecha escopos e finalizadores em LIFO, mas destrutores definidos pelo usuário e exclusão física de campos parcialmente movidos não estão concluídos.
 - O runtime Rust possui um alocador de blocos com limite de bytes, identificadores geracionais, validação de intervalos, redimensionamento e invalidação de handles liberados.
 - O contexto do runtime é dono do alocador e invalida todas as alocações durante a finalização.
 
