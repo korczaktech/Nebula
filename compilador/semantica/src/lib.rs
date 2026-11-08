@@ -5275,17 +5275,17 @@ funcao sem_retorno(): vazio
             parametro_origem: None,
             emprestimo: Some(2),
         };
-        let antes = HashMap::new();
-        let invalidas = HashSet::new();
-        let ramo_a = HashMap::from([(chave.clone(), vida_a)]);
-        let ramo_b = HashMap::from([(chave.clone(), vida_b)]);
-        let lugares = HashMap::new();
+        let antes = EstadoOrigensReferencia::default();
+        let ramo_a = EstadoOrigensReferencia {
+            vidas: HashMap::from([(chave.clone(), vida_a)]),
+            ..EstadoOrigensReferencia::default()
+        };
+        let ramo_b = EstadoOrigensReferencia {
+            vidas: HashMap::from([(chave.clone(), vida_b)]),
+            ..EstadoOrigensReferencia::default()
+        };
 
-        analisador.mesclar_origens_referencia(
-            &antes, &invalidas,
-            &ramo_a, &invalidas, &lugares,
-            &ramo_b, &invalidas, &lugares,
-        );
+        analisador.mesclar_origens_referencia(&antes, &ramo_a, &ramo_b);
 
         assert!(analisador.origens_referencia_invalidas.contains(&chave));
         assert!(!analisador.origens_referencia.contains_key(&chave));
