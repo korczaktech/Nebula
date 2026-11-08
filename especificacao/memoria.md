@@ -24,13 +24,15 @@ Permitir aplicações comuns com gerenciamento seguro e, simultaneamente, sistem
 
 ## Proteção dinâmica de empréstimos
 
-O runtime oferece `TabelaEmprestimos` como mecanismo dinâmico de exclusão por identificador: qualquer quantidade de empréstimos compartilhados pode coexistir; um empréstimo exclusivo só pode existir sem outros empréstimos; e um guard libera o empréstimo automaticamente no descarte. O mecanismo é seguro entre threads do processo e rejeita conflitos com erro tipado. A API é acessível pelo crate `nebula-biblioteca::emprestimos`.
+O runtime oferece `TabelaEmprestimos` como mecanismo dinâmico de exclusão por recurso: empréstimos compartilhados coexistem; um empréstimo exclusivo exige ausência de qualquer outro empréstimo; guards liberam os empréstimos automaticamente no encerramento do escopo que criou a referência. A identidade do recurso combina o identificador estável do escopo de origem com o nome da variável, evitando colisões por sombreamento.
 
-Isso ainda não substitui o borrow checker estático: a gramática e a AST não possuem tipos de referência/vidas úteis, os guards ainda não são inseridos pelo compilador em cada acesso, e não há provas estáticas de aliasing ou validade de referências.
+A IR agora adquire guards ao avaliar `&valor` e `&mutavel valor`. A validação dinâmica também bloqueia leituras diretas do proprietário durante empréstimo exclusivo e escritas diretas durante qualquer empréstimo ativo. A desreferência usa o caminho de acesso referenciado, preservando a permissão concedida pelo guard. Os guards são liberados em ordem LIFO antes do fechamento da memória do escopo, inclusive no caminho de erro/retorno que fecha o bloco.
+
+A duração dinâmica atual é lexical: o guard permanece até o fim do escopo que criou a referência. Isso é conservador e pode manter empréstimos ativos depois do último uso; análise NLL e encerramento antecipado por último uso ainda não estão implementados. O mecanismo dinâmico complementa, mas não substitui, a análise estática.
 
 ## Limites explícitos
 
-Ainda não há verificador de empréstimos compartilhados/exclusivos, vidas úteis, referências ou ponteiros na AST/gramática. Também faltam destruição por valor, inicialização parcial, integração do alocador com valores da linguagem e ABI nativa. O acompanhamento de moves é uma análise parcial e não equivale a um borrow checker completo; portanto, nenhuma garantia geral de segurança de memória baseada em ownership/borrow checker deve ser anunciada.
+A análise estática de referências e empréstimos está em integração e ainda não constitui um borrow checker completo com vidas úteis inferidas até o último uso. O plano semântico de destruição de valores movidos parcialmente ainda não é consumido pela IR/runtime, e destrutores definidos pelo usuário e inicialização parcial geral não estão concluídos. A validação dinâmica é aplicada aos acessos diretos de variável e campo representados pela IR; outras interfaces de memória e interoperabilidade devem ser auditadas antes de anunciar uma garantia geral de segurança de memória.
 
 ## Diretrizes arquiteturais
 
