@@ -2211,7 +2211,7 @@ impl<'a> Analisador<'a> {
     }
 
     fn binaria(&mut self, a: &Tipo, op: TipoToken, b: &Tipo, expressao_direita: &Expressao) -> Tipo {
-        use TipoToken::{Diferente, Divide, E, Igual, Intervalo, Maior, MaiorIgual, Menor, MenorIgual, Menos, Mais, Ou, Potencia, Resto, Vezes};
+        use TipoToken::{Diferente, Divide, DivideInteira, E, EBit, Igual, Intervalo, Maior, MaiorIgual, Menor, MenorIgual, Menos, Mais, Ou, OuBit, Potencia, Resto, Vezes, XorBit, DeslocaEsquerda, DeslocaDireita, DeslocaDireitaSemSinal};
         match op {
             Mais if a == &Tipo::Texto && b == &Tipo::Texto => Tipo::Texto,
             Mais | Menos | Vezes | Divide | Resto | Potencia => {
@@ -2225,6 +2225,32 @@ impl<'a> Analisador<'a> {
                     }
                 } else {
                     self.erro("N3016", "Operação aritmética exige operandos numéricos compatíveis.");
+                    Tipo::Desconhecido
+                }
+            }
+            DivideInteira => {
+                if Self::inteiro(a) && Self::inteiro(b) {
+                    if Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        Tipo::Desconhecido
+                    } else {
+                        Self::promover_numerico(a, b)
+                    }
+                } else {
+                    self.erro("N3016", "Divisão inteira exige operandos inteiros compatíveis.");
+                    Tipo::Desconhecido
+                }
+            }
+            EBit | OuBit | XorBit | DeslocaEsquerda | DeslocaDireita | DeslocaDireitaSemSinal => {
+                if Self::inteiro(a) && Self::inteiro(b) {
+                    if Self::inteiro_sem_sinal(a) != Self::inteiro_sem_sinal(b) {
+                        self.erro("N3090", "Não misture inteiros com e sem sinal sem conversão explícita.");
+                        Tipo::Desconhecido
+                    } else {
+                        Self::promover_numerico(a, b)
+                    }
+                } else {
+                    self.erro("N3016", "Operação bit a bit exige operandos inteiros compatíveis.");
                     Tipo::Desconhecido
                 }
             }
@@ -2270,7 +2296,7 @@ impl<'a> Analisador<'a> {
 
     fn tipo_literal(literal: &str) -> Tipo {
         match literal {
-            "verdadeiro" | "falso" => Tipo::Logico,
+            "sim" | "verdadeiro" | "falso" => Tipo::Logico,
             "nulo" => Tipo::Desconhecido,
             _ if literal.starts_with('"') => Tipo::Texto,
             _ if literal.starts_with('\'') => Tipo::Caractere,
