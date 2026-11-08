@@ -214,12 +214,22 @@ impl AnalisadorPropriedade {
 
     /// Declara uma variável inicializada no escopo atual.
     pub fn declarar(&mut self, nome: impl Into<String>) -> Result<Lugar, ErroPropriedade> {
+        let ordem = self.proximo_ordem;
+        self.declarar_com_ordem(nome, ordem)
+    }
+
+    /// Declara com ordem estável fornecida pelo lowering, para que a análise
+    /// iterativa de blocos em ciclos não altere a identidade da declaração.
+    fn declarar_com_ordem(
+        &mut self,
+        nome: impl Into<String>,
+        ordem: u64,
+    ) -> Result<Lugar, ErroPropriedade> {
         let nome = nome.into();
         if self.variaveis.contains_key(&nome) {
             return Err(ErroPropriedade::VariavelDuplicada(nome));
         }
-        let ordem = self.proximo_ordem;
-        self.proximo_ordem = self.proximo_ordem.saturating_add(1);
+        self.proximo_ordem = self.proximo_ordem.max(ordem.saturating_add(1));
         self.variaveis.insert(nome.clone(), VariavelPropriedade {
             escopo: self.escopo, ordem, movidos: HashSet::new(),
         });
@@ -692,7 +702,10 @@ pub fn analisar_fluxo_controle_propriedade(
                     Ok(Vec::new())
                 }
                 OperacaoFluxoPropriedade::Declarar(nome) => {
-                    estado.declarar(nome.clone()).map(|_| Vec::new())
+                    let ordem_estavel = inicial.proximo_ordem.saturating_add(
+                        ((indice as u64) << 32) | indice_operacao as u64
+                    );
+                    estado.declarar_com_ordem(nome.clone(), ordem_estavel).map(|_| Vec::new())
                 }
                 OperacaoFluxoPropriedade::SairEscopo => estado.sair_escopo(),
                 OperacaoFluxoPropriedade::EntrarContextoInseguro(contexto) => {
@@ -950,6 +963,35 @@ mod testes {
         ).unwrap();
         assert!(resultado.destruicoes.is_empty());
         assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_converge_em_ciclo_com_declaracao_e_destruicao_lexicais() {
+        let blocos = vec![
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![
+                    OperacaoFluxoPropriedade::EntrarEscopo,
+                    OperacaoFluxoPropriedade::Declarar("temporario".into()),
+                    OperacaoFluxoPropriedade::SairEscopo,
+                ],
+                sucessores: vec![1, 2],
+            },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![] },
+        ];
+        let resultado = analisar_fluxo_controle_propriedade(
+            &AnalisadorPropriedade::novo(), &blocos, 0
+        ).unwrap();
+        assert!(resultado.entradas[1].is_some());
+        assert!(resultado.entradas[2].is_some());
+        assert!(resultado.erros.is_empty());
+        assert_eq!(
+            resultado.destruicoes.iter()
+                .filter(|item| item.acao.lugar.raiz == "temporario")
+                .count(),
+            1,
+            "a reanálise do bloco não deve duplicar a destruição"
+        );
     }
 
     #[test]
