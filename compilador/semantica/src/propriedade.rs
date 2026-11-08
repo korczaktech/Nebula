@@ -556,6 +556,11 @@ impl AnalisadorPropriedade {
 
         for caminho in caminhos {
             for (identificador, emprestimo) in &caminho.emprestimos {
+                // Uma referência já remapeada em uma junção continua sendo
+                // a mesma operação estática, mesmo que seu ID ativo tenha mudado.
+                if emprestimos.values().any(|existente| existente == emprestimo) {
+                    continue;
+                }
                 match emprestimos.get(identificador) {
                     None => {
                         emprestimos.insert(*identificador, emprestimo.clone());
@@ -689,7 +694,16 @@ pub fn analisar_fluxo_controle_propriedade(
                 OperacaoFluxoPropriedade::Mover(lugar) => estado.mover(lugar).map(|_| Vec::new()),
                 OperacaoFluxoPropriedade::Atribuir(lugar) => estado.atribuir(lugar).map(|_| Vec::new()),
                 OperacaoFluxoPropriedade::Emprestar { identificador, lugar, tipo } => {
-                    estado.emprestar(*identificador, lugar.clone(), *tipo).map(|_| Vec::new())
+                    let ja_propagado = estado.emprestimos.values().any(|emprestimo| {
+                        emprestimo.vida_util.emprestimo == Some(*identificador)
+                            && emprestimo.lugar == *lugar
+                            && emprestimo.tipo == *tipo
+                    });
+                    if ja_propagado {
+                        Ok(Vec::new())
+                    } else {
+                        estado.emprestar(*identificador, lugar.clone(), *tipo).map(|_| Vec::new())
+                    }
                 }
                 OperacaoFluxoPropriedade::EncerrarEmprestimo(identificador) => {
                     estado.encerrar_emprestimo(*identificador).map(|_| Vec::new())
@@ -963,6 +977,37 @@ mod testes {
         ).unwrap();
         assert!(resultado.destruicoes.is_empty());
         assert!(resultado.erros.is_empty());
+    }
+
+    #[test]
+    fn cfg_converge_em_ciclo_com_emprestimos_de_ramos_com_ids_colidentes() {
+        let mut inicial = AnalisadorPropriedade::novo();
+        inicial.declarar("esquerda").unwrap();
+        inicial.declarar("direita").unwrap();
+        let blocos = vec![
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1, 2] },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Emprestar {
+                    identificador: 77,
+                    lugar: Lugar::novo("esquerda"),
+                    tipo: TipoEmprestimo::Compartilhado,
+                }],
+                sucessores: vec![3],
+            },
+            BlocoFluxoPropriedade {
+                operacoes: vec![OperacaoFluxoPropriedade::Emprestar {
+                    identificador: 77,
+                    lugar: Lugar::novo("direita"),
+                    tipo: TipoEmprestimo::Compartilhado,
+                }],
+                sucessores: vec![3],
+            },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![1, 2, 4] },
+            BlocoFluxoPropriedade { operacoes: vec![], sucessores: vec![] },
+        ];
+        let resultado = analisar_fluxo_controle_propriedade(&inicial, &blocos, 0).unwrap();
+        assert!(resultado.erros.is_empty(), "reprocessar um bloco não repete o mesmo empréstimo: {:?}", resultado.erros);
+        assert_eq!(resultado.saidas[3].as_ref().unwrap().quantidade_emprestimos(), 2);
     }
 
     #[test]
