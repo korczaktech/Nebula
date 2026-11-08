@@ -301,8 +301,7 @@ fn propagar_constantes_expressao(
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { propagar_constantes_expressao(valor, constantes, relatorio); }
         }
-        ExpressaoIr::Mover { .. } | ExpressaoIr::Constante(_)
-        | ExpressaoIr::ReferenciaFuncao { .. }
+        ExpressaoIr::Constante(_) | ExpressaoIr::ReferenciaFuncao { .. }
         | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 }
@@ -418,7 +417,7 @@ fn otimizar_expressao(expressao: &mut ExpressaoIr, relatorio: &mut RelatorioOtim
         ExpressaoIr::ConstrucaoEnumeracao { valores, .. } => {
             for valor in valores { otimizar_expressao(valor, relatorio); }
         }
-        ExpressaoIr::Mover { .. } | ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_)
+        ExpressaoIr::Constante(_) | ExpressaoIr::Variavel(_)
         | ExpressaoIr::ReferenciaFuncao { .. } | ExpressaoIr::ReferenciaFuncaoQualificada { .. } => {}
     }
 
