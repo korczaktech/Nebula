@@ -4254,6 +4254,67 @@ mod testes {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn executa_conversoes_decimal32_e_inteiros128_assinados_e_sem_sinal() {
+        let decimal32 = ExpressaoIr::Normalizar {
+            tipo: Tipo::Decimal32,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(42.9))),
+        };
+
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro128,
+            origem: Tipo::Decimal32,
+            valor: Box::new(decimal32.clone()),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::InteiroU128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(ExpressaoIr::Conversao {
+            tipo: Tipo::InteiroU128,
+            origem: Tipo::Decimal32,
+            valor: Box::new(decimal32),
+        }))];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+
+        let inteiro_para_decimal32 = ExpressaoIr::Conversao {
+            tipo: Tipo::Decimal32,
+            origem: Tipo::Inteiro128,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::Inteiro(42))),
+        };
+        let decimal32_para_inteiro = ExpressaoIr::Conversao {
+            tipo: Tipo::Inteiro128,
+            origem: Tipo::Decimal32,
+            valor: Box::new(inteiro_para_decimal32),
+        };
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::Inteiro128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(decimal32_para_inteiro))];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+
+        let inteiro_sem_sinal_para_decimal32 = ExpressaoIr::Conversao {
+            tipo: Tipo::Decimal32,
+            origem: Tipo::InteiroU128,
+            valor: Box::new(ExpressaoIr::Constante(ValorIr::InteiroSemSinal(42))),
+        };
+        let decimal32_para_inteiro_sem_sinal = ExpressaoIr::Conversao {
+            tipo: Tipo::InteiroU128,
+            origem: Tipo::Decimal32,
+            valor: Box::new(inteiro_sem_sinal_para_decimal32),
+        };
+        let mut programa = programa_com_retorno(0);
+        let principal = programa.funcoes.get_mut("principal").unwrap();
+        principal.retorno = Tipo::InteiroU128;
+        principal.corpo = vec![InstrucaoIr::Devolver(Some(decimal32_para_inteiro_sem_sinal))];
+        assert_eq!(executar_elf_de_teste(&programa), 42);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn rejeita_overflow_e_divisao_por_zero_em_inteiros_128_bits() {
         let casos = [
             (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(i128::MAX), ValorIr::Inteiro(2)),
