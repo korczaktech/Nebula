@@ -3580,7 +3580,10 @@ mod testes {
     #[test]
     fn instancia_funcao_generica_com_referencia_na_pipeline_da_ir() {
         let ir = compilar(
-            "funcao medir<T>(valor: &T): inteiro\n    devolver 42\n             variavel numero: inteiro = 1\n             variavel resultado = medir(&numero)",
+            r#"funcao medir<T>(valor: &T): inteiro
+    devolver 42
+variavel numero: inteiro = 1
+variavel resultado = medir(&numero)"#,
         );
         let execucao = executar(&ir, 100).expect("referência genérica deve executar");
         assert_eq!(execucao.globais.get("resultado"), Some(&ValorIr::Inteiro(42)));
