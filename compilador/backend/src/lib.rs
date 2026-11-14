@@ -2006,8 +2006,11 @@ impl Emissor {
             self.codigo.extend_from_slice(&[0x41, 0xBB, 1, 0, 0, 0]);
             self.aplicar_salto(positivo, self.codigo.len());
         } else {
-            self.codigo.extend_from_slice(&[0x48, 0x85, 0xC0]);
-            let nao_negativo = self.emitir_jcc(0x89);
+            // Compare numericamente com zero: -0.0 é zero e cabe em inteiro_u128.
+            self.mov_rax(0);
+            self.codigo.extend_from_slice(&[0x66, 0x48, 0x0F, 0x6E, 0xC8]); // movq xmm1, rax
+            self.codigo.extend_from_slice(&[0x66, 0x0F, 0x2E, 0xC1]); // ucomisd xmm0, xmm1
+            let nao_negativo = self.emitir_jcc(0x83); // JAE, inclusive -0.0
             self.encerrar_com_erro(2);
             self.aplicar_salto(nao_negativo, self.codigo.len());
         }
@@ -4203,6 +4206,16 @@ mod testes {
                 Tipo::Inteiro128,
                 maior_assinado_exato,
                 ValorIr::Inteiro(esperado_assinado),
+            ),
+            1
+        );
+
+        // -0.0 é numericamente igual a zero e deve ser aceito como inteiro sem sinal.
+        assert_eq!(
+            comparar(
+                Tipo::InteiroU128,
+                -0.0,
+                ValorIr::InteiroSemSinal(0),
             ),
             1
         );
