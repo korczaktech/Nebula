@@ -4150,6 +4150,97 @@ mod testes {
 
     #[cfg(target_os = "linux")]
     #[test]
+    fn converte_decimal_para_inteiro128_nos_limites_exatos() {
+        let comparar = |destino: Tipo, valor: f64, esperado: ValorIr| {
+            let conversao = ExpressaoIr::Conversao {
+                tipo: destino.clone(),
+                origem: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(valor))),
+            };
+            let comparacao = ExpressaoIr::Binaria {
+                esquerda: Box::new(conversao),
+                operador: OperadorIr::Igual,
+                direita: Box::new(ExpressaoIr::Normalizar {
+                    tipo: destino,
+                    valor: Box::new(ExpressaoIr::Constante(esperado)),
+                }),
+            };
+            let mut programa = programa_com_retorno(0);
+            let principal = programa.funcoes.get_mut("principal").unwrap();
+            principal.retorno = Tipo::Logico;
+            principal.corpo = vec![InstrucaoIr::Devolver(Some(comparacao))];
+            executar_elf_de_teste(&programa)
+        };
+
+        let rejeitar = |destino: Tipo, valor: f64| {
+            let conversao = ExpressaoIr::Conversao {
+                tipo: destino.clone(),
+                origem: Tipo::Decimal64,
+                valor: Box::new(ExpressaoIr::Constante(ValorIr::Decimal(valor))),
+            };
+            let mut programa = programa_com_retorno(0);
+            let principal = programa.funcoes.get_mut("principal").unwrap();
+            principal.retorno = destino;
+            principal.corpo = vec![InstrucaoIr::Devolver(Some(conversao))];
+            executar_elf_de_teste(&programa)
+        };
+
+        // -2^127 é o limite inferior inclusivo do inteiro128.
+        assert_eq!(
+            comparar(
+                Tipo::Inteiro128,
+                -f64::from_bits(0x47E0_0000_0000_0000),
+                ValorIr::Inteiro(i128::MIN),
+            ),
+            1
+        );
+
+        // O maior binary64 abaixo de 2^127 ainda cabe em inteiro128.
+        let maior_assinado_exato = f64::from_bits(0x47DF_FFFF_FFFF_FFFF);
+        let esperado_assinado = i128::MAX - ((1i128 << 74) - 1);
+        assert_eq!(
+            comparar(
+                Tipo::Inteiro128,
+                maior_assinado_exato,
+                ValorIr::Inteiro(esperado_assinado),
+            ),
+            1
+        );
+
+        // O maior binary64 abaixo de 2^128 ainda cabe em inteiro_u128.
+        let maior_sem_sinal_exato = f64::from_bits(0x47EF_FFFF_FFFF_FFFF);
+        let esperado_sem_sinal = u128::MAX - ((1u128 << 75) - 1);
+        assert_eq!(
+            comparar(
+                Tipo::InteiroU128,
+                maior_sem_sinal_exato,
+                ValorIr::InteiroSemSinal(esperado_sem_sinal),
+            ),
+            1
+        );
+
+        // Limites superiores exclusivos, sinal inválido, NaN e infinito.
+        assert_eq!(
+            rejeitar(
+                Tipo::Inteiro128,
+                f64::from_bits(0x47E0_0000_0000_0000),
+            ),
+            2
+        );
+        assert_eq!(
+            rejeitar(
+                Tipo::InteiroU128,
+                f64::from_bits(0x47F0_0000_0000_0000),
+            ),
+            2
+        );
+        assert_eq!(rejeitar(Tipo::InteiroU128, -1.0), 2);
+        assert_eq!(rejeitar(Tipo::Inteiro128, f64::NAN), 2);
+        assert_eq!(rejeitar(Tipo::Inteiro128, f64::INFINITY), 2);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
     fn rejeita_overflow_e_divisao_por_zero_em_inteiros_128_bits() {
         let casos = [
             (Tipo::Inteiro128, OperadorIr::Vezes, ValorIr::Inteiro(i128::MAX), ValorIr::Inteiro(2)),
