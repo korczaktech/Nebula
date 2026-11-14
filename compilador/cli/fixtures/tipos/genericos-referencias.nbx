@@ -1,0 +1,12 @@
+funcao medir<T>(valor: &T) -> inteiro: {
+    devolver 42
+}
+
+funcao medir_exclusivo<T>(valor: &mutavel T) -> inteiro: {
+    devolver 7
+}
+
+variavel numero: inteiro = 1
+variavel mutavel_numero: inteiro = 2
+variavel resultado_compartilhado = medir(&numero)
+variavel resultado_exclusivo = medir_exclusivo(&mutavel mutavel_numero)

@@ -691,6 +691,28 @@ fn fixture_genericos_aninhados_valida_inferencia_contextual_na_pipeline() {
 }
 
 #[test]
+fn fixture_genericos_referencias_valida_semantica_e_ir() {
+    let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/tipos/genericos-referencias.nbx");
+    let origem = caminho.to_str().expect("caminho UTF-8");
+
+    let analise = executar(&["analisar", origem]);
+    assert!(
+        analise.status.success(),
+        "{}",
+        String::from_utf8_lossy(&analise.stderr)
+    );
+
+    let ir = executar(&["ir", origem]);
+    assert!(
+        ir.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ir.stderr)
+    );
+    assert!(String::from_utf8_lossy(&ir.stdout).contains("ProgramaIr"));
+}
+
+#[test]
 fn matriz_primitivos_e_aceita_pela_analise_semantica() {
     let caminho = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/tipos/matriz-primitivos.nbx");
