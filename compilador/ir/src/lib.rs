@@ -828,6 +828,21 @@ impl Lowerer {
             return matches!(obtido, Tipo::Lista(interno)
                 if self.inferir_substituicao(&esperado[1..esperado.len()-1], interno, genericos, substituicoes));
         }
+        if let Some(interno) = esperado.strip_prefix("&mutavel ") {
+            return matches!(obtido, Tipo::Referencia { interno: obtido, mutavel: true }
+                if self.inferir_substituicao(interno, obtido, genericos, substituicoes));
+        }
+        if let Some(interno) = esperado
+            .strip_prefix("&mutavel<")
+            .and_then(|interno| interno.strip_suffix('>'))
+        {
+            return matches!(obtido, Tipo::Referencia { interno: obtido, mutavel: true }
+                if self.inferir_substituicao(interno, obtido, genericos, substituicoes));
+        }
+        if let Some(interno) = esperado.strip_prefix('&') {
+            return matches!(obtido, Tipo::Referencia { interno: obtido, mutavel: false }
+                if self.inferir_substituicao(interno, obtido, genericos, substituicoes));
+        }
         if let Some((parametros_esperados, retorno_esperado)) = dividir_tipo_funcao(esperado) {
             let Tipo::Funcao(parametros_obtidos, retorno_obtido) = obtido else {
                 return false;
@@ -3560,6 +3575,69 @@ mod testes {
                 if esperado.starts_with("Vetor") { Tipo::Inteiro } else { Tipo::Decimal64 },
             );
         }
+    }
+
+    #[test]
+    fn infere_genericos_em_referencias_na_ir() {
+        let lowerer = Lowerer {
+            diagnosticos: Vec::new(),
+            aliases: HashMap::new(),
+            tipos_agregados: HashMap::new(),
+            campos_estruturas: HashMap::new(),
+            variantes_enumeracoes: HashMap::new(),
+            assinaturas_funcoes: HashMap::new(),
+            modulos_importados: HashMap::new(),
+            genericas: HashMap::new(),
+            instancias: HashMap::new(),
+            fila_instancias: Vec::new(),
+            escopos_tipos: vec![HashMap::new()],
+            substituicoes: HashMap::new(),
+            localizacoes: HashMap::new(),
+            caminho_fonte: PathBuf::new(),
+        };
+        let genericos = vec!["T".to_owned()];
+
+        for (esperado, obtido, mutavel) in [
+            (
+                "&T",
+                Tipo::Referencia {
+                    interno: Box::new(Tipo::Inteiro),
+                    mutavel: false,
+                },
+                false,
+            ),
+            (
+                "&mutavel T",
+                Tipo::Referencia {
+                    interno: Box::new(Tipo::Texto),
+                    mutavel: true,
+                },
+                true,
+            ),
+        ] {
+            let mut substituicoes = HashMap::new();
+            assert!(lowerer.inferir_substituicao(
+                esperado,
+                &obtido,
+                &genericos,
+                &mut substituicoes,
+            ));
+            let inferido = lowerer.tipo(substituicoes.get("T").unwrap());
+            assert_eq!(inferido, if mutavel { Tipo::Texto } else { Tipo::Inteiro });
+        }
+
+        let mut substituicoes = HashMap::new();
+        let incompatível = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: true,
+        };
+        assert!(!lowerer.inferir_substituicao(
+            "&T",
+            &incompatível,
+            &genericos,
+            &mut substituicoes,
+        ));
+        assert!(substituicoes.is_empty());
     }
 
     #[test]
