@@ -2778,6 +2778,10 @@ impl<'a> Analisador<'a> {
             Tipo::Lista(a) => matches!(obtido, Tipo::Lista(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
             Tipo::Intervalo(a) => matches!(obtido, Tipo::Intervalo(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
             Tipo::Opcional(a) => matches!(obtido, Tipo::Opcional(b) if Self::inferir_genericos_interno(a, b, genericos, inferidos)),
+            Tipo::Referencia { interno: a, mutavel: mutavel_esperado } => matches!(obtido,
+                Tipo::Referencia { interno: b, mutavel: mutavel_obtida }
+                    if mutavel_esperado == mutavel_obtida
+                        && Self::inferir_genericos_interno(a, b, genericos, inferidos)),
             Tipo::Resultado(a, b) => matches!(obtido, Tipo::Resultado(c, d)
                 if Self::inferir_genericos_interno(a, c, genericos, inferidos)
                     && Self::inferir_genericos_interno(b, d, genericos, inferidos)),
@@ -2797,6 +2801,10 @@ impl<'a> Analisador<'a> {
             Tipo::Lista(t) => Tipo::Lista(Box::new(Self::substituir_genericos(t, inferidos))),
             Tipo::Intervalo(t) => Tipo::Intervalo(Box::new(Self::substituir_genericos(t, inferidos))),
             Tipo::Opcional(t) => Tipo::Opcional(Box::new(Self::substituir_genericos(t, inferidos))),
+            Tipo::Referencia { interno, mutavel } => Tipo::Referencia {
+                interno: Box::new(Self::substituir_genericos(interno, inferidos)),
+                mutavel: *mutavel,
+            },
             Tipo::Resultado(a, b) => Tipo::Resultado(
                 Box::new(Self::substituir_genericos(a, inferidos)),
                 Box::new(Self::substituir_genericos(b, inferidos)),
@@ -5270,6 +5278,44 @@ funcao sem_retorno(): vazio
             "{:?}",
             r.diagnosticos
         );
+    }
+
+    #[test]
+    fn infere_parametro_generico_em_referencia_preservando_mutabilidade() {
+        let genericos = vec!["T".to_owned()];
+        let esperado = Tipo::Referencia {
+            interno: Box::new(Tipo::Parametro("T".into())),
+            mutavel: false,
+        };
+        let obtido = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: false,
+        };
+        let mut inferidos = HashMap::new();
+        assert!(Analisador::inferir_genericos(
+            &esperado,
+            &obtido,
+            &genericos,
+            &mut inferidos,
+        ));
+        assert_eq!(inferidos.get("T"), Some(&Tipo::Inteiro));
+        assert_eq!(
+            Analisador::substituir_genericos(&esperado, &inferidos),
+            obtido,
+        );
+
+        let mutavel_incompativel = Tipo::Referencia {
+            interno: Box::new(Tipo::Inteiro),
+            mutavel: true,
+        };
+        let mut inferidos = HashMap::new();
+        assert!(!Analisador::inferir_genericos(
+            &esperado,
+            &mutavel_incompativel,
+            &genericos,
+            &mut inferidos,
+        ));
+        assert!(inferidos.is_empty(), "falha não pode deixar vínculos parciais");
     }
 
     #[test]
