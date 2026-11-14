@@ -856,6 +856,8 @@ impl Lowerer {
             return match (base, obtido) {
                 ("Opcional" | "opcional", Tipo::Opcional(interno)) if argumentos.len() == 1 =>
                     self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
+                ("Intervalo" | "intervalo", Tipo::Intervalo(interno)) if argumentos.len() == 1 =>
+                    self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
                 ("Vetor" | "vetor", Tipo::Lista(interno)) if argumentos.len() == 1 =>
                     self.inferir_substituicao(argumentos[0], interno, genericos, substituicoes),
                 ("Matriz" | "matriz", Tipo::Lista(linha)) if argumentos.len() == 1 => {
@@ -3561,6 +3563,7 @@ mod testes {
         for (esperado, obtido) in [
             ("Vetor<T>", Tipo::Lista(Box::new(Tipo::Inteiro))),
             ("Matriz<T>", Tipo::Lista(Box::new(Tipo::Lista(Box::new(Tipo::Decimal64))))),
+            ("Intervalo<T>", Tipo::Intervalo(Box::new(Tipo::Inteiro))),
         ] {
             let mut substituicoes = HashMap::new();
             assert!(lowerer.inferir_substituicao(
@@ -3572,7 +3575,7 @@ mod testes {
             let tipo_inferido = lowerer.tipo(substituicoes.get("T").unwrap());
             assert_eq!(
                 tipo_inferido,
-                if esperado.starts_with("Vetor") { Tipo::Inteiro } else { Tipo::Decimal64 },
+                if esperado.starts_with("Matriz") { Tipo::Decimal64 } else { Tipo::Inteiro },
             );
         }
     }
@@ -3582,11 +3585,16 @@ mod testes {
         let ir = compilar(
             r#"funcao medir<T>(valor: &T): inteiro
     devolver 42
+funcao medir_intervalo<T>(valor: Intervalo<T>): inteiro
+    devolver 9
 variavel numero: inteiro = 1
-variavel resultado = medir(&numero)"#,
+variavel resultado = medir(&numero)
+variavel faixa = 1..3
+variavel resultado_intervalo = medir_intervalo(faixa)"#,
         );
-        let execucao = executar(&ir, 100).expect("referência genérica deve executar");
+        let execucao = executar(&ir, 100).expect("referências e intervalos genéricos devem executar");
         assert_eq!(execucao.globais.get("resultado"), Some(&ValorIr::Inteiro(42)));
+        assert_eq!(execucao.globais.get("resultado_intervalo"), Some(&ValorIr::Inteiro(9)));
     }
 
     #[test]
